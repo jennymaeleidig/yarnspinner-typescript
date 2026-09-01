@@ -20,6 +20,9 @@ import { compile } from "./compiler.js";
 import type { IRProgram } from "./ir.js";
 import { makeDiagnostic, hasErrors } from "./diagnostics.js";
 import type { Diagnostic, YarnRange } from "./diagnostics.js";
+import { typeCheck } from "./typeCheck.js";
+import type { ExternalDeclarations, VariableDeclaration } from "./typeCheck.js";
+import type { EnumType } from "./enums.js";
 
 export interface CompileSourceOptions {
   /** Source file name recorded on diagnostics (multi-file surface: ticket 49). */
@@ -27,11 +30,21 @@ export interface CompileSourceOptions {
   /** Throw on the first error diagnostic instead of collecting. */
   strict?: boolean;
   generateOnceIds?: (ctx: { node: string; index: number }) => string;
+  /**
+   * Host-provided external declarations feeding the type checker (ticket 41):
+   * enum types (EnumTypeBuilder outputs) and function signatures for
+   * compile-time argument checking.
+   */
+  declarations?: ExternalDeclarations;
 }
 
 export interface CompileSourceResult {
   program: IRProgram | null;
   diagnostics: Diagnostic[];
+  /** `<<declare>>`d variables (upstream CompilationResult.Declarations). */
+  declarations: VariableDeclaration[];
+  /** Enum types defined by the script or the host (upstream user-defined types). */
+  userDefinedTypes: EnumType[];
 }
 
 export function compileSource(source: string, opts: CompileSourceOptions = {}): CompileSourceResult {
@@ -47,19 +60,29 @@ export function compileSource(source: string, opts: CompileSourceOptions = {}): 
       range: e.range as YarnRange | undefined,
     });
     if (opts.strict) throw new Error(`${diagnostic.code}: ${diagnostic.message}`);
-    return { program: null, diagnostics: [diagnostic] };
+    return { program: null, diagnostics: [diagnostic], declarations: [], userDefinedTypes: [] };
   }
 
   validate(doc, diagnostics, opts.file);
 
-  const program = compile(doc, { generateOnceIds: opts.generateOnceIds });
+  // Enum-aware type checking (ticket 41): validates enum declarations and
+  // member access, enforces the same-enum comparison restriction, resolves
+  // `.Case` shorthand in place, and collects declarations.
+  const checked = typeCheck(doc, { declarations: opts.declarations }, (d) => diagnostics.push(d));
+
+  const program = compile(doc, { generateOnceIds: opts.generateOnceIds, enumTypes: checked.enumTypes });
   validateJumps(program, doc, diagnostics, opts.file);
 
   if (opts.strict) {
     const firstError = diagnostics.find((d) => d.severity === "error");
     if (firstError) throw new Error(`${firstError.code}: ${firstError.message}`);
   }
-  return { program, diagnostics };
+  return {
+    program,
+    diagnostics,
+    declarations: checked.declarations,
+    userDefinedTypes: [...checked.enumTypes.values()],
+  };
 }
 
 /** Node-structure validations derivable from the parsed document. */

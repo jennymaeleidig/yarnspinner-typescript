@@ -1,0 +1,16 @@
+# Enum representation: raw values at runtime, compile-time shorthand resolution
+
+Upstream Yarn Spinner 3.x gives enum variables the case's raw value at runtime (that is why raw values must be unique, and why `string()`/`number()` of an enum case yield the raw value), while `.Case` shorthand needs type information that only exists at compile time. We considered keeping the fork's old scheme — cases stored as `"Enum.Case"` strings — but it breaks the raw-value contract (string conversions, host interop) and cannot resolve shorthand in arbitrary expressions.
+
+We decided:
+
+- **The program's enum registry maps enum name → case name → raw value** (`IRProgram.enums`), and the runtime evaluator resolves `Enum.Case` member access to the raw value. Auto-numbering (no case has a raw value) numbers from 0; if any case has a raw value, all must (number or string, unique, integers for numbers) — mirroring upstream `TypeCheckerListener.ExitEnum_statement` exactly.
+- **`.Case` shorthand is resolved during the type-checking pass and rewritten in place** to the full `Enum.Case` form before the compiler emits instructions; the runtime never sees shorthand it cannot resolve. Member access inside line text is not rewritten (markup segment offsets derive from the original text).
+- **Enum validation lives in the compile seam's type-checking pass** (`compileSource` → `typeCheck`), not the parser: YS0035 (declaration errors), YS0037 (non-constant raw values), YS0038 (missing member), YS0050 (unknown type, cross-enum `==`/`!=`, non-convertible function argument), YS0014 (arity), YS0028 (ambiguous shorthand), YS0040 (type redeclaration). Same-enum restriction: `==`/`!=` between different enums — or between an enum and a primitive — are YS0050, matching upstream's "values must both be the same type".
+- **Host-defined enums register through the external declarations path**: `compileSource(source, { declarations: { enums, functions } })`. `EnumTypeBuilder` (upstream's `EnumTypeBuilder`, `WithName`/`WithCase` mirrored as constructor name/`addCase`) throws on construction misuse — duplicate cases, duplicate raw values, mixed raw value types — exactly like upstream's `ArgumentException`s; that is host programming error, not content diagnostics, so the compile seam stays collect-don't-throw. Host enums flow into compile-time checking, the runtime registry, and `userDefinedTypes` in the compile result; a script enum shadowing a host enum is YS0040.
+
+## Consequences
+
+- Variables holding enum values expose raw values to hosts (`getVariables()`, `onStoryEnd` payload) — the same observable contract as upstream. The fork's old `"Enum.Case"` string storage is gone; `ExpressionEvaluator.resolveEnumValue`/`getEnumTypeForVariable` were removed with it (0.2.0 breaking wave).
+- `.Case` resolution quality depends on declared/inferred variable types; the type checker records enum types from `<<declare … as T>>`, infers them from enum-typed initializers/assignments, and falls back to unique-case-name search when no type is known. Ambiguous shorthand is a compile error, not a guess.
+- The full compile result reshape (string table, file tags) remains owned by its own tickets; this pass contributes `declarations` (from `<<declare>>`) and `userDefinedTypes` to `compileSource`'s result.

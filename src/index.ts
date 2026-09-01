@@ -5,6 +5,8 @@ export * from "./compile/ir.js";
 export * from "./compile/compiler.js";
 export * from "./compile/compileSource.js";
 export * from "./compile/diagnostics.js";
+export * from "./compile/enums.js";
+export * from "./compile/typeCheck.js";
 export * from "./markup/types.js";
 export * from "./markup/parser.js";
 export * from "./runtime/results.js";

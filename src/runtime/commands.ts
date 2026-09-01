@@ -149,16 +149,8 @@ export class CommandHandler {
       }
 
       const expr = exprParts.join(" ");
-      let value = evaluator.evaluateExpression(expr);
-      
-      // If value is a string starting with ".", try to resolve as enum shorthand
-      if (typeof value === "string" && value.startsWith(".")) {
-        const enumType = evaluator.getEnumTypeForVariable(varNameRaw);
-        if (enumType) {
-          value = evaluator.resolveEnumValue(value, enumType);
-        }
-      }
-      
+      const value = evaluator.evaluateExpression(expr);
+
       // Setting a variable converts it from smart to regular
       this.variables[key] = value;
       evaluator.setVariable(key, value);
@@ -192,22 +184,10 @@ export class CommandHandler {
         const initialValue = evaluator.evaluateExpression(expr);
         this.variables[key] = initialValue;
       } else {
-        // Regular variable - evaluate once and store
-        let value = evaluator.evaluateExpression(expr);
-        
-        // Check if expr is an enum value (EnumName.CaseName or .CaseName)
-        if (typeof value === "string") {
-          // Try to extract enum name from EnumName.CaseName
-          const enumMatch = expr.match(/^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/);
-          if (enumMatch) {
-            const enumName = enumMatch[1];
-            value = evaluator.resolveEnumValue(expr, enumName);
-          } else if (value.startsWith(".")) {
-            // Shorthand - we can't infer enum type from declaration alone
-            // Store as-is, will be resolved on first use if variable has enum type
-            // Value is already set correctly above
-          }
-        }
+        // Regular variable - evaluate once and store. Enum member access
+        // (Enum.Case, or compile-time-resolved shorthand) evaluates to the
+        // case's raw value via the evaluator's enum registry.
+        const value = evaluator.evaluateExpression(expr);
         
         this.variables[key] = value;
         evaluator.setVariable(key, value);

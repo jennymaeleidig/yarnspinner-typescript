@@ -13,7 +13,7 @@ export interface YarnDocument {
 export interface EnumDefinition {
   type: "Enum";
   name: string;
-  cases: string[];
+  cases: EnumCaseDef[];
 }
 
 export interface YarnNode {
@@ -89,10 +89,16 @@ export interface OnceBlock {
   body: Statement[];
 }
 
+export interface EnumCaseDef {
+  name: string;
+  /** Raw source text of `= <raw value>` when present (a constant literal). */
+  rawValue?: string;
+}
+
 export interface EnumBlock {
   type: "Enum";
   name: string;
-  cases: string[];
+  cases: EnumCaseDef[];
 }
 
 

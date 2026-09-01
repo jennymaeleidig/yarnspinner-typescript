@@ -1,5 +1,7 @@
 import type { YarnDocument, Statement, Line, Option } from "../model/ast";
 import type { IRProgram, IRNode, IRNodeGroup, IRInstruction } from "./ir";
+import { buildEnumTypes, collectEnumBlocks } from "./enums.js";
+import type { EnumType } from "./enums.js";
 
 /** Extract the tracking: header (visit-tracking mode) from node headers. */
 function trackingHeader(headers: Record<string, string>): "always" | "never" | undefined {
@@ -43,13 +45,22 @@ function collectInitialValues(stmts: Statement[], into: Record<string, string>):
 
 export interface CompileOptions {
   generateOnceIds?: (ctx: { node: string; index: number }) => string;
+  /**
+   * Pre-validated enum types (from the type-checking pass). When omitted,
+   * the program's `<<enum>>` blocks are resolved best-effort without
+   * diagnostics (the compile seam owns diagnostics).
+   */
+  enumTypes?: Map<string, EnumType>;
 }
 
 export function compile(doc: YarnDocument, opts: CompileOptions = {}): IRProgram {
   const program: IRProgram = { enums: {}, nodes: {}, initialValues: {} };
-  // Store enum definitions
-  for (const enumDef of doc.enums) {
-    program.enums[enumDef.name] = enumDef.cases;
+  // Enum registry: enum name → case name → raw value. The type checker
+  // (compileSource) passes validated types; standalone compile() resolves
+  // the document's <<enum>> blocks without diagnostics.
+  const enumTypes = opts.enumTypes ?? buildEnumTypes(collectEnumBlocks(doc), [], () => {});
+  for (const [name, type] of enumTypes) {
+    program.enums[name] = Object.fromEntries(type.cases.map((c) => [c.name, c.rawValue]));
   }
   const genOnce = opts.generateOnceIds ?? ((x) => `${x.node}#once#${x.index}`);
   let globalLineCounter = 0;

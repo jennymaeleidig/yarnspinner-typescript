@@ -14,6 +14,7 @@ import type {
   Jump,
   Detour,
   EnumBlock,
+  EnumCaseDef,
 } from "../model/ast";
 
 export class ParseError extends Error {
@@ -430,7 +431,7 @@ class Parser {
   }
 
   private parseEnumBlock(enumName: string): EnumBlock {
-    const cases: string[] = [];
+    const cases: EnumCaseDef[] = [];
     
     // Parse cases until <<endenum>>
     while (!this.at("EOF")) {
@@ -446,8 +447,16 @@ class Parser {
         }
         if (cmd.startsWith("case ")) {
           this.take("COMMAND");
-          const caseName = cmd.slice(5).trim();
-          cases.push(caseName);
+          // `<<case Name>>` or `<<case Name = <constant raw value>>` (upstream
+          // 3.x enum grammar; the raw value's constant-ness is validated by
+          // the enum type builder).
+          const caseText = cmd.slice(5).trim();
+          const caseMatch = caseText.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*(?:=\s*([\s\S]+))?$/);
+          if (!caseMatch) {
+            throw new ParseError(`Invalid enum case: <<${cmd}>>`, this.rangeAt(this.peek()));
+          }
+          const [, caseName, rawValue] = caseMatch;
+          cases.push(rawValue !== undefined ? { name: caseName, rawValue } : { name: caseName });
         } else {
           // Unknown command, might be inside enum block - skip or break?
           break;

@@ -29,7 +29,8 @@ export class ExpressionEvaluator {
   constructor(
     private variables: Record<string, unknown> = {},
     private functions: Record<string, (...args: unknown[]) => unknown> = {},
-    private enums: Record<string, string[]> = {} // enum name -> cases
+    /** Enum registry: enum name → case name → raw value (ticket 41). */
+    private enums: Record<string, Record<string, number | string>> = {}
   ) {}
 
   /**
@@ -395,19 +396,18 @@ export class ExpressionEvaluator {
   }
 
   private resolveValue(expr: string): unknown {
-    // Try enum syntax: EnumName.CaseName or .CaseName
-    const enumMatch = expr.match(/^\.?([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/);
-    if (enumMatch) {
-      const [, enumName, caseName] = enumMatch;
-      if (this.enums[enumName] && this.enums[enumName].includes(caseName)) {
-        return `${enumName}.${caseName}`; // Store as "EnumName.CaseName" string
-      }
+    // Enum member access: EnumName.Case evaluates to the case's raw value
+    // (upstream contract — the raw value is what variables hold at runtime;
+    // string()/number() conversions of enum cases yield the raw value).
+    const enumMatch = expr.match(/^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/);
+    if (enumMatch && Object.prototype.hasOwnProperty.call(this.enums, enumMatch[1])) {
+      return this.enums[enumMatch[1]][enumMatch[2]];
     }
-    
-    // Try shorthand enum: .CaseName (requires context from variables)
+
+    // Unresolved .Case shorthand: the compile-time type checker rewrites
+    // resolvable shorthand to the full form; leftovers have no runtime value.
     if (expr.startsWith(".") && expr.length > 1) {
-      // Try to infer enum from variable types - for now, return as-is and let validation handle it
-      return expr;
+      return undefined;
     }
 
     // Try as variable first
@@ -442,45 +442,6 @@ export class ExpressionEvaluator {
     return this.variables[key];
   }
   
-  /**
-   * Resolve shorthand enum (.CaseName) when setting a variable with known enum type
-   */
-  resolveEnumValue(expr: string, enumName?: string): string {
-    if (expr.startsWith(".") && enumName) {
-      const caseName = expr.slice(1);
-      if (this.enums[enumName] && this.enums[enumName].includes(caseName)) {
-        return `${enumName}.${caseName}`;
-      }
-      throw new Error(`Invalid enum case ${caseName} for enum ${enumName}`);
-    }
-    // Check if it's already EnumName.CaseName format
-    const match = expr.match(/^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/);
-    if (match) {
-      const [, name, caseName] = match;
-      if (this.enums[name] && this.enums[name].includes(caseName)) {
-        return expr;
-      }
-      throw new Error(`Invalid enum case ${caseName} for enum ${name}`);
-    }
-    return expr;
-  }
-  
-  /**
-   * Get enum type for a variable (if it was declared with enum type)
-   */
-  getEnumTypeForVariable(varName: string): string | undefined {
-    // Check if variable value matches EnumName.CaseName pattern
-    const key = varName.startsWith("$") ? varName.slice(1) : varName;
-    const value = this.variables[key];
-    if (typeof value === "string") {
-      const match = value.match(/^([A-Za-z_][A-Za-z0-9_]*)\./);
-      if (match) {
-        return match[1];
-      }
-    }
-    return undefined;
-  }
-
   private deepEquals(a: unknown, b: unknown): boolean {
     if (a === b) return true;
     // Unset variables carry their implicit default (upstream: bool→false,

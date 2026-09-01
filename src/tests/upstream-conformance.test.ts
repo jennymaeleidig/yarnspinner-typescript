@@ -19,6 +19,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseYarn, compile, compileSource, hasErrors } from "../index.js";
+import type { ExternalDeclarations } from "../compile/typeCheck.js";
 import { parseTestPlan } from "./upstream/testPlan.js";
 import { runTestPlan, PlanFailure } from "./upstream/testBase.js";
 import { listTestCases, listParseFailures, readFixture } from "./upstream/fixtures.js";
@@ -32,21 +33,10 @@ import { listTestCases, listParseFailures, readFixture } from "./upstream/fixtur
 const MUST_FAIL_ALLOWLIST: Record<string, string> = {
   "Commands-NewlinesNotPermittedInCommands.yarn": "no newlines-in-command validation (phase 1 diagnostics)",
   "Declarations-MustHaveValues.yarn": "no <<declare>> value validation (phase 1 diagnostics)",
-  "Enums-CannotBeComparedAcrossTypes.yarn": "no enum comparison typing (phase 1 diagnostics)",
-  "Enums-FunctionsAcceptingStringCannotAcceptNumberEnums.yarn": "no enum↔string function typing (phase 1 diagnostics)",
-  "Enums-MemberReferenceWithoutTypesMustBeResolvable.yarn": "no enum member resolution (phase 1 diagnostics)",
-  "Enums-MustHaveConstantRawValues.yarn": "no enum raw-value validation (phase 1 diagnostics)",
-  "Enums-MustHaveUniqueCases.yarn": "no duplicate enum case check (phase 1 diagnostics)",
-  "Enums-MustHaveUniqueRawValues.yarn": "no duplicate enum raw-value check (phase 1 diagnostics)",
-  "Enums-MustNotBeEmpty.yarn": "no empty-enum check (phase 1 diagnostics)",
-  "Enums-RawValuesCannotBeEnums.yarn": "no enum raw-value type check (phase 1 diagnostics)",
-  "Enums-RawValuesMustAllBeOfSameType.yarn": "no enum uniform raw-value check (phase 1 diagnostics)",
-  "Enums-StringRawValuesMustAllBeDefined.yarn": "no enum raw-value resolution (phase 1 diagnostics)",
   "IncorrectIndentation-IndentedLinesFollowingOptionsMustHaveContent.yarn": "no indentation validation (phase 1 diagnostics)",
   "Inference-FunctionsAndVarsCannotBeSolelyImplicit.yarn": "no type inference validation (phase 1 diagnostics)",
   "Inference-FunctionsCannotChangeType.yarn": "no function return-type inference validation (phase 1 diagnostics)",
   "Inference-FunctionsMustHaveSameNumberOfParams.yarn": "no function arity inference validation (phase 1 diagnostics)",
-  "Inference-MemberReferencesMustBeUnambiguous.yarn": "no member-reference resolution (phase 1 diagnostics)",
   "Jumps-ExpressionsMustBeStrings.yarn": "no jump-target type check (phase 1 diagnostics)",
   "Notes-WhenHeadersMustHaveExpressions.yarn": "no when: header validation (phase 1 diagnostics)",
   "Operators-AdditionsRequireNumbersOrStrings.yarn": "no operator typing (phase 1 diagnostics)",
@@ -72,8 +62,6 @@ const COMPILE_CLEAN_ALLOWLIST: Record<string, string> = {};
  * Must shrink to empty by phase-2 exit ("testplan runner green on the 32 pairs").
  */
 const PLAN_RUN_ALLOWLIST: Record<string, string> = {
-  "Enums.yarn":
-    "enum case comparisons and .Case shorthand in expressions not supported (spec stories 11-12)",
   "Escaping.yarn":
     "escape sequences (\\#, \\\\, \\[) not processed in line text (spec stories 9, 26)",
   "FormatFunctions.yarn":
@@ -94,9 +82,22 @@ const PLAN_RUN_ALLOWLIST: Record<string, string> = {
     "subtitle-qualified visit queries (visited(Group.SUBTITLE)) unsupported; no subtitle mechanism (spec story 24)",
 };
 
+/**
+ * Compile-time function signatures for the harness-registered quest stubs
+ * (upstream registers these functions with the compilation Library, so the
+ * type checker knows their parameter types — ticket 41).
+ */
+const HARNESS_FUNCTION_SIGNATURES = {
+  set_objective_complete: { params: ["string"], returns: "bool" },
+  is_objective_active: { params: ["string"], returns: "bool" },
+  get_quest_status: { params: ["string"], returns: "string" },
+} as const satisfies ExternalDeclarations["functions"];
+
 function attemptCompile(source: string): { ok: true } | { ok: false; error: string } {
   try {
-    const { program, diagnostics } = compileSource(source);
+    const { program, diagnostics } = compileSource(source, {
+      declarations: { functions: HARNESS_FUNCTION_SIGNATURES },
+    });
     if (program === null || hasErrors(diagnostics)) {
       const first = diagnostics.find((d) => d.severity === "error");
       return { ok: false, error: first ? `${first.code}: ${first.message}` : "compilation failed" };
@@ -170,8 +171,13 @@ test("upstream testplan pairs run per plan", async (t) => {
     const planSource = readFixtureSafe(`TestCases/${name.replace(/\.yarn$/, ".testplan")}`);
     if (planSource === null) continue; // no plan ⇒ compile-only fixture (covered above)
     await t.test(name, () => {
-      const doc = parseYarn(readFixture(`TestCases/${name}`));
-      const program = compile(doc);
+      const result = compileSource(readFixture(`TestCases/${name}`), {
+        declarations: { functions: HARNESS_FUNCTION_SIGNATURES },
+      });
+      const program = result.program;
+      if (!program || hasErrors(result.diagnostics)) {
+        throw new Error(`fixture failed to compile: ${result.diagnostics.map((d) => d.code).join(", ")}`);
+      }
       const plan = parseTestPlan(planSource);
       if (!program.nodes["Start"]) {
         // Upstream: plans only run when the Start node exists.

@@ -84,8 +84,9 @@ export function lex(input: string): Token[] {
       continue;
     }
 
-    // Commands like <<...>> (single line)
-    const cmd = content.match(/^<<(.+?)>>\s*$/);
+    // Commands like <<...>> (single line); a trailing // comment after the
+    // closing >> is not part of the command (upstream lexer skips comments).
+    const cmd = content.match(/^<<(.+?)>>\s*(\/\/.*)?$/);
     if (cmd) {
       push("COMMAND", cmd[1].trim(), lineNum, indent.length + 1);
       continue;

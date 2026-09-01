@@ -1,6 +1,10 @@
 import type { MarkupParseResult } from "../markup/types.js";
 export type IRProgram = {
-  enums: Record<string, string[]>; // enum name -> cases
+  /**
+   * Enum types available to the program: enum name → case name → raw value.
+   * Runtime enum member access evaluates to the case's raw value (ADR 0004).
+   */
+  enums: Record<string, Record<string, number | string>>;
   nodes: Record<string, IRNode | IRNodeGroup>; // can be single node or group
   /**
    * Upstream `Program.InitialValues`: the default value of every `<<declare>>`d
