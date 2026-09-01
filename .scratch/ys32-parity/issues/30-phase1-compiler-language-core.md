@@ -1,7 +1,7 @@
 # 30 — Phase 1: compiler & language core
 
 Type: task
-Status: open
+Status: superseded (see below)
 Blocked by: 23 *(diagnostics channel must land first — compiler work emits through it)*
 
 ## Goal (spec phase 1)
@@ -25,3 +25,8 @@ the ticket-20 allowlist).
 ## Not in this phase
 
 Runtime API reshape / VM (ticket 31); localisation (ticket 32).
+
+## Superseded
+
+Replaced by the vertical-slice decomposition: tickets 40–53. See the slice mapping:
+30→40+41+42, 31→43+44+45+46+47+48, 32→49+50+51, 33→52+53.

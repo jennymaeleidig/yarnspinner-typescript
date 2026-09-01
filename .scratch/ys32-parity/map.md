@@ -45,7 +45,9 @@ Implementation began after the spec without IMPL tickets (violating the one-tick
 working rule). The trail was backfilled retroactively: tickets 20–22 record what landed in
 `a0fe16a` (phase 0 harness) and `1f551e3` (review pass) — including early phase-1/2 slices
 done on the old runner — and ticket 23 (diagnostics channel) is the live claimed work.
-Forward order is the phase decomposition: tickets 30 → 31 → 32 → 33.
+Forward order is the vertical-slice decomposition: tickets 40–53 (phase tickets
+30–33 superseded — 30→40–42, 31→43–48, 32→49–51, 33→52–53). Frontier after ticket
+23 resolves: 40, 41, 42, 43, 48 (43 and 48 block only on 23; 44 chains from 43).
 
 ## Not yet specified
 

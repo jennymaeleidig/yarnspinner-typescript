@@ -1,7 +1,7 @@
 # 32 — Phase 3: compiler surface & localisation
 
 Type: task
-Status: open
+Status: superseded (see below)
 Blocked by: 31
 
 ## Goal (spec phase 3)
@@ -25,3 +25,8 @@ Compiler multi-file surface and the localisation layer (wayfinding tickets 15, 1
   `tagLines(source, { generator })` utility; CSV-backed `setLanguage` provider
   over the text-provider seam.
 - No `.yarnproject` equivalent (out of scope per spec).
+
+## Superseded
+
+Replaced by the vertical-slice decomposition: tickets 40–53. See the slice mapping:
+30→40+41+42, 31→43+44+45+46+47+48, 32→49+50+51, 33→52+53.
