@@ -1,6 +1,18 @@
 # 23 — Diagnostics channel (spec phase 1 slice; ticket 10 decision)
 
-Status: claimed
+Status: resolved
+Landed in: see .scratch/ys32-parity-impl (this effort's commit history)
+
+## Landing notes
+
+Scope was trimmed during implementation: the channel ships with the node-structure
+validations the current front-end supports (YS0011 duplicate title — only for invalid
+groups per the vendored definition, YS0031 missing when:, YS0032 duplicate subtitle,
+YS0033 empty node, YS0012 undefined jump target as a warning, YS0052 double title with
+first-title recovery, YS0005 syntax errors with 0-based half-open ranges from the
+parser). Exact-code emission for set/declare values, enums, smart variables, and shadow
+lines is owned by tickets 40–42; ParseFailures assertions there will delete the
+remaining MUST_FAIL_ALLOWLIST entries (four already fell to this landing).
 In flight: uncommitted `src/compile/diagnostics.ts`, `src/tests/diagnostics.test.ts`,
 vendored `test/fixtures/upstream/YarnSpinner/Diagnostics/Definitions/` registry.
 

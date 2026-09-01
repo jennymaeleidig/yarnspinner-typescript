@@ -18,7 +18,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseYarn, compile } from "../index.js";
+import { parseYarn, compile, compileSource, hasErrors } from "../index.js";
 import { parseTestPlan } from "./upstream/testPlan.js";
 import { runTestPlan, PlanFailure } from "./upstream/testBase.js";
 import { listTestCases, listParseFailures, readFixture } from "./upstream/fixtures.js";
@@ -48,10 +48,6 @@ const MUST_FAIL_ALLOWLIST: Record<string, string> = {
   "Inference-FunctionsMustHaveSameNumberOfParams.yarn": "no function arity inference validation (phase 1 diagnostics)",
   "Inference-MemberReferencesMustBeUnambiguous.yarn": "no member-reference resolution (phase 1 diagnostics)",
   "Jumps-ExpressionsMustBeStrings.yarn": "no jump-target type check (phase 1 diagnostics)",
-  "Nodes-MustHaveUniqueNameAcrossNodesAndGroups.yarn": "no node/group name collision check (phase 1 diagnostics)",
-  "Nodes-MustHaveUniqueNames.yarn": "no duplicate-title check (phase 1 diagnostics)",
-  "Nodes-MustHaveUniqueSubtitles.yarn": "no subtitle support or duplicate check (spec story 24)",
-  "Nodes-NodeGroupsMustAllHaveWhenClauses.yarn": "no node-group when: validation (spec story 21)",
   "Notes-WhenHeadersMustHaveExpressions.yarn": "no when: header validation (phase 1 diagnostics)",
   "Operators-AdditionsRequireNumbersOrStrings.yarn": "no operator typing (phase 1 diagnostics)",
   "OptionConditions-MustHaveExpressions.yarn": "no option-condition validation (phase 1 diagnostics)",
@@ -103,8 +99,11 @@ const PLAN_RUN_ALLOWLIST: Record<string, string> = {
 
 function attemptCompile(source: string): { ok: true } | { ok: false; error: string } {
   try {
-    const doc = parseYarn(source);
-    compile(doc);
+    const { program, diagnostics } = compileSource(source);
+    if (program === null || hasErrors(diagnostics)) {
+      const first = diagnostics.find((d) => d.severity === "error");
+      return { ok: false, error: first ? `${first.code}: ${first.message}` : "compilation failed" };
+    }
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

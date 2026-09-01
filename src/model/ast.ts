@@ -23,6 +23,8 @@ export interface YarnNode {
   nodeTags?: string[];
   when?: string[]; // Array of when conditions (can be "once", "always", or expression like "$has_sword")
   css?: string; // Custom CSS style for node
+  /** Number of redundant `title:` headers beyond the first (upstream YS0052). */
+  duplicateTitleHeaders?: number;
   body: Statement[];
 }
 

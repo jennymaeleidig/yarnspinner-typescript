@@ -39,15 +39,12 @@ A complete, evidence-backed gap analysis of yarn-spinner-runner-ts against live 
 - [Saliency & node groups scope](issues/06-saliency-node-groups.md): **full machinery** — complexity scoring + all four strategies, **Random BLRV default** (forced by fixture `saliency:` steps); pluggable two-method strategy interface day one; `<<set_saliency>>` command in; **line groups `=>` in the first spec** (ticket 04 delegation); node-group conformance errors (member without `when:`, YS0032 duplicate subtitle) land via the diagnostics contract; query APIs in (`has_any_content`, `isNodeGroup`, `getSaliencyOptionsForNodeGroup`, `hasSalientContent`); saliency history as **generated variables in VariableStorage**.
 - [Statement/line parity phasing](issues/04-statement-parity-phasing.md): first spec gets line-level `<<if>>`/`<<once>>`/`<<once if>>`, `<<call>>`, compound assignment, `<<return>>` + detour interaction, built-in `<<wait>>` (consumer-timed) + working `<<stop>>` (halts; fixes no-op bug), escapable `:`, `subtitle` (+YS0032 group-duplicate check), and `$`-prefix strictness (bare-var normalization removed, with diagnostic). `tracking: always|never` confirmed wanted and promoted to its own ticket [13](issues/13-visit-tracking-header.md) (blocked by runtime API shape); line groups `=>` delegated to the saliency ticket (full machinery ⇒ `=>` in).
 
-## Post-spec implementation note
+## Implementation efforts
 
-Implementation began after the spec without IMPL tickets (violating the one-ticket-per-session
-working rule). The trail was backfilled retroactively: tickets 20–22 record what landed in
-`a0fe16a` (phase 0 harness) and `1f551e3` (review pass) — including early phase-1/2 slices
-done on the old runner — and ticket 23 (diagnostics channel) is the live claimed work.
-Forward order is the vertical-slice decomposition: tickets 40–53 (phase tickets
-30–33 superseded — 30→40–42, 31→43–48, 32→49–51, 33→52–53). Frontier after ticket
-23 resolves: 40, 41, 42, 43, 48 (43 and 48 block only on 23; 44 chains from 43).
+The wayfinding effort above is closed. The spec it produced and all implementation
+tickets live in the sibling effort [`ys32-parity-impl`](../ys32-parity-impl/map.md) —
+see that map for the current frontier. This folder remains the record of the research
+and decisions only.
 
 ## Not yet specified
 

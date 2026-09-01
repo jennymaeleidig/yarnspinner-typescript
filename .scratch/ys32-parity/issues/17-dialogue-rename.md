@@ -1,10 +1,11 @@
 # 17 — Rename exported runtime `YarnRunner` → `Dialogue`
 
-**Status**: open — folded into ticket 33 (phase 4: migration & ship), landing with the
-0.2.0 breaking wave. Rationale: phases 1–3 each break the API anyway (compile surface,
+**Status**: open — folded into the implementation effort's migration-and-ship slice
+(`.scratch/ys32-parity-impl/`), landing with the
+0.2.0 breaking wave. Rationale: all phases break the API anyway (compile surface,
 pull-based runtime, VM swap); renaming earlier would churn every consumer twice and
-collide with ticket 31's rewrite of the same files. "No behavior change" acceptance only
-holds at the end of the chain, which 33's `Blocked by: 32` enforces.
+collide with the VM rewrite of the same files. "No behavior change" acceptance only
+holds at the end of the chain.
 
 ## Problem
 

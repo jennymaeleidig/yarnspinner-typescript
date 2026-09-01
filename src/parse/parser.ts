@@ -16,7 +16,14 @@ import type {
   EnumBlock,
 } from "../model/ast";
 
-export class ParseError extends Error {}
+export class ParseError extends Error {
+  /** 0-based source range of the offending token, when known. */
+  range?: { startLine: number; startCol: number; endLine: number; endCol: number };
+  constructor(message: string, range?: ParseError["range"]) {
+    super(message);
+    this.range = range;
+  }
+}
 
 export function parseYarn(text: string): YarnDocument {
   const tokens = lex(text);
@@ -36,9 +43,20 @@ class Parser {
   }
   private take(type: Token["type"], err?: string): Token {
     const t = this.peek();
-    if (!t || t.type !== type) throw new ParseError(err ?? `Expected ${type}, got ${t?.type}`);
+    if (!t || t.type !== type) throw new ParseError(err ?? `Expected ${type}, got ${t?.type}`, this.rangeAt(this.peek()));
     this.i++;
     return t;
+  }
+
+  /** 0-based half-open range covering a token (the diagnostics convention). */
+  private rangeAt(t?: Token) {
+    if (!t) return undefined;
+    return {
+      startLine: t.line - 1,
+      startCol: t.column - 1,
+      endLine: t.line - 1,
+      endCol: t.column - 1 + Math.max(t.text.length, 1),
+    };
   }
   private takeIf(type: Token["type"]) {
     if (this.at(type)) return this.take(type);
@@ -88,6 +106,7 @@ class Parser {
   private parseNode(): YarnNode {
     const headers: Record<string, string> = {};
     let title: string | null = null;
+    let titleHeaderCount = 0;
     let nodeTags: string[] | undefined;
     let whenConditions: string[] = [];
     let nodeCss: string | undefined;
@@ -96,7 +115,12 @@ class Parser {
     while (!this.at("NODE_START")) {
       const keyTok = this.take("HEADER_KEY", "Expected node header before '---'");
       const valTok = this.take("HEADER_VALUE", "Expected header value");
-      if (keyTok.text === "title") title = valTok.text.trim();
+      if (keyTok.text === "title") {
+        // Upstream recovers from a repeated title: header, keeping the FIRST
+        // title (YS0052 NodeHasMoreThanOneTitle).
+        if (title === null) title = valTok.text.trim();
+        else titleHeaderCount++;
+      }
       if (keyTok.text === "tags") {
         const raw = valTok.text.trim();
         nodeTags = raw.split(/\s+/).filter(Boolean);
@@ -140,7 +164,9 @@ class Parser {
       // allow empty lines
       while (this.at("EMPTY")) this.i++;
     }
-    if (!title) throw new ParseError("Every node must have a title header");
+    if (!title) {
+      throw new ParseError("Every node must have a title header", this.rangeAt(this.peek()));
+    }
     this.take("NODE_START");
     // allow optional empties after ---
     while (this.at("EMPTY")) this.i++;
@@ -154,6 +180,7 @@ class Parser {
       nodeTags, 
       when: whenConditions.length > 0 ? whenConditions : undefined,
       css: nodeCss,
+      duplicateTitleHeaders: titleHeaderCount > 0 ? titleHeaderCount : undefined,
       body 
     };
   }
@@ -243,7 +270,7 @@ class Parser {
         markup: this.normalizeMarkup(markup),
       } as Line;
     }
-    throw new ParseError(`Unexpected token ${t.type}`);
+    throw new ParseError(`Unexpected token ${t.type}`, this.rangeAt(t));
   }
 
   private parseOptionGroup(): OptionGroup {
