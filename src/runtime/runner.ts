@@ -3,6 +3,7 @@ import type { MarkupParseResult, MarkupSegment, MarkupWrapper } from "../markup/
 import type { RuntimeResult } from "./results.js";
 import { ExpressionEvaluator } from "./evaluator.js";
 import { CommandHandler, parseCommand } from "./commands.js";
+import type { ParsedCommand } from "./commands.js";
 
 export interface RunnerOptions {
   startAt: string;
@@ -15,6 +16,16 @@ export interface RunnerOptions {
 
 const globalOnceSeen = new Set<string>();
 const globalNodeGroupOnceSeen = new Set<string>(); // Track "once" nodes in groups: "title#index"
+
+/**
+ * Render an interpolated value the way upstream's ExpandSubstitutions does
+ * (C# value.ToString()): booleans as "True"/"False". This is the observable
+ * composed-text contract the upstream conformance corpus asserts.
+ */
+function formatValueForText(value: unknown): string {
+  if (typeof value === "boolean") return value ? "True" : "False";
+  return String(value);
+}
 
 type CompiledOption = {
   text: string;
@@ -35,6 +46,7 @@ export class YarnRunner {
   private readonly onceSeen = globalOnceSeen;
   private readonly onStoryEnd?: RunnerOptions["onStoryEnd"];
   private storyEnded = false;
+  private stopped = false; // set by <<stop>>: further advances do nothing
   private readonly nodeGroupOnceSeen = globalNodeGroupOnceSeen;
   private readonly visitCounts: Record<string, number> = {};
   private pendingOptions: CompiledOption[] | null = null;
@@ -127,6 +139,19 @@ export class YarnRunner {
    */
   getCurrentNodeTitle(): string {
     return this.nodeTitle;
+  }
+
+  /**
+   * Jump immediately to the named node and emit its first event.
+   * Variables and per-runtime state (once, visits) are preserved.
+   */
+  setNode(title: string): void {
+    this.storyEnded = false;
+    this.stopped = false;
+    this.nodeTitle = title;
+    this.ip = 0;
+    this.currentNodeIndex = -1;
+    this.step();
   }
 
   /**
@@ -231,7 +256,7 @@ export class YarnRunner {
         if (value === null || value === undefined) {
           return "";
         }
-        return String(value);
+        return formatValueForText(value);
       } catch {
         return "";
       }
@@ -393,12 +418,24 @@ export class YarnRunner {
         case "command": {
           try {
             const parsed = parseCommand(ins.content);
+            if (parsed.name.toLowerCase() === "return") {
+              if (this.maybeReturn()) {
+                this.step();
+                return true;
+              }
+              this.haltNow(); // <<return>> outside a detour acts as stop
+              return true;
+            }
+            if (this.maybeStop(parsed)) return true;
             this.commandHandler.execute(parsed, this.evaluator).catch(() => {});
             if (this.handleCommand) this.handleCommand(ins.content, parsed);
           } catch {
             if (this.handleCommand) this.handleCommand(ins.content);
           }
-          this.emit({ type: "command", command: ins.content, isDialogueEnd: false });
+          // Delivered command text has {expr} substitutions expanded
+          // (upstream expands command text before delivery).
+          const { text: expandedCommand } = this.interpolate(ins.content);
+          this.emit({ type: "command", command: expandedCommand, isDialogueEnd: false });
           return true;
         }
         case "options": {
@@ -435,14 +472,25 @@ export class YarnRunner {
           break;
         }
         case "jump": {
-          this.nodeTitle = ins.target;
+          // A jump exits the current node entirely: record the visit, clear
+          // the return stack (a jump inside a detoured node unwinds detours),
+          // and abandon any in-progress block frames.
+          this.recordVisit(this.nodeTitle);
+          for (const frame of this.callStack) {
+            if (frame.kind === "detour") {
+              this.recordVisit(frame.title);
+            }
+          }
+          this.callStack.length = 0;
+          this.nodeTitle = this.resolveDestination(ins.target);
           this.ip = 0;
+          this.currentNodeIndex = -1;
           this.step();
           return true;
         }
         case "detour": {
           this.callStack.push({ kind: "detour", title: top.title, ip: top.ip });
-          this.nodeTitle = ins.target;
+          this.nodeTitle = this.resolveDestination(ins.target);
           this.ip = 0;
           this.step();
           return true;
@@ -452,13 +500,14 @@ export class YarnRunner {
   }
 
   private step() {
+    if (this.stopped) return; // <<stop>> halts the runtime
     while (true) {
       const resolved = this.resolveNode(this.nodeTitle);
       const currentNode: IRNode = { title: this.nodeTitle, instructions: resolved.instructions };
       const ins = currentNode.instructions[this.ip];
       if (!ins) {
         // Node ended
-        this.visitCounts[this.nodeTitle] = (this.visitCounts[this.nodeTitle] ?? 0) + 1;
+        this.recordVisit(this.nodeTitle);
         this.emit({ type: "text", text: "", nodeCss: resolved.css, scene: resolved.scene, isDialogueEnd: true });
         return;
       }
@@ -472,18 +521,35 @@ export class YarnRunner {
         case "command": {
           try {
             const parsed = parseCommand(ins.content);
+            if (parsed.name.toLowerCase() === "return") {
+              if (this.maybeReturn()) continue;
+              this.haltNow(); // <<return>> outside a detour acts as stop
+              return;
+            }
+            if (this.maybeStop(parsed)) return;
             this.commandHandler.execute(parsed, this.evaluator).catch(() => {});
             if (this.handleCommand) this.handleCommand(ins.content, parsed);
           } catch {
             if (this.handleCommand) this.handleCommand(ins.content);
           }
-          this.emit({ type: "command", command: ins.content, isDialogueEnd: this.lookaheadIsEnd() });
+          // Delivered command text has {expr} substitutions expanded
+          // (upstream expands command text before delivery).
+          const { text: expandedCommand } = this.interpolate(ins.content);
+          this.emit({ type: "command", command: expandedCommand, isDialogueEnd: this.lookaheadIsEnd() });
           return;
         }
         case "jump": {
-          // Exiting current node due to jump
-          this.visitCounts[this.nodeTitle] = (this.visitCounts[this.nodeTitle] ?? 0) + 1;
-          this.nodeTitle = ins.target;
+          // A jump exits the current node entirely: record the visit, clear
+          // the return stack (a jump inside a detoured node unwinds detours),
+          // and abandon any in-progress block frames.
+          this.recordVisit(this.nodeTitle);
+          for (const frame of this.callStack) {
+            if (frame.kind === "detour") {
+              this.recordVisit(frame.title);
+            }
+          }
+          this.callStack.length = 0;
+          this.nodeTitle = this.resolveDestination(ins.target);
           this.ip = 0;
           this.currentNodeIndex = -1; // Reset node index for new resolution
           // resolveNode will handle node groups
@@ -492,7 +558,7 @@ export class YarnRunner {
         case "detour": {
           // Save return position, jump to target node, return when it ends
           this.callStack.push({ kind: "detour", title: this.nodeTitle, ip: this.ip });
-          this.nodeTitle = ins.target;
+          this.nodeTitle = this.resolveDestination(ins.target);
           this.ip = 0;
           this.currentNodeIndex = -1; // Reset node index for new resolution
           // resolveNode will handle node groups
@@ -648,6 +714,77 @@ export class YarnRunner {
     return available;
   }
 
+  /**
+   * Handle `<<stop>>`: halt dialogue immediately and deliver the complete event.
+   */
+  private haltNow(): void {
+    this.callStack.length = 0;
+    this.stopped = true;
+    this.emit({ type: "text", text: "", isDialogueEnd: true });
+  }
+
+  private maybeStop(parsed: ParsedCommand): boolean {
+    if (parsed.name.toLowerCase() !== "stop") return false;
+    this.haltNow();
+    return true;
+  }
+
+  /**
+   * Handle `<<return>>`: end a detour (pop to the caller and resume it), or
+   * act as stop outside a detour.
+   */
+  private maybeReturn(): boolean {
+    // Abandon in-progress block frames down to the nearest detour frame.
+    while (this.callStack.length > 0 && this.callStack[this.callStack.length - 1].kind === "block") {
+      this.callStack.pop();
+    }
+    const frame = this.callStack[this.callStack.length - 1];
+    if (!frame || frame.kind !== "detour") {
+      return false; // not inside a detour: handled as stop by the caller
+    }
+    this.callStack.pop();
+    this.recordVisit(this.nodeTitle); // <<return>> is a node return
+    this.nodeTitle = frame.title;
+    this.ip = frame.ip;
+    this.currentNodeIndex = -1;
+    return true;
+  }
+
+  /**
+   * Resolve a jump/detour destination: braced targets are expressions
+   * (e.g. `{"Node3"}` or `{$myNodeName}`) evaluated at jump time.
+   */
+  /**
+   * Record a node visit (upstream records on node return). Nodes with a
+   * `tracking: never` header are not recorded.
+   */
+  private recordVisit(title: string): void {
+    if (this.trackingSuppressedFor(title)) return;
+    this.visitCounts[title] = (this.visitCounts[title] ?? 0) + 1;
+  }
+
+  private trackingSuppressedFor(title: string): boolean {
+    const nodeOrGroup = this.program.nodes[title];
+    if (!nodeOrGroup) return false;
+    if ("nodes" in nodeOrGroup) {
+      const member = this.currentNodeIndex >= 0 ? nodeOrGroup.nodes[this.currentNodeIndex] : undefined;
+      return member?.tracking === "never";
+    }
+    return nodeOrGroup.tracking === "never";
+  }
+
+  private resolveDestination(target: string): string {
+    const trimmed = target.trim();
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      try {
+        return String(this.evaluator.evaluateExpression(trimmed.slice(1, -1)));
+      } catch {
+        return target;
+      }
+    }
+    return target;
+  }
+
   private lookaheadIsEnd(): boolean {
     // Check if current node has more emit-worthy instructions
     const node = this.resolveNode(this.nodeTitle);
@@ -675,6 +812,11 @@ export class YarnRunner {
     // If we ended a detour node, return to caller after emitting last result
     // Position is restored here, but we wait for next advance() to continue
     if (res.isDialogueEnd && this.callStack.length > 0) {
+      // A node returning from a detour records its visit (upstream records on
+      // node return). The empty end-marker already counted in step().
+      if (!(res.type === "text" && res.text === "")) {
+        this.recordVisit(this.nodeTitle);
+      }
       const frame = this.callStack.pop()!;
       this.nodeTitle = frame.title;
       this.ip = frame.ip;

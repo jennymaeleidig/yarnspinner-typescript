@@ -10,6 +10,7 @@ export type IRNode = {
   when?: string[]; // Array of when conditions
   css?: string;
   scene?: string; // Scene name from node header
+  tracking?: string; // Visit tracking mode from the tracking: header ("always" | "never")
 };
 
 export type IRNodeGroup = {

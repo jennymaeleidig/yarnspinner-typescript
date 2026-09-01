@@ -112,6 +112,7 @@ export class CommandHandler {
 
   private registerBuiltins(): void {
     // <<set $var to expr>> or <<set $var = expr>> or <<set $var expr>>
+    // Also compound assignment: <<set $var += expr>> (and -=, *=, /=, %=)
     this.register("set", (args, evaluator) => {
       if (!evaluator) return;
       if (args.length < 2) return;
@@ -119,6 +120,31 @@ export class CommandHandler {
       let exprParts = args.slice(1);
       if (exprParts[0] === "to") exprParts = exprParts.slice(1);
       if (exprParts[0] === "=") exprParts = exprParts.slice(1);
+      const key = varNameRaw.startsWith("$") ? varNameRaw.slice(1) : varNameRaw;
+
+      const compoundOp = exprParts[0];
+      if (compoundOp === "+=" || compoundOp === "-=" || compoundOp === "*=" || compoundOp === "/=" || compoundOp === "%=") {
+        const rhs = evaluator.evaluateExpression(exprParts.slice(1).join(" "));
+        const current = this.variables[key];
+        let value: unknown;
+        if (compoundOp === "+=" && (typeof current === "string" || typeof rhs === "string")) {
+          value = String(current ?? "") + String(rhs ?? "");
+        } else {
+          const left = Number(current ?? 0);
+          const right = Number(rhs ?? 0);
+          switch (compoundOp) {
+            case "+=": value = left + right; break;
+            case "-=": value = left - right; break;
+            case "*=": value = left * right; break;
+            case "/=": value = left / right; break;
+            case "%=": value = left % right; break;
+          }
+        }
+        this.variables[key] = value;
+        evaluator.setVariable(key, value);
+        return;
+      }
+
       const expr = exprParts.join(" ");
       let value = evaluator.evaluateExpression(expr);
       
@@ -130,7 +156,6 @@ export class CommandHandler {
         }
       }
       
-      const key = varNameRaw.startsWith("$") ? varNameRaw.slice(1) : varNameRaw;
       // Setting a variable converts it from smart to regular
       this.variables[key] = value;
       evaluator.setVariable(key, value);

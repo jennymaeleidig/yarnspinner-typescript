@@ -143,15 +143,41 @@ class Parser {
     };
   }
 
+  /**
+   * Set by parseStatementsUntil: whether blank line(s) immediately preceded
+   * the terminating token (used to detect option-group separation).
+   */
+  private trailingBlankBeforeEnd = false;
+
   private parseStatementsUntil(endType: Token["type"]): Statement[] {
     const out: Statement[] = [];
+    this.trailingBlankBeforeEnd = false;
     while (!this.at(endType) && !this.at("EOF")) {
       // skip extra empties
-      while (this.at("EMPTY")) this.i++;
-      if (this.at(endType) || this.at("EOF")) break;
+      let blanks = 0;
+      while (this.at("EMPTY")) { this.i++; blanks++; }
+      if (this.at(endType) || this.at("EOF")) {
+        this.trailingBlankBeforeEnd = blanks > 0;
+        break;
+      }
 
       if (this.at("OPTION")) {
         out.push(this.parseOptionGroup());
+        continue;
+      }
+
+      // Full-line // comments are not dialogue content (upstream lexer skips them)
+      if (this.at("TEXT") && this.peek().text.trimStart().startsWith("//")) {
+        this.i++;
+        continue;
+      }
+
+      // Indentation tokens are transparent outside the constructs that own
+      // them (option bodies, once/enum blocks): the lexer emits INDENT/DEDENT
+      // for any indentation change, and upstream fixtures deliberately mix
+      // indent levels inside if-blocks. Only endType terminates here.
+      if (this.at("INDENT") || (this.at("DEDENT") && endType !== "DEDENT")) {
+        this.i++;
         continue;
       }
 
@@ -178,7 +204,7 @@ class Parser {
       return { type: "Command", content: cmd } as Command;
     }
     if (t.type === "TEXT") {
-      const raw = this.take("TEXT").text;
+      const raw = this.take("TEXT").text.replace(/\s\/\/.*$/, "").trimEnd();
       const { cleanText: textWithoutTags, tags } = this.extractTags(raw);
       const markup = parseMarkup(textWithoutTags);
       const speakerMatch = markup.text.match(/^([^:\s][^:]*)\s*:\s*(.*)$/);
@@ -214,7 +240,7 @@ class Parser {
     const options: Option[] = [];
     // One or more OPTION lines, with bodies under INDENT
     while (this.at("OPTION")) {
-      const raw = this.take("OPTION").text;
+      const raw = this.take("OPTION").text.replace(/\s\/\/.*$/, "").trimEnd();
       const { cleanText: textWithAttrs, tags } = this.extractTags(raw);
       const { text: textWithCondition, css } = this.extractCss(textWithAttrs);
       const { text: optionText, condition } = this.extractOptionCondition(textWithCondition);
@@ -235,8 +261,11 @@ class Parser {
         markup: this.normalizeMarkup(markup),
         condition,
       });
-      // Consecutive options belong to the same group; break on non-OPTION
-      while (this.at("EMPTY")) this.i++;
+      // Consecutive options belong to the same group; a blank line between
+      // options separates groups (upstream: options must be consecutive lines).
+      let blanks = 0;
+      while (this.at("EMPTY")) { this.i++; blanks++; }
+      if (blanks > 0 || this.trailingBlankBeforeEnd) break;
     }
     return { type: "OptionGroup", options };
   }
@@ -269,9 +298,9 @@ class Parser {
 
   private extractTags(input: string): { cleanText: string; tags?: string[] } {
     const tags: string[] = [];
-    // Match tags that are space-separated and not part of hex colors or CSS
-    // Tags are like "#tag" preceded by whitespace and not followed by hex digits
-    const re = /\s#([a-zA-Z_][a-zA-Z0-9_]*)(?!\w)/g;
+    // Match tags that are space-separated and not part of hex colors or CSS.
+    // Tag names may contain ':' (reserved tags: #line:, #shadow:).
+    const re = /\s#([a-zA-Z_][a-zA-Z0-9_:]*)(?![\w:])/g;
     let text = input;
     let m: RegExpExecArray | null;
     while ((m = re.exec(input))) {
@@ -279,7 +308,7 @@ class Parser {
     }
     if (tags.length > 0) {
       // Only remove tags that match the pattern (not hex colors in CSS)
-      text = input.replace(/\s#([a-zA-Z_][a-zA-Z0-9_]*)(?!\w)/g, "").trimEnd();
+      text = input.replace(/\s#([a-zA-Z_][a-zA-Z0-9_:]*)(?![\w:])/g, "").trimEnd();
       return { cleanText: text, tags };
     }
     return { cleanText: input };
@@ -311,27 +340,20 @@ class Parser {
       if (shouldStop()) break;
       while (this.at("EMPTY")) this.i++;
       if (this.at("EOF") || shouldStop()) break;
-      // Handle indentation - if we see INDENT, parse the indented block
-      if (this.at("INDENT")) {
-        this.take("INDENT");
-        // Parse statements at this indent level until DEDENT (don't check stop condition inside)
-        while (!this.at("DEDENT") && !this.at("EOF")) {
-          while (this.at("EMPTY")) this.i++;
-          if (this.at("DEDENT") || this.at("EOF")) break;
-          if (this.at("OPTION")) {
-            out.push(this.parseOptionGroup());
-            continue;
-          }
-          out.push(this.parseStatement());
-        }
-        if (this.at("DEDENT")) {
-          this.take("DEDENT");
-          while (this.at("EMPTY")) this.i++;
-        }
-        continue;
-      }
       if (this.at("OPTION")) {
         out.push(this.parseOptionGroup());
+        continue;
+      }
+      // Full-line // comments are not dialogue content (upstream lexer skips them)
+      if (this.at("TEXT") && this.peek().text.trimStart().startsWith("//")) {
+        this.i++;
+        continue;
+      }
+      // Indentation tokens are transparent here (see parseStatementsUntil):
+      // if/once bodies may be written at any indent level relative to their
+      // delimiting commands, so INDENT/DEDENT must not terminate the body.
+      if (this.at("INDENT") || this.at("DEDENT")) {
+        this.i++;
         continue;
       }
       out.push(this.parseStatement());
@@ -400,6 +422,12 @@ class Parser {
     // Parse cases until <<endenum>>
     while (!this.at("EOF")) {
       while (this.at("EMPTY")) this.i++;
+      // Indentation around <<case>> lines (as written in upstream fixtures)
+      // must not stall the loop.
+      if (this.at("INDENT") || this.at("DEDENT")) {
+        this.i++;
+        continue;
+      }
       if (this.at("COMMAND")) {
         const cmd = this.peek().text.trim();
         if (cmd === "endenum") {

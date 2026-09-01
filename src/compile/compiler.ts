@@ -1,6 +1,17 @@
 import type { YarnDocument, Statement, Line, Option } from "../model/ast";
 import type { IRProgram, IRNode, IRNodeGroup, IRInstruction } from "./ir";
 
+/** Extract the tracking: header (visit-tracking mode) from node headers. */
+function trackingHeader(headers: Record<string, string>): "always" | "never" | undefined {
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === "tracking") {
+      const v = value.trim().toLowerCase();
+      if (v === "always" || v === "never") return v;
+    }
+  }
+  return undefined;
+}
+
 export interface CompileOptions {
   generateOnceIds?: (ctx: { node: string; index: number }) => string;
 }
@@ -98,7 +109,8 @@ export function compile(doc: YarnDocument, opts: CompileOptions = {}): IRProgram
         instructions,
         when: node.when,
         css: (node as any).css,
-        scene: node.headers.scene?.trim() || undefined
+        scene: node.headers.scene?.trim() || undefined,
+        tracking: trackingHeader(node.headers)
       };
       program.nodes[node.title] = irNode;
     } else {
@@ -166,7 +178,8 @@ export function compile(doc: YarnDocument, opts: CompileOptions = {}): IRProgram
           instructions,
           when: node.when,
           css: (node as any).css,
-          scene: node.headers.scene?.trim() || undefined
+          scene: node.headers.scene?.trim() || undefined,
+          tracking: trackingHeader(node.headers)
         });
       }
       const group: IRNodeGroup = {

@@ -2,6 +2,23 @@
  * Safe expression evaluator for Yarn Spinner conditions.
  * Supports variables, functions, comparisons, and logical operators.
  */
+
+/** Render a value for string concatenation, the way upstream does (C# ToString). */
+function stringifyOperand(value: unknown): string {
+  if (typeof value === "boolean") return value ? "True" : "False";
+  return String(value ?? "");
+}
+
+/** The implicit default a variable has when compared against a typed value. */
+function defaultValueFor(value: unknown): unknown {
+  switch (typeof value) {
+    case "boolean": return false;
+    case "number": return 0;
+    case "string": return "";
+    default: return undefined;
+  }
+}
+
 export class ExpressionEvaluator {
   private smartVariables: Record<string, string> = {}; // variable name -> expression
   
@@ -116,14 +133,13 @@ export class ExpressionEvaluator {
   private looksLikeFunctionCall(expr: string): boolean {
     return /^([a-zA-Z_][a-zA-Z0-9_]*)\s*\(.*\)$/.test(expr);
   }
-
   private containsArithmetic(expr: string): boolean {
     // Remove quoted strings to avoid false positives on "-" or "+" inside literals
     const unquoted = expr.replace(/"[^"]*"|'[^']*'/g, "");
     return /[+\-*/%]/.test(unquoted);
   }
 
-  private evaluateArithmetic(expr: string): number {
+  private evaluateArithmetic(expr: string): unknown {
     const input = expr;
     let index = 0;
 
@@ -221,7 +237,7 @@ export class ExpressionEvaluator {
       return this.evaluateExpression(token);
     };
 
-    const parseUnary = (): number => {
+    const parseUnary = (): unknown => {
       skipWhitespace();
       if (input[index] === "+") {
         index++;
@@ -229,25 +245,26 @@ export class ExpressionEvaluator {
       }
       if (input[index] === "-") {
         index++;
-        return -parseUnary();
+        return -toNumber(parsePrimary());
       }
-      return toNumber(parsePrimary());
+      return parsePrimary();
     };
 
-    const parseMulDiv = (): number => {
+    const parseMulDiv = (): unknown => {
       let value = parseUnary();
       while (true) {
         skipWhitespace();
         const char = input[index];
         if (char === "*" || char === "/" || char === "%") {
           index++;
-          const right = parseUnary();
+          const right = toNumber(parseUnary());
+          const left = toNumber(value);
           if (char === "*") {
-            value = value * right;
+            value = left * right;
           } else if (char === "/") {
-            value = value / right;
+            value = left / right;
           } else {
-            value = value % right;
+            value = left % right;
           }
           continue;
         }
@@ -256,7 +273,7 @@ export class ExpressionEvaluator {
       return value;
     };
 
-    const parseAddSub = (): number => {
+    const parseAddSub = (): unknown => {
       let value = parseMulDiv();
       while (true) {
         skipWhitespace();
@@ -265,9 +282,15 @@ export class ExpressionEvaluator {
           index++;
           const right = parseMulDiv();
           if (char === "+") {
-            value = value + right;
+            // String addition concatenates (upstream: string + anything);
+            // booleans render as upstream's C# ToString ("True"/"False").
+            if (typeof value === "string" || typeof right === "string") {
+              value = stringifyOperand(value) + stringifyOperand(right);
+            } else {
+              value = toNumber(value) + toNumber(right);
+            }
           } else {
-            value = value - right;
+            value = toNumber(value) - toNumber(right);
           }
           continue;
         }
@@ -456,6 +479,10 @@ export class ExpressionEvaluator {
 
   private deepEquals(a: unknown, b: unknown): boolean {
     if (a === b) return true;
+    // Unset variables carry their implicit default (upstream: bool→false,
+    // number→0, string→"") inferred from the other side of the comparison.
+    if (a === undefined && b !== undefined) return this.deepEquals(b, defaultValueFor(b));
+    if (b === undefined && a !== undefined) return this.deepEquals(a, defaultValueFor(a));
     if (a == null || b == null) return a === b;
     if (typeof a !== typeof b) return false;
     if (typeof a === "object") {
