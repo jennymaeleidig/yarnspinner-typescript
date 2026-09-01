@@ -16,9 +16,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compileSource, EnumTypeBuilder, YarnRunner } from "../index.js";
-import type { EnumType } from "../compile/enums.js";
-import type { ExternalDeclarations } from "../compile/typeCheck.js";
-import type { Diagnostic } from "../compile/diagnostics.js";
+import type { EnumType, ExternalDeclarations } from "../index.js";
+import type { Diagnostic } from "../index.js";
 
 function compile(source: string, opts?: Parameters<typeof compileSource>[1]) {
   return compileSource(source, opts);
@@ -467,7 +466,8 @@ test("set of a non-enum variable to an enum case is a YS0050", () => {
 // --- Host-defined enums (the EnumTypeBuilder equivalent)
 
 test("host-defined enums: register from TypeScript, resolve .Case, appear in userDefinedTypes", () => {
-  const food = new EnumTypeBuilder("Food").addCase("Apple").addCase("Orange").build();
+  // Upstream EnumTypeBuilder.WithCase requires an explicit raw value.
+  const food = new EnumTypeBuilder("Food").addCase("Apple", 0).addCase("Orange", 1).build();
   const result = compile(
     `title: Start
 ---
@@ -522,14 +522,20 @@ test("host-defined enums: raw string values participate in comparisons", () => {
 });
 
 test("host-defined enums: name clash with a script enum is YS0040", () => {
-  const food = new EnumTypeBuilder("Food").addCase("Apple").build();
+  const food = new EnumTypeBuilder("Food").addCase("Apple", 0).build();
   const result = compile(FOOD_SCRIPT, { declarations: { enums: [food] } });
   assert.deepEqual(codesOf(result.diagnostics), ["YS0040"]);
 });
 
+test("EnumTypeBuilder: a case without a raw value throws (upstream WithCase requires one)", () => {
+  assert.throws(() => {
+    new EnumTypeBuilder("Food").addCase("Apple").build();
+  }, /raw value/);
+});
+
 test("EnumTypeBuilder: duplicate case names throw at construction (upstream parity)", () => {
   assert.throws(() => {
-    new EnumTypeBuilder("Food").addCase("Apple").addCase("Apple").build();
+    new EnumTypeBuilder("Food").addCase("Apple", 0).addCase("Apple", 1).build();
   }, /already exists/);
 });
 

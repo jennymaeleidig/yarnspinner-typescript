@@ -23,6 +23,8 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 - **Shortcut option**: a `->` choice with optional condition and `<<once>>`.
 - **Smart variable**: a read-only declaration whose value is recomputed on every access; self/cyclic references are compile errors.
 - **Enum**: a named set of cases with uniform raw values (numeric or string, auto-numbered when omitted); comparable only within the same enum; `.Case` shorthand.
+- **Raw value**: the constant (number or string) backing an enum case; unique within its enum; what variables hold at runtime.
+- **EnumTypeBuilder**: host-side builder of enum types from TypeScript (upstream `YarnSpinner.Compiler.EnumTypeBuilder`; cases require explicit raw values), registered through the external declarations path.
 - **Shadow line**: a line reusing another line's text via `#shadow:`, without its own string-table entry.
 - **Hashtag**: per-line metadata (`#tag`); reserved tags include `#line:` and `#shadow:`.
 - **Detour / return**: call-and-return node flow; a jump inside a detoured node clears the return stack.

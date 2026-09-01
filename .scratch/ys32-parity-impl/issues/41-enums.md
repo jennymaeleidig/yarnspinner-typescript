@@ -38,6 +38,32 @@ Landed on the impl branch in one commit (see git history for this effort).
   `src/tests/enums.test.ts` (35 tests), ADR 0004; docs/enums.md extended.
   Full suite green (193 tests).
 
+## Comments
+
+### Code review (two-axis, post-landing)
+
+Standards: 5 met / 2 partial, 4 judgement-call smells, no hard violations.
+Spec: 5/5 requirements met, 3 scope-creep notes, 1 upstream-fidelity gap.
+
+Addressed in the review-fix commit:
+- **Upstream fidelity (spec review)**: `EnumTypeBuilder.addCase` now REQUIRES
+  an explicit raw value — upstream `WithCase` has no valueless overload;
+  auto-numbering is script-enum-only. Glossary gains `Raw value` and
+  `EnumTypeBuilder` entries (standards rule 5); tests import types through
+  the public seam (rule 6).
+- **Dedup**: `checkArgsAgainstSignature` shared by expression calls and
+  `<<call>>` statements; `buildEnumTypesWithDiagnostics` middle-man wrapper
+  removed; `hint` renamed `expectedEnum`.
+
+Accepted as-is (with reasons):
+- `EnumTypeBuilder` throws on construction misuse — documented ADR-0004
+  carve-out to standards §3, mirroring upstream's ArgumentException.
+- Function signatures riding the declarations path + the lexer
+  trailing-comment change were required by the enum fixtures
+  (Enums-Functions*, ParseFailures comments); noted as deliberate.
+- Cross-type comparison checking is broader than same-enum only — matches
+  upstream's single "must both be the same type" rule for `==`/`!=`.
+
 - [x] Upstream enum fixtures compile and their plans run
 - [x] Host-defined enums accepted and checked at compile time
 - [x] Enum metadata appears in compile-output declarations

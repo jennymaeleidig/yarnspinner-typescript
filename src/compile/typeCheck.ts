@@ -26,7 +26,7 @@
  */
 
 import type { YarnDocument, Statement } from "../model/ast.js";
-import { EnumTypeBuilder, buildEnumTypesWithDiagnostics, collectEnumBlocks } from "./enums.js";
+import { EnumTypeBuilder, buildEnumTypes, collectEnumBlocks } from "./enums.js";
 import type { EnumRawValue, EnumType } from "./enums.js";
 import { makeDiagnostic } from "./diagnostics.js";
 import type { Diagnostic } from "./diagnostics.js";
@@ -383,7 +383,7 @@ class ExprParser {
 
 // --- Checker ----------------------------------------------------------------
 
-function checkNode(node: ExprNode, ctx: CheckContext, hint?: string): ExprType {
+function checkNode(node: ExprNode, ctx: CheckContext, expectedEnum?: string): ExprType {
   switch (node.kind) {
     case "num":
       return { base: "number" };
@@ -398,16 +398,16 @@ function checkNode(node: ExprNode, ctx: CheckContext, hint?: string): ExprType {
       return UNKNOWN_TYPE;
     }
     case "member":
-      return checkMember(node, ctx, hint);
+      return checkMember(node, ctx, expectedEnum);
     case "call":
-      return checkCall(node, ctx, hint);
+      return checkCall(node, ctx, expectedEnum);
     case "un": {
-      const operand = checkNode(node.operand, ctx, hint);
+      const operand = checkNode(node.operand, ctx, expectedEnum);
       void operand;
       return node.op === "-" ? { base: "number" } : { base: "bool" };
     }
     case "bin":
-      return checkBinary(node, ctx, hint);
+      return checkBinary(node, ctx, expectedEnum);
     case "bad":
       return UNKNOWN_TYPE;
   }
@@ -416,7 +416,7 @@ function checkNode(node: ExprNode, ctx: CheckContext, hint?: string): ExprType {
 function checkMember(
   node: Extract<ExprNode, { kind: "member" }>,
   ctx: CheckContext,
-  hint?: string,
+  expectedEnum?: string,
 ): ExprType {
   if (!node.shorthand) {
     const enumType = ctx.enumTypes.get(node.typeName!);
@@ -431,15 +431,15 @@ function checkMember(
     return { base: "unknown", enumName: enumType.name };
   }
 
-  // Shorthand: resolve against the hint, else the unique enum with the member.
-  if (hint) {
-    const enumType = ctx.enumTypes.get(hint)!;
+  // Shorthand: resolve against the expected enum, else the unique enum with// the member.
+  if (expectedEnum) {
+    const enumType = ctx.enumTypes.get(expectedEnum)!;
     if (!enumType.cases.some((c) => c.name === node.member)) {
-      ctx.emit("YS0050", `Type ${hint} does not have a member named ${node.member}`);
+      ctx.emit("YS0050", `Type ${expectedEnum} does not have a member named ${node.member}`);
       return UNKNOWN_TYPE;
     }
-    ctx.rewrites.push({ start: node.start, end: node.end, text: `${hint}.${node.member}` });
-    return { base: "unknown", enumName: hint };
+    ctx.rewrites.push({ start: node.start, end: node.end, text: `${expectedEnum}.${node.member}` });
+    return { base: "unknown", enumName: expectedEnum };
   }
   const matches = [...ctx.enumTypes.values()].filter((t) => t.cases.some((c) => c.name === node.member));
   if (matches.length === 1) {
@@ -457,72 +457,70 @@ function checkMember(
   return UNKNOWN_TYPE;
 }
 
-function checkCall(node: Extract<ExprNode, { kind: "call" }>, ctx: CheckContext, hint?: string): ExprType {
+/**
+ * Check call arguments against a known signature (shared by expression
+ * calls and `<<call>>` statements): arity (YS0014) and enum-argument
+ * convertibility (YS0050). Non-enum argument type mismatches are ticket
+ * 42/43 scope; only enum arguments are checked here (spec ticket 41).
+ */
+function checkArgsAgainstSignature(
+  fnName: string,
+  args: Array<{ text: string; type: ExprType }>,
+  signature: FunctionSignature,
+  ctx: CheckContext,
+): void {
+  const expected = signature.params.length;
+  const variadic = signature.variadic === true;
+  if (args.length !== expected && !variadic) {
+    ctx.emit("YS0014", `${fnName} expects ${expected} ${expected === 1 ? "parameter" : "parameters"}, not ${args.length}`);
+    return;
+  }
+  if (variadic && args.length < Math.max(expected - 1, 0)) {
+    ctx.emit("YS0014", `${fnName} expects at least ${Math.max(expected - 1, 0)} parameters`);
+    return;
+  }
+  args.forEach((arg, i) => {
+    const paramIndex = variadic && expected > 0 && i >= expected - 1 ? expected - 1 : i;
+    const paramType = signature.params[paramIndex];
+    if (!paramType || paramType === "any") return;
+    if (!arg.type.enumName) return;
+    const argEnum = ctx.enumTypes.get(arg.type.enumName);
+    const compatible =
+      (paramType === "string" && argEnum?.rawValueType === "string") ||
+      (paramType === "number" && argEnum?.rawValueType === "number");
+    if (!compatible) {
+      ctx.emit("YS0050", `${arg.text} (${arg.type.enumName}) is not convertible to ${PRIM_NAME[paramType]}`);
+    }
+  });
+}
+
+function checkCall(node: Extract<ExprNode, { kind: "call" }>, ctx: CheckContext, expectedEnum?: string): ExprType {
   // Built-in conversions (upstream Types.Number/String/Boolean functions).
-  if (node.name === "string") {
-    for (const arg of node.args) checkNode(arg, ctx, hint);
-    return { base: "string" };
+  if (node.name === "string" || node.name === "number" || node.name === "bool") {
+    for (const arg of node.args) checkNode(arg, ctx, expectedEnum);
+    return { base: node.name as "string" | "number" | "bool" };
   }
-  if (node.name === "number") {
-    for (const arg of node.args) checkNode(arg, ctx, hint);
-    return { base: "number" };
-  }
-  if (node.name === "bool") {
-    for (const arg of node.args) checkNode(arg, ctx, hint);
-    return { base: "bool" };
-  }
+
+  const args = node.args.map((arg, i) => ({
+    text: node.argTexts[i],
+    type: checkNode(arg, ctx, expectedEnum),
+  }));
 
   const signature = ctx.functionSignatures.get(node.name);
   if (!signature) {
     // Unknown function: upstream infers its type implicitly from usage
     // (the Inference-* fixtures own that gap); nothing to check here.
-    for (const arg of node.args) checkNode(arg, ctx, hint);
     return UNKNOWN_TYPE;
   }
-
-  const actual = node.args.length;
-  const expected = signature.params.length;
-  const variadic = signature.variadic === true;
-  if (actual !== expected && !variadic) {
-    ctx.emit("YS0014", `${node.name} expects ${expected} ${expected === 1 ? "parameter" : "parameters"}, not ${actual}`);
-    for (const arg of node.args) checkNode(arg, ctx, hint);
-    return UNKNOWN_TYPE;
-  }
-  if (variadic && actual < expected - (expected > 0 ? 1 : 0)) {
-    ctx.emit("YS0014", `${node.name} expects at least ${Math.max(expected - 1, 0)} parameters`);
-    for (const arg of node.args) checkNode(arg, ctx, hint);
-    return UNKNOWN_TYPE;
-  }
-
-  node.args.forEach((arg, i) => {
-    const argType = checkNode(arg, ctx, hint);
-    const paramIndex = variadic && i >= expected - 1 && expected > 0 ? expected - 1 : i;
-    const paramType = signature.params[paramIndex];
-    if (!paramType || paramType === "any") return;
-    if (argType.enumName) {
-      const argEnum = ctx.enumTypes.get(argType.enumName);
-      const compatible =
-        (paramType === "string" && argEnum?.rawValueType === "string") ||
-        (paramType === "number" && argEnum?.rawValueType === "number");
-      if (!compatible) {
-        ctx.emit(
-          "YS0050",
-          `${node.argTexts[i]} (${argType.enumName}) is not convertible to ${PRIM_NAME[paramType]}`,
-        );
-      }
-      return;
-    }
-    // Non-enum argument type mismatches are ticket 42/43 scope; only enum
-    // arguments are checked here (spec ticket 41).
-  });
+  checkArgsAgainstSignature(node.name, args, signature, ctx);
   return signature.returns === "number" || signature.returns === "string" || signature.returns === "bool"
     ? { base: signature.returns }
     : UNKNOWN_TYPE;
 }
 
-function checkBinary(node: Extract<ExprNode, { kind: "bin" }>, ctx: CheckContext, hint?: string): ExprType {
-  const left = checkNode(node.left, ctx, hint);
-  const right = checkNode(node.right, ctx, hint);
+function checkBinary(node: Extract<ExprNode, { kind: "bin" }>, ctx: CheckContext, expectedEnum?: string): ExprType {
+  const left = checkNode(node.left, ctx, expectedEnum);
+  const right = checkNode(node.right, ctx, expectedEnum);
 
   if (node.op === "==" || node.op === "!=") {
     const describe = (t: ExprType) => t.enumName ?? (t.base === "unknown" ? undefined : PRIM_NAME[t.base]);
@@ -556,13 +554,13 @@ function checkBinary(node: Extract<ExprNode, { kind: "bin" }>, ctx: CheckContext
 function checkExpression(
   expr: string,
   ctx: CheckContext,
-  hint?: string,
+  expectedEnum?: string,
 ): { type: ExprType; rewritten: string } {
   ctx.rewrites.length = 0;
   const toks = tokenize(expr);
   const parsed = new ExprParser(toks, expr).parse();
   if (!parsed) return { type: UNKNOWN_TYPE, rewritten: expr };
-  const type = checkNode(parsed, ctx, hint);
+  const type = checkNode(parsed, ctx, expectedEnum);
   let rewritten = expr;
   if (ctx.rewrites.length > 0) {
     // Spans are non-overlapping; apply right-to-left.
@@ -607,8 +605,8 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           const asMatch = rest.match(/\s+as\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/);
           const declaredType = asMatch?.[1];
           const expr = (asMatch ? rest.slice(0, asMatch.index) : rest).trim();
-          const hint = declaredType && ctx.enumTypes.has(declaredType) ? declaredType : undefined;
-          const { type, rewritten } = checkExpression(expr, ctx, hint);
+          const expectedEnum = declaredType && ctx.enumTypes.has(declaredType) ? declaredType : undefined;
+          const { type, rewritten } = checkExpression(expr, ctx, expectedEnum);
           if (rewritten !== expr) s.content = `declare $${name} = ${rewritten}${asMatch ? ` as ${declaredType}` : ""}`;
           if (declaredType) {
             ctx.variableTypes.set(name, declaredType);
@@ -629,8 +627,8 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
         if (set) {
           const [, name, op, rest] = set;
           const varType = ctx.variableTypes.get(name);
-          const hint = varType && ctx.enumTypes.has(varType) ? varType : undefined;
-          const { type, rewritten } = checkExpression(rest.trim(), ctx, hint);
+          const expectedEnum = varType && ctx.enumTypes.has(varType) ? varType : undefined;
+          const { type, rewritten } = checkExpression(rest.trim(), ctx, expectedEnum);
           if (rewritten !== rest.trim()) s.content = `set $${name} ${op} ${rewritten}`;
           const describe = (t: ExprType) => t.enumName ?? (t.base === "unknown" ? undefined : PRIM_NAME[t.base]);
           if (varType) {
@@ -653,33 +651,9 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
         if (call) {
           const [, fnName, argsSrc] = call;
           const args = argsSrc.trim() ? splitArgs(argsSrc) : [];
-          for (const arg of args) checkExpression(arg, ctx);
+          const checkedArgs = args.map((arg) => ({ text: arg, type: checkExpression(arg, ctx).type }));
           const signature = ctx.functionSignatures.get(fnName);
-          if (signature && signature.variadic !== true && args.length !== signature.params.length) {
-            ctx.emit(
-              "YS0014",
-              `${fnName} expects ${signature.params.length} ${signature.params.length === 1 ? "parameter" : "parameters"}, not ${args.length}`,
-            );
-          }
-          if (signature) {
-            args.forEach((arg, i) => {
-              const paramIndex =
-                signature.variadic === true && i >= signature.params.length - 1 && signature.params.length > 0
-                  ? signature.params.length - 1
-                  : i;
-              const paramType = signature.params[paramIndex];
-              if (!paramType || paramType === "any") return;
-              const { type } = checkExpression(arg, ctx);
-              if (!type.enumName) return;
-              const argEnum = ctx.enumTypes.get(type.enumName);
-              const compatible =
-                (paramType === "string" && argEnum?.rawValueType === "string") ||
-                (paramType === "number" && argEnum?.rawValueType === "number");
-              if (!compatible) {
-                ctx.emit("YS0050", `${arg} (${type.enumName}) is not convertible to ${PRIM_NAME[paramType]}`);
-              }
-            });
-          }
+          if (signature) checkArgsAgainstSignature(fnName, checkedArgs, signature, ctx);
           break;
         }
         break;
@@ -768,8 +742,9 @@ export function typeCheck(
     hostEnums.push(host);
   }
 
-  const { enumTypes, diagnostics } = buildEnumTypesWithDiagnostics(collectEnumBlocks(doc), hostEnums);
-  for (const d of diagnostics) emitDiagnostic(d);
+  const enumTypes = buildEnumTypes(collectEnumBlocks(doc), hostEnums, (code, message) =>
+    emitDiagnostic(makeDiagnostic(code, message)),
+  );
 
   const functionSignatures = new Map(Object.entries(opts.declarations?.functions ?? {}));
   const variableTypes = new Map<string, string>();

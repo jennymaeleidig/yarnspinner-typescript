@@ -21,8 +21,6 @@
  */
 
 import type { EnumBlock } from "../model/ast.js";
-import { makeDiagnostic } from "./diagnostics.js";
-import type { Diagnostic } from "./diagnostics.js";
 
 export type EnumRawValue = number | string;
 export type EnumRawValueType = "number" | "string";
@@ -43,36 +41,42 @@ export interface EnumType {
  * `YarnSpinner.Compiler.EnumTypeBuilder`, with `WithName`/`WithCase`
  * mirrored as the constructor name and `addCase`).
  *
- * Construction misuse (duplicate case names, duplicate raw values, mixed raw
- * value types) throws here — matching upstream, which throws
- * ArgumentException from the builder. This is host programming error, not
- * content diagnostics: the compile seam stays collect-don't-throw (coding
- * standards §3), and script `<<enum>>` blocks go through diagnostics.
+ * Like upstream, every case requires an explicit raw value (there is no
+ * valueless `WithCase` overload upstream; auto-numbering is a script-enum
+ * feature handled by the compile seam). Construction misuse (missing raw
+ * value, duplicate case names, duplicate raw values, mixed raw value types)
+ * throws here — matching upstream, which throws ArgumentException from the
+ * builder. This is host programming error, not content diagnostics: the
+ * compile seam stays collect-don't-throw (coding standards §3), and script
+ * `<<enum>>` blocks go through diagnostics.
  */
 export class EnumTypeBuilder {
-  private readonly cases: Array<{ name: string; rawValue?: EnumRawValue }> = [];
+  private readonly cases: EnumCase[] = [];
   private rawValueType: EnumRawValueType | null = null;
 
   constructor(public readonly name: string) {}
 
   addCase(caseName: string, rawValue?: number | string): this {
+    if (rawValue === undefined) {
+      // Upstream has no valueless WithCase overload; accept it in the type
+      // so JS callers get a thrown error rather than a compile error.
+      throw new Error(`Can't add case ${caseName} to enum ${this.name}: cases require an explicit raw value`);
+    }
     if (this.cases.some((c) => c.name === caseName)) {
       throw new Error(`Can't add case ${caseName} to enum ${this.name}: a case with this name already exists`);
     }
-    if (rawValue !== undefined) {
-      const rawType: EnumRawValueType = typeof rawValue === "number" ? "number" : "string";
-      if (this.rawValueType === null) {
-        this.rawValueType = rawType;
-      } else if (this.rawValueType !== rawType) {
-        throw new Error(
-          `Can't add case ${caseName} to enum ${this.name}: raw value type must be ${this.rawValueType}`,
-        );
-      }
-      if (this.cases.some((c) => c.rawValue === rawValue)) {
-        throw new Error(
-          `Can't add case ${caseName} with value ${rawValue} to enum ${this.name}: a case with this value already exists`,
-        );
-      }
+    const rawType: EnumRawValueType = typeof rawValue === "number" ? "number" : "string";
+    if (this.rawValueType === null) {
+      this.rawValueType = rawType;
+    } else if (this.rawValueType !== rawType) {
+      throw new Error(
+        `Can't add case ${caseName} to enum ${this.name}: raw value type must be ${this.rawValueType}`,
+      );
+    }
+    if (this.cases.some((c) => c.rawValue === rawValue)) {
+      throw new Error(
+        `Can't add case ${caseName} with value ${rawValue} to enum ${this.name}: a case with this value already exists`,
+      );
     }
     this.cases.push({ name: caseName, rawValue });
     return this;
@@ -82,21 +86,11 @@ export class EnumTypeBuilder {
     if (this.cases.length === 0) {
       throw new Error(`Can't build enum ${this.name}: an enum must have at least one case`);
     }
-    const anyRawValue = this.cases.some((c) => c.rawValue !== undefined);
-    let resolved: EnumCase[];
-    if (!anyRawValue) {
-      // No case has a raw value: auto-number from 0 (upstream script-enum
-      // rule, applied to host enums for symmetry).
-      resolved = this.cases.map((c, index) => ({ name: c.name, rawValue: index }));
-    } else {
-      if (this.cases.some((c) => c.rawValue === undefined)) {
-        throw new Error(
-          `Can't build enum ${this.name}: if any case has a raw value, then they all must have one`,
-        );
-      }
-      resolved = this.cases.map((c) => ({ name: c.name, rawValue: c.rawValue as EnumRawValue }));
-    }
-    return { name: this.name, rawValueType: this.rawValueType ?? "number", cases: resolved };
+    return {
+      name: this.name,
+      rawValueType: this.rawValueType ?? "number",
+      cases: this.cases.map((c) => ({ ...c })),
+    };
   }
 }
 
@@ -287,17 +281,3 @@ export function collectEnumBlocks(doc: {
   return blocks;
 }
 
-/**
- * Convenience for compileSource callers: build script+host enum types with
- * diagnostics collection. Returns the registry and the emitted diagnostics.
- */
-export function buildEnumTypesWithDiagnostics(
-  scriptEnums: EnumBlock[],
-  hostEnums: EnumType[],
-): { enumTypes: Map<string, EnumType>; diagnostics: Diagnostic[] } {
-  const diagnostics: Diagnostic[] = [];
-  const enumTypes = buildEnumTypes(scriptEnums, hostEnums, (code, message) => {
-    diagnostics.push(makeDiagnostic(code, message));
-  });
-  return { enumTypes, diagnostics };
-}
