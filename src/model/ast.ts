@@ -22,7 +22,6 @@ export interface YarnNode {
   headers: NodeHeaderMap;
   nodeTags?: string[];
   when?: string[]; // Array of when conditions (can be "once", "always", or expression like "$has_sword")
-  css?: string; // Custom CSS style for node
   /** Number of redundant `title:` headers beyond the first (upstream YS0052). */
   duplicateTitleHeaders?: number;
   body: Statement[];
@@ -73,7 +72,6 @@ export interface Option {
   text: string;
   body: Statement[]; // executed if chosen
   tags?: string[];
-  css?: string; // Custom CSS style for option
   markup?: MarkupParseResult;
   condition?: string;
 }

@@ -50,7 +50,6 @@ const MUST_FAIL_ALLOWLIST: Record<string, string> = {
   "Jumps-ExpressionsMustBeStrings.yarn": "no jump-target type check (phase 1 diagnostics)",
   "Notes-WhenHeadersMustHaveExpressions.yarn": "no when: header validation (phase 1 diagnostics)",
   "Operators-AdditionsRequireNumbersOrStrings.yarn": "no operator typing (phase 1 diagnostics)",
-  "OptionConditions-MustHaveExpressions.yarn": "no option-condition validation (phase 1 diagnostics)",
   "SetStatements-MustHaveValues.yarn": "no <<set>> value validation (phase 1 diagnostics)",
   "ShadowLines-MustBeIdenticalToSourceLines.yarn": "no #shadow: validation (spec story 29)",
   "ShadowLines-MustHaveValidSourceLine.yarn": "no #shadow: validation (spec story 29)",
@@ -90,9 +89,7 @@ const PLAN_RUN_ALLOWLIST: Record<string, string> = {
   "Once.yarn":
     "<<else>> branch on <<once>> blocks not supported (spec story 2)",
   "ShortcutOptions.yarn":
-    "option <<if>>/<<once>> conditions not supported (fork-era [if] syntax only) (spec story 25)",
-  "Smileys.yarn":
-    "line-level <<if>> conditions not supported; condition text leaks into option text (spec story 2)",
+    "option <<once>>/<<once if>> conditions not supported; <<if>> conditions filter at runtime since ticket 40 (spec story 25)",
   "VisitTracking.yarn":
     "subtitle-qualified visit queries (visited(Group.SUBTITLE)) unsupported; no subtitle mechanism (spec story 24)",
 };

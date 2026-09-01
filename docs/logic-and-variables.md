@@ -11,14 +11,14 @@ Source: [docs.yarnspinner.dev — Logic and Variables](https://docs.yarnspinner.
 ```yarn
 title: Start
 ---
-<<set hasKey = true>>
-<<set score = 10 + 5>>
+<<set $hasKey = true>>
+<<set $score = 10 + 5>>
 
-{if hasKey}
-    Narrator: You unlock the door. Score: {score}
-{else}
+<<if $hasKey>>
+    Narrator: You unlock the door. Score: {$score}
+<<else>>
     Narrator: The door is locked.
-{endif}
+<<endif>>
 ===
 ```
 

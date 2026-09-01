@@ -5,15 +5,13 @@ export type TextResult = {
   speaker?: string;
   tags?: string[];
   markup?: MarkupParseResult;
-  nodeCss?: string; // Node-level CSS from &css{} header
   scene?: string; // Scene name from node header
   isDialogueEnd: boolean;
 };
 
 export type OptionsResult = {
   type: "options";
-  options: { text: string; tags?: string[]; css?: string; markup?: MarkupParseResult }[];
-  nodeCss?: string; // Node-level CSS from &css{} header
+  options: { text: string; tags?: string[]; markup?: MarkupParseResult }[];
   scene?: string; // Scene name from node header
   isDialogueEnd: boolean;
 };

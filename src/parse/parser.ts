@@ -109,7 +109,6 @@ class Parser {
     let titleHeaderCount = 0;
     let nodeTags: string[] | undefined;
     let whenConditions: string[] = [];
-    let nodeCss: string | undefined;
 
     // headers
     while (!this.at("NODE_START")) {
@@ -130,36 +129,9 @@ class Parser {
         const raw = valTok.text.trim();
         whenConditions.push(raw);
       }
-      // Capture &css{ ... } styles in any header value
-      const rawVal = valTok.text.trim();
-      if (rawVal.startsWith("&css{")) {
-        // Collect until closing '}' possibly spanning multiple lines before '---'
-        let cssContent = rawVal.replace(/^&css\{/, "");
-        let closed = cssContent.includes("}");
-        if (closed) {
-          cssContent = cssContent.split("}")[0];
-        } else {
-          // Consume subsequent TEXT or HEADER_VALUE tokens until we find a '}'
-          while (!this.at("NODE_START") && !this.at("EOF")) {
-            const next = this.peek();
-            if (next.type === "TEXT" || next.type === "HEADER_VALUE") {
-              const t = this.take(next.type).text;
-              if (t.includes("}")) {
-                cssContent += (cssContent ? "\n" : "") + t.split("}")[0];
-                closed = true;
-                break;
-              } else {
-                cssContent += (cssContent ? "\n" : "") + t;
-              }
-            } else if (next.type === "EMPTY") {
-              this.i++;
-            } else {
-              break;
-            }
-          }
-        }
-        nodeCss = (cssContent || "").trim();
-      }
+      // Removed fork extension (ticket 40): header-carried &css{} styles are
+      // rejected with a YS0005 diagnostic via the compile seam.
+      this.rejectRemovedSyntax(valTok.text, valTok);
       headers[keyTok.text] = valTok.text;
       // allow empty lines
       while (this.at("EMPTY")) this.i++;
@@ -179,7 +151,6 @@ class Parser {
       headers, 
       nodeTags, 
       when: whenConditions.length > 0 ? whenConditions : undefined,
-      css: nodeCss,
       duplicateTitleHeaders: titleHeaderCount > 0 ? titleHeaderCount : undefined,
       body 
     };
@@ -238,11 +209,22 @@ class Parser {
         const enumName = cmd.slice(5).trim();
         return this.parseEnumBlock(enumName);
       }
+      // $-prefix strictness (ticket 40, spec story 10): state commands must
+      // target a $-prefixed variable; bare names get a YS0005 via the seam.
+      const stateCmd = cmd.match(/^(set|declare)\s+(\S+)/);
+      if (stateCmd && !stateCmd[2].startsWith("$")) {
+        throw new ParseError(
+          `Variables must be prefixed with '$' — <<${stateCmd[1]} ${stateCmd[2]} ...>> uses a bare variable name (Yarn Spinner 3.x requires the $ prefix)`,
+          this.rangeAt(t),
+        );
+      }
       return { type: "Command", content: cmd } as Command;
     }
     if (t.type === "TEXT") {
       const raw = this.take("TEXT").text.replace(/\s\/\/.*$/, "").trimEnd();
       const { cleanText: textWithoutTags, tags } = this.extractTags(raw);
+      // Removed fork extensions (ticket 40): &css{} and inline {if} blocks.
+      this.rejectRemovedSyntax(textWithoutTags, t);
       const markup = parseMarkup(textWithoutTags);
       const speakerMatch = markup.text.match(/^([^:\s][^:]*)\s*:\s*(.*)$/);
       if (speakerMatch) {
@@ -258,11 +240,6 @@ class Parser {
           markup: normalizedMarkup,
         } as Line;
       }
-      // If/Else blocks use inline markup {if ...}
-      const trimmed = markup.text.trim();
-      if (trimmed.startsWith("{if ") || trimmed === "{else}" || trimmed.startsWith("{else if ") || trimmed === "{endif}") {
-        return this.parseIfFromText(markup.text);
-      }
       return {
         type: "Line",
         text: markup.text,
@@ -277,10 +254,13 @@ class Parser {
     const options: Option[] = [];
     // One or more OPTION lines, with bodies under INDENT
     while (this.at("OPTION")) {
-      const raw = this.take("OPTION").text.replace(/\s\/\/.*$/, "").trimEnd();
+      const optTok = this.take("OPTION");
+      const raw = optTok.text.replace(/\s\/\/.*$/, "").trimEnd();
       const { cleanText: textWithAttrs, tags } = this.extractTags(raw);
-      const { text: textWithCondition, css } = this.extractCss(textWithAttrs);
-      const { text: optionText, condition } = this.extractOptionCondition(textWithCondition);
+      // Removed fork extensions (ticket 40): &css{} and the [if expr] option
+      // condition suffix.
+      this.rejectRemovedSyntax(textWithAttrs, optTok);
+      const { text: optionText, condition } = this.extractOptionIfCondition(textWithAttrs, optTok);
       const markup = parseMarkup(optionText);
       let body: Statement[] = [];
       if (this.at("INDENT")) {
@@ -294,7 +274,6 @@ class Parser {
         text: markup.text,
         body,
         tags,
-        css,
         markup: this.normalizeMarkup(markup),
         condition,
       });
@@ -351,23 +330,60 @@ class Parser {
     return { cleanText: input };
   }
 
-  private extractCss(input: string): { text: string; css?: string } {
-    const cssMatch = input.match(/\s*&css\{([^}]*)\}\s*$/);
+  /**
+   * Removed fork extensions (ticket 40 — the three intentional breaking
+   * syntax removals). Each surfaces as a YS0005 SyntaxError through the
+   * compile seam with a migration pointer in the message; see
+   * docs/migration-notes.md.
+   */
+  private rejectRemovedSyntax(text: string, token: Token): void {
+    const cssMatch = text.match(/&css\{/);
     if (cssMatch) {
-      const css = cssMatch[1].trim();
-      const text = input.replace(cssMatch[0], "").trimEnd();
-      return { text, css };
+      throw new ParseError(
+        "&css{} has been removed; styling is consumer-side via markup properties (see docs/migration-notes.md)",
+        this.rangeAt(token),
+      );
     }
-    return { text: input };
+    if (/\{if\s|\{else\}|\{else\s|\{elseif|\{endif\}/.test(text)) {
+      throw new ParseError(
+        "Inline {if}...{endif} blocks have been removed; use line-level <<if expr>> conditions instead (see docs/migration-notes.md)",
+        this.rangeAt(token),
+      );
+    }
+    const bracketIf = text.match(/\[\s*if\s+[^\]]*\]\s*$/i);
+    if (bracketIf) {
+      throw new ParseError(
+        `Option condition syntax ${bracketIf[0].trim()} has been removed; write <<if expr>> on the option line instead (see docs/migration-notes.md)`,
+        this.rangeAt(token),
+      );
+    }
   }
 
-  private extractOptionCondition(input: string): { text: string; condition?: string } {
-    const match = input.match(/\s\[\s*if\s+([^\]]+)\]\s*$/i);
-    if (match) {
-      const text = input.slice(0, match.index).trimEnd();
-      return { text, condition: match[1].trim() };
+  /**
+   * Upstream option conditions: an <<if expr>> suffix on the option line.
+   * The expression is stripped from the option text and returned; an
+   * expression-less <<if>> is the upstream ParseFailures case
+   * (OptionConditions-MustHaveExpressions) and throws YS0005 via the seam.
+   */
+  private extractOptionIfCondition(input: string, token: Token): { text: string; condition?: string } {
+    if (/<<\s*if\s*>>/.test(input)) {
+      throw new ParseError(
+        "Option condition <<if>> requires an expression (Yarn Spinner 3.x syntax)",
+        this.rangeAt(token),
+      );
     }
-    return { text: input };
+    let condition: string | undefined;
+    const text = input.replace(/<<\s*if\s+([\s\S]+?)>>/g, (_m, expr) => {
+      if (condition !== undefined && condition !== expr.trim()) {
+        throw new ParseError(
+          "An option can have only one <<if>> condition (Yarn Spinner 3.x syntax)",
+          this.rangeAt(token),
+        );
+      }
+      condition ??= expr.trim();
+      return "";
+    });
+    return { text: text.trim(), condition };
   }
 
   private parseStatementsUntilStop(shouldStop: () => boolean): Statement[] {
@@ -411,43 +427,6 @@ class Parser {
       this.take("COMMAND");
     }
     return { type: "Once", body };
-  }
-
-  private parseIfFromText(firstLine: string): IfBlock {
-    const branches: IfBlock["branches"] = [];
-    // expecting state not required in current implementation
-
-    let cursor = firstLine.trim();
-    function parseCond(text: string) {
-      const mIf = text.match(/^\{if\s+(.+?)\}$/);
-      if (mIf) return mIf[1];
-      const mElIf = text.match(/^\{else\s+if\s+(.+?)\}$/);
-      if (mElIf) return mElIf[1];
-      return null;
-    }
-
-    while (true) {
-      const cond = parseCond(cursor);
-      if (cursor === "{else}") {
-        branches.push({ condition: null, body: this.parseIfBlockBody() });
-        // next must be {endif}
-        const endLine = this.take("TEXT", "Expected {endif}").text.trim();
-        if (endLine !== "{endif}") throw new ParseError("Expected {endif}");
-        break;
-      } else if (cond) {
-        branches.push({ condition: cond, body: this.parseIfBlockBody() });
-        // next control line
-        const next = this.take("TEXT", "Expected {else}, {else if}, or {endif}").text.trim();
-        if (next === "{endif}") break;
-        cursor = next;
-        continue;
-      } else if (cursor === "{endif}") {
-        break;
-      } else {
-        throw new ParseError("Invalid if/else control line");
-      }
-    }
-    return { type: "If", branches };
   }
 
   private parseEnumBlock(enumName: string): EnumBlock {
@@ -523,35 +502,6 @@ class Parser {
     return { type: "If", branches };
   }
 
-  private parseIfBlockBody(): Statement[] {
-    // Body is indented lines until next control line or DEDENT boundary; to keep this simple
-    // we consume subsequent lines until encountering a control TEXT or EOF/OPTION/NODE_END.
-    const body: Statement[] = [];
-    while (!this.at("EOF") && !this.at("NODE_END")) {
-      // Stop when next TEXT is a control or when OPTION starts (new group)
-      if (this.at("TEXT")) {
-        const look = this.peek().text.trim();
-        if (look === "{else}" || look === "{endif}" || look.startsWith("{else if ") || look.startsWith("{if ")) break;
-      }
-      if (this.at("OPTION")) break;
-      // Support indented bodies inside if-branches
-      if (this.at("INDENT")) {
-        this.take("INDENT");
-        const nested = this.parseStatementsUntil("DEDENT");
-        this.take("DEDENT");
-        body.push(...nested);
-        // continue scanning after dedent
-        while (this.at("EMPTY")) this.i++;
-        continue;
-      }
-      if (this.at("EMPTY")) {
-        this.i++;
-        continue;
-      }
-      body.push(this.parseStatement());
-    }
-    return body;
-  }
 }
 
 

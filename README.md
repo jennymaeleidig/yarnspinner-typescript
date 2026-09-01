@@ -24,12 +24,11 @@ TypeScript parser, compiler, and runtime for Yarn Spinner 3.x with React adapter
 * ✅ Expression evaluator for conditions
 * ✅ Command system with built-in handlers (`<<set>>`, `<<declare>>`, etc.)
 * ✅ Scene system with backgrounds and actor images (with configurable portrait cross-fades)
-* ✅ Custom CSS styling via `&css{}` attributes
 * ✅ Built-in functions (`visited`, `random`, `min`, `max`, etc.)
 * ✅ Support for:
   * Lines with speakers
   * Options with indented bodies
-  * Inline option conditions via `[if expression]`
+  * Option-line conditions via `<<if expression>>`
   * `<<if>>/<<elseif>>/<<else>>/<<endif>>` blocks
   * `<<once>>...<<endonce>>` blocks
   * `<<jump NodeName>>` commands
@@ -91,17 +90,20 @@ runner.advance(); // Continue text
 runner.advance(0); // Choose option 0
 ```
 
-> Variables passed from your host app can be provided as `score` or `$score`; the runner normalizes keys so either style works.
+> Host-provided variables can be keyed as `score` or `$score` in the variables
+> map you pass at construction; the runtime normalizes storage keys. Inside
+> `.yarn` scripts, however, variable references must use the `$` prefix (see
+> the [migration notes](./docs/migration-notes.md)).
 
-### Inline conditional options
+### Conditional options
 
-You can add a per-option condition by appending `[if expression]` to the option text. The expression is evaluated when the option list is emitted; options whose expression evaluates to `false` are dropped before the runner shows them.
+You can add a per-option condition with `<<if expression>>` on the option line. The expression is evaluated when the option list is emitted; options whose expression evaluates to `false` are dropped before the runner shows them.
 
 ```yarn
 title: Hub
 ---
 <<declare $hasBadge = false>>
--> Ask about the badge [if $hasBadge]
+-> Ask about the badge <<if $hasBadge>>
     Narrator: You flash the badge.
 -> Offer a bribe
     Narrator: You slide some eddies across the table.
@@ -284,24 +286,12 @@ Narrator: You've arrived at the next scene!
 ===
 ```
 
-## CSS Styling
+## Styling
 
-You can apply custom CSS styles to nodes and options using the `&css{}` attribute:
-
-```yarn
-title: StyledNode
-&css{background-color: #ff0000; color: white;}
----
-Narrator: This node has a red background.
-
--> Option 1 &css{background-color: blue;}
-    Narrator: You chose the blue option.
-===
-```
-
-Styles are merged with default styles, with custom styles taking precedence.
-
-See [CSS Attribute Documentation](./docs/css-attribute.md) for details.
+The language carries no styling constructs (the fork-era `&css{}` attribute was
+removed for 3.2 parity — see the [migration notes](./docs/migration-notes.md)).
+Style dialogue in your consumer: the runtime emits structured events (speaker,
+tags, markup attributes) that your components can key presentation on.
 
 ## Scene Configuration
 

@@ -9,14 +9,14 @@ group: Demo
 color: blue
 ---
 Narrator: Welcome to the comprehensive Yarn test.
-<<set score 7>>
-{if score >= 10}
+<<set $score to 7>>
+<<if $score >= 10>>
     Narrator: High score branch.
-{else if score >= 5}
+<<elseif $score >= 5>>
     Narrator: Medium score branch.
-{else}
+<<else>>
     Narrator: Low score branch.
-{endif}
+<<endif>>
 
 <<once>>
     Narrator: This once block should only appear the first time.

@@ -28,7 +28,6 @@ const visitCountKey = (title: string) => `${GENERATED_PREFIX}VisitCount:${title}
 type CompiledOption = {
   text: string;
   tags?: string[];
-  css?: string;
   markup?: MarkupParseResult;
   condition?: string;
   block: IRInstruction[];
@@ -505,14 +504,14 @@ export class YarnRunner {
       if (!ins) {
         // Node ended
         this.recordVisit(this.nodeTitle);
-        this.emit({ type: "text", text: "", nodeCss: resolved.css, scene: resolved.scene, isDialogueEnd: true });
+        this.emit({ type: "text", text: "", scene: resolved.scene, isDialogueEnd: true });
         return;
       }
       this.ip++;
       switch (ins.op) {
         case "line": {
           const { text: interpolatedText, markup: interpolatedMarkup } = this.interpolate(ins.text, ins.markup);
-          this.emit({ type: "text", text: interpolatedText, speaker: ins.speaker, tags: ins.tags, markup: interpolatedMarkup, nodeCss: resolved.css, scene: resolved.scene, isDialogueEnd: this.lookaheadIsEnd() });
+          this.emit({ type: "text", text: interpolatedText, speaker: ins.speaker, tags: ins.tags, markup: interpolatedMarkup, scene: resolved.scene, isDialogueEnd: this.lookaheadIsEnd() });
           return;
         }
         case "command": {
@@ -543,9 +542,8 @@ export class YarnRunner {
             type: "options",
             options: available.map((o) => {
               const { text: interpolatedText, markup: interpolatedMarkup } = this.interpolate(o.text, o.markup);
-              return { text: interpolatedText, tags: o.tags, css: o.css, markup: interpolatedMarkup };
+              return { text: interpolatedText, tags: o.tags, markup: interpolatedMarkup };
             }),
-            nodeCss: resolved.css,
             scene: resolved.scene,
             isDialogueEnd: this.lookaheadIsEnd(),
           });

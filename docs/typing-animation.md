@@ -37,7 +37,6 @@ The demo UI ships with a `TypingText` React component that renders dialogue one 
 
 - `TypingText` accepts `className` and `cursorClassName` for theming.
 - Cursor blinking speed is controlled by `cursorBlinkDuration` (ms).
-- Dialogue nodes can still provide CSS via Yarn tags (`&css{...}`); those styles wrap the animated text just like static text.
 
 ### Testing
 

@@ -13,10 +13,10 @@ Narrator: Welcome to [b]yarn-spinner-ts[/b], {$playerName}!
 Narrator: Current street cred: {$reputation}
 npc: This is a dialogue system powered by Yarn Spinner.
 Narrator: Click anywhere to continue, or choose an option below.
--> Start the adventure &css{backgroundColor: #4a9eff; color: white;} [if $hasBadge]
+-> Start the adventure <<if $hasBadge>>
     Narrator: Great! Let's begin your journey.
     <<jump NextScene>>
--> Learn more &css{backgroundColor: #2ecc71; color: red;}
+-> Learn more
     Narrator: Yarn Spinner is a powerful narrative scripting language.
     npc: It supports variables, conditions, and branching stories.
     <<jump NextScene>>
@@ -29,7 +29,7 @@ Narrator: You've reached the next scene!
 Narrator: The dialogue system supports rich features like:
 Narrator: • Variables and expressions
 Narrator: • Conditional branching
-Narrator: • Options with CSS styling
+Narrator: • Options with conditions
 Narrator: • Commands and functions
 Narrator: This is the end of the demo. Refresh to start again!
 ===`;

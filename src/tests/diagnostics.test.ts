@@ -18,6 +18,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { compileSource } from "../compile/compileSource.js";
+import { YarnRunner } from "../index.js";
 import type { Diagnostic } from "../compile/diagnostics.js";
 import { DIAGNOSTIC_REGISTRY } from "../compile/diagnostics.js";
 
@@ -170,6 +171,168 @@ Two
 ===
 `);
   assert.deepEqual(diagnostics, []);
+});
+
+// --- Syntax removals (ticket 40): fork-era extensions fail compilation with
+// --- YS-coded diagnostics, not parser crashes.
+
+// Note: each removal surfaces as YS0005 (SyntaxError) because the fork-era
+// constructs are not part of the 3.2.2 grammar; the message carries the
+// migration pointer. See docs/migration-notes.md.
+
+test("removed syntax: option-condition [if expr] suffix is a diagnostic, not a crash", () => {
+  const diagnostics = compile(`title: Start
+---
+<<declare $flag = true>>
+-> Hidden [if $flag]
+    Narrator: Hidden
+-> Visible
+    Narrator: Visible
+===
+`);
+  assert.deepEqual(codesOf(diagnostics), ["YS0005"]);
+  assert.match(diagnostics[0].message, /\[if .*\] has been removed/);
+  assert.match(diagnostics[0].message, /<<if .*>>/);
+});
+
+test("removed syntax: inline {if}{else}{endif} blocks are a diagnostic, not a crash", () => {
+  const diagnostics = compile(`title: Start
+---
+{if $x}
+High
+{else}
+Low
+{endif}
+===
+`);
+  assert.deepEqual(codesOf(diagnostics), ["YS0005"]);
+  assert.match(diagnostics[0].message, /\{if\}.*been removed/s);
+  assert.match(diagnostics[0].message, /<<if .*>>/);
+});
+
+test("removed syntax: &css{} in a line is a diagnostic, not a crash", () => {
+  const diagnostics = compile(`title: Start
+---
+Narrator: Styled line &css{color: red;}
+===
+`);
+  assert.deepEqual(codesOf(diagnostics), ["YS0005"]);
+  assert.match(diagnostics[0].message, /&css\{\} has been removed/);
+});
+
+test("removed syntax: &css{} in a header is a diagnostic, not a crash", () => {
+  const diagnostics = compile(`title: Start
+style: &css{backgroundColor: red;}
+---
+Hello
+===
+`);
+  assert.deepEqual(codesOf(diagnostics), ["YS0005"]);
+  assert.match(diagnostics[0].message, /&css\{\} has been removed/);
+});
+
+test("removed syntax: &css{} on an option is a diagnostic, not a crash", () => {
+  const diagnostics = compile(`title: Start
+---
+-> Styled &css{color: blue;}
+    Narrator: Chosen
+===
+`);
+  assert.deepEqual(codesOf(diagnostics), ["YS0005"]);
+  assert.match(diagnostics[0].message, /&css\{\} has been removed/);
+});
+
+test("$-prefix strictness: bare variable in <<set>> is a diagnostic", () => {
+  const diagnostics = compile(`title: Start
+---
+<<set score to 7>>
+===
+`);
+  assert.deepEqual(codesOf(diagnostics), ["YS0005"]);
+  assert.match(diagnostics[0].message, /\$ prefix/);
+});
+
+test("$-prefix strictness: bare variable in <<declare>> is a diagnostic", () => {
+  const diagnostics = compile(`title: Start
+---
+<<declare score = 7>>
+===
+`);
+  assert.deepEqual(codesOf(diagnostics), ["YS0005"]);
+  assert.match(diagnostics[0].message, /\$ prefix/);
+});
+
+test("$-prefix strictness: bare variable in compound assignment is a diagnostic", () => {
+  const diagnostics = compile(`title: Start
+---
+<<declare $score = 0>>
+<<set score += 1>>
+===
+`);
+  assert.deepEqual(codesOf(diagnostics), ["YS0005"]);
+  assert.match(diagnostics[0].message, /\$ prefix/);
+});
+
+test("3.2 syntax: option-line <<if expr>> condition compiles and filters at runtime", () => {
+  const source = `title: StartFalse
+---
+<<declare $flag = false>>
+-> Hidden <<if $flag>>
+    Narrator: Hidden
+-> Visible
+    Narrator: Visible
+===
+
+title: StartTrue
+---
+<<declare $flag = true>>
+-> Hidden <<if $flag>>
+    Narrator: Hidden
+-> Visible
+    Narrator: Visible
+===
+`;
+  const diagnostics = compile(source);
+  assert.deepEqual(diagnostics, []);
+
+  // Runtime behavior through the existing runner seam: the false condition
+  // drops the option before the list is shown.
+  const result = compileSource(source);
+  const runner = new YarnRunner(result.program!, { startAt: "StartFalse" });
+  let guard = 25;
+  while (guard-- > 0) {
+    const current = runner.currentResult;
+    if (!current) break;
+    if (current.type === "options") {
+      assert.equal(current.options.length, 1, "Hidden option should be filtered out when condition is false");
+      assert.equal(current.options[0].text, "Visible");
+      return;
+    }
+    runner.advance();
+  }
+  throw new Error("Failed to reach options");
+});
+
+test("option-line <<if>> without an expression is a diagnostic (upstream ParseFailures)", () => {
+  const diagnostics = compile(`title: Start
+---
+-> One <<if>>
+    Narrator: Chose one
+===
+`);
+  assert.deepEqual(codesOf(diagnostics), ["YS0005"]);
+  assert.match(diagnostics[0].message, /requires an expression/);
+});
+
+test("an option with two different <<if>> conditions is a diagnostic", () => {
+  const diagnostics = compile(`title: Start
+---
+-> Broken <<if $a >> <<if $b>>
+    Narrator: Chose
+===
+`);
+  assert.deepEqual(codesOf(diagnostics), ["YS0005"]);
+  assert.match(diagnostics[0].message, /only one <<if>> condition/);
 });
 
 test("every emitted code exists in the vendored 3.2.2 definitions registry", () => {

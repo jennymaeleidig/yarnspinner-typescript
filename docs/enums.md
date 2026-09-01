@@ -8,17 +8,22 @@ Source: [docs.yarnspinner.dev — Enums](https://docs.yarnspinner.dev/write-yarn
 
 ### Example
 ```yarn
+<<enum Mood>>
+<<case Happy>>
+<<case Neutral>>
+<<case Sad>>
+<<endenum>>
+
 title: Setup
 ---
-<<declare Mood = enum { Happy, Neutral, Sad }>>
-<<set currentMood = Mood.Happy>>
+<<declare $currentMood = Mood.Happy>>
 ===
 
 title: Check
 ---
-{if currentMood == Mood.Happy}
+<<if $currentMood == Mood.Happy>>
     NPC: Great to see you!
-{endif}
+<<endif>>
 ===
 ```
 

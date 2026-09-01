@@ -193,12 +193,12 @@ Narrator: Run branch
   strictEqual(optionsResult.options[1].text, "Run");
 });
 
-test("inline [if] option condition filters options", () => {
+test("option-line <<if>> condition filters options", () => {
   const script = `
 title: StartFalse
 ---
 <<declare $flag = false>>
--> Hidden [if $flag]
+-> Hidden <<if $flag>>
     Narrator: Hidden
 -> Visible
     Narrator: Visible
@@ -207,7 +207,7 @@ title: StartFalse
 title: StartTrue
 ---
 <<declare $flag = true>>
--> Hidden [if $flag]
+-> Hidden <<if $flag>>
     Narrator: Hidden
 -> Visible
     Narrator: Visible
