@@ -15,6 +15,8 @@
  *   -1 = no-option-selected (3.1 fall-through).
  * - All runs of a plan share one runtime: variables, once-state, and visit
  *   counts persist across runs (each run re-enters the start node).
+ * - `set:` steps are validated against the program's declared initial values
+ *   (upstream `Program.InitialValues`) and applied to the shared storage.
  * - Harness-registered functions are part of the conformance contract
  *   (TestBase/LanguageTests): `assert`, `dummy_*`, `add_three_operands`, and
  *   the quest stubs.
@@ -278,6 +280,12 @@ export function runTestPlan(program: IRProgram, plan: TestPlan): void {
           break;
         }
         case "set": {
+          // Upstream (TestBase): set: requires the variable to be declared in
+          // the program (Program.InitialValues lookup), then sets it into the
+          // run's variable storage.
+          if (!(step.variable in program.initialValues)) {
+            throw new PlanFailure(`set: variable $${step.variable} is not valid in program`);
+          }
           runner.setVariable(step.variable, step.value);
           break;
         }

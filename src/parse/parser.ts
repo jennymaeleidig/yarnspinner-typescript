@@ -45,6 +45,21 @@ class Parser {
     return null;
   }
 
+  /**
+   * Consume one lexer-emitted indentation token if the current statement
+   * context treats it as transparent. The lexer emits INDENT/DEDENT for any
+   * indentation change, and upstream fixtures deliberately mix indent levels
+   * inside if/once/option bodies, so statement loops skip these tokens unless
+   * the enclosing construct owns them (shared by the three statement loops).
+   */
+  private skipIndentTransparency(endType?: Token["type"]): boolean {
+    if (this.at("INDENT") || (this.at("DEDENT") && endType !== "DEDENT")) {
+      this.i++;
+      return true;
+    }
+    return false;
+  }
+
   parseDocument(): YarnDocument {
     const enums: EnumBlock[] = [];
     const nodes: YarnNode[] = [];
@@ -173,13 +188,8 @@ class Parser {
       }
 
       // Indentation tokens are transparent outside the constructs that own
-      // them (option bodies, once/enum blocks): the lexer emits INDENT/DEDENT
-      // for any indentation change, and upstream fixtures deliberately mix
-      // indent levels inside if-blocks. Only endType terminates here.
-      if (this.at("INDENT") || (this.at("DEDENT") && endType !== "DEDENT")) {
-        this.i++;
-        continue;
-      }
+      // them (see skipIndentTransparency). Only endType terminates here.
+      if (this.skipIndentTransparency(endType)) continue;
 
       const stmt = this.parseStatement();
       out.push(stmt);
@@ -349,13 +359,10 @@ class Parser {
         this.i++;
         continue;
       }
-      // Indentation tokens are transparent here (see parseStatementsUntil):
+      // Indentation tokens are transparent here (see skipIndentTransparency):
       // if/once bodies may be written at any indent level relative to their
       // delimiting commands, so INDENT/DEDENT must not terminate the body.
-      if (this.at("INDENT") || this.at("DEDENT")) {
-        this.i++;
-        continue;
-      }
+      if (this.skipIndentTransparency()) continue;
       out.push(this.parseStatement());
     }
     return out;
@@ -422,12 +429,9 @@ class Parser {
     // Parse cases until <<endenum>>
     while (!this.at("EOF")) {
       while (this.at("EMPTY")) this.i++;
-      // Indentation around <<case>> lines (as written in upstream fixtures)
+      // Indentation around <<case>> lines (see skipIndentTransparency)
       // must not stall the loop.
-      if (this.at("INDENT") || this.at("DEDENT")) {
-        this.i++;
-        continue;
-      }
+      if (this.skipIndentTransparency()) continue;
       if (this.at("COMMAND")) {
         const cmd = this.peek().text.trim();
         if (cmd === "endenum") {

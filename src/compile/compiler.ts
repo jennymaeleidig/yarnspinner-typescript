@@ -12,12 +12,41 @@ function trackingHeader(headers: Record<string, string>): "always" | "never" | u
   return undefined;
 }
 
+/**
+ * Collect `<<declare $var = expr>>` commands from a statement tree into
+ * `program.initialValues` (upstream `Program.InitialValues`). First
+ * declaration wins — duplicate declarations are a compile-time concern the
+ * diagnostics channel will own (phase 1).
+ */
+function collectInitialValues(stmts: Statement[], into: Record<string, string>): void {
+  for (const s of stmts) {
+    switch (s.type) {
+      case "Command": {
+        const match = (s as { content: string }).content.match(/^declare\s+(\$[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/);
+        if (match && !(match[1] in into)) {
+          into[match[1].slice(1)] = (s as { content: string }).content;
+        }
+        break;
+      }
+      case "If":
+        for (const b of (s as { branches: Array<{ body: Statement[] }> }).branches) collectInitialValues(b.body, into);
+        break;
+      case "Once":
+        collectInitialValues((s as { body: Statement[] }).body, into);
+        break;
+      case "OptionGroup":
+        for (const o of (s as { options: Array<{ body: Statement[] }> }).options) collectInitialValues(o.body, into);
+        break;
+    }
+  }
+}
+
 export interface CompileOptions {
   generateOnceIds?: (ctx: { node: string; index: number }) => string;
 }
 
 export function compile(doc: YarnDocument, opts: CompileOptions = {}): IRProgram {
-  const program: IRProgram = { enums: {}, nodes: {} };
+  const program: IRProgram = { enums: {}, nodes: {}, initialValues: {} };
   // Store enum definitions
   for (const enumDef of doc.enums) {
     program.enums[enumDef.name] = enumDef.cases;
@@ -104,6 +133,7 @@ export function compile(doc: YarnDocument, opts: CompileOptions = {}): IRProgram
       return block;
     }
       instructions.push(...emitBlock(node.body));
+      collectInitialValues(node.body, program.initialValues);
       const irNode: IRNode = { 
         title: node.title, 
         instructions,
@@ -173,6 +203,7 @@ export function compile(doc: YarnDocument, opts: CompileOptions = {}): IRProgram
           return block;
         }
         instructions.push(...emitBlock(node.body));
+        collectInitialValues(node.body, program.initialValues);
         groupNodes.push({
           title: node.title,
           instructions,

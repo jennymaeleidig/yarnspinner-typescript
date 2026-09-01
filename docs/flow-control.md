@@ -22,4 +22,13 @@ title: Start
 ===
 ```
 
+### Implementation notes (this runtime)
+- `<<stop>>` halts dialogue immediately: the stack clears, further advances
+  do nothing, and a dialogue-complete event fires.
+- `<<return>>` pops to the detour's caller (recording the visit), or acts as
+  stop outside a detour (upstream: ends the dialogue).
+- Compound assignment `<<set $x += expr>>` (also `-=`, `*=`, `/=`, `%=`) is
+  supported; string `+=` concatenates with upstream value rendering
+  (booleans as `True`/`False`).
+
 

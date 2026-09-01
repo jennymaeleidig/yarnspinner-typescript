@@ -2,6 +2,14 @@ import type { MarkupParseResult } from "../markup/types.js";
 export type IRProgram = {
   enums: Record<string, string[]>; // enum name -> cases
   nodes: Record<string, IRNode | IRNodeGroup>; // can be single node or group
+  /**
+   * Upstream `Program.InitialValues`: the default value of every `<<declare>>`d
+   * variable, collected at compile time. Keys are bare variable names (this
+   * storage's convention); values are the raw `declare` command content, which
+   * the runtime evaluates into variable storage at start-up so declared
+   * variables exist before the first node runs.
+   */
+  initialValues: Record<string, string>;
 };
 
 export type IRNode = {
@@ -10,7 +18,7 @@ export type IRNode = {
   when?: string[]; // Array of when conditions
   css?: string;
   scene?: string; // Scene name from node header
-  tracking?: string; // Visit tracking mode from the tracking: header ("always" | "never")
+  tracking?: "always" | "never"; // Visit tracking mode from the tracking: header
 };
 
 export type IRNodeGroup = {

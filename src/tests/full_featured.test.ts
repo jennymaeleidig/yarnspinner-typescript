@@ -111,8 +111,10 @@ Narrator: This is detour content.
   strictEqual(j.type, "options", "Should show options in NextScene");
   if (j.type === "options") strictEqual(j.options.length, 2, "Should have 2 options in NextScene");
 
-  // Second run: once block should be skipped
-  runner = new YarnRunner(ir, { startAt: "Start" });
+  // Second pass: once block should be skipped. Same runtime re-enters Start
+  // (once-state lives in the runner's variable storage, per coding standards
+  // §4; a NEW runner would start with fresh state).
+  runner.setNode("Start");
   const k = runner.currentResult!;
   strictEqual(k.type, "text");
   if (k.type === "text") strictEqual(/Welcome/.test(k.text), true, "Welcome should appear");

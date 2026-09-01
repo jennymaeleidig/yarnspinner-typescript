@@ -1,7 +1,7 @@
 import type { IRProgram, IRInstruction, IRNode, IRNodeGroup } from "../compile/ir";
 import type { MarkupParseResult, MarkupSegment, MarkupWrapper } from "../markup/types.js";
 import type { RuntimeResult } from "./results.js";
-import { ExpressionEvaluator } from "./evaluator.js";
+import { ExpressionEvaluator, stringifyOperand } from "./evaluator.js";
 import { CommandHandler, parseCommand } from "./commands.js";
 import type { ParsedCommand } from "./commands.js";
 
@@ -14,18 +14,16 @@ export interface RunnerOptions {
   onStoryEnd?: (payload: { variables: Readonly<Record<string, unknown>>; storyEnd: true }) => void;
 }
 
-const globalOnceSeen = new Set<string>();
-const globalNodeGroupOnceSeen = new Set<string>(); // Track "once" nodes in groups: "title#index"
-
 /**
- * Render an interpolated value the way upstream's ExpandSubstitutions does
- * (C# value.ToString()): booleans as "True"/"False". This is the observable
- * composed-text contract the upstream conformance corpus asserts.
+ * Reserved namespace for generated variables: internal state (once-state,
+ * visit counts) that lives in the variable storage so it resets with it.
+ * Coding standards §4 / CONTEXT.md "Generated variable" — never module
+ * globals or runner-owned side tables.
  */
-function formatValueForText(value: unknown): string {
-  if (typeof value === "boolean") return value ? "True" : "False";
-  return String(value);
-}
+const GENERATED_PREFIX = "Yarn.Internal.";
+const onceKey = (id: string) => `${GENERATED_PREFIX}Once:${id}`;
+const groupOnceKey = (key: string) => `${GENERATED_PREFIX}GroupOnce:${key}`;
+const visitCountKey = (title: string) => `${GENERATED_PREFIX}VisitCount:${title}`;
 
 type CompiledOption = {
   text: string;
@@ -43,12 +41,9 @@ export class YarnRunner {
   private readonly handleCommand?: (command: string, parsed?: ReturnType<typeof parseCommand>) => void;
   private readonly commandHandler: CommandHandler;
   private readonly evaluator: ExpressionEvaluator;
-  private readonly onceSeen = globalOnceSeen;
   private readonly onStoryEnd?: RunnerOptions["onStoryEnd"];
   private storyEnded = false;
   private stopped = false; // set by <<stop>>: further advances do nothing
-  private readonly nodeGroupOnceSeen = globalNodeGroupOnceSeen;
-  private readonly visitCounts: Record<string, number> = {};
   private pendingOptions: CompiledOption[] | null = null;
 
   private nodeTitle: string;
@@ -65,12 +60,6 @@ export class YarnRunner {
   constructor(program: IRProgram, opts: RunnerOptions) {
     this.program = program;
     this.variables = {};
-    if (opts.variables) {
-      for (const [key, value] of Object.entries(opts.variables)) {
-        const normalizedKey = key.startsWith("$") ? key.slice(1) : key;
-        this.variables[normalizedKey] = value;
-      }
-    }
     this.functions = {
       // Default conversion helpers
       string: (v: unknown) => String(v ?? ""),
@@ -78,11 +67,11 @@ export class YarnRunner {
       bool: (v: unknown) => Boolean(v),
       visited: (nodeName: unknown) => {
         const name = String(nodeName ?? "");
-        return (this.visitCounts[name] ?? 0) > 0;
+        return (Number(this.variables[visitCountKey(name)]) || 0) > 0;
       },
       visited_count: (nodeName: unknown) => {
         const name = String(nodeName ?? "");
-        return this.visitCounts[name] ?? 0;
+        return Number(this.variables[visitCountKey(name)]) || 0;
       },
       format_invariant: (n: unknown) => {
         const num = Number(n);
@@ -129,6 +118,25 @@ export class YarnRunner {
     this.onStoryEnd = opts.onStoryEnd;
     this.evaluator = new ExpressionEvaluator(this.variables, this.functions, this.program.enums);
     this.commandHandler = opts.commandHandler ?? new CommandHandler(this.variables);
+
+    // Upstream Dialogue.SetProgram seeds the variable storage from
+    // Program.InitialValues (the <<declare>>d defaults), so every declared
+    // variable exists before the first node runs. Host-provided variables
+    // are applied afterwards and override declared defaults.
+    for (const content of Object.values(this.program.initialValues)) {
+      try {
+        void this.commandHandler.execute(parseCommand(content), this.evaluator).catch(() => {});
+      } catch {
+        // collect-don't-throw: a malformed declaration stays dormant until
+        // its node runs and the command handler surfaces it.
+      }
+    }
+    if (opts.variables) {
+      for (const [key, value] of Object.entries(opts.variables)) {
+        const normalizedKey = key.startsWith("$") ? key.slice(1) : key;
+        this.variables[normalizedKey] = value;
+      }
+    }
     this.nodeTitle = opts.startAt;
 
     this.step();
@@ -175,7 +183,7 @@ export class YarnRunner {
         this.currentNodeIndex = i;
         // If "once" condition, mark as seen immediately
         if (candidate.when?.includes("once")) {
-          this.markNodeGroupOnceSeen(title, i);
+          this.markGroupOnceSeen(title, i);
         }
         return candidate;
       }
@@ -201,7 +209,7 @@ export class YarnRunner {
       if (trimmed === "once") {
         // Check if this node has been visited once
         const onceKey = `${nodeTitle}#${nodeIndex}`;
-        if (this.nodeGroupOnceSeen.has(onceKey)) {
+        if (this.hasGroupOnceSeen(onceKey)) {
           return false; // Already seen once
         }
         // Will mark as seen when node is entered
@@ -225,9 +233,21 @@ export class YarnRunner {
   /**
    * Mark a node group node as seen (for "once" condition).
    */
-  private markNodeGroupOnceSeen(nodeTitle: string, nodeIndex: number): void {
-    const onceKey = `${nodeTitle}#${nodeIndex}`;
-    this.nodeGroupOnceSeen.add(onceKey);
+  private markGroupOnceSeen(nodeTitle: string, nodeIndex: number): void {
+    this.variables[groupOnceKey(`${nodeTitle}#${nodeIndex}`)] = true;
+  }
+
+  private hasGroupOnceSeen(key: string): boolean {
+    return this.variables[groupOnceKey(key)] === true;
+  }
+
+  /** Once-state for <<once>> block ids, as generated variables. */
+  private hasOnce(id: string): boolean {
+    return this.variables[onceKey(id)] === true;
+  }
+
+  private markOnce(id: string): void {
+    this.variables[onceKey(id)] = true;
   }
 
   advance(optionIndex?: number) {
@@ -256,7 +276,8 @@ export class YarnRunner {
         if (value === null || value === undefined) {
           return "";
         }
-        return formatValueForText(value);
+        // Upstream composed text (C# ToString): booleans as "True"/"False".
+        return stringifyOperand(value);
       } catch {
         return "";
       }
@@ -416,21 +437,11 @@ export class YarnRunner {
           return true;
         }
         case "command": {
-          try {
-            const parsed = parseCommand(ins.content);
-            if (parsed.name.toLowerCase() === "return") {
-              if (this.maybeReturn()) {
-                this.step();
-                return true;
-              }
-              this.haltNow(); // <<return>> outside a detour acts as stop
-              return true;
-            }
-            if (this.maybeStop(parsed)) return true;
-            this.commandHandler.execute(parsed, this.evaluator).catch(() => {});
-            if (this.handleCommand) this.handleCommand(ins.content, parsed);
-          } catch {
-            if (this.handleCommand) this.handleCommand(ins.content);
+          const outcome = this.runCommandState(ins.content);
+          if (outcome.halted) return true;
+          if (outcome.returned) {
+            this.step();
+            return true;
           }
           // Delivered command text has {expr} substitutions expanded
           // (upstream expands command text before delivery).
@@ -464,34 +475,20 @@ export class YarnRunner {
           break;
         }
         case "once": {
-          if (!this.onceSeen.has(ins.id)) {
-            this.onceSeen.add(ins.id);
+          if (!this.hasOnce(ins.id)) {
+            this.markOnce(ins.id);
             this.callStack.push({ kind: "block", title: this.nodeTitle, ip: this.ip, block: ins.block, idx: 0 });
             return this.resumeBlock();
           }
           break;
         }
         case "jump": {
-          // A jump exits the current node entirely: record the visit, clear
-          // the return stack (a jump inside a detoured node unwinds detours),
-          // and abandon any in-progress block frames.
-          this.recordVisit(this.nodeTitle);
-          for (const frame of this.callStack) {
-            if (frame.kind === "detour") {
-              this.recordVisit(frame.title);
-            }
-          }
-          this.callStack.length = 0;
-          this.nodeTitle = this.resolveDestination(ins.target);
-          this.ip = 0;
-          this.currentNodeIndex = -1;
+          this.performJump(ins.target);
           this.step();
           return true;
         }
         case "detour": {
-          this.callStack.push({ kind: "detour", title: top.title, ip: top.ip });
-          this.nodeTitle = this.resolveDestination(ins.target);
-          this.ip = 0;
+          this.beginDetour(ins.target);
           this.step();
           return true;
         }
@@ -519,19 +516,9 @@ export class YarnRunner {
           return;
         }
         case "command": {
-          try {
-            const parsed = parseCommand(ins.content);
-            if (parsed.name.toLowerCase() === "return") {
-              if (this.maybeReturn()) continue;
-              this.haltNow(); // <<return>> outside a detour acts as stop
-              return;
-            }
-            if (this.maybeStop(parsed)) return;
-            this.commandHandler.execute(parsed, this.evaluator).catch(() => {});
-            if (this.handleCommand) this.handleCommand(ins.content, parsed);
-          } catch {
-            if (this.handleCommand) this.handleCommand(ins.content);
-          }
+          const outcome = this.runCommandState(ins.content);
+          if (outcome.halted) return;
+          if (outcome.returned) continue;
           // Delivered command text has {expr} substitutions expanded
           // (upstream expands command text before delivery).
           const { text: expandedCommand } = this.interpolate(ins.content);
@@ -539,29 +526,11 @@ export class YarnRunner {
           return;
         }
         case "jump": {
-          // A jump exits the current node entirely: record the visit, clear
-          // the return stack (a jump inside a detoured node unwinds detours),
-          // and abandon any in-progress block frames.
-          this.recordVisit(this.nodeTitle);
-          for (const frame of this.callStack) {
-            if (frame.kind === "detour") {
-              this.recordVisit(frame.title);
-            }
-          }
-          this.callStack.length = 0;
-          this.nodeTitle = this.resolveDestination(ins.target);
-          this.ip = 0;
-          this.currentNodeIndex = -1; // Reset node index for new resolution
-          // resolveNode will handle node groups
+          this.performJump(ins.target);
           continue;
         }
         case "detour": {
-          // Save return position, jump to target node, return when it ends
-          this.callStack.push({ kind: "detour", title: this.nodeTitle, ip: this.ip });
-          this.nodeTitle = this.resolveDestination(ins.target);
-          this.ip = 0;
-          this.currentNodeIndex = -1; // Reset node index for new resolution
-          // resolveNode will handle node groups
+          this.beginDetour(ins.target);
           continue;
         }
         case "options": {
@@ -591,8 +560,8 @@ export class YarnRunner {
           break;
         }
         case "once": {
-          if (!this.onceSeen.has(ins.id)) {
-            this.onceSeen.add(ins.id);
+          if (!this.hasOnce(ins.id)) {
+            this.markOnce(ins.id);
             this.callStack.push({ kind: "block", title: this.nodeTitle, ip: this.ip, block: ins.block, idx: 0 });
             if (this.resumeBlock()) return;
           }
@@ -600,100 +569,6 @@ export class YarnRunner {
         }
       }
     }
-  }
-
-  private executeBlock(block: { title: string; instructions: IRInstruction[] }) {
-    // Execute instructions of block, then resume
-    const saved = { title: this.nodeTitle, ip: this.ip } as const;
-    this.nodeTitle = block.title;
-    const tempIpStart = 0;
-    const tempNode = { title: block.title, instructions: block.instructions } as const;
-    // Use a temporary node context
-    const restore = () => {
-      this.nodeTitle = saved.title;
-      this.ip = saved.ip;
-    };
-
-    // Step through block, emitting first result
-    let idx = tempIpStart;
-    while (true) {
-      const ins = tempNode.instructions[idx++];
-      if (!ins) break;
-      switch (ins.op) {
-        case "line": {
-          const { text: interpolatedText, markup: interpolatedMarkup } = this.interpolate(ins.text, ins.markup);
-          this.emit({ type: "text", text: interpolatedText, speaker: ins.speaker, markup: interpolatedMarkup, isDialogueEnd: false });
-          restore();
-          return;
-        }
-        case "command":
-          try {
-            const parsed = parseCommand(ins.content);
-            this.commandHandler.execute(parsed, this.evaluator).catch(() => {});
-            if (this.handleCommand) this.handleCommand(ins.content, parsed);
-          } catch {
-            if (this.handleCommand) this.handleCommand(ins.content);
-          }
-          this.emit({ type: "command", command: ins.content, isDialogueEnd: false });
-          restore();
-          return;
-        case "options": {
-          const available = this.filterOptions(ins.options);
-          if (available.length === 0) {
-            continue;
-          }
-          this.pendingOptions = available;
-          this.emit({
-            type: "options",
-            options: available.map((o) => {
-              const { text: interpolatedText, markup: interpolatedMarkup } = this.interpolate(o.text, o.markup);
-              return { text: interpolatedText, markup: interpolatedMarkup };
-            }),
-            isDialogueEnd: false,
-          });
-          // Maintain context that options belong to main node at ip-1
-          restore();
-          return;
-        }
-        case "if": {
-          const branch = ins.branches.find((b) => (b.condition ? this.evaluator.evaluate(b.condition) : true));
-          if (branch) {
-            // enqueue nested block and resume from main context
-            this.callStack.push({ kind: "block", title: this.nodeTitle, ip: this.ip, block: branch.block, idx: 0 });
-            restore();
-            if (this.resumeBlock()) return;
-            return;
-          }
-          break;
-        }
-        case "once": {
-          if (!this.onceSeen.has(ins.id)) {
-            this.onceSeen.add(ins.id);
-            this.callStack.push({ kind: "block", title: this.nodeTitle, ip: this.ip, block: ins.block, idx: 0 });
-            restore();
-            if (this.resumeBlock()) return;
-            return;
-          }
-          break;
-        }
-        case "jump": {
-          this.nodeTitle = ins.target;
-          this.ip = 0;
-          this.step();
-          return;
-        }
-        case "detour": {
-          this.callStack.push({ kind: "detour", title: saved.title, ip: saved.ip });
-          this.nodeTitle = ins.target;
-          this.ip = 0;
-          this.step();
-          return;
-        }
-      }
-    }
-    // Block produced no output; resume
-    restore();
-    this.step();
   }
 
   private filterOptions(options: CompiledOption[]): CompiledOption[] {
@@ -730,6 +605,54 @@ export class YarnRunner {
   }
 
   /**
+   * Run a command instruction's state effects (`<<return>>`/`<<stop>>`/
+   * variable statements/delivered-command handling). Shared by `step()` and
+   * `resumeBlock()`, which differ only in how they emit and resume.
+   */
+  private runCommandState(content: string): { halted: boolean; returned: boolean } {
+    try {
+      const parsed = parseCommand(content);
+      if (parsed.name.toLowerCase() === "return") {
+        if (this.maybeReturn()) return { halted: false, returned: true };
+        this.haltNow(); // <<return>> outside a detour acts as stop
+        return { halted: true, returned: false };
+      }
+      if (this.maybeStop(parsed)) return { halted: true, returned: false };
+      this.commandHandler.execute(parsed, this.evaluator).catch(() => {});
+      if (this.handleCommand) this.handleCommand(content, parsed);
+    } catch {
+      if (this.handleCommand) this.handleCommand(content);
+    }
+    return { halted: false, returned: false };
+  }
+
+  /**
+   * Execute a `jump` instruction: the current node is exited entirely — the
+   * visit is recorded, detoured nodes on the return stack record theirs, and
+   * any in-progress block frames are abandoned (upstream jump semantics).
+   */
+  private performJump(target: string): void {
+    this.recordVisit(this.nodeTitle);
+    for (const frame of this.callStack) {
+      if (frame.kind === "detour") {
+        this.recordVisit(frame.title);
+      }
+    }
+    this.callStack.length = 0;
+    this.nodeTitle = this.resolveDestination(target);
+    this.ip = 0;
+    this.currentNodeIndex = -1;
+  }
+
+  /** Begin a detour: save the return position and enter the target node. */
+  private beginDetour(target: string): void {
+    this.callStack.push({ kind: "detour", title: this.nodeTitle, ip: this.ip });
+    this.nodeTitle = this.resolveDestination(target);
+    this.ip = 0;
+    this.currentNodeIndex = -1;
+  }
+
+  /**
    * Handle `<<return>>`: end a detour (pop to the caller and resume it), or
    * act as stop outside a detour.
    */
@@ -751,16 +674,13 @@ export class YarnRunner {
   }
 
   /**
-   * Resolve a jump/detour destination: braced targets are expressions
-   * (e.g. `{"Node3"}` or `{$myNodeName}`) evaluated at jump time.
-   */
-  /**
    * Record a node visit (upstream records on node return). Nodes with a
    * `tracking: never` header are not recorded.
    */
   private recordVisit(title: string): void {
     if (this.trackingSuppressedFor(title)) return;
-    this.visitCounts[title] = (this.visitCounts[title] ?? 0) + 1;
+    const key = visitCountKey(title);
+    this.variables[key] = (Number(this.variables[key]) || 0) + 1;
   }
 
   private trackingSuppressedFor(title: string): boolean {
@@ -804,8 +724,9 @@ export class YarnRunner {
     if (res.isDialogueEnd && !this.storyEnded && this.callStack.length === 0) {
       this.storyEnded = true;
       if (this.onStoryEnd) {
-        // Create a readonly copy of the variables
-        const variablesCopy = Object.freeze({ ...this.variables });
+        // Story-end payload exposes the story's variables, not the runtime's
+        // generated ones.
+        const variablesCopy = Object.freeze({ ...this.storyVariables() });
         this.onStoryEnd({ storyEnd: true, variables: variablesCopy });
       }
     }
@@ -823,11 +744,20 @@ export class YarnRunner {
     }
   }
 
+  /** Story variables: the storage minus generated variables. */
+  private storyVariables(): Record<string, unknown> {
+    const visible: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(this.variables)) {
+      if (!key.startsWith(GENERATED_PREFIX)) visible[key] = value;
+    }
+    return visible;
+  }
+
   /**
-   * Get the current variable store (read-only view).
+   * Get the current variable store (read-only view, generated variables excluded).
    */
   getVariables(): Readonly<Record<string, unknown>> {
-    return { ...this.variables };
+    return this.storyVariables();
   }
 
   /**

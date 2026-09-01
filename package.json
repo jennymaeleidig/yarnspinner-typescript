@@ -27,7 +27,16 @@
     }
   },
   "files": [
-    "dist",
+    "dist/*.js",
+    "dist/*.cjs",
+    "dist/*.d.ts",
+    "dist/compile",
+    "dist/markup",
+    "dist/model",
+    "dist/parse",
+    "dist/react",
+    "dist/runtime",
+    "dist/scene",
     "README.md"
   ],
   "keywords": [

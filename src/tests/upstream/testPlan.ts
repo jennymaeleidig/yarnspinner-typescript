@@ -56,7 +56,9 @@ export class TestPlanSyntaxError extends Error {
 const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const VARIABLE = /^\$([A-Za-z_][A-Za-z0-9_]*)$/;
 const BOOL = /^(true|false)$/;
-const NUMBER = /^[-+]?[0-9]+$/;
+// Grammar-exact (YarnSpinnerTestPlan.g4: `NUMBER: [0-9]+`). Plans only carry
+// non-negative integers (select: indices, set: values).
+const NUMBER = /^[0-9]+$/;
 const HASHTAG = /^#[^\s]+$/;
 
 /** Parse the text inside backticks; returns null if not backtick-quoted. */

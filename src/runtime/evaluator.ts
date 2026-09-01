@@ -3,8 +3,12 @@
  * Supports variables, functions, comparisons, and logical operators.
  */
 
-/** Render a value for string concatenation, the way upstream does (C# ToString). */
-function stringifyOperand(value: unknown): string {
+/**
+ * Render a value for string concatenation and composed text, the way upstream
+ * does (C# value.ToString()): booleans as "True"/"False". This is the
+ * observable text contract the upstream conformance corpus asserts.
+ */
+export function stringifyOperand(value: unknown): string {
   if (typeof value === "boolean") return value ? "True" : "False";
   return String(value ?? "");
 }

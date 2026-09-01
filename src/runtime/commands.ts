@@ -4,6 +4,7 @@
  */
 
 import type { ExpressionEvaluator as Evaluator } from "./evaluator";
+import { stringifyOperand } from "./evaluator.js";
 
 export interface ParsedCommand {
   name: string;
@@ -128,7 +129,9 @@ export class CommandHandler {
         const current = this.variables[key];
         let value: unknown;
         if (compoundOp === "+=" && (typeof current === "string" || typeof rhs === "string")) {
-          value = String(current ?? "") + String(rhs ?? "");
+          // String concat renders operands the upstream way (C# ToString:
+          // booleans as "True"/"False").
+          value = stringifyOperand(current) + stringifyOperand(rhs);
         } else {
           const left = Number(current ?? 0);
           const right = Number(rhs ?? 0);
@@ -169,7 +172,9 @@ export class CommandHandler {
       const varNameRaw = args[0];
       let exprParts = args.slice(1);
       if (exprParts[0] === "=") exprParts = exprParts.slice(1);
-      const expr = exprParts.join(" ");
+      // Upstream declare grammar: <<declare $var = expr (as TYPE)?>> — the
+      // type postfix is compile metadata; evaluate the expression alone.
+      const expr = exprParts.join(" ").replace(/\s+as\s+[A-Za-z_][A-Za-z0-9_]*\s*$/, "");
       
       
       const key = varNameRaw.startsWith("$") ? varNameRaw.slice(1) : varNameRaw;

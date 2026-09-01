@@ -21,4 +21,15 @@ Narrator: We are in the next scene.
 ===
 ```
 
+### Implementation notes (this runtime)
+- Jump destinations may be braced expressions: `<<jump {"Node3"}>>` or
+  `<<jump {$var}>>` are evaluated at jump time (upstream 3.2).
+- A jump exits the current node entirely: the exit records a visit, and
+  detoured nodes on the return stack record theirs (upstream records visits
+  on node return).
+- The `tracking: never` node header suppresses visit recording for that node
+  (spec story 22 / issue 13).
+- The runner API exposes `setNode(title)` for host-initiated jumps (upstream
+  `Dialogue.SetNode`).
+
 

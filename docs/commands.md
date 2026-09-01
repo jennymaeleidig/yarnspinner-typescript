@@ -18,4 +18,14 @@ Narrator: Opening the door.
 
 Exact command names and parameters are defined by your game integration.
 
+### Implementation notes (this runtime)
+- Delivered command text is interpolated: `{expr}` inside the command is
+  expanded before the `command` event reaches the host (upstream expands
+  substitutions at delivery).
+- `<<set>>`, `<<declare>>`, and `<<call>>` are handled as state statements and
+  never surface as `command` events in upstream; this runtime still emits them
+  (recorded gap — see `.scratch/ys32-parity/spec.md`, ticket 03).
+- `<<stop>>` halts dialogue immediately (a dialogue-complete event fires);
+  `<<return>>` ends a detour, or acts as stop outside one.
+
 
