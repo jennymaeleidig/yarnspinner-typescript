@@ -1,6 +1,25 @@
 import { test } from "node:test";
-import { strictEqual } from "node:assert";
-import { parseYarn, compile, YarnRunner } from "../index.js";
+import { strictEqual, ok } from "node:assert";
+import { parseYarn, compile } from "../index.js";
+import { Dialogue } from "../runtime/dialogue.js";
+import type { DialogueEvent } from "../runtime/dialogue.js";
+
+function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
+  const program = compile(parseYarn(source));
+  return new Dialogue(program, { startAt: "Start", ...opts });
+}
+
+const lineTexts = (events: DialogueEvent[]) =>
+  events.filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line").map((e) => e.text);
+
+function nextOptions(dialogue: Dialogue, guard = 25): DialogueEvent[] {
+  for (let i = 0; i < guard; i++) {
+    const batch = dialogue.continue();
+    if (batch.some((e) => e.type === "options")) return batch;
+    if (batch.length === 0 || batch[batch.length - 1].type === "dialogueComplete") break;
+  }
+  throw new Error("Failed to reach an options event");
+}
 
 test("full featured Yarn script with all elements", () => {
   const script = `
@@ -53,81 +72,54 @@ Narrator: This is detour content.
   const doc = parseYarn(script);
   const ir = compile(doc);
 
-  // First run: once content should appear
-  let runner = new YarnRunner(ir, { startAt: "Start" });
+  // First run: once content should appear.
+  const dialogue = new Dialogue(ir, { startAt: "Start" });
 
-  // Welcome text
-  const a = runner.currentResult!;
-  strictEqual(a.type, "text");
-  if (a.type === "text") strictEqual(/Welcome/.test(a.text), true, "Should show welcome");
-  runner.advance();
+  // Welcome text (the `<<set>>` never surfaces as a command event).
+  const a = dialogue.continue();
+  ok(lineTexts(a).includes("Welcome to the comprehensive Yarn test."), "Should show welcome");
 
-  // set command result
-  const b = runner.currentResult!;
-  strictEqual(b.type, "command", "Should emit command");
-  runner.advance();
+  // Medium score branch (score is 7, >= 5 but < 10), then the once block.
+  const b = dialogue.continue();
+  ok(lineTexts(b).includes("Medium score branch."), "Should take medium branch");
+  const c = dialogue.continue();
+  ok(
+    lineTexts(c).includes("This once block should only appear the first time."),
+    "Once block should appear first time",
+  );
 
-  // Medium score branch (score is 7, >= 5 but < 10)
-  const c = runner.currentResult!;
-  strictEqual(c.type, "text");
-  if (c.type === "text") strictEqual(/Medium score branch/.test(c.text), true, "Should take medium branch");
-  runner.advance();
+  // Options.
+  const e = nextOptions(dialogue);
+  const optionsEvent = e.find((ev): ev is Extract<DialogueEvent, { type: "options" }> => ev.type === "options");
+  strictEqual(optionsEvent?.options.length, 2, "Should have 2 options");
 
-  // Once block content
-  const d = runner.currentResult!;
-  strictEqual(d.type, "text");
-  if (d.type === "text") strictEqual(/This once block should only appear the first time\./.test(d.text), true, "Once block should appear first time");
-  runner.advance();
+  // Choose detour path (index 1): option body, detour, return — each line
+  // is one continue().
+  dialogue.selectOption(1);
+  ok(lineTexts(dialogue.continue()).includes("Let's explore a detour first."), "Should show option body");
+  ok(lineTexts(dialogue.continue()).includes("This is detour content."), "Should enter detour");
+  ok(lineTexts(dialogue.continue()).includes("Back from detour."), "Should return from detour");
 
-  // Options
-  const e = runner.currentResult!;
-  strictEqual(e.type, "options", "Should show options");
-  if (e.type === "options") strictEqual(e.options.length, 2, "Should have 2 options");
-
-  // Choose detour path (index 1)
-  runner.advance(1);
-  // Body text before detour
-  const f = runner.currentResult!;
-  strictEqual(f.type, "text");
-  if (f.type === "text") strictEqual(/Let's explore a detour first/.test(f.text), true, "Should show option body");
-  runner.advance(); // detour executes
-  // Detour content should be emitted
-  const g = runner.currentResult!;
-  strictEqual(g.type, "text");
-  if (g.type === "text") strictEqual(/This is detour content/.test(g.text), true, "Should enter detour");
-  runner.advance(); // return from detour
-  // After detour, should continue with next line
-  const h = runner.currentResult!;
-  strictEqual(h.type, "text");
-  if (h.type === "text") strictEqual(/Back from detour/.test(h.text), true, "Should return from detour");
-  runner.advance(); // jump executes
-  // NextScene arrival
-  const i = runner.currentResult!;
-  strictEqual(i.type, "text");
-  if (i.type === "text") strictEqual(/arrived in the next scene/.test(i.text), true, "Should jump to NextScene");
-  runner.advance();
-  // Options in NextScene
-  const j = runner.currentResult!;
-  strictEqual(j.type, "options", "Should show options in NextScene");
-  if (j.type === "options") strictEqual(j.options.length, 2, "Should have 2 options in NextScene");
+  // The jump lands in NextScene: arrival line, then its options.
+  ok(lineTexts(dialogue.continue()).includes("You have arrived in the next scene."), "Should jump to NextScene");
+  const next = nextOptions(dialogue);
+  const nextOptionsEvent = next.find((ev): ev is Extract<DialogueEvent, { type: "options" }> => ev.type === "options");
+  strictEqual(nextOptionsEvent?.options.length, 2, "Should have 2 options in NextScene");
 
   // Second pass: once block should be skipped. Same runtime re-enters Start
-  // (once-state lives in the runner's variable storage, per coding standards
-  // §4; a NEW runner would start with fresh state).
-  runner.setNode("Start");
-  const k = runner.currentResult!;
-  strictEqual(k.type, "text");
-  if (k.type === "text") strictEqual(/Welcome/.test(k.text), true, "Welcome should appear");
-  runner.advance(); // command
-  runner.advance(); // branch line
-  // Should skip once and show options immediately after branch
-  let l = runner.currentResult!;
-  if (l.type === "text") {
-    // Advance one more time in case an intermediate text was emitted
-    runner.advance();
-    l = runner.currentResult!;
-  }
-  strictEqual(l.type, "options", "Once should be skipped on second run");
+  // (once-state lives in the dialogue's variable storage, per coding
+  // standards §4; a NEW dialogue would start with fresh state).
+  dialogue.setNode("Start");
+  const second = dialogue.continue();
+  ok(lineTexts(second).includes("Welcome to the comprehensive Yarn test."), "Welcome should appear");
+  const branch = dialogue.continue();
+  ok(lineTexts(branch).includes("Medium score branch."), "branch line");
+
+  // The once block is skipped: the options arrive right after the branch.
+  const l = nextOptions(dialogue);
+  ok(
+    !lineTexts(l).includes("This once block should only appear the first time."),
+    "Once should be skipped on second run",
+  );
+  ok(l.some((ev) => ev.type === "options"), "Once should be skipped on second run");
 });
-
-

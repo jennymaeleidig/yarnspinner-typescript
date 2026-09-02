@@ -16,7 +16,7 @@ TypeScript parser, compiler, and runtime for Yarn Spinner 3.x with React adapter
 * ✅ Full Yarn Spinner 3.x syntax support
 * ✅ Parser for `.yarn` files → AST
 * ✅ Compiler: AST → Intermediate Representation (IR)
-* ✅ Runtime with `YarnRunner` class
+* ✅ Runtime with `Dialogue` class (pull-based event stream)
 * ✅ React hook: `useYarnRunner()`
 * ✅ React components: `<DialogueView />`, `<DialogueScene />`, `<DialogueExample />`
 * ✅ Typing animation with configurable speeds, cursor styles, and auto-advance controls
@@ -52,7 +52,7 @@ npm run build
 ### Basic Usage
 
 ```typescript
-import { parseYarn, compile, YarnRunner } from "yarn-spinner-runner-ts";
+import { parseYarn, compile, Dialogue, Library } from "yarn-spinner-runner-ts";
 
 const yarnText = `
 title: Start
@@ -67,27 +67,30 @@ Narrator: Hello!
 
 const ast = parseYarn(yarnText);
 const program = compile(ast);
-const runner = new YarnRunner(program, {
-  startAt: "Start",
-  variables: { score: 10 },
-  functions: {
-    add: (a: number, b: number) => a + b,
-  },
-  handleCommand: (cmd, parsed) => {
-    console.log("Command:", cmd);
-  },
-  onStoryEnd: ({ variables, storyEnd }) => {
-    console.log("Story ended!", storyEnd);
-    console.log("Final variables:", variables);
-  },
+const library = new Library();
+library.registerFunction("add", (a: number, b: number) => a + b);
+library.registerCommandHandler("flash", (params) => {
+  console.log("Flash:", params); // parameters arrive quote-stripped
 });
 
-// Get current result
-console.log(runner.currentResult); // TextResult, OptionsResult, or CommandResult
+const dialogue = new Dialogue(program, {
+  startAt: "Start",
+  variables: { score: 10 },
+  library,
+});
 
-// Advance dialogue
-runner.advance(); // Continue text
-runner.advance(0); // Choose option 0
+// Pull events up to the next stopping point (line, command, option set,
+// or dialogue end)
+let events = dialogue.continue();
+
+// When the batch contains an Options event, resume with a selection:
+// dialogue.selectOption(0);        // choose option 0
+// dialogue.selectOption(-1);       // or fall through past the options block
+
+// End of dialogue arrives as a DialogueComplete event with final state:
+if (events.some((e) => e.type === "dialogueComplete")) {
+  console.log("Final variables:", dialogue.getVariables());
+}
 ```
 
 > Host-provided variables can be keyed as `score` or `$score` in the variables
@@ -97,7 +100,7 @@ runner.advance(0); // Choose option 0
 
 ### Conditional options
 
-You can add a per-option condition with `<<if expression>>` on the option line. The expression is evaluated when the option list is emitted; options whose expression evaluates to `false` are dropped before the runner shows them.
+You can add a per-option condition with `<<if expression>>` on the option line. The expression is evaluated when the option list is emitted; options whose expression evaluates to `false` are still delivered, but with `isAvailable: false` so your UI can disable them.
 
 ```yarn
 title: Hub
@@ -110,7 +113,7 @@ title: Hub
 ===
 ```
 
-Once some branch executes `<<set $hasBadge = true>>`, the badge option automatically appears alongside the other entries, without extra `<<if>>` blocks.
+Once some branch executes `<<set $hasBadge = true>>`, the badge option arrives with `isAvailable: true` alongside the other entries, without extra `<<if>>` blocks.
 
 ### Arithmetic assignments
 
@@ -190,19 +193,25 @@ This starts a Vite dev server with a live Yarn script editor and dialogue system
 
 ### Runtime
 
-* `YarnRunner(program: IRProgram, options: RunnerOptions)` — Dialogue runner class
-  * `currentResult: RuntimeResult | null` — Current dialogue state
-  * `advance(optionIndex?: number): void` — Advance dialogue
-  * `getVariable(name: string): unknown` — Get variable value
-  * `setVariable(name: string, value: unknown): void` — Set variable value
-  * `getVariables(): Readonly<Record<string, unknown>>` — Get all variables
-  * `onStoryEnd?: (payload: { variables: Readonly<Record<string, unknown>>; storyEnd: true }) => void` — Handler called when story reaches its end, providing final variable state
+* `new Dialogue(program: IRProgram, options?: DialogueOptions)` — Pull-based dialogue runner
+  * `continue(): DialogueEvent[]` — Return events up to the next stopping point (line, command, option set, or dialogue end)
+  * `selectOption(index: number): void` — Resume after an Options event; `noOptionSelected` (-1) falls through past the options block
+  * `setNode(title: string): void` / `stop(): void` — Jump to a node / end the dialogue
+  * `getVariable(name: string): unknown` / `setVariable(name: string, value: unknown): void` / `getVariables(): Readonly<Record<string, unknown>>`
+  * `tryGetSmartVariable(name: string)` — Read a smart variable's current value
+  * `currentNode: string | null` / `currentScene: string | undefined` — Current node title and `scene:` header
+  * Options: `startAt` (default `"Start"`), `library`, `variables`, `lineHints` (opt-in `LineHintsEvent`), `logError` (default `console.error`), `logDebug` (default silent)
+  * Events (all camelCased): `LineEvent`, `OptionsEvent` (full option set with advisory `isAvailable` flags), `CommandEvent` (state commands like `<<set>>` never surface), `NodeStartEvent`, `NodeCompleteEvent`, `LineHintsEvent`, `DialogueCompleteEvent`
+* `Library` — Registry of host functions and command handlers (replaces the old `functions` map and `handleCommand` option)
+  * `registerFunction(name, fn)` — Throws on duplicate; `getFunction(name)` returns undefined when missing
+  * `registerCommandHandler(name, handler)` / `getCommandHandler(name)` — Handlers receive quote-stripped parameters
+  * `importLibrary(other)` — Merge another library; its entries take precedence
 
 ### React Components
 
-* `useYarnRunner(program: IRProgram, options: RunnerOptions)` — React hook
-  * Returns: `{ result: RuntimeResult | null, advance: (optionIndex?: number) => void, runner: YarnRunner }`
-* `<DialogueView result={...} onAdvance={...} scenes={...} />` — Ready-to-use dialogue component
+* `useYarnRunner(program: IRProgram, options?: UseYarnRunnerOptions)` — React hook over `Dialogue`
+  * Returns: `{ result: DialogueViewResult | null, advance: () => void, selectOption: (index: number) => void, dialogue: Dialogue }`
+* `<DialogueView result={...} onAdvance={...} onStoryEnd={...} scenes={...} />` — Ready-to-use dialogue component; disables unavailable option buttons and fires `onStoryEnd` once on dialogue completion
 * `<DialogueScene sceneName={...} speaker={...} scenes={...} actorTransitionDuration={...} /> — Scene background, actor display, and portrait transitions` — Scene background and actor display
 * `<DialogueExample />` — Full example with editor
 
@@ -226,9 +235,8 @@ See [Scene and Actor Setup Guide](./docs/scenes-actors-setup.md) for detailed do
 
 ### Commands
 
-* `CommandHandler` — Command handler registry
-  * Built-in: `<<set variable = value>>`, `<<declare $var = expr>>`
-  * Register custom handlers: `handler.register("mycommand", (args) => { ... })`
+* `Library.registerCommandHandler(name, handler)` — Register a custom command handler (see Runtime)
+* Built-in: `<<set>>`, `<<declare>>`, `<<call>>` are state statements handled internally and never surface as `Command` events
 * `parseCommand(content: string): ParsedCommand` — Parse command string
 
 ### Built-in Functions

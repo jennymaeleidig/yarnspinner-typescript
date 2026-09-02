@@ -1,7 +1,34 @@
 import { test } from "node:test";
 import { strictEqual, ok, match } from "node:assert";
 import { parseYarn, compile } from "../index.js";
-import { YarnRunner } from "../runtime/runner.js";
+import { Dialogue, Library } from "../runtime/dialogue.js";
+import type { DialogueEvent } from "../runtime/dialogue.js";
+
+function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
+  const program = compile(parseYarn(source));
+  return new Dialogue(program, { startAt: "Start", ...opts });
+}
+
+function drain(dialogue: Dialogue, guard = 100): DialogueEvent[] {
+  const events: DialogueEvent[] = [];
+  for (let i = 0; i < guard; i++) {
+    const batch = dialogue.continue();
+    if (batch.length === 0) break;
+    events.push(...batch);
+    if (events[events.length - 1].type === "dialogueComplete") break;
+  }
+  return events;
+}
+
+const firstLine = (dialogue: Dialogue): Extract<DialogueEvent, { type: "line" }> => {
+  const events = drain(dialogue);
+  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  if (!line) throw new Error("Expected a line event");
+  return line;
+};
+
+const composed = (line: Extract<DialogueEvent, { type: "line" }>): string =>
+  line.speaker ? `${line.speaker}: ${line.text}` : line.text;
 
 test("custom functions", () => {
   const yarnText = `
@@ -15,27 +42,22 @@ Result: {$doubled}, {$concatenated}, {$power}, {$conditionalValue}
 ===
 `;
 
-  const ast = parseYarn(yarnText);
-  const program = compile(ast);
-  const runner = new YarnRunner(program, {
+  const dialogue = makeDialogue(yarnText, {
     startAt: "CustomFuncs",
-    functions: {
-      multiply: (a: unknown, b: unknown) => Number(a) * Number(b),
-      concat: (a: unknown, b: unknown) => String(a) + String(b),
-      pow: (base: unknown, exp: unknown) => Math.pow(Number(base), Number(exp)),
-      ifThen: (cond: unknown, yes: unknown, no: unknown) => Boolean(cond) ? yes : no,
-    },
+    library: (() => {
+      const lib = new Library();
+      lib.registerFunction("multiply", (a, b) => Number(a) * Number(b));
+      lib.registerFunction("concat", (a, b) => String(a) + String(b));
+      lib.registerFunction("pow", (base, exp) => Math.pow(Number(base), Number(exp)));
+      lib.registerFunction("ifThen", (cond, yes, no) => Boolean(cond) ? yes : no);
+      return lib;
+    })(),
   });
 
-  // Need to advance past declare commands and get to the text line
-  for (let i = 0; i < 4; i++) {
-    runner.advance();
-  }
-  strictEqual(runner.currentResult?.type, "text");
-  if (runner.currentResult?.type === "text") {
-    const fullText = (runner.currentResult.speaker ? `${runner.currentResult.speaker}: ` : "") + runner.currentResult.text;
-    strictEqual(fullText, "Result: 6, Hello World, 8, yes");
-  }
+  // `<<declare>>` statements are internal: the first continue() delivers
+  // the composed result line directly.
+  const line = firstLine(dialogue);
+  strictEqual(composed(line), "Result: 6, Hello World, 8, yes");
 });
 
 test("custom functions with type coercion", () => {
@@ -49,26 +71,19 @@ Result: {$numFromStr}, {$concatNums}, {$boolStr}
 ===
 `;
 
-  const ast = parseYarn(yarnText);
-  const program = compile(ast);
-  const runner = new YarnRunner(program, {
+  const dialogue = makeDialogue(yarnText, {
     startAt: "TypeCoercion",
-    functions: {
-      multiply: (a: unknown, b: unknown) => Number(a) * Number(b),
-      concat: (a: unknown, b: unknown) => String(a) + String(b),
-      ifThen: (cond: unknown, yes: unknown, no: unknown) => Boolean(cond) ? yes : no,
-    },
+    library: (() => {
+      const lib = new Library();
+      lib.registerFunction("multiply", (a, b) => Number(a) * Number(b));
+      lib.registerFunction("concat", (a, b) => String(a) + String(b));
+      lib.registerFunction("ifThen", (cond, yes, no) => Boolean(cond) ? yes : no);
+      return lib;
+    })(),
   });
 
-  // Need to advance past declare commands and get to the text line
-  for (let i = 0; i < 3; i++) {
-    runner.advance();
-  }
-  strictEqual(runner.currentResult?.type, "text");
-  if (runner.currentResult?.type === "text") {
-    const fullText = (runner.currentResult.speaker ? `${runner.currentResult.speaker}: ` : "") + runner.currentResult.text;
-    strictEqual(fullText, "Result: 6, 123456, 1");
-  }
+  const line = firstLine(dialogue);
+  strictEqual(composed(line), "Result: 6, 123456, 1");
 });
 
 test("custom functions error handling", () => {
@@ -80,28 +95,21 @@ Result: {$result}
 ===
 `;
 
-  const ast = parseYarn(yarnText);
-  const program = compile(ast);
-  const runner = new YarnRunner(program, {
+  const dialogue = makeDialogue(yarnText, {
     startAt: "ErrorHandling",
-    functions: {
-      safeDivide: (a: unknown, b: unknown) => {
+    library: (() => {
+      const lib = new Library();
+      lib.registerFunction("safeDivide", (a, b) => {
         const numerator = Number(a);
         const denominator = Number(b);
         return denominator === 0 ? "Cannot divide by zero" : numerator / denominator;
-      },
-    },
+      });
+      return lib;
+    })(),
   });
 
-  // Advance until we reach a text result (some commands emit immediately)
-  for (let i = 0; i < 10 && runner.currentResult?.type !== "text"; i++) {
-    runner.advance();
-  }
-  strictEqual(runner.currentResult?.type, "text");
-  if (runner.currentResult?.type === "text") {
-    const fullText = (runner.currentResult.speaker ? `${runner.currentResult.speaker}: ` : "") + runner.currentResult.text;
-    strictEqual(fullText, "Result: Cannot divide by zero");
-  }
+  const line = firstLine(dialogue);
+  strictEqual(composed(line), "Result: Cannot divide by zero");
 });
 
 test("custom functions alongside built-in functions", () => {
@@ -115,26 +123,20 @@ Result: {$formatted}
 ===
 `;
 
-  const ast = parseYarn(yarnText);
-  const program = compile(ast);
-  const runner = new YarnRunner(program, {
+  const dialogue = makeDialogue(yarnText, {
     startAt: "MixedFunctions",
-    functions: {
-      multiply: (a: unknown, b: unknown) => Number(a) * Number(b),
-      format_number: (n: unknown) => Number(n).toFixed(2),
-    },
+    library: (() => {
+      const lib = new Library();
+      lib.registerFunction("multiply", (a, b) => Number(a) * Number(b));
+      lib.registerFunction("format_number", (n) => Number(n).toFixed(2));
+      return lib;
+    })(),
   });
 
-  // Need to advance past declare commands and get to the text line
-  for (let i = 0; i < 3; i++) {
-    runner.advance();
-  }
-  strictEqual(runner.currentResult?.type, "text");
-  if (runner.currentResult?.type === "text") {
-    const fullText = (runner.currentResult.speaker ? `${runner.currentResult.speaker}: ` : "") + runner.currentResult.text;
-    const resultNumber = parseFloat(fullText.replace("Result: ", ""));
-    ok(resultNumber >= 0);
-    ok(resultNumber <= 2);
-    match(fullText, /Result: \d+\.\d{2}/);
-  }
+  const line = firstLine(dialogue);
+  const fullText = composed(line);
+  const resultNumber = parseFloat(fullText.replace("Result: ", ""));
+  ok(resultNumber >= 0);
+  ok(resultNumber <= 2);
+  match(fullText, /Result: \d+\.\d{2}/);
 });

@@ -1,6 +1,16 @@
 import { test } from "node:test";
 import { strictEqual } from "node:assert";
-import { parseYarn, compile, YarnRunner } from "../index.js";
+import { parseYarn, compile } from "../index.js";
+import { Dialogue } from "../runtime/dialogue.js";
+import type { DialogueEvent } from "../runtime/dialogue.js";
+
+function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
+  const program = compile(parseYarn(source));
+  return new Dialogue(program, { startAt: "Start", ...opts });
+}
+
+const lineTexts = (events: DialogueEvent[]) =>
+  events.filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line").map((e) => e.text);
 
 test("basic dialogue with options", () => {
   const dialogue = `
@@ -16,19 +26,16 @@ Narrator: Hi
 
   const doc = parseYarn(dialogue);
   const ir = compile(doc);
-  const runner = new YarnRunner(ir, { startAt: "Start" });
+  const runner = new Dialogue(ir, { startAt: "Start" });
 
-  const r1 = runner.currentResult!;
-  strictEqual(r1.type, "text");
-  runner.advance();
-  const r2 = runner.currentResult!;
-  strictEqual(r2.type, "options");
-  runner.advance(0);
-  const r3 = runner.currentResult!;
-  strictEqual(r3.type, "text");
-  if (r3.type === "text") {
-    strictEqual(r3.text.includes("A chosen"), true);
-  }
+  strictEqual(lineTexts(runner.continue())[0], "Hi");
+
+  const optionsEvent = runner.continue().find(
+    (e): e is Extract<DialogueEvent, { type: "options" }> => e.type === "options",
+  );
+  strictEqual(optionsEvent?.options.length, 2);
+  runner.selectOption(0);
+
+  const chosen = lineTexts(runner.continue());
+  strictEqual(chosen.includes("A chosen"), true);
 });
-
-

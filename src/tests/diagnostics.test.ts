@@ -18,7 +18,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { compileSource } from "../compile/compileSource.js";
-import { YarnRunner } from "../index.js";
+import { Dialogue } from "../runtime/dialogue.js";
 import type { Diagnostic } from "../compile/diagnostics.js";
 import { DIAGNOSTIC_REGISTRY } from "../compile/diagnostics.js";
 
@@ -295,20 +295,22 @@ title: StartTrue
   const diagnostics = compile(source);
   assert.deepEqual(diagnostics, []);
 
-  // Runtime behavior through the existing runner seam: the false condition
-  // drops the option before the list is shown.
+  // Runtime behavior through the dialogue seam: the false condition
+  // delivers the option with `isAvailable: false` (availability is
+  // advisory; the set is not filtered).
   const result = compileSource(source);
-  const runner = new YarnRunner(result.program!, { startAt: "StartFalse" });
-  let guard = 25;
-  while (guard-- > 0) {
-    const current = runner.currentResult;
-    if (!current) break;
-    if (current.type === "options") {
-      assert.equal(current.options.length, 1, "Hidden option should be filtered out when condition is false");
-      assert.equal(current.options[0].text, "Visible");
+  const dialogue = new Dialogue(result.program!, { startAt: "StartFalse" });
+  for (let guard = 0; guard < 25; guard++) {
+    const batch = dialogue.continue();
+    const options = batch.find((e) => e.type === "options");
+    if (options?.type === "options") {
+      assert.equal(options.options.length, 2, "the full set is delivered");
+      assert.equal(options.options[0].isAvailable, false, "Hidden option is delivered as unavailable");
+      assert.equal(options.options[1].text, "Visible");
+      assert.equal(options.options[1].isAvailable, true);
       return;
     }
-    runner.advance();
+    if (batch.length === 0 || batch[batch.length - 1].type === "dialogueComplete") break;
   }
   throw new Error("Failed to reach options");
 });

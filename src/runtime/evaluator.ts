@@ -28,7 +28,8 @@ export class ExpressionEvaluator {
   
   constructor(
     private variables: Record<string, unknown> = {},
-    private functions: Record<string, (...args: unknown[]) => unknown> = {},
+    /** Function lookup — reads through the runtime's Library (ticket 43). */
+    private functions: { get(name: string): ((...args: unknown[]) => unknown) | undefined } = { get: () => undefined },
     /** Enum registry: enum name → case name → raw value (ticket 41). */
     private enums: Record<string, Record<string, number | string>> = {}
   ) {}
@@ -103,7 +104,7 @@ export class ExpressionEvaluator {
     if (!match) throw new Error(`Invalid function call: ${expr}`);
 
     const [, name, argsStr] = match;
-    const func = this.functions[name];
+    const func = this.functions.get(name);
     if (!func) throw new Error(`Function not found: ${name}`);
 
     const args = this.parseArguments(argsStr);

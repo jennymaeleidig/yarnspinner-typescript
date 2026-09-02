@@ -1,6 +1,26 @@
 import { test } from "node:test";
 import { strictEqual, ok } from "node:assert";
-import { parseYarn, compile, YarnRunner } from "../index.js";
+import { parseYarn, compile } from "../index.js";
+import { Dialogue } from "../runtime/dialogue.js";
+import type { DialogueEvent, OptionsEvent } from "../runtime/dialogue.js";
+
+function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
+  const program = compile(parseYarn(source));
+  return new Dialogue(program, { startAt: "Start", ...opts });
+}
+
+function nextOptions(dialogue: Dialogue, guard = 25): OptionsEvent {
+  for (let i = 0; i < guard; i++) {
+    const batch = dialogue.continue();
+    const options = batch.find((e): e is OptionsEvent => e.type === "options");
+    if (options) return options;
+    if (batch.some((e) => e.type === "dialogueComplete")) break;
+  }
+  throw new Error("Failed to reach an options event");
+}
+
+const lineTexts = (events: DialogueEvent[]) =>
+  events.filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line").map((e) => e.text);
 
 test("options selection", () => {
   const script = `
@@ -16,23 +36,17 @@ Narrator: Choose one
 
   const doc = parseYarn(script);
   const ir = compile(doc);
-  const runner = new YarnRunner(ir, { startAt: "Start" });
+  const dialogue = new Dialogue(ir, { startAt: "Start" });
 
-  const a = runner.currentResult!;
-  strictEqual(a.type, "text", "Expected intro text");
-  runner.advance();
-  const b = runner.currentResult!;
-  strictEqual(b.type, "options", "Expected options after intro");
-  if (b.type === "options") strictEqual(b.options.length, 2, "Should have 2 options");
+  const first = dialogue.continue();
+  ok(first[1].type === "line" && first[1].text === "Choose one", "Expected intro text");
+  const optionsEvent = nextOptions(dialogue);
+  strictEqual(optionsEvent.options.length, 2, "Should have 2 options");
   // choose B (index 1)
-  runner.advance(1);
-  const c = runner.currentResult!;
-  strictEqual(c.type, "text", "Should be text after selection");
-  if (c.type === "text") strictEqual(c.text.includes("Picked B"), true, "Expected body of option B");
+  dialogue.selectOption(1);
+  const batch = dialogue.continue();
+  ok(lineTexts(batch).includes("Picked B"), "Expected body of option B");
 });
-
-
-
 
 test("option markup is exposed", () => {
   const script = `
@@ -46,14 +60,10 @@ Narrator: Choose
 ===
   `;
 
-  const doc = parseYarn(script);
-  const ir = compile(doc);
-  const runner = new YarnRunner(ir, { startAt: "Start" });
-
-  runner.advance(); // move to options
-  const result = runner.currentResult;
-  ok(result && result.type === "options", "Expected options result");
-  const options = result!.options;
+  const dialogue = makeDialogue(script);
+  dialogue.continue(); // node start + "Choose"
+  const optionsEvent = nextOptions(dialogue);
+  const options = optionsEvent.options;
   ok(options[0].markup, "Expected markup on first option");
   ok(options[1].markup, "Expected markup on second option");
   const boldMarkup = options[0].markup!;
@@ -85,22 +95,13 @@ Narrator: Decide
 ===
 `;
 
-  const doc = parseYarn(script);
-  const ir = compile(doc);
-  const runner = new YarnRunner(ir, { startAt: "Start" });
+  const dialogue = makeDialogue(script);
+  // `<<set>>` statements are internal: the intro line arrives immediately.
+  const first = dialogue.continue();
+  ok(first[1].type === "line" && first[1].text === "Decide", "Expected narration after the sets");
 
-  // First result is command for set
-  const initial = runner.currentResult;
-  strictEqual(initial?.type, "command", "Expected first <<set>> to emit a command result");
-  runner.advance(); // second <<set>> command
-  runner.advance(); // move to narration
-  runner.advance(); // move to options
-
-  const result = runner.currentResult;
-  if (!result || result.type !== "options") {
-    throw new Error("Expected to land on options");
-  }
-  const [pay, haggle] = result.options;
+  const optionsEvent = nextOptions(dialogue);
+  const [pay, haggle] = optionsEvent.options;
   strictEqual(pay.text, "Pay 150", "Should replace placeholder with variable value");
   strictEqual(haggle.text, "Haggle 300", "Should evaluate expressions inside placeholders");
 });
@@ -127,33 +128,23 @@ Narrator: Menu
 ===
 `;
 
-  const doc = parseYarn(script);
-  const ir = compile(doc);
-  const runner = new YarnRunner(ir, { startAt: "Start" });
+  const dialogue = makeDialogue(script);
 
-  const nextOptions = () => {
-    let guard = 25;
-    while (guard-- > 0) {
-      const result = runner.currentResult;
-      if (!result) throw new Error("Expected runtime result");
-      if (result.type === "options") {
-        return result;
-      }
-      runner.advance();
-    }
-    throw new Error("Failed to reach options result");
-  };
-
-  const secretMenu = nextOptions();
+  // First pass: the secret option's condition holds, so the if-wrapped
+  // option group is reached (the tree-IR delivers it as its own option
+  // statement; the VM compiles both lists into one — tickets 44–45).
+  const secretMenu = nextOptions(dialogue);
   strictEqual(secretMenu.options.length, 1, "First pass should expose the conditional secret option");
   strictEqual(secretMenu.options[0].text, "Secret Option");
+  strictEqual(secretMenu.options[0].isAvailable, true, "the secret option is available on the first pass");
 
-  // Consume the secret option to flip the flag off
-  runner.advance(0);
-
-  const fallbackMenu = nextOptions();
+  // Consume the secret option to flip the flag off, then walk to the next
+  // options event (secret body line, jump, Start re-entry).
+  dialogue.selectOption(0);
+  const fallbackMenu = nextOptions(dialogue);
   strictEqual(fallbackMenu.options.length, 1, "After the secret path is used, only the regular option should remain");
   strictEqual(fallbackMenu.options[0].text, "Regular Option");
+  strictEqual(fallbackMenu.options[0].isAvailable, true);
 });
 
 test("options allow space-indented bodies", () => {
@@ -177,23 +168,14 @@ Narrator: Run branch
 ===
 `;
 
-  const doc = parseYarn(script);
-  const ir = compile(doc);
-  const runner = new YarnRunner(ir, { startAt: "Start" });
-
-  const initial = runner.currentResult;
-  if (initial?.type !== "options") {
-    runner.advance();
-  }
-  const optionsResult = runner.currentResult;
-  strictEqual(optionsResult?.type, "options", "Expected to reach options");
-  if (optionsResult?.type !== "options") throw new Error("Options not emitted");
-  strictEqual(optionsResult.options.length, 2, "Space indents should still group options together");
-  strictEqual(optionsResult.options[0].text, "Pay");
-  strictEqual(optionsResult.options[1].text, "Run");
+  const dialogue = makeDialogue(script);
+  const optionsEvent = nextOptions(dialogue);
+  strictEqual(optionsEvent.options.length, 2, "Space indents should still group options together");
+  strictEqual(optionsEvent.options[0].text, "Pay");
+  strictEqual(optionsEvent.options[1].text, "Run");
 });
 
-test("option-line <<if>> condition filters options", () => {
+test("option-line <<if>> conditions set availability", () => {
   const script = `
 title: StartFalse
 ---
@@ -217,26 +199,30 @@ title: StartTrue
   const doc = parseYarn(script);
   const ir = compile(doc);
 
-  const getOptions = (startNode: string) => {
-    const runner = new YarnRunner(ir, { startAt: startNode });
-    let guard = 25;
-    while (guard-- > 0) {
-      const result = runner.currentResult;
-      if (!result) break;
-      if (result.type === "options") {
-        return { runner, options: result };
-      }
-      runner.advance();
-    }
-    throw new Error("Failed to reach options");
+  const flagsFor = (startNode: string, flag: boolean) => {
+    const dialogue = new Dialogue(ir, { startAt: startNode });
+    // The two nodes both declare $flag, so only one initial value survives
+    // compile; host writes are the reliable way to vary the input.
+    dialogue.setVariable("flag", flag);
+    const optionsEvent = nextOptions(dialogue);
+    return optionsEvent.options.map((o) => ({ text: o.text, isAvailable: o.isAvailable }));
   };
 
-  const { options: optionsFalse } = getOptions("StartFalse");
-  strictEqual(optionsFalse.options.length, 1, "Hidden option should be filtered out when condition is false");
-  strictEqual(optionsFalse.options[0].text, "Visible");
+  strictEqual(
+    JSON.stringify(flagsFor("StartFalse", false)),
+    JSON.stringify([
+      { text: "Hidden", isAvailable: false },
+      { text: "Visible", isAvailable: true },
+    ]),
+    "a false condition delivers the option with isAvailable: false",
+  );
 
-  const { options: optionsTrue } = getOptions("StartTrue");
-  strictEqual(optionsTrue.options.length, 2, "Both options should appear when condition is true");
-  strictEqual(optionsTrue.options[0].text, "Hidden");
-  strictEqual(optionsTrue.options[1].text, "Visible");
+  strictEqual(
+    JSON.stringify(flagsFor("StartTrue", true)),
+    JSON.stringify([
+      { text: "Hidden", isAvailable: true },
+      { text: "Visible", isAvailable: true },
+    ]),
+    "both options are available when the condition holds",
+  );
 });

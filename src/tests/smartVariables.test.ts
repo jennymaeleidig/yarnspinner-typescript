@@ -21,7 +21,9 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compileSource, YarnRunner } from "../index.js";
+import { compileSource } from "../index.js";
+import { Dialogue } from "../runtime/dialogue.js";
+import type { DialogueEvent } from "../runtime/dialogue.js";
 import type { Diagnostic } from "../compile/diagnostics.js";
 import { hasErrors } from "../compile/diagnostics.js";
 import type { IRProgram } from "../compile/ir.js";
@@ -149,29 +151,28 @@ test("smart variables are recomputed on every access", () => {
 ===
 `);
   assert.ok(program);
-  const runner = new YarnRunner(program!, { startAt: "Start" });
-  assert.equal(nextLine(runner), "Can I have a pie?");
+  const dialogue = new Dialogue(program!, { startAt: "Start" });
+  assert.equal(nextLine(dialogue), "Can I have a pie?");
 
-  // Same dialogue, changed inputs: the smart variable recomputes. (The fork
-  // runtime still surfaces <<declare>> as commands that re-execute on node
-  // re-entry — recorded ticket 03 gap — so the value is set after re-entry,
-  // matching the upstream TestBase harness's set:-step semantics.)
-  runner.setNode("Start");
-  runner.setVariable("money", 15);
-  assert.equal(nextLine(runner), "One pie, please.");
+  // Same dialogue, changed inputs: the smart variable recomputes. The
+  // re-executed declare instruction is an initialization, not an
+  // assignment (upstream: declares are Program.InitialValues, seeded at
+  // start-up), so the host-written input survives node re-entry.
+  dialogue.setNode("Start");
+  dialogue.setVariable("money", 15);
+  assert.equal(nextLine(dialogue), "One pie, please.");
 });
 
-/** The fork runtime surfaces `<<declare>>` as Command events; skip past them to the next line. */
-function nextLine(runner: YarnRunner): string {
-  let guard = 0;
-  let result = runner.currentResult;
-  while (result && result.type === "command") {
-    if (guard++ > 100) throw new Error("stalled without a line event");
-    runner.advance();
-    result = runner.currentResult;
+/** The first line event of the dialogue. */
+function nextLine(dialogue: Dialogue): string {
+  for (let guard = 0; guard < 100; guard++) {
+    const batch = dialogue.continue() as DialogueEvent[];
+    for (const e of batch) {
+      if (e.type === "line") return e.text;
+    }
+    if (batch.length === 0 || batch[batch.length - 1].type === "dialogueComplete") break;
   }
-  assert.ok(result && result.type === "text");
-  return (result as { text: string }).text;
+  throw new Error("stalled without a line event");
 }
 
 test("tryGetSmartVariable computes the current value on access", () => {
@@ -181,16 +182,16 @@ test("tryGetSmartVariable computes the current value on access", () => {
 <<declare $double = $money * 2>>
 ===
 `);
-  const runner = new YarnRunner(program!, { startAt: "Start" });
-  const result = runner.tryGetSmartVariable("double");
+  const dialogue = new Dialogue(program!, { startAt: "Start" });
+  const result = dialogue.tryGetSmartVariable("double");
   assert.deepEqual(result, { ok: true, value: 10 });
 
-  runner.setVariable("money", 7);
-  assert.deepEqual(runner.tryGetSmartVariable("double"), { ok: true, value: 14 });
+  dialogue.setVariable("money", 7);
+  assert.deepEqual(dialogue.tryGetSmartVariable("double"), { ok: true, value: 14 });
 
   // Non-smart and unknown names report failure (upstream TryGetSmartVariable).
-  assert.equal(runner.tryGetSmartVariable("money").ok, false);
-  assert.equal(runner.tryGetSmartVariable("nope").ok, false);
+  assert.equal(dialogue.tryGetSmartVariable("money").ok, false);
+  assert.equal(dialogue.tryGetSmartVariable("nope").ok, false);
 });
 
 test("a host write to a smart variable name shadows it (upstream VariableKind.Stored wins)", () => {
@@ -200,9 +201,9 @@ test("a host write to a smart variable name shadows it (upstream VariableKind.St
 <<declare $double = $money * 2>>
 ===
 `);
-  const runner = new YarnRunner(program!, { startAt: "Start" });
-  runner.setVariable("double", 99);
-  assert.deepEqual(runner.tryGetSmartVariable("double"), { ok: true, value: 99 });
+  const dialogue = new Dialogue(program!, { startAt: "Start" });
+  dialogue.setVariable("double", 99);
+  assert.deepEqual(dialogue.tryGetSmartVariable("double"), { ok: true, value: 99 });
 });
 
 test("smart variables appear in the compile result's declarations", () => {

@@ -1,6 +1,27 @@
 import { test } from "node:test";
 import { strictEqual } from "node:assert";
-import { parseYarn, compile, YarnRunner } from "../index.js";
+import { parseYarn, compile } from "../index.js";
+import { Dialogue } from "../runtime/dialogue.js";
+import type { DialogueEvent } from "../runtime/dialogue.js";
+
+function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
+  const program = compile(parseYarn(source));
+  return new Dialogue(program, { startAt: "Start", ...opts });
+}
+
+function drain(dialogue: Dialogue, guard = 100): DialogueEvent[] {
+  const events: DialogueEvent[] = [];
+  for (let i = 0; i < guard; i++) {
+    const batch = dialogue.continue();
+    if (batch.length === 0) break;
+    events.push(...batch);
+    if (events[events.length - 1].type === "dialogueComplete") break;
+  }
+  return events;
+}
+
+const lineTexts = (events: DialogueEvent[]) =>
+  events.filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line").map((e) => e.text);
 
 test("once block behavior", () => {
   const script = `
@@ -15,18 +36,24 @@ Narrator: Always
 
   const doc = parseYarn(script);
   const ir = compile(doc);
+  void ir;
 
-  // First run
-  let runner = new YarnRunner(ir, { startAt: "Start" });
-  const a = runner.currentResult!;
-  strictEqual(a.type, "text");
-  if (a.type === "text") strictEqual(/One time only/.test(a.text), true, "Expect once block content on first run");
-  runner.advance();
-  const b = runner.currentResult!;
-  strictEqual(b.type, "text");
-  if (b.type === "text") strictEqual(/Always/.test(b.text), true, "Expect always line after once");
+  // First run: the once block's content appears, then the always line.
+  const dialogue = makeDialogue(script);
+  const firstLine = lineTexts(dialogue.continue());
+  strictEqual(firstLine.some((t) => /One time only/.test(t)), true, "Expect once block content on first run");
 
-  // Note: persistence of once across sessions depends on integration; not asserting second run behavior here.
+  const secondLine = lineTexts(dialogue.continue());
+  strictEqual(secondLine.some((t) => /Always/.test(t)), true, "Expect always line after once");
+
+  // Once-state lives in the dialogue's variable storage (coding standards
+  // §4): re-entering the same dialogue skips the once block.
+  dialogue.setNode("Start");
+  const reentry = lineTexts(drain(dialogue));
+  strictEqual(reentry.some((t) => /One time only/.test(t)), false, "once content is skipped on re-entry");
+  strictEqual(reentry.some((t) => /Always/.test(t)), true);
+
+  // A NEW dialogue starts with fresh state.
+  const fresh = lineTexts(drain(makeDialogue(script)));
+  strictEqual(fresh.some((t) => /One time only/.test(t)), true, "a new dialogue has fresh once-state");
 });
-
-

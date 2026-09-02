@@ -15,7 +15,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseYarn } from "../parse/parser.js";
 import { compile } from "../compile/compiler.js";
-import { YarnRunner } from "../runtime/runner.js";
+import { Dialogue } from "../runtime/dialogue.js";
+import type { DialogueEvent } from "../runtime/dialogue.js";
 
 function withCultureSensitiveApisBlocked<T>(fn: () => T): T {
   const boom = () => {
@@ -45,14 +46,13 @@ function withCultureSensitiveApisBlocked<T>(fn: () => T): T {
 
 function runStory(source: string): string[] {
   const program = compile(parseYarn(source));
-  const runner = new YarnRunner(program, { startAt: "Start" });
+  const dialogue = new Dialogue(program, { startAt: "Start" });
   const out: string[] = [];
   let guard = 0;
-  while (runner.currentResult && guard++ < 100) {
-    const res = runner.currentResult;
-    if (res.type === "text" && res.text) out.push(res.text);
-    if (res.isDialogueEnd) break;
-    runner.advance();
+  while (dialogue.isActive && guard++ < 100) {
+    for (const event of dialogue.continue() as DialogueEvent[]) {
+      if (event.type === "line" && event.text) out.push(event.text);
+    }
   }
   return out;
 }

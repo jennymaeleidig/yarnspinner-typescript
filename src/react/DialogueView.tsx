@@ -48,10 +48,11 @@ export function DialogueView({
   autoAdvanceDelay = 500,
   pauseBeforeAdvance = 0,
 }: DialogueViewProps) {
-  const { result, advance, runner } = useYarnRunner(program, {
+  const { result, advance, selectOption } = useYarnRunner(program, {
     startAt: startNode,
     functions,
     variables,
+    onStoryEnd,
   });
 
   const sceneName = result?.type === "text" || result?.type === "options" ? result.scene : undefined;
@@ -70,11 +71,6 @@ export function DialogueView({
   const [currentTextKey, setCurrentTextKey] = useState(0);
   const [skipTyping, setSkipTyping] = useState(false);
   const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const storyEndTriggeredRef = useRef(false);
-
-  useEffect(() => {
-    storyEndTriggeredRef.current = false;
-  }, [program, startNode]);
 
   useEffect(() => {
     if (!result || result.type !== "command") {
@@ -83,22 +79,6 @@ export function DialogueView({
     const timer = setTimeout(() => advance(), 50);
     return () => clearTimeout(timer);
   }, [result, advance]);
-
-  useEffect(() => {
-    if (!onStoryEnd || !result || storyEndTriggeredRef.current) {
-      return;
-    }
-    if (!result.isDialogueEnd) {
-      return;
-    }
-    if (result.type === "options") {
-      return;
-    }
-
-    storyEndTriggeredRef.current = true;
-    const variablesSnapshot = Object.freeze({ ...(runner?.getVariables?.() ?? {}) });
-    onStoryEnd({ storyEnd: true, variables: variablesSnapshot });
-  }, [result, onStoryEnd, runner]);
 
   // Reset typing completion when text changes
   useEffect(() => {
@@ -221,9 +201,10 @@ export function DialogueView({
               {result.options.map((option, index) => {
                 return (
                   <button
-                    key={index}
+                    key={option.index}
                     className="yd-option-button"
-                    onClick={() => advance(index)}
+                    disabled={!option.isAvailable}
+                    onClick={() => selectOption(option.index)}
                   >
                     <MarkupRenderer text={option.text} markup={option.markup} />
                   </button>

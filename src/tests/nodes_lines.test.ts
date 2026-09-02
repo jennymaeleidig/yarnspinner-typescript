@@ -1,6 +1,16 @@
 import { test } from "node:test";
 import { strictEqual, ok } from "node:assert";
-import { parseYarn, compile, YarnRunner } from "../index.js";
+import { parseYarn, compile } from "../index.js";
+import { Dialogue } from "../runtime/dialogue.js";
+import type { DialogueEvent } from "../runtime/dialogue.js";
+
+function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
+  const program = compile(parseYarn(source));
+  return new Dialogue(program, { startAt: "Start", ...opts });
+}
+
+const lineOf = (event: DialogueEvent | undefined): Extract<DialogueEvent, { type: "line" }> | undefined =>
+  event?.type === "line" ? event : undefined;
 
 test("nodes and lines delivery", () => {
   const script = `
@@ -13,19 +23,24 @@ Narrator: Line two
 
   const doc = parseYarn(script);
   const ir = compile(doc);
-  const runner = new YarnRunner(ir, { startAt: "Start" });
+  const dialogue = new Dialogue(ir, { startAt: "Start" });
 
-  strictEqual(runner.currentResult?.type, "text", "Expected first result to be text");
-  strictEqual(runner.currentResult?.text.includes("Line one"), true, "Expected 'Line one'");
-  runner.advance();
-  strictEqual(runner.currentResult?.type, "text", "Should still be text");
-  strictEqual(runner.currentResult?.text.includes("Line two"), true, "Expected 'Line two'");
-  runner.advance();
-  strictEqual(runner.currentResult?.isDialogueEnd, true, "Expected dialogue end after lines");
+  // Each continue() delivers the events up to the next stopping point: the
+  // node-start rides along, the line stops the batch.
+  const first = dialogue.continue();
+  strictEqual(first[0].type, "nodeStart", "Expected the node-start event first");
+  const line1 = lineOf(first[1]);
+  ok(line1, "Expected a line event");
+  strictEqual(line1.text.includes("Line one"), true, "Expected 'Line one'");
+
+  const second = dialogue.continue();
+  const line2 = lineOf(second[0]);
+  ok(line2, "Expected a line event");
+  strictEqual(line2.text.includes("Line two"), true, "Expected 'Line two'");
+
+  const third = dialogue.continue();
+  strictEqual(third[third.length - 1].type, "dialogueComplete", "Expected dialogue completion");
 });
-
-
-
 
 test("markup parsing propagates to runtime", () => {
   const script = `
@@ -37,12 +52,13 @@ Narrator: Plain [b]bold[/b] [wave speed=2]custom[/wave]
 
   const doc = parseYarn(script);
   const ir = compile(doc);
-  const runner = new YarnRunner(ir, { startAt: "Start" });
+  const dialogue = new Dialogue(ir, { startAt: "Start" });
 
-  const result = runner.currentResult;
-  ok(result && result.type === "text", "Expected text result with markup");
-  ok(result?.markup, "Expected markup data to be present");
-  const markup = result!.markup!;
+  const batch = dialogue.continue();
+  const event = lineOf(batch[1]);
+  ok(event, "Expected a line event with markup");
+  ok(event?.markup, "Expected markup data to be present");
+  const markup = event!.markup!;
   strictEqual(markup.text, "Plain bold custom");
 
   const boldSegment = markup.segments.find((segment) =>

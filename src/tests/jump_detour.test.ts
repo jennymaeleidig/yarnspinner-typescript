@@ -1,6 +1,16 @@
 import { test } from "node:test";
 import { strictEqual } from "node:assert";
-import { parseYarn, compile, YarnRunner } from "../index.js";
+import { parseYarn, compile } from "../index.js";
+import { Dialogue } from "../runtime/dialogue.js";
+import type { DialogueEvent } from "../runtime/dialogue.js";
+
+function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
+  const program = compile(parseYarn(source));
+  return new Dialogue(program, { startAt: "Start", ...opts });
+}
+
+const lineTexts = (events: DialogueEvent[]) =>
+  events.filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line").map((e) => e.text);
 
 test("jump and detour", () => {
   const script = `
@@ -25,23 +35,37 @@ Narrator: Inside Aside
 
   const doc = parseYarn(script);
   const ir = compile(doc);
-  const runner = new YarnRunner(ir, { startAt: "Start" });
+  const dialogue = new Dialogue(ir, { startAt: "Start" });
 
-  const a = runner.currentResult!;
-  strictEqual(a.type, "text");
-  if (a.type === "text") strictEqual(/Go to Next/.test(a.text), true, "Expect first line");
-  runner.advance(); // executes jump, should produce Next's first line
-  const b = runner.currentResult!;
-  strictEqual(b.type, "text");
-  if (b.type === "text") strictEqual(/In Next/.test(b.text), true, "Expect Next node line");
-  runner.advance(); // should detour into Aside and emit its first line
-  const c = runner.currentResult!;
-  strictEqual(c.type, "text");
-  if (c.type === "text") strictEqual(/Inside Aside/.test(c.text), true, "Expect detour content");
-  runner.advance(); // should return from detour and continue
-  const d = runner.currentResult!;
-  strictEqual(d.type, "text");
-  if (d.type === "text") strictEqual(/Back from Aside/.test(d.text), true, "Expect return from detour");
+  // Node entry + first line.
+  const a = dialogue.continue();
+  strictEqual(lineTexts(a)[0], "Go to Next", "Expect first line");
+
+  // The jump executes: the node-complete fires, Next starts, its line is
+  // delivered — all in one batch.
+  const b = dialogue.continue();
+  strictEqual(lineTexts(b)[0], "In Next", "Expect Next node line");
+  okTypes(b, ["nodeComplete", "nodeStart", "line"]);
+
+  // The detour executes: Aside starts and delivers its line.
+  const c = dialogue.continue();
+  strictEqual(lineTexts(c)[0], "Inside Aside", "Expect detour content");
+  okTypes(c, ["nodeStart", "line"]);
+
+  // Aside ends: node-complete fires and the detour returns to Next.
+  const d = dialogue.continue();
+  strictEqual(lineTexts(d)[0], "Back from Aside", "Expect return from detour");
+  okTypes(d, ["nodeComplete", "line"]);
+
+  // Next ends: the dialogue completes.
+  const e = dialogue.continue();
+  okTypes(e, ["nodeComplete", "dialogueComplete"]);
 });
 
-
+function okTypes(events: DialogueEvent[], expected: string[]): void {
+  strictEqual(
+    events.map((e) => e.type).join(","),
+    expected.join(","),
+    `Unexpected event sequence: ${events.map((e) => e.type).join(", ")}`,
+  );
+}

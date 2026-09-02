@@ -1,50 +1,47 @@
 /**
  * Port of the upstream conformance runner (`YarnSpinner.Tests/TestBase.cs`,
  * `RunStandardTestcase`) onto this project's runtime, driving the vendored
- * `.testplan` fixtures.
+ * `.testplan` fixtures over the pull-based event-stream API (ticket 43).
  *
  * Upstream semantics preserved:
  * - Step-locked event stream: every expectation fails if any *other* event
- *   arrives (not transcript comparison).
+ *   arrives (not transcript comparison). Line, Options, Command, and
+ *   DialogueComplete are step-locked; NodeStart/NodeComplete/LineHints flow
+ *   freely (upstream's TestBase leaves those handlers as no-ops).
  * - Expected line text is compared against the composed text: string-table
  *   text with `{expr}` substitutions expanded, including the character-name
- *   prefix (`Baker: Hey there!`). (Replacement markers `[select]`/`[plural]`/
- *   `[ordinal]` are upstream composed-text stages too; they are not yet
- *   implemented here, so FormatFunctions expectations expose that gap.)
- * - Option expectations check text and hashtags; `select: 0` maps to
- *   -1 = no-option-selected (3.1 fall-through).
- * - All runs of a plan share one runtime: variables, once-state, and visit
+ *   prefix (`Baker: Hey there!`).
+ * - Option expectations check the FULL delivered set in order — text,
+ *   hashtags, and availability (`[disabled]` ↔ `isAvailable: false`,
+ *   upstream `OptionSet.Option.IsAvailable`).
+ * - `select:` maps directly to `selectOption` (the plan value is 1-based;
+ *   the parser converts to a 0-based option ID, `select: 0` becomes
+ *   `noOptionSelected` = -1). When no option is available the plan must
+ *   select none, and the dialogue falls through past the options block
+ *   (upstream 3.1 `Dialogue.NoOptionSelected`).
+ * - All runs of a plan share one dialogue: variables, once-state, and visit
  *   counts persist across runs (each run re-enters the start node).
  * - `set:` steps are validated against the program's declared initial values
  *   (upstream `Program.InitialValues`) and applied to the shared storage.
  * - Harness-registered functions are part of the conformance contract
  *   (TestBase/LanguageTests): `assert`, `dummy_*`, `add_three_operands`, and
- *   the quest stubs.
+ *   the quest stubs — registered through the Library.
  *
- * Documented adaptations to the current fork-era runtime (each is a recorded
- * parity gap, not a new decision — see `.scratch/ys32-parity/spec.md`):
- * - `<<set>>`/`<<declare>>`/`<<call>>` commands never surface as Command
- *   events upstream (spec, ticket 03); the fork runtime still emits them, so
- *   the harness filters them out. Note `<<call>>` bodies are therefore NOT
- *   executed here — assert()-in-call coverage is vacuous until `<<call>>`
- *   lands (spec story 4).
- * - Unavailable options are dropped by the runtime instead of presented with
- *   `isAvailable: false`, so `[disabled]` expectations cannot be asserted;
- *   the harness compares only the available subset and translates the plan's
- *   selection index accordingly. `select: 0` (no-option-selected) is only
- *   verifiable when the runtime fell through on its own (all options
- *   unavailable and dropped).
+ * Documented remaining gaps (each a recorded parity gap, not a new decision
+ * — see `.scratch/ys32-parity/spec.md`):
  * - `saliency:` steps are validated but ignored: no swappable saliency
- *   strategy machinery exists yet (spec stories 17–18); downstream selection
- *   mismatches surface as ordinary failures.
- * - Upstream's `assert` throws and aborts the run; function-call exceptions
- *   are swallowed by this runtime's `<<call>>` handling, so `assert` records
+ *   strategy machinery exists yet (spec stories 17–18; ticket 47); downstream
+ *   selection mismatches surface as ordinary failures.
+ * - `<<call>>` statements are silent internal commands whose bodies do not
+ *   invoke host functions yet, so `assert()`-in-call coverage is vacuous
+ *   until the `<<call>>` statement story lands (spec story 4).
+ * - Upstream's `assert` throws and aborts the run; here `assert` records
  *   failures and the runner fails the test with them.
  */
 
-import { YarnRunner } from "../../runtime/runner.js";
+import { Dialogue, Library, noOptionSelected } from "../../runtime/dialogue.js";
+import type { DialogueEvent } from "../../runtime/dialogue.js";
 import type { IRProgram } from "../../compile/ir.js";
-import type { RuntimeResult } from "../../runtime/results.js";
 import type { TestPlan, TestPlanRun, TestPlanStep } from "./testPlan.js";
 
 export class PlanFailure extends Error {}
@@ -80,42 +77,20 @@ export function createConformanceHarness(): ConformanceHarness {
   };
 }
 
-type ClassifiedEvent =
-  | { kind: "line"; speaker?: string; text: string; tags?: string[] }
-  | { kind: "command"; command: string }
-  | { kind: "options"; options: Array<{ text: string; tags?: string[] }> }
-  | { kind: "complete" };
+type DialogueStepEvent = Extract<
+  DialogueEvent,
+  { type: "line" | "options" | "command" | "dialogueComplete" }
+>;
 
-/** Commands that upstream treats as internal statements, not dialogue output. */
-const STATE_COMMAND = /^\s*(set|declare|call)\b/;
-
-function classify(result: RuntimeResult | null): ClassifiedEvent | null {
-  if (!result) return null;
-  if (result.type === "options") {
-    return { kind: "options", options: result.options.map((o) => ({ text: o.text, tags: o.tags })) };
-  }
-  if (result.type === "command") {
-    if (STATE_COMMAND.test(result.command)) return null;
-    return { kind: "command", command: result.command };
-  }
-  // Text events with empty text and isDialogueEnd are the node-end marker;
-  // the fork runtime emits it after the node's final event.
-  if (result.isDialogueEnd && result.text === "") {
-    return { kind: "complete" };
-  }
-  return { kind: "line", speaker: result.speaker, text: result.text, tags: result.tags };
-}
-
-function describe(event: ClassifiedEvent | null): string {
-  if (!event) return "no event";
-  switch (event.kind) {
+function describe(event: DialogueStepEvent): string {
+  switch (event.type) {
     case "line":
       return `line "${event.speaker ? `${event.speaker}: ` : ""}${event.text}"`;
     case "command":
       return `command "${event.command}"`;
     case "options":
       return `options [${event.options.map((o) => `"${o.text}"`).join(", ")}]`;
-    case "complete":
+    case "dialogueComplete":
       return "dialogue complete";
   }
 }
@@ -125,7 +100,7 @@ function normalizeTag(tag: string): string {
 }
 
 /** Composed text of a line event: substitutions are already applied by the runtime. */
-function composedText(event: Extract<ClassifiedEvent, { kind: "line" }>): string {
+function composedText(event: Extract<DialogueEvent, { type: "line" }>): string {
   return event.speaker ? `${event.speaker}: ${event.text}` : event.text;
 }
 
@@ -147,30 +122,54 @@ export function runTestPlan(program: IRProgram, plan: TestPlan): void {
   }
 
   const harness = createConformanceHarness();
-  const runner = new YarnRunner(program, {
-    startAt: firstRun.startNode,
-    functions: harness.functions,
-  });
-  let pending = runner.currentResult;
+  const library = new Library();
+  for (const [name, fn] of Object.entries(harness.functions)) {
+    library.registerFunction(name, fn);
+  }
+  const dialogue = new Dialogue(program, { startAt: firstRun.startNode, library });
+  // Batches are pulled lazily so plan `set:` steps land before the node body
+  // first runs (upstream: VariableStorage writes precede the first Continue).
+  let queue: DialogueEvent[] = [];
 
-  const currentEvent = (): ClassifiedEvent => {
-    let event = classify(pending);
+  /**
+   * The next step-locked event, draining lifecycle events (and pulling new
+   * batches as needed). NodeStart/NodeComplete/LineHints flow freely, as
+   * upstream's TestBase leaves those handlers as no-ops.
+   */
+  const currentEvent = (): DialogueStepEvent => {
     let guard = 0;
-    while (event === null) {
-      if (guard++ > 10_000) throw new PlanFailure("runtime stalled without emitting an event");
-      runner.advance();
-      pending = runner.currentResult;
-      event = classify(pending);
+    for (;;) {
+      if (queue.length === 0) {
+        if (guard++ > 10_000) throw new PlanFailure("runtime stalled without emitting an event");
+        queue = dialogue.continue();
+        if (queue.length === 0) {
+          throw new PlanFailure("runtime stalled without emitting an event");
+        }
+      }
+      const event = queue[0];
+      if (event.type === "nodeStart" || event.type === "nodeComplete" || event.type === "lineHints") {
+        queue.shift();
+        continue;
+      }
+      return event;
     }
+  };
+
+  /** Take the next step-locked event (the complete event is never passed over). */
+  const consume = (): DialogueStepEvent => {
+    const event = currentEvent();
+    queue.shift();
     return event;
   };
 
-  const consume = (): ClassifiedEvent => {
-    const event = currentEvent();
-    if (event.kind === "complete") return event; // don't advance past the end marker
-    runner.advance();
-    pending = runner.currentResult;
-    return event;
+  const expectLine = (event: DialogueStepEvent, step: Extract<TestPlanStep, { kind: "line" }>): void => {
+    if (event.type !== "line") {
+      throw new PlanFailure(`expected line, got ${describe(event)}`);
+    }
+    if (step.text !== null && composedText(event) !== step.text) {
+      throw new PlanFailure(`expected line "${step.text}", got "${composedText(event)}"`);
+    }
+    assertHashtags(step.hashtags, event.tags, "line");
   };
 
   let firstOfPlan = true;
@@ -183,10 +182,10 @@ export function runTestPlan(program: IRProgram, plan: TestPlan): void {
       throw new PlanFailure(`run start node "${run.startNode}" does not exist in program`);
     }
     if (firstOfPlan) {
-      firstOfPlan = false; // constructor already entered the first run's node
+      firstOfPlan = false; // the constructor already entered the first run's node
     } else {
-      runner.setNode(run.startNode);
-      pending = runner.currentResult;
+      dialogue.setNode(run.startNode);
+      queue = [];
     }
 
     const expectedOptions: Extract<TestPlanStep, { kind: "option" }>[] = [];
@@ -195,15 +194,7 @@ export function runTestPlan(program: IRProgram, plan: TestPlan): void {
       switch (step.kind) {
         case "line": {
           const event = consume();
-          if (event.kind !== "line") {
-            throw new PlanFailure(`expected line, got ${describe(event)}`);
-          }
-          if (step.text !== null && composedText(event) !== step.text) {
-            throw new PlanFailure(
-              `expected line "${step.text}", got "${composedText(event)}"`,
-            );
-          }
-          assertHashtags(step.hashtags, event.tags, "line");
+          expectLine(event, step);
           break;
         }
         case "option": {
@@ -211,55 +202,56 @@ export function runTestPlan(program: IRProgram, plan: TestPlan): void {
           break;
         }
         case "select": {
-          const availableExpectations = expectedOptions.filter((o) => !o.disabled);
-          if (step.optionIndex >= 0) {
-            const event = currentEvent();
-            if (event.kind !== "options") {
-              throw new PlanFailure(
-                `expected ${availableExpectations.length} option(s), got ${describe(event)}`,
-              );
-            }
-            if (event.options.length !== availableExpectations.length) {
-              throw new PlanFailure(
-                `expected ${availableExpectations.length} option(s), got ${event.options.length}: [${event.options.map((o) => `"${o.text}"`).join(", ")}]`,
-              );
-            }
-            for (let i = 0; i < event.options.length; i++) {
-              const expectation = availableExpectations[i];
-              if (expectation.text !== null && event.options[i].text !== expectation.text) {
-                throw new PlanFailure(
-                  `expected option "${expectation.text}", got "${event.options[i].text}"`,
-                );
-              }
-              assertHashtags(expectation.hashtags, event.options[i].tags, "option");
-            }
-            // Translate the plan's index over all expected options into an
-            // index over the options the runtime presented (available only).
-            let presentedIndex = 0;
-            for (let i = 0; i < step.optionIndex; i++) {
-              if (!expectedOptions[i].disabled) presentedIndex++;
-            }
-            runner.advance(presentedIndex);
-            pending = runner.currentResult;
-          } else {
-            // select: 0 => no option selected. The current runtime cannot
-            // present unavailable options; if it dropped them all it already
-            // fell through and the pending event is the content after the
-            // options block. If it DID present options, the fall-through
-            // cannot be expressed — recorded gap.
-            const event = currentEvent();
-            if (event.kind === "options") {
-              throw new PlanFailure(
-                "select: 0 (no-option-selected) is not supported by the current runtime; options were presented",
-              );
-            }
+          // The option expectations are verified against the delivered set,
+          // which contains ALL options in order (disabled ones included).
+          const event = consume();
+          if (event.type !== "options") {
+            throw new PlanFailure(
+              `expected ${expectedOptions.length} option(s), got ${describe(event)}`,
+            );
           }
+          if (event.options.length !== expectedOptions.length) {
+            throw new PlanFailure(
+              `expected ${expectedOptions.length} option(s), got ${event.options.length}: [${event.options.map((o) => `"${o.text}"`).join(", ")}]`,
+            );
+          }
+          for (let i = 0; i < event.options.length; i++) {
+            const expectation = expectedOptions[i];
+            const option = event.options[i];
+            if (expectation.text !== null && option.text !== expectation.text) {
+              throw new PlanFailure(`expected option "${expectation.text}", got "${option.text}"`);
+            }
+            if (option.isAvailable === expectation.disabled) {
+              throw new PlanFailure(
+                `option "${expectation.text}"'s availability was expected to be ${!expectation.disabled}`,
+              );
+            }
+            assertHashtags(expectation.hashtags, option.tags, "option");
+          }
+          // The plan's select value is 1-based (parser converts to a 0-based
+          // option ID; 0 becomes noOptionSelected). When no option is
+          // available the plan must select none, and the dialogue falls
+          // through past the options block.
+          const anyAvailable = event.options.some((o) => o.isAvailable);
+          if (anyAvailable) {
+            if (step.optionIndex < 0) {
+              throw new PlanFailure("plan selects no option, but options are available");
+            }
+            if (step.optionIndex >= event.options.length) {
+              throw new PlanFailure(`plan selects option ${step.optionIndex}, which does not exist`);
+            }
+          } else if (step.optionIndex !== noOptionSelected) {
+            throw new PlanFailure(
+              `no option is available, so the plan must select: 0 (got select: ${step.optionIndex + 1})`,
+            );
+          }
+          dialogue.selectOption(step.optionIndex);
           expectedOptions.length = 0;
           break;
         }
         case "command": {
           const event = consume();
-          if (event.kind !== "command") {
+          if (event.type !== "command") {
             throw new PlanFailure(`expected command "${step.text}", got ${describe(event)}`);
           }
           if (event.command !== step.text) {
@@ -269,14 +261,15 @@ export function runTestPlan(program: IRProgram, plan: TestPlan): void {
         }
         case "stop": {
           const event = currentEvent();
-          if (event.kind !== "complete") {
+          if (event.type !== "dialogueComplete") {
             throw new PlanFailure(`expected stop (dialogue complete), got ${describe(event)}`);
           }
+          queue.shift();
           return; // remaining steps of this run are skipped, as upstream does
         }
         case "node": {
-          runner.setNode(step.nodeName);
-          pending = runner.currentResult;
+          dialogue.setNode(step.nodeName);
+          queue = [];
           break;
         }
         case "set": {
@@ -286,14 +279,14 @@ export function runTestPlan(program: IRProgram, plan: TestPlan): void {
           if (!(step.variable in program.initialValues)) {
             throw new PlanFailure(`set: variable $${step.variable} is not valid in program`);
           }
-          runner.setVariable(step.variable, step.value);
+          dialogue.setVariable(step.variable, step.value);
           break;
         }
         case "saliency": {
           if (!(KNOWN_SALIENCY_MODES as readonly string[]).includes(step.mode)) {
             throw new PlanFailure(`unknown saliency strategy "${step.mode}"`);
           }
-          // Ignored: no swappable saliency strategy machinery yet.
+          // Ignored: no swappable saliency strategy machinery yet (ticket 47).
           break;
         }
       }

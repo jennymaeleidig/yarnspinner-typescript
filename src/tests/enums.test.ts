@@ -15,7 +15,22 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compileSource, EnumTypeBuilder, YarnRunner } from "../index.js";
+import { compileSource, EnumTypeBuilder } from "../index.js";
+import { Dialogue } from "../runtime/dialogue.js";
+import type { DialogueEvent } from "../runtime/dialogue.js";
+
+/** Drain the dialogue, collecting non-empty line texts. */
+function drainLines(dialogue: Dialogue): string[] {
+  const seen: string[] = [];
+  for (let guard = 0; guard < 100; guard++) {
+    const batch = dialogue.continue() as DialogueEvent[];
+    for (const e of batch) {
+      if (e.type === "line" && e.text.trim()) seen.push(e.text.trim());
+    }
+    if (batch.length === 0 || batch[batch.length - 1].type === "dialogueComplete") break;
+  }
+  return seen;
+}
 import type { EnumType, ExternalDeclarations } from "../index.js";
 import type { Diagnostic } from "../index.js";
 
@@ -113,9 +128,9 @@ test(".Case shorthand resolves when the enum can be inferred", () => {
   assert.deepEqual(result.diagnostics, []);
   // The shorthand was rewritten to a full member reference at compile time:
   // the compiled initial value evaluates to the case's raw value.
-  const runner = new YarnRunner(result.program!, { startAt: "Start" });
-  runner.advance(); // run the declare command, then emit its event
-  assert.equal(runner.getVariable("thirdFavouriteFood"), 2);
+  // Declares seed storage at start-up (upstream Program.InitialValues).
+  const dialogue = new Dialogue(result.program!, { startAt: "Start" });
+  assert.equal(dialogue.getVariable("thirdFavouriteFood"), 2);
 });
 
 test("runtime: enum member access evaluates to the raw value; comparisons work", () => {
@@ -144,16 +159,8 @@ test("runtime: enum member access evaluates to the raw value; comparisons work",
 `;
   const result = compile(script);
   assert.deepEqual(result.diagnostics, []);
-  const runner = new YarnRunner(result.program!, { startAt: "Start" });
-  const seen: string[] = [];
-  let guard = 20;
-  while (guard-- > 0) {
-    const r = runner.currentResult;
-    if (!r) break;
-    if (r.type === "text" && r.text.trim()) seen.push(r.text.trim());
-    if (r.isDialogueEnd) break;
-    runner.advance();
-  }
+  const dialogue = new Dialogue(result.program!, { startAt: "Start" });
+  const seen = drainLines(dialogue);
   assert.deepEqual(seen, ["I like apples!", "I like oranges now!"]);
 });
 
@@ -177,16 +184,8 @@ test("runtime: string()/number() of an enum case yield the raw value", () => {
 `;
   const result = compile(script);
   assert.deepEqual(result.diagnostics, []);
-  const runner = new YarnRunner(result.program!, { startAt: "Start" });
-  const seen: string[] = [];
-  let guard = 20;
-  while (guard-- > 0) {
-    const r = runner.currentResult;
-    if (!r) break;
-    if (r.type === "text" && r.text.trim()) seen.push(r.text.trim());
-    if (r.isDialogueEnd) break;
-    runner.advance();
-  }
+  const dialogue = new Dialogue(result.program!, { startAt: "Start" });
+  const seen = drainLines(dialogue);
   assert.deepEqual(seen, ["ok 1", "ok 2"]);
 });
 
@@ -429,9 +428,9 @@ test("shorthand .Case resolves against the assignment target's declared enum", (
 ===
 `);
   assert.deepEqual(result.diagnostics, []);
-  const runner = new YarnRunner(result.program!, { startAt: "Start" });
-  runner.advance();
-  assert.equal(runner.getVariable("favouriteFood"), 2);
+  const dialogue = new Dialogue(result.program!, { startAt: "Start" });
+  dialogue.continue(); // run the node: the <<set>> executes
+  assert.equal(dialogue.getVariable("favouriteFood"), 2);
 });
 
 test("set of an enum-typed variable to another enum's case is a YS0050", () => {
@@ -485,17 +484,9 @@ test("host-defined enums: register from TypeScript, resolve .Case, appear in use
   const foodType = result.userDefinedTypes.find((t) => t.name === "Food") as EnumType;
   assert.ok(foodType, "host enum in userDefinedTypes");
   assert.deepEqual(foodType.cases.map((c) => c.rawValue), [0, 1]);
-  const runner = new YarnRunner(result.program!, { startAt: "Start" });
-  assert.equal(runner.getVariable("favouriteFood"), 1);
-  const seen: string[] = [];
-  let guard = 20;
-  while (guard-- > 0) {
-    const r = runner.currentResult;
-    if (!r) break;
-    if (r.type === "text" && r.text.trim()) seen.push(r.text.trim());
-    if (r.isDialogueEnd) break;
-    runner.advance();
-  }
+  const dialogue = new Dialogue(result.program!, { startAt: "Start" });
+  assert.equal(dialogue.getVariable("favouriteFood"), 1);
+  const seen = drainLines(dialogue);
   assert.deepEqual(seen, ["Host enum works!"]);
 });
 
@@ -516,9 +507,8 @@ test("host-defined enums: raw string values participate in comparisons", () => {
     { declarations: { enums: [status] } },
   );
   assert.deepEqual(result.diagnostics, []);
-  const runner = new YarnRunner(result.program!, { startAt: "Start" });
-  runner.advance();
-  assert.equal(runner.getVariable("status"), "Completed");
+  const dialogue = new Dialogue(result.program!, { startAt: "Start" });
+  assert.equal(dialogue.getVariable("status"), "Completed");
 });
 
 test("host-defined enums: name clash with a script enum is YS0040", () => {
