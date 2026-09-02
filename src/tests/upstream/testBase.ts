@@ -23,15 +23,14 @@
  *   counts persist across runs (each run re-enters the start node).
  * - `set:` steps are validated against the program's declared initial values
  *   (upstream `Program.InitialValues`) and applied to the shared storage.
+ * - `saliency:` steps swap the named built-in saliency strategy onto the
+ *   dialogue mid-run (upstream TestBase's saliencyStrategies map; ticket 47).
  * - Harness-registered functions are part of the conformance contract
  *   (TestBase/LanguageTests): `assert`, `dummy_*`, `add_three_operands`, and
  *   the quest stubs — registered through the Library.
  *
  * Documented remaining gaps (each a recorded parity gap, not a new decision
  * — see `.scratch/ys32-parity/spec.md`):
- * - `saliency:` steps are validated but ignored: no swappable saliency
- *   strategy machinery exists yet (spec stories 17–18; ticket 47); downstream
- *   selection mismatches surface as ordinary failures.
  * - `<<call>>` statements are silent internal commands whose bodies do not
  *   invoke host functions yet, so `assert()`-in-call coverage is vacuous
  *   until the `<<call>>` statement story lands (spec story 4).
@@ -41,11 +40,12 @@
 
 import { Dialogue, Library, noOptionSelected } from "../../runtime/dialogue.js";
 import type { DialogueEvent } from "../../runtime/dialogue.js";
+import { saliencyStrategyForMode, SALIENCY_MODES } from "../../runtime/saliency.js";
 import type { Program } from "../../compile/program.js";
 import type { TestPlan, TestPlanRun, TestPlanStep } from "./testPlan.js";
 export class PlanFailure extends Error {}
 
-export const KNOWN_SALIENCY_MODES = ["first", "best", "best_least_recently_seen"] as const;
+export const KNOWN_SALIENCY_MODES = SALIENCY_MODES;
 
 export interface ConformanceHarness {
   /** Library functions the fixtures call (conformance contract). */
@@ -288,10 +288,11 @@ export function runTestPlan(program: Program, plan: TestPlan): void {
           break;
         }
         case "saliency": {
-          if (!(KNOWN_SALIENCY_MODES as readonly string[]).includes(step.mode)) {
+          // Upstream TestBase maps the plan's mode to a built-in strategy
+          // and swaps it onto the dialogue mid-run (ticket 47).
+          if (!dialogue.setSaliencyStrategy(step.mode)) {
             throw new PlanFailure(`unknown saliency strategy "${step.mode}"`);
           }
-          // Ignored: no swappable saliency strategy machinery yet (ticket 47).
           break;
         }
       }

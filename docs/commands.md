@@ -22,9 +22,12 @@ Exact command names and parameters are defined by your game integration.
 - Delivered command text is interpolated: `{expr}` inside the command is
   expanded before the `command` event reaches the host (upstream expands
   substitutions at delivery).
-- `<<set>>`, `<<declare>>`, and `<<call>>` are handled as state statements and
-  never surface as `command` events in upstream; this runtime still emits them
-  (recorded gap — see `.scratch/ys32-parity/spec.md`, ticket 03).
+- `<<set>>`, `<<declare>>`, and `<<call>>` are state statements: they
+  execute internally and never surface as `command` events (upstream
+  behavior).
+- `<<set_saliency <mode>>>` (upstream Try Yarn Spinner's strategy-switch
+  command) switches the active [saliency strategy](saliency.md); it is
+  internal and never surfaces as an event either.
 - `<<stop>>` halts dialogue immediately (a dialogue-complete event fires);
   `<<return>>` ends a detour, or acts as stop outside one.
 

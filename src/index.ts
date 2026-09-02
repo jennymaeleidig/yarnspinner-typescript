@@ -12,6 +12,7 @@ export * from "./markup/parser.js";
 export * from "./runtime/evaluator.js";
 export * from "./runtime/commands.js";
 export * from "./runtime/library.js";
+export * from "./runtime/saliency.js";
 export * from "./runtime/dialogue.js";
 export * from "./types.js";
 export * from "./scene/types.js";

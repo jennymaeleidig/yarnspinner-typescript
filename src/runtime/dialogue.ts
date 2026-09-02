@@ -38,8 +38,8 @@
 
 import type { Program } from "../compile/program.js";
 import { Library } from "./library.js";
+import type { ContentSaliencyOption, ContentSaliencyStrategy } from "./saliency.js";
 import {
-  defaultStartNodeName,
   noOptionSelected,
   type DialogueEvent,
   type DialogueOptions,
@@ -158,5 +158,45 @@ export class Dialogue {
    */
   tryGetSmartVariable(name: string): { ok: true; value: unknown } | { ok: false } {
     return this.engine.tryGetSmartVariable(name);
+  }
+
+  // ── Saliency (ticket 47) ───────────────────────────────────────────
+
+  /** The active content saliency strategy (upstream `Dialogue.ContentSaliencyStrategy`). */
+  get contentSaliencyStrategy(): ContentSaliencyStrategy {
+    return this.engine.contentSaliencyStrategy;
+  }
+
+  set contentSaliencyStrategy(strategy: ContentSaliencyStrategy) {
+    this.engine.contentSaliencyStrategy = strategy;
+  }
+
+  /**
+   * Switch to a named built-in strategy (the `<<set_saliency>>` mode
+   * vocabulary: `first`, `best`, `best_least_recently_seen`,
+   * `random_best_least_recently_seen`). Returns `false` for an unknown
+   * mode, leaving the active strategy unchanged.
+   */
+  setSaliencyStrategy(mode: string): boolean {
+    return this.engine.setSaliencyStrategy(mode);
+  }
+
+  /** Upstream `Dialogue.IsNodeGroup`: whether the name is a node group. */
+  isNodeGroup(nodeName: string): boolean {
+    return this.engine.isNodeGroup(nodeName);
+  }
+
+  /**
+   * Upstream `Dialogue.GetSaliencyOptionsForNodeGroup`: the saliency
+   * options the node group (or plain node) could run, evaluated against
+   * the current variable state. Read-only.
+   */
+  getSaliencyOptionsForNodeGroup(nodeGroup: string): ContentSaliencyOption[] {
+    return this.engine.getSaliencyOptionsForNodeGroup(nodeGroup);
+  }
+
+  /** Upstream `Dialogue.HasSalientContent`. */
+  hasSalientContent(nodeGroup: string): boolean {
+    return this.engine.hasSalientContent(nodeGroup);
   }
 }

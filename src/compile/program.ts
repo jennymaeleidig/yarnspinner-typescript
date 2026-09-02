@@ -29,11 +29,21 @@
  * - Generated-variable state (once-state) is read/written with plain
  *   variable ops; the key naming contract lives in
  *   `runtime/generatedVariables.ts` (coding standards §4).
- * - `when` conditions stay evaluator strings until the saliency machinery
- *   compiles them (ticket 47).
+ * - `when` conditions stay evaluator strings; the VM's saliency machinery
+ *   (ticket 47) evaluates them and scores complexity per member
+ *   (`runtime/saliency.ts`).
+ * - Line groups (ticket 47) lower like option groups: one condition push +
+ *   `addSaliencyCandidate` per item (the evaluated `<<if>>`/`<<once>>`
+ *   gate, or `pushBool true`; the op records the candidate with its
+ *   complexity and destination), then `selectSaliencyCandidate` (the
+ *   strategy picks — pushing the destination and `true`, or just `false`),
+ *   `jumpIfFalse` past the group when nothing was selected, and `popJump`
+ *   to the selected item's body (upstream `AddSaliencyCandidate` /
+ *   `SelectSaliencyCandidate` + `Pop`/`PeekAndJump`). A `once` item's flag
+ *   stores at its body's first instruction, like a once option.
  * - A node-group member's `subtitle:` header carries into the program: it
  *   qualifies the member's visit-tracking key (`Title.Subtitle`, upstream
- *   node-group naming — ticket 46).
+ *   node-group naming — ticket 46) and its saliency content ID (ticket 47).
  */
 
 import type { MarkupParseResult } from "../markup/types.js";
@@ -113,6 +123,16 @@ export type Instruction =
    *  emits `pushBool true` for unconditioned options — upstream AddOption). */
   | { op: "addOption"; text: string; tags?: string[]; destination: number; markup?: MarkupParseResult }
   | { op: "showOptions" } // delivers and clears the accumulated set; halts
+  /** Records a line-group item as a saliency candidate (ticket 47): pops the
+   *  item's evaluated condition (upstream AddSaliencyCandidate). */
+  | { op: "addSaliencyCandidate"; contentId: string; complexity: number; destination: number }
+  /** Asks the saliency strategy to pick from the accumulated candidates
+   *  (upstream SelectSaliencyCandidate): pushes the destination and `true`
+   *  when content was selected, or `false` when none was. */
+  | { op: "selectSaliencyCandidate" }
+  /** Pops the selected candidate's destination and jumps to it (upstream
+   *  Pop + PeekAndJump after a selection). */
+  | { op: "popJump" }
   // Stack: literals and variables.
   | { op: "pushString"; value: string }
   | { op: "pushNumber"; value: number }

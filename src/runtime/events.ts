@@ -11,6 +11,7 @@
 
 import type { MarkupParseResult } from "../markup/types.js";
 import type { Library } from "./library.js";
+import type { ContentSaliencyOption, ContentSaliencyStrategy } from "./saliency.js";
 
 /**
  * The value indicating that no option was selected: the dialogue falls
@@ -96,6 +97,12 @@ export interface DialogueOptions {
   variables?: Record<string, unknown>;
   /** Opt-in `LineHints` events (upstream `PrepareForLinesHandler`). */
   lineHints?: boolean;
+  /**
+   * Host-provided content saliency strategy (ticket 47, upstream
+   * `Dialogue.ContentSaliencyStrategy`). Defaults to Random
+   * Best-Least-Recently-Viewed over the variable storage.
+   */
+  contentSaliencyStrategy?: ContentSaliencyStrategy;
   /** Runtime error diagnostics. Defaults to `console.error`. */
   logError?: (message: string) => void;
   /** Runtime debug diagnostics. Defaults to silent. */
@@ -120,6 +127,17 @@ export interface RuntimeDriver {
   getVariable(name: string): unknown;
   setVariable(name: string, value: unknown): void;
   tryGetSmartVariable(name: string): { ok: true; value: unknown } | { ok: false };
+  /** The active content saliency strategy (upstream `Dialogue.ContentSaliencyStrategy`). */
+  get contentSaliencyStrategy(): ContentSaliencyStrategy;
+  set contentSaliencyStrategy(strategy: ContentSaliencyStrategy);
+  /** Switch to a named built-in strategy; `false` for an unknown mode. */
+  setSaliencyStrategy(mode: string): boolean;
+  /** Upstream `Dialogue.IsNodeGroup`. */
+  isNodeGroup(nodeName: string): boolean;
+  /** Upstream `Dialogue.GetSaliencyOptionsForNodeGroup`. */
+  getSaliencyOptionsForNodeGroup(nodeGroup: string): ContentSaliencyOption[];
+  /** Upstream `Dialogue.HasSalientContent`. */
+  hasSalientContent(nodeGroup: string): boolean;
 }
 
 /** The line's ID from its `line:` hashtag, if present (shared by both drivers for `LineEvent.lineId`). */

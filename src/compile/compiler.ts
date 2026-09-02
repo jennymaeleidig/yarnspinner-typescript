@@ -38,6 +38,14 @@
  *   once-option semantics exactly;
  * - line-level conditions (`<<if>>`/`<<once>>`/`<<once if>>`) gate the
  *   `runLine` with `jumpIfFalse` over the same generated-variable reads;
+ * - line groups lower per item to an availability condition +
+ *   `addSaliencyCandidate` (the condition or `pushBool true`; a `once`
+ *   marker becomes a seen-check ANDed in, upstream BLRV-excluded once the
+ *   flag is set), a body destination, and — after the last item —
+ *   `selectSaliencyCandidate` + `popJump` (upstream's
+ *   SelectSaliencyCandidate + PopJump: the strategy picks, the selected
+ *   item's body runs, non-selections jump past; an all-fail group runs
+ *   nothing). A selected `once` item's flag stores at its body start;
  * - `jump`/`detour` become `runNode`/`detour` (node names; `{expr}` targets
  *   stay strings the VM resolves at execution);
  * - headers (`when`, `scene`, `tracking`, `subtitle`) and node-group
@@ -51,11 +59,12 @@
  * an uncompilable initializer emits `pushNull`.
  */
 
-import type { YarnDocument, YarnNode, Statement, Line, Option, OnceBlock } from "../model/ast";import type { Instruction, Program, ProgramNode } from "./program.js";
+import type { YarnDocument, YarnNode, Statement, Line, LineGroup, OnceBlock } from "../model/ast";import type { Instruction, Program, ProgramNode } from "./program.js";
 import type { MarkupParseResult } from "../markup/types.js";
 import { programLanguageVersion } from "./program.js";
 import { compileExpression, ExpressionCodegenError } from "./expressionCodegen.js";
 import { onceVariableKey } from "../runtime/generatedVariables.js";
+import { booleanOperatorCount } from "../runtime/saliency.js";
 import { parseCommand, type ParsedCommand } from "../runtime/commands.js";
 import { isSmartVariableInitializer, parseDeclareCommand } from "./smartVariables.js";
 import { buildEnumTypes, collectEnumBlocks } from "./enums.js";
@@ -131,15 +140,35 @@ export function compile(doc: YarnDocument, opts: CompileOptions = {}): Program {
 
   const nodes: Program["nodes"] = {};
   for (const [title, nodesWithSameTitle] of nodesByTitle) {
-    if (nodesWithSameTitle.length === 1) {
+    if (nodesWithSameTitle.length === 1 && !nodesWithSameTitle[0].when) {
       nodes[title] = lowerNode(nodesWithSameTitle[0], { enums, ensureLineId, genOnce, initialValues, smartVariables });
     } else {
+      // A single node with `when:` headers is a one-member node group
+      // (upstream: the NodeGroupVisitor processes any node with when:
+      // headers, so it gets the hub/selection machinery too — ticket 47).
       nodes[title] = {
         title,
         nodes: nodesWithSameTitle.map((node) =>
           lowerNode(node, { enums, ensureLineId, genOnce, initialValues, smartVariables }),
         ),
       };
+    }
+  }
+
+  // Implicit declarations (upstream Compiler.cs: an undeclared variable used
+  // in a Boolean-constrained context is implicitly declared with the type's
+  // default — here the bare-condition slice the corpus requires).
+  const implicitBools = new Set<string>();
+  for (const node of doc.nodes) {
+    for (const raw of node.when ?? []) {
+      const name = bareConditionVariable(raw);
+      if (name) implicitBools.add(name);
+    }
+    collectImplicitConditionVariables(node.body, implicitBools);
+  }
+  for (const name of implicitBools) {
+    if (!(name in initialValues) && !(name in smartVariables)) {
+      initialValues[name] = [{ op: "pushBool", value: false }];
     }
   }
 
@@ -150,6 +179,63 @@ export function compile(doc: YarnDocument, opts: CompileOptions = {}): Program {
     initialValues,
     smartVariables,
   };
+}
+
+/** A bare boolean condition: `$var`, optionally `not`-wrapped. */
+function bareConditionVariable(condition: string | undefined): string | null {
+  if (condition === undefined) return null;
+  const m = condition.trim().match(/^(?:not\s+)?\$([A-Za-z_][A-Za-z0-9_]*)$/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Collect the variables that appear as bare boolean conditions — `<<if>>`/
+ * `<<once if>>` conditions, option conditions, and `<<if>>` block branches
+ * whose expression is just `$var` (optionally `not`-wrapped).
+ */
+function collectImplicitConditionVariables(stmts: Statement[], into: Set<string>): void {
+  const addBare = (condition: string | undefined): void => {
+    const name = bareConditionVariable(condition);
+    if (name) into.add(name);
+  };
+  for (const s of stmts) {
+    switch (s.type) {
+      case "Line":
+        addBare(s.condition);
+        addBare(s.once?.condition);
+        break;
+      case "Command":
+        break;
+      case "OptionGroup":
+        for (const o of s.options) {
+          addBare(o.condition);
+          addBare(o.once?.condition);
+          collectImplicitConditionVariables(o.body, into);
+        }
+        break;
+      case "LineGroup":
+        for (const item of s.items) {
+          addBare(item.condition);
+          addBare(item.once?.condition);
+        }
+        break;
+      case "If":
+        for (const b of s.branches) {
+          addBare(b.condition ?? undefined);
+          collectImplicitConditionVariables(b.body, into);
+        }
+        break;
+      case "Once":
+        addBare(s.condition);
+        collectImplicitConditionVariables(s.body, into);
+        if (s.elseBody) collectImplicitConditionVariables(s.elseBody, into);
+        break;
+      case "Jump":
+      case "Detour":
+      case "Enum":
+        break;
+    }
+  }
 }
 
 /** Lowering context threaded through one compile() run. */
@@ -235,6 +321,13 @@ class NodeLowering {
     );
   }
 
+  /** Emit `addSaliencyCandidate` with a label destination (resolved at
+   *  `resolve` time) — the line-group candidate record (ticket 47). */
+  addSaliencyCandidate(contentId: string, complexity: number, label: string): void {
+    this.refs.push({ at: this.instructions.length, key: "destination", label });
+    this.instructions.push({ op: "addSaliencyCandidate", contentId, complexity, destination: -1 });
+  }
+
   /** Compile a condition and branch on it (pops the condition). */
   branchOn(condition: string, enums: Program["enums"], label: string): void {
     const code = compileCondition(condition, enums);
@@ -303,6 +396,9 @@ function lowerStatements(
       case "OptionGroup":
         lowerOptions(s, lowering, ctx, counters);
         break;
+      case "LineGroup":
+        lowerLineGroup(s, lowering, ctx);
+        break;
       case "If": {
         const end = lowering.newLabel();
         for (let i = 0; i < s.branches.length; i++) {
@@ -367,6 +463,73 @@ function lowerLine(line: Line, lowering: NodeLowering, ctx: LoweringContext): vo
     return;
   }
   emitRunLine();
+}
+
+/**
+ * Lower a line group (ticket 47, upstream `VisitLine_group_statement`): each
+ * item evaluates its `<<if>>`/`<<once>>`/`<<once if>>` gate (or pushes true)
+ * and records a saliency candidate with its complexity score (a `once`
+ * marker adds 1; an expression adds its boolean-operator count + 1); the
+ * strategy then picks — the selected item's body stores its once flag (the
+ * store is the body's first instruction, like a once option) and runs the
+ * line; no selection skips the whole group.
+ */
+function lowerLineGroup(
+  group: LineGroup,
+  lowering: NodeLowering,
+  ctx: LoweringContext,
+): void {
+  const end = lowering.newLabel();
+  const prepared = group.items.map((item) => {
+    const { tags, lineId } = ctx.ensureLineId(item.tags);
+    const onceKey = item.once ? onceVariableKey(lineId) : null;
+    let gate: Instruction[];
+    if (onceKey) {
+      gate = onceGate(onceKey, item.once?.condition, ctx.enums);
+    } else if (item.condition !== undefined) {
+      gate = compileCondition(item.condition, ctx.enums);
+    } else {
+      gate = [{ op: "pushBool", value: true }];
+    }
+    // Upstream ConditionCount: the once marker adds 1; the expression adds
+    // its boolean-operator count + 1.
+    const expression = item.once?.condition ?? item.condition;
+    const complexity =
+      (item.once ? 1 : 0) + (expression !== undefined ? booleanOperatorCount(expression) + 1 : 0);
+    return { item, tags, lineId, onceKey, gate, complexity };
+  });
+  const bodies = prepared.map(() => lowering.newLabel());
+  prepared.forEach((p, i) => {
+    lowering.instructions.push(...p.gate);
+    lowering.addSaliencyCandidate(p.lineId, p.complexity, bodies[i]);
+  });
+  lowering.instructions.push({ op: "selectSaliencyCandidate" });
+  lowering.jump("jumpIfFalse", end);
+  lowering.instructions.push({ op: "popJump" });
+  prepared.forEach((p, i) => {
+    lowering.place(bodies[i]);
+    if (p.onceKey) {
+      lowering.instructions.push({ op: "pushBool", value: true }, { op: "popVariable", name: p.onceKey });
+    }
+    lowerLineBody(p.item, p.tags, lowering);
+    lowering.jump("jumpTo", end);
+  });
+  lowering.place(end);
+}
+
+/**
+ * Lower a plain line (no gating): the `runLine` keeps its authored text,
+ * speaker, tags, and markup.
+ */
+function lowerLineBody(line: Line, tags: string[] | undefined, lowering: NodeLowering): void {
+  const runLine: { op: "runLine"; text: string; speaker?: string; tags?: string[]; markup?: MarkupParseResult } = {
+    op: "runLine",
+    text: line.text,
+  };
+  if (line.speaker !== undefined) runLine.speaker = line.speaker;
+  if (tags !== undefined) runLine.tags = tags;
+  if (line.markup !== undefined) runLine.markup = line.markup;
+  lowering.instructions.push(runLine);
 }
 
 function lowerOptions(

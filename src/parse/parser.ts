@@ -8,6 +8,7 @@ import type {
   Line,
   Command,
   OptionGroup,
+  LineGroup,
   Option,
   IfBlock,
   OnceBlock,
@@ -305,6 +306,12 @@ class Parser {
         continue;
       }
 
+      // A line group: consecutive `=>` lines (ticket 47).
+      if (this.at("LINE_GROUP")) {
+        out.push(this.parseLineGroup());
+        continue;
+      }
+
       // Full-line // comments are not dialogue content (upstream lexer skips them)
       if (this.at("TEXT") && this.peek().text.trimStart().startsWith("//")) {
         this.i++;
@@ -347,41 +354,81 @@ class Parser {
       return { type: "Command", content: cmd } as Command;
     }
     if (t.type === "TEXT") {
-      const raw = this.take("TEXT").text;
-      // Line-suffix pipeline (upstream TextMode order): an unescaped `//`
-      // comment ends the line; a `<<if>>`/`<<once>>`/`<<once if>>` modifier
-      // is extracted; hashtags are pulled; the main-grammar escapes
-      // unescape (the runtime-owned ones — `\{`, `\}`, `\[`, `\]`, `\:` —
-      // survive to the line parser).
-      const commented = truncateAtComment(raw).trimEnd();
-      const { text: withoutModifier, modifier } = extractLineModifier(commented, t);
-      const { cleanText: textWithoutTags, tags } = this.extractTags(withoutModifier);
-      // Removed fork extensions (ticket 40): &css{} and inline {if} blocks.
-      this.rejectRemovedSyntax(textWithoutTags, t);
-      const markup = parseMarkup(unescapeMainGrammar(textWithoutTags));
-      const line: Line = {
-        type: "Line",
-        text: markup.text,
-        tags,
-        markup: this.normalizeMarkup(markup),
-      };
-      const speakerMatch = SPEAKER_RE.exec(markup.text);
-      if (speakerMatch) {
-        line.speaker = speakerMatch[1].trim().replace(/\\:/g, ":");
-        const messageOffset = markup.text.length - speakerMatch[2].length;
-        line.markup = this.normalizeMarkup(sliceMarkup(markup, messageOffset));
-        line.text = speakerMatch[2];
-      } else {
-        // No speaker: an escaped colon ("Character\\: text") composes as a
-        // literal colon in the line text — upstream's line parser unescapes
-        // `\\:` at composition.
-        line.text = line.text.replace(/\\:/g, ":");
-      }
-      if (modifier?.kind === "if") line.condition = modifier.condition;
-      if (modifier?.kind === "once") line.once = modifier.condition ? { condition: modifier.condition } : {};
-      return line;
+      return this.parseLineFromText(this.take("TEXT").text, t);
     }
     throw new ParseError(`Unexpected token ${t.type}`, this.rangeAt(t));
+  }
+
+  /**
+   * One line-group item, from a LINE_GROUP token (the lexer consumed the
+   * `=>` prefix): the same line-suffix pipeline as a text line.
+   */
+  private parseLineGroupItem(token: Token): Line {
+    return this.parseLineFromText(token.text, token);
+  }
+
+  /**
+   * A line group (ticket 47): the consecutive run of `=>` line statements.
+   * Blank lines, comments, and indentation tokens between items do not
+   * break the group (upstream: the group is the run of line_group_items —
+   * comments are not statements and blank lines are not either); any other
+   * statement ends it.
+   */
+  private parseLineGroup(): LineGroup {
+    const items: Line[] = [];
+    while (!this.at("EOF")) {
+      if (this.at("LINE_GROUP")) {
+        items.push(this.parseLineGroupItem(this.take("LINE_GROUP")));
+        continue;
+      }
+      if (this.at("EMPTY")) {
+        this.i++;
+        continue;
+      }
+      if (this.at("TEXT") && this.peek().text.trimStart().startsWith("//")) {
+        this.i++;
+        continue;
+      }
+      break;
+    }
+    return { type: "LineGroup", items };
+  }
+
+  /**
+   * Parse one line of text (a TEXT or LINE_GROUP token's content) through
+   * the line-suffix pipeline (upstream TextMode order): an unescaped `//`
+   * comment ends the line; a `<<if>>`/`<<once>>`/`<<once if>>` modifier is
+   * extracted; hashtags are pulled; the main-grammar escapes unescape; the
+   * speaker prefix splits.
+   */
+  private parseLineFromText(raw: string, token: Token): Line {
+    const commented = truncateAtComment(raw).trimEnd();
+    const { text: withoutModifier, modifier } = extractLineModifier(commented, token);
+    const { cleanText: textWithoutTags, tags } = this.extractTags(withoutModifier);
+    // Removed fork extensions (ticket 40): &css{} and inline {if} blocks.
+    this.rejectRemovedSyntax(textWithoutTags, token);
+    const markup = parseMarkup(unescapeMainGrammar(textWithoutTags));
+    const line: Line = {
+      type: "Line",
+      text: markup.text,
+      tags,
+      markup: this.normalizeMarkup(markup),
+    };
+    const speakerMatch = SPEAKER_RE.exec(markup.text);
+    if (speakerMatch) {
+      line.speaker = speakerMatch[1].trim().replace(/\\:/g, ":");
+      const messageOffset = markup.text.length - speakerMatch[2].length;
+      line.markup = this.normalizeMarkup(sliceMarkup(markup, messageOffset));
+      line.text = speakerMatch[2];
+    } else {
+      // No speaker: an escaped colon ("Character\\: text") composes as a
+      // literal colon in the line text — upstream's line parser unescapes
+      // `\\:` at composition.
+      line.text = line.text.replace(/\\:/g, ":");
+    }
+    if (modifier?.kind === "if") line.condition = modifier.condition;
+    if (modifier?.kind === "once") line.once = modifier.condition ? { condition: modifier.condition } : {};
+    return line;
   }
 
   private parseOptionGroup(): OptionGroup {
@@ -513,6 +560,10 @@ class Parser {
       if (this.at("EOF") || shouldStop()) break;
       if (this.at("OPTION")) {
         out.push(this.parseOptionGroup());
+        continue;
+      }
+      if (this.at("LINE_GROUP")) {
+        out.push(this.parseLineGroup());
         continue;
       }
       // Full-line // comments are not dialogue content (upstream lexer skips them)

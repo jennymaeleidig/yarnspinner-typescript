@@ -63,14 +63,6 @@ const COMPILE_CLEAN_ALLOWLIST: Record<string, string> = {};
 const PLAN_RUN_ALLOWLIST: Record<string, string> = {
   "FormatFunctions.yarn":
     "replacement markers [select]/[plural]/[ordinal] not implemented (spec story 27; ticket 48)",
-  "LineGroups.yarn":
-    "=> line groups with saliency selection not supported; '=> ' lines are delivered as text (spec story 19; ticket 47)",
-  "NodeGroups.yarn":
-    "no swappable saliency strategies; group selection is first-match, not best_least_recently_seen (spec stories 17-18; ticket 47)",
-  "NodeGroupsContentQuerying.yarn":
-    "has_any_content() and node-group runtime queries not registered (spec story 20; ticket 47)",
-  "Once.yarn":
-    "plan's '=> ' line groups need saliency selection (spec story 19; ticket 47) — once blocks/options/lines themselves run on the VM",
 };
 
 /**

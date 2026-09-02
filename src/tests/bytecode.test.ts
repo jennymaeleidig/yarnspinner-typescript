@@ -30,8 +30,10 @@
  *   clearing the accumulated set);
  * - `<<once>>` lowers to generated-variable reads/writes (coding standards
  *   §4) — no dedicated block op;
+ * - line groups lower to `addSaliencyCandidate`/`selectSaliencyCandidate`/
+ *   `popJump` with body destinations as resolved indices (ticket 47);
  * - node groups and headers (`when`, `scene`, `tracking`) carry over
- *   verbatim (saliency compilation is ticket 47).
+ *   verbatim; the VM's saliency machinery (ticket 47) evaluates them.
  */
 
 import { test } from "node:test";

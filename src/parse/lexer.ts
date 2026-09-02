@@ -5,6 +5,7 @@ export interface Token {
     | "NODE_START" // ---
     | "NODE_END" // ===
     | "OPTION" // ->
+    | "LINE_GROUP" // => (line-group item)
     | "COMMAND" // <<...>> (single-line)
     | "TEXT" // any non-empty content line
     | "EMPTY"
@@ -81,6 +82,14 @@ export function lex(input: string): Token[] {
 
     if (content.startsWith("->")) {
       push("OPTION", content.slice(2).trim(), lineNum, indent.length + 1);
+      continue;
+    }
+
+    // Line-group item (ticket 47): `=> text` — like an option arrow, the
+    // `=>` prefix is consumed by the lexer; the parser owns the rest of the
+    // line-suffix pipeline.
+    if (content.startsWith("=>")) {
+      push("LINE_GROUP", content.slice(2).trim(), lineNum, indent.length + 1);
       continue;
     }
 

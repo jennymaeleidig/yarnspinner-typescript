@@ -14,11 +14,15 @@
 /** Reserved namespace for generated variables — never authored content. */
 export const generatedVariablePrefix = "Yarn.Internal.";
 
-/** Storage key for an `<<once>>` block's seen-state, by its compiled id. */
+/** Storage key for a piece of content's seen-state (`<<once>>` blocks,
+ * line/option `<<once>>` modifiers, and node-group members' `when: once`
+ * headers — upstream `$Yarn.Internal.Once.<lineID|nodeTitle>`). */
 export const onceVariableKey = (id: string) => `${generatedVariablePrefix}Once:${id}`;
 
-/** Storage key for a node-group member's `when: once` seen-state. */
-export const groupOnceVariableKey = (key: string) => `${generatedVariablePrefix}GroupOnce:${key}`;
+/** Storage key for a piece of content's saliency view count (ticket 47;
+ * upstream `$Yarn.Internal.Content.ViewCount.<contentID>`). */
+export const contentViewCountVariableKey = (contentId: string) =>
+  `${generatedVariablePrefix}Content.ViewCount.${contentId}`;
 
 /** Storage key for a node's visit count (recorded on node return). */
 export const visitCountVariableKey = (title: string) =>

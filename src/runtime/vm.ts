@@ -1,9 +1,8 @@
 /**
  * The instruction-stream VM (ADR 0001): executes the compiled `Program` —
  * per-node instruction streams whose expressions are bytecode and whose
- * jumps are instruction indices — end-to-end for linear flow, behind the
- * public runtime API (`Dialogue` dispatches here for bytecode programs
- * during the VM work, tickets 45–46).
+ * jumps are instruction indices — end-to-end behind the public runtime API
+ * (`Dialogue` dispatches here; tickets 45–47).
  *
  * Semantics mirror upstream 3.2.2 `VirtualMachine.cs`:
  * - `NodeStart` fires when a node is entered (`setNode`, `runNode`, detour);
@@ -19,9 +18,18 @@
  *   flags and awaits selection. Selecting an option resumes at its
  *   destination (the inline body, which jumps past the construct);
  *   `noOptionSelected` falls through to the pc after `showOptions`.
- * - State commands (`<<set>>`/`<<declare>>`/`<<call>>`) never surface as
- *   `Command` events; lines and commands keep authored text and compose at
- *   delivery through the shared line parser (`interpolate`).
+ * - Saliency (ticket 47, upstream `Yarn.Saliency`): node-group entries
+ *   build a candidate per member from its `when:` conditions and let the
+ *   active strategy pick (upstream's hub-node
+ *   AddSaliencyCandidateFromNode/SelectSaliencyCandidate sequence, run
+ *   here at node entry); line groups drive the same machinery through the
+ *   `addSaliencyCandidate`/`selectSaliencyCandidate`/`popJump` ops. The
+ *   strategy defaults to Random Best-Least-Recently-Viewed; its view
+ *   counts (the saliency history) are generated variables in storage.
+ * - State commands (`<<set>>`/`<<declare>>`/`<<call>>`/`<<set_saliency>>`)
+ *   never surface as `Command` events; lines and commands keep authored
+ *   text and compose at delivery through the shared line parser
+ *   (`interpolate`).
  * - Stack-op semantics mirror the runtime evaluator: `add` concatenates
  *   when either operand is a string (rendering operands the upstream way),
  *   equality is `deepEqualsOperands` (unset variables compare against
@@ -37,6 +45,7 @@
  */
 
 import type { Instruction, Program, ProgramNode } from "../compile/program.js";
+import { compileExpression } from "../compile/expressionCodegen.js";
 import type { MarkupParseResult } from "../markup/types.js";
 import {
   defaultStartNodeName,
@@ -50,7 +59,24 @@ import { ExpressionEvaluator, deepEqualsOperands, stringifyOperand, toNumberOper
 import { executeStateStatement, parseCommand, stripQuotes, type ParsedCommand } from "./commands.js";
 import { interpolate } from "./interpolate.js";
 import { registerBuiltinFunctions } from "./builtins.js";
-import { generatedVariablePrefix, groupOnceVariableKey, visitCountVariableKey } from "./generatedVariables.js";
+import {
+  contentViewCountVariableKey,
+  generatedVariablePrefix,
+  onceVariableKey,
+  visitCountVariableKey,
+} from "./generatedVariables.js";
+import {
+  defaultSaliencyStrategy,
+  nodeGroupMemberId,
+  parseSaliencyCondition,
+  saliencyConditionComplexity,
+  saliencyStrategyForMode,
+  SALIENCY_MODES,
+  type ContentSaliencyOption,
+  type ContentSaliencyStrategy,
+  type SaliencyState,
+} from "./saliency.js";
+import type { ProgramNodeGroup } from "../compile/program.js";
 
 /** Outcome of executing one command instruction. */
 type CommandOutcome = "continued" | "delivered" | "halted";
@@ -93,7 +119,9 @@ const INITIALIZER_OPS: ReadonlySet<Instruction["op"]> = new Set([
  * caught failure the VM pushes `null` so the stream stays balanced.
  */
 const STACK_PRODUCERS: ReadonlySet<Instruction["op"]> = new Set(
-  [...INITIALIZER_OPS].filter((op) => !LITERAL_OPS.has(op)),
+  ([...INITIALIZER_OPS, "selectSaliencyCandidate"] as Instruction["op"][]).filter(
+    (op) => !LITERAL_OPS.has(op),
+  ),
 );
 
 export class VirtualMachine {
@@ -119,12 +147,37 @@ export class VirtualMachine {
   private accumulatedOptions: AccumulatedOption[] = [];
   /** The delivered option set awaiting selection. */
   private pendingOptions: AccumulatedOption[] | null = null;
+  /** Saliency candidates accumulated by `addSaliencyCandidate` (line groups). */
+  private saliencyCandidates: ContentSaliencyOption[] = [];
+  /** The saliency history: view counts as generated variables in storage. */
+  private readonly saliencyState: SaliencyState;
+  /** The active saliency strategy (default: Random BLRV — upstream's default). */
+  private saliencyStrategy: ContentSaliencyStrategy;
   private completed = false;
 
   constructor(program: Program, opts: DialogueOptions = {}) {
     this.program = program;
     this.library = new Library();
+    // The saliency history lives in variable storage under generated keys
+    // (coding standards §4); the default strategy is Random BLRV.
+    this.saliencyState = {
+      getViewCount: (contentId) => Number(this.storage[contentViewCountVariableKey(contentId)]) || 0,
+      recordView: (contentId) => {
+        const key = contentViewCountVariableKey(contentId);
+        this.storage[key] = (Number(this.storage[key]) || 0) + 1;
+      },
+    };
+    this.saliencyStrategy = opts.contentSaliencyStrategy ?? defaultSaliencyStrategy(this.saliencyState);
     registerBuiltinFunctions(this.library, () => this.storage);
+    // Upstream Dialogue registers has_any_content over the program and the
+    // saliency strategy; a host library imported below may override it.
+    this.library.registerFunction("has_any_content", (nodeGroup: unknown) => {
+      const name = String(nodeGroup ?? "");
+      const entry = this.program.nodes[name];
+      if (!entry) return false; // no node with this name — no content at all
+      if (!("nodes" in entry)) return true; // not a node group: always content
+      return this.contentSaliencyStrategy.queryBestContent(this.saliencyOptionsForGroup(entry)) !== null;
+    });
     if (opts.library) this.library.importLibrary(opts.library);
     this.lineHintsEnabled = opts.lineHints ?? false;
     this.logError = opts.logError ?? ((message) => console.error(message));
@@ -314,6 +367,67 @@ export class VirtualMachine {
     return this.evaluator.tryGetSmartVariable(name);
   }
 
+  // ── Saliency (ticket 47) ──────────────────────────────────────────
+
+  /** The active content saliency strategy (upstream `Dialogue.ContentSaliencyStrategy`). */
+  get contentSaliencyStrategy(): ContentSaliencyStrategy {
+    return this.saliencyStrategy;
+  }
+
+  set contentSaliencyStrategy(strategy: ContentSaliencyStrategy) {
+    this.saliencyStrategy = strategy;
+  }
+
+  /**
+   * Switch to a named built-in strategy (the project's `<<set_saliency>>`
+   * mode vocabulary). Returns `false` for an unknown mode, leaving the
+   * active strategy unchanged.
+   */
+  setSaliencyStrategy(mode: string): boolean {
+    const strategy = saliencyStrategyForMode(mode, this.saliencyState);
+    if (!strategy) return false;
+    this.saliencyStrategy = strategy;
+    return true;
+  }
+
+  /** Upstream `Dialogue.IsNodeGroup`: whether the name is a node group. */
+  isNodeGroup(nodeName: string): boolean {
+    const entry = this.program.nodes[nodeName];
+    return entry !== undefined && "nodes" in entry;
+  }
+
+  /**
+   * Upstream `Dialogue.GetSaliencyOptionsForNodeGroup`: the saliency
+   * options the node group (or plain node) could run, evaluated against
+   * the current variable state. Read-only. An unknown name is a runtime
+   * diagnostic returning no options (upstream throws).
+   */
+  getSaliencyOptionsForNodeGroup(nodeGroup: string): ContentSaliencyOption[] {
+    const entry = this.program.nodes[nodeGroup];
+    if (!entry) {
+      this.logError(`"${nodeGroup}" is not a valid node name`);
+      return [];
+    }
+    if (!("nodes" in entry)) {
+      // A plain node: a single passing option (upstream behavior).
+      return [
+        {
+          contentId: nodeGroup,
+          complexityScore: 0,
+          passingConditionValueCount: 1,
+          failingConditionValueCount: 0,
+          contentType: "node",
+        },
+      ];
+    }
+    return this.saliencyOptionsForGroup(entry);
+  }
+
+  /** Upstream `Dialogue.HasSalientContent`: whether the strategy could select content for the node group. */
+  hasSalientContent(nodeGroup: string): boolean {
+    return this.contentSaliencyStrategy.queryBestContent(this.getSaliencyOptionsForNodeGroup(nodeGroup)) !== null;
+  }
+
   // ── Execution engine ────────────────────────────────────────────────
 
   /**
@@ -408,6 +522,53 @@ export class VirtualMachine {
           case "showOptions":
             this.deliverOptions(batch);
             return;
+          case "addSaliencyCandidate": {
+            // The item's evaluated condition (or `pushBool true`) is on the
+            // stack — upstream AddSaliencyCandidate.
+            const condition = Boolean(this.pop());
+            this.saliencyCandidates.push({
+              contentId: ins.contentId,
+              complexityScore: ins.complexity,
+              passingConditionValueCount: condition ? 1 : 0,
+              failingConditionValueCount: condition ? 0 : 1,
+              contentType: "line",
+              destination: ins.destination,
+            });
+            continue;
+          }
+          case "selectSaliencyCandidate": {
+            // Ask the strategy to pick (upstream SelectSaliencyCandidate);
+            // push (destination, true) on a selection, or just false.
+            const candidates = this.saliencyCandidates;
+            this.saliencyCandidates = [];
+            let selected = this.saliencyStrategy.queryBestContent(candidates);
+            if (selected && !candidates.includes(selected)) {
+              // Forgive value-copying strategies: match by content ID.
+              // Upstream throws DialogueException on a non-candidate;
+              // coding standards §3 (collect, don't throw) applies: a
+              // diagnostic surfaces and the group runs nothing.
+              const match = candidates.find((c) => c.contentId === selected!.contentId);
+              if (!match) {
+                this.logError(
+                  `Content saliency strategy returned "${selected.contentId}", which is not one of the available candidates`,
+                );
+                selected = null;
+              } else {
+                selected = match;
+              }
+            }
+            if (selected) {
+              this.saliencyStrategy.contentWasSelected(selected);
+              this.push(selected.destination);
+              this.push(true);
+            } else {
+              this.push(false);
+            }
+            continue;
+          }
+          case "popJump":
+            this.ip = Number(this.pop());
+            continue;
           case "pushString":
           case "pushNumber":
           case "pushBool":
@@ -605,13 +766,15 @@ export class VirtualMachine {
   /**
    * Enter a node: resolve node-group membership, queue the opt-in line
    * hints and the node-start event. A failed entry (unknown node, node
-   * group with no selectable member) completes the dialogue — execution
-   * cannot proceed — after reporting the diagnostic.
+   * group with no salient content) completes the dialogue — execution
+   * cannot proceed. An unknown node reports a diagnostic; a node group
+   * with no salient content is normal flow (upstream's hub node simply
+   * returns) and completes silently.
    */
   private enterNode(title: string, sink: DialogueEvent[]): boolean {
     const resolved = this.resolveNodeForEntry(title);
     if (!resolved.ok) {
-      this.logError(resolved.message);
+      if (resolved.message) this.logError(resolved.message);
       this.complete(sink);
       return false;
     }
@@ -628,7 +791,7 @@ export class VirtualMachine {
 
   private resolveNodeForEntry(
     title: string,
-  ): { ok: true; node: ProgramNode; nodeIndex: number } | { ok: false; message: string } {
+  ): { ok: true; node: ProgramNode; nodeIndex: number } | { ok: false; message?: string } {
     const nodeOrGroup = this.program.nodes[title];
     if (!nodeOrGroup) {
       return { ok: false, message: `No node named "${title}" exists in the program` };
@@ -636,45 +799,117 @@ export class VirtualMachine {
     if (!("nodes" in nodeOrGroup)) {
       return { ok: true, node: nodeOrGroup, nodeIndex: -1 };
     }
-    // Node group: select the first member whose `when:` conditions hold
-    // (saliency strategies are ticket 47).
-    for (let i = 0; i < nodeOrGroup.nodes.length; i++) {
-      const candidate = nodeOrGroup.nodes[i];
-      if (this.evaluateWhenConditions(candidate.when, title, i)) {
-        if (candidate.when?.includes("once")) {
-          this.storage[groupOnceVariableKey(`${title}#${i}`)] = true;
-        }
-        return { ok: true, node: candidate, nodeIndex: i };
+    // Node group (ticket 47): build a saliency candidate per member from
+    // its `when:` conditions, and let the strategy pick (upstream: the hub
+    // node's AddSaliencyCandidateFromNode/SelectSaliencyCandidate sequence).
+    const selected = this.saliencyStrategy.queryBestContent(this.saliencyOptionsForGroup(nodeOrGroup));
+    if (!selected) {
+      // No salient content: the hub returns — the dialogue completes if
+      // nothing else remains (upstream NodeGroupCompiler emits a bare Return).
+      return { ok: false };
+    }
+    const nodeIndex = nodeOrGroup.nodes.findIndex(
+      (m, i) => nodeGroupMemberId(title, m, i) === selected.contentId,
+    );
+    const member = nodeOrGroup.nodes[nodeIndex];
+    if (nodeIndex < 0 || !member) {
+      return { ok: false, message: `Node group "${title}" selected an unknown member` };
+    }
+    // Commit the selection: the strategy records the view (its BLRV state),
+    // and any `when: once` header's seen-state stores now (upstream: the
+    // hub sets the once variable just before detouring into the member).
+    this.saliencyStrategy.contentWasSelected(selected);
+    for (const raw of member.when ?? []) {
+      const parsed = parseSaliencyCondition(raw);
+      if (parsed.kind === "once" || parsed.kind === "once-if") {
+        this.storage[onceVariableKey(selected.contentId)] = true;
       }
     }
-    return { ok: false, message: `No available content found in node group "${title}"` };
+    return { ok: true, node: member, nodeIndex };
   }
 
-  private evaluateWhenConditions(
-    conditions: string[] | undefined,
-    nodeTitle: string,
-    nodeIndex: number,
-  ): boolean {
-    if (!conditions || conditions.length === 0) {
-      // No when condition - available by default (but should not happen in groups)
-      return true;
-    }
-    for (const condition of conditions) {
-      const trimmed = condition.trim();
-      if (trimmed === "once") {
-        if (this.storage[groupOnceVariableKey(`${nodeTitle}#${nodeIndex}`)] === true) {
-          return false;
+  /**
+   * The node group's saliency options (upstream
+   * `SmartVariableEvaluationVirtualMachine.GetSaliencyOptionsForNodeGroup`):
+   * one option per member, each condition evaluated against the current
+   * variable state, with the member's complexity score. Read-only.
+   */
+  private saliencyOptionsForGroup(group: ProgramNodeGroup): ContentSaliencyOption[] {
+    return group.nodes.map((member, index) => {
+      const contentId = nodeGroupMemberId(group.title, member, index);
+      let complexityScore = 0;
+      let passingConditionValueCount = 0;
+      let failingConditionValueCount = 0;
+      for (const raw of member.when ?? []) {
+        complexityScore += saliencyConditionComplexity(raw);
+        if (this.evaluateSaliencyCondition(raw, contentId)) {
+          passingConditionValueCount += 1;
+        } else {
+          failingConditionValueCount += 1;
         }
-        continue;
       }
-      if (trimmed === "always") {
-        continue;
-      }
-      if (!this.evaluator.evaluate(trimmed)) {
-        return false;
-      }
+      return {
+        contentId,
+        complexityScore,
+        passingConditionValueCount,
+        failingConditionValueCount,
+        contentType: "node" as const,
+      };
+    });
+  }
+
+  /** Evaluate one `when:` condition (read-only — a `once` header reads its seen-state).
+   *  Expressions compile to bytecode (the compiler's expression codegen —
+   *  the full upstream expression grammar, word aliases included) and run
+   *  through the VM's own stack machinery; an uncompilable expression falls
+   *  back to the string evaluator (catch → false). */
+  private evaluateSaliencyCondition(raw: string, contentId: string): boolean {
+    const parsed = parseSaliencyCondition(raw);
+    switch (parsed.kind) {
+      case "always":
+        return true;
+      case "once":
+        return this.storage[onceVariableKey(contentId)] !== true;
+      case "once-if":
+        return this.storage[onceVariableKey(contentId)] !== true && this.evaluateConditionExpression(parsed.expression);
+      case "expression":
+        return this.evaluateConditionExpression(parsed.expression);
     }
-    return true;
+  }
+
+  /** Lazily compiled saliency-condition expressions, keyed by source text. */
+  private readonly conditionCode = new Map<string, Instruction[] | null>();
+
+  /** Evaluate a condition expression: bytecode when it compiles (upstream
+   *  compiles `when:` conditions to smart variables), else the string
+   *  evaluator's catch → false. Errors are contained to the expression. */
+  private evaluateConditionExpression(expression: string): boolean {
+    let code = this.conditionCode.get(expression);
+    if (code === undefined) {
+      try {
+        code = compileExpression(expression, this.program.enums);
+      } catch {
+        code = null;
+      }
+      this.conditionCode.set(expression, code);
+    }
+    if (!code) return this.evaluator.evaluate(expression);
+    const saved = this.stack.splice(0, this.stack.length);
+    try {
+      for (const ins of code) {
+        if (!INITIALIZER_OPS.has(ins.op)) return this.evaluator.evaluate(expression);
+        this.executeStackOp(ins);
+      }
+      return Boolean(this.stack.pop());
+    } catch (e) {
+      this.logError(
+        `Failed to evaluate saliency condition "${expression}": ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return false;
+    } finally {
+      this.stack.length = 0;
+      this.stack.push(...saved);
+    }
   }
 
   /**
@@ -749,6 +984,18 @@ export class VirtualMachine {
       return "delivered";
     }
     const name = parsed.name.toLowerCase();
+    if (name === "set_saliency") {
+      // Upstream's strategy-switch command (Try Yarn Spinner's built-in
+      // `<<set_saliency first|random|best|...>>`): switches to a named
+      // built-in strategy. Internal: it never surfaces as an event.
+      const mode = (parsed.args[0] ?? "").trim();
+      if (!this.setSaliencyStrategy(mode)) {
+        this.logError(
+          `Unknown saliency strategy "${mode}" (expected one of: ${SALIENCY_MODES.join(", ")})`,
+        );
+      }
+      return "continued";
+    }
     if (name === "set" || name === "declare" || name === "call") {
       // State statements are internal (spec, ticket 03 conformance): they
       // execute their effect and never surface as Command events.

@@ -31,6 +31,7 @@ export type Statement =
   | Line
   | Command
   | OptionGroup
+  | LineGroup
   | IfBlock
   | OnceBlock
   | Jump
@@ -82,6 +83,17 @@ export interface Option {
   /** Option-level `<<once>>` / `<<once if expr>>` (upstream once options):
    *  the option is selectable once; the flag records on selection. */
   once?: OnceModifier;
+}
+
+/**
+ * A line group (upstream `line_group_statement`): consecutive `=>` lines —
+ * saliency selects exactly one item to run (ticket 47). Each item is an
+ * ordinary line; its `<<if>>`/`<<once>>`/`<<once if>>` modifier becomes the
+ * item's saliency condition rather than a line gate.
+ */
+export interface LineGroup {
+  type: "LineGroup";
+  items: Line[];
 }
 
 /** A `<<once>>`/`<<once if expr>>` modifier shared by lines and options. */
