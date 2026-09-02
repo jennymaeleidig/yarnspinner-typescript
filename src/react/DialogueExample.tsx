@@ -103,7 +103,7 @@ export function DialogueExample() {
         )}
 
         <DialogueView 
-          program={program || { nodes: {}, enums: {}, initialValues: {} }}
+          program={program || { nodes: {}, enums: {}, initialValues: {}, smartVariables: {} }}
           startNode="Start"
           scenes={scenes}
           variables={{ playerName: "V", reputation: 3 }}

@@ -2,6 +2,7 @@ import type { YarnDocument, Statement, Line, Option } from "../model/ast";
 import type { IRProgram, IRNode, IRNodeGroup, IRInstruction } from "./ir";
 import { buildEnumTypes, collectEnumBlocks } from "./enums.js";
 import type { EnumType } from "./enums.js";
+import { isSmartVariableInitializer, parseDeclareCommand } from "./smartVariables.js";
 
 /** Extract the tracking: header (visit-tracking mode) from node headers. */
 function trackingHeader(headers: Record<string, string>): "always" | "never" | undefined {
@@ -15,29 +16,38 @@ function trackingHeader(headers: Record<string, string>): "always" | "never" | u
 }
 
 /**
- * Collect `<<declare $var = expr>>` commands from a statement tree into
- * `program.initialValues` (upstream `Program.InitialValues`). First
- * declaration wins — duplicate declarations are a compile-time concern the
- * diagnostics channel will own (phase 1).
+ * Collect `<<declare $var = expr>>` commands from a statement tree, splitting
+ * them by kind (ticket 42): smart variables (initializer that is not a plain
+ * literal — upstream "inline expansion") go into `program.smartVariables`
+ * with their expression; stored declarations go into `program.initialValues`
+ * (upstream `Program.InitialValues`) as the raw command content, which the
+ * runtime evaluates into variable storage at start-up. First declaration
+ * wins — duplicate declarations are a compile-time concern the diagnostics
+ * channel will own (phase 1).
  */
-function collectInitialValues(stmts: Statement[], into: Record<string, string>): void {
+function collectInitialValues(stmts: Statement[], into: Record<string, string>, smartVariables: Record<string, string>): void {
   for (const s of stmts) {
     switch (s.type) {
       case "Command": {
-        const match = (s as { content: string }).content.match(/^declare\s+(\$[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/);
-        if (match && !(match[1] in into)) {
-          into[match[1].slice(1)] = (s as { content: string }).content;
+        const content = (s as { content: string }).content;
+        const declare = parseDeclareCommand(content);
+        if (declare) {
+          if (isSmartVariableInitializer(declare.expression)) {
+            if (!(declare.name in smartVariables)) smartVariables[declare.name] = declare.expression;
+          } else if (!(declare.name in into)) {
+            into[declare.name] = content;
+          }
         }
         break;
       }
       case "If":
-        for (const b of (s as { branches: Array<{ body: Statement[] }> }).branches) collectInitialValues(b.body, into);
+        for (const b of (s as { branches: Array<{ body: Statement[] }> }).branches) collectInitialValues(b.body, into, smartVariables);
         break;
       case "Once":
-        collectInitialValues((s as { body: Statement[] }).body, into);
+        collectInitialValues((s as { body: Statement[] }).body, into, smartVariables);
         break;
       case "OptionGroup":
-        for (const o of (s as { options: Array<{ body: Statement[] }> }).options) collectInitialValues(o.body, into);
+        for (const o of (s as { options: Array<{ body: Statement[] }> }).options) collectInitialValues(o.body, into, smartVariables);
         break;
     }
   }
@@ -54,7 +64,7 @@ export interface CompileOptions {
 }
 
 export function compile(doc: YarnDocument, opts: CompileOptions = {}): IRProgram {
-  const program: IRProgram = { enums: {}, nodes: {}, initialValues: {} };
+  const program: IRProgram = { enums: {}, nodes: {}, initialValues: {}, smartVariables: {} };
   // Enum registry: enum name → case name → raw value. The type checker
   // (compileSource) passes validated types; standalone compile() resolves
   // the document's <<enum>> blocks without diagnostics.
@@ -144,7 +154,7 @@ export function compile(doc: YarnDocument, opts: CompileOptions = {}): IRProgram
       return block;
     }
       instructions.push(...emitBlock(node.body));
-      collectInitialValues(node.body, program.initialValues);
+      collectInitialValues(node.body, program.initialValues, program.smartVariables);
       const irNode: IRNode = { 
         title: node.title, 
         instructions,
@@ -213,7 +223,7 @@ export function compile(doc: YarnDocument, opts: CompileOptions = {}): IRProgram
           return block;
         }
         instructions.push(...emitBlock(node.body));
-        collectInitialValues(node.body, program.initialValues);
+        collectInitialValues(node.body, program.initialValues, program.smartVariables);
         groupNodes.push({
           title: node.title,
           instructions,

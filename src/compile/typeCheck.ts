@@ -30,6 +30,7 @@ import { EnumTypeBuilder, buildEnumTypes, collectEnumBlocks } from "./enums.js";
 import type { EnumRawValue, EnumType } from "./enums.js";
 import { makeDiagnostic } from "./diagnostics.js";
 import type { Diagnostic } from "./diagnostics.js";
+import { isSmartVariableInitializer } from "./smartVariables.js";
 
 /** Declared parameter/return types for compile-time function signatures. */
 export type DeclaredValueType = "number" | "string" | "bool" | "any";
@@ -48,6 +49,13 @@ export interface VariableDeclaration {
   type: string;
   /** The static initial value when the initializer is a constant. */
   defaultValue?: EnumRawValue | boolean;
+  /**
+   * True when the declaration is a smart variable (ticket 42; upstream
+   * `Declaration.IsInlineExpansion`): the initializer is not a plain literal,
+   * the variable is read-only (YS0030), and its value is recomputed on every
+   * access.
+   */
+  isSmartVariable?: boolean;
 }
 
 /** Host-provided external declarations feeding the type checker (ticket 41). */
@@ -88,6 +96,8 @@ interface CheckContext {
   emit: (code: string, message: string) => void;
   rewrites: Rewrite[];
   declarations: VariableDeclaration[];
+  /** Every `<<declare>>`d variable: smart flag + initializer expression (first declaration wins). */
+  declaredVariables: Map<string, { isSmart: boolean; expression: string }>;
 }
 
 // --- Expression mini-parser -------------------------------------------------
@@ -608,6 +618,13 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           const expectedEnum = declaredType && ctx.enumTypes.has(declaredType) ? declaredType : undefined;
           const { type, rewritten } = checkExpression(expr, ctx, expectedEnum);
           if (rewritten !== expr) s.content = `declare $${name} = ${rewritten}${asMatch ? ` as ${declaredType}` : ""}`;
+          // Smart-variable classification (ticket 42): an initializer that is
+          // not a plain literal declares a smart variable (upstream
+          // ResolveInitialValues → Declaration.IsInlineExpansion).
+          const isSmart = isSmartVariableInitializer(rewritten);
+          if (!ctx.declaredVariables.has(name)) {
+            ctx.declaredVariables.set(name, { isSmart, expression: rewritten });
+          }
           if (declaredType) {
             ctx.variableTypes.set(name, declaredType);
           } else if (type.enumName) {
@@ -618,14 +635,25 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           ctx.declarations.push({
             name,
             type: declaredType ?? type.enumName ?? (type.base !== "unknown" ? type.base : "unknown"),
-            defaultValue: primOrDefault(rewritten, ctx.enumTypes),
+            defaultValue: isSmart ? undefined : primOrDefault(rewritten, ctx.enumTypes),
+            ...(isSmart ? { isSmartVariable: true } : {}),
           });
+          break;
+        }
+
+        // Compound assignment (`<<set $var += expr>>`, ticket 40's grammar):
+        // assignment to a smart variable is read-only (YS0030), same as a
+        // plain `<<set>>`.
+        const compoundSet = content.match(/^set\s+\$([A-Za-z_][A-Za-z0-9_]*)\s*(?:\+=|-=|\*=|\/=|%=)/);
+        if (compoundSet) {
+          emitReadOnlyIfSmart(compoundSet[1], ctx);
           break;
         }
 
         const set = content.match(/^set\s+\$(\w+)\s+(to|=)\s*([\s\S]+)$/);
         if (set) {
           const [, name, op, rest] = set;
+          emitReadOnlyIfSmart(name, ctx);
           const varType = ctx.variableTypes.get(name);
           const expectedEnum = varType && ctx.enumTypes.has(varType) ? varType : undefined;
           const { type, rewritten } = checkExpression(rest.trim(), ctx, expectedEnum);
@@ -716,6 +744,80 @@ function splitArgs(src: string): string[] {
 }
 
 /**
+ * YS0030 (ticket 42): smart variables are read-only — any assignment to one
+ * is an error (upstream Compiler.AddErrorsForSettingReadonlyVariables).
+ * The message carries the variable and its always-equal initializer
+ * expression, per the vendored YS0030 registry definition.
+ */
+function emitReadOnlyIfSmart(name: string, ctx: CheckContext): void {
+  const declaration = ctx.declaredVariables.get(name);
+  if (declaration?.isSmart) {
+    ctx.emit(
+      "YS0030",
+      `$${name} cannot be modified (it's a smart variable and is always equal to ${declaration.expression})`,
+    );
+  }
+}
+
+/**
+ * YS0045 (ticket 42): smart variables must not form reference loops
+ * (upstream TypeCheckerListener.GetDependenciesForVariable). For each smart
+ * declaration, a depth-tracking DFS over the initializer's variable
+ * references follows smart-variable declarations only; re-reaching a
+ * declaration at a different depth is a loop. Reaching one at the same depth
+ * (`$E = $C || $C`) is fine, as upstream.
+ */
+function detectSmartVariableLoops(ctx: CheckContext): void {
+  const children = (node: ExprNode): ExprNode[] => {
+    switch (node.kind) {
+      case "bin":
+        return [node.left, node.right];
+      case "un":
+        return [node.operand];
+      case "call":
+        return node.args;
+      default:
+        return [];
+    }
+  };
+
+  const parse = (expr: string): ExprNode | null => new ExprParser(tokenize(expr), expr).parse();
+
+  for (const [startName, startDecl] of ctx.declaredVariables) {
+    if (!startDecl.isSmart) continue;
+    const start = parse(startDecl.expression);
+    if (!start) continue;
+
+    const seenLevels = new Map<string, Set<number>>([[startName, new Set([0])]]);
+    const stack: Array<{ node: ExprNode; level: number }> = [{ node: start, level: 0 }];
+    while (stack.length > 0) {
+      const { node, level } = stack.pop()!;
+      if (node.kind === "var") {
+        const dependency = ctx.declaredVariables.get(node.name);
+        if (!dependency || !dependency.isSmart) continue; // stored variables end the chain
+        const levels = seenLevels.get(node.name);
+        if (levels && [...levels].some((seen) => seen !== level)) {
+          ctx.emit(
+            "YS0045",
+            `Smart variables cannot contain reference loops (referencing $${node.name} here creates a loop for the smart variable ${startName}).`,
+          );
+          break;
+        }
+        if (!levels) {
+          seenLevels.set(node.name, new Set([level]));
+        } else {
+          levels.add(level);
+        }
+        const dependencyExpr = parse(dependency.expression);
+        if (dependencyExpr) stack.push({ node: dependencyExpr, level: level + 1 });
+        continue;
+      }
+      for (const child of children(node)) stack.push({ node: child, level: level + 1 });
+    }
+  }
+}
+
+/**
  * Run the enum-aware type checking pass over the document. Mutates the AST
  * in place (resolves `.Case` shorthand) so the compiler emits the resolved
  * form; returns the declarations and enum registry for the compile result.
@@ -756,9 +858,14 @@ export function typeCheck(
     emit: (code, message) => emitDiagnostic(makeDiagnostic(code, message)),
     rewrites: [],
     declarations,
+    declaredVariables: new Map(),
   };
 
   for (const node of doc.nodes) walkStatements(node.body, ctx);
+
+  // Smart-variable validation (ticket 42): reference loops across the
+  // declared smart variables (YS0045).
+  detectSmartVariableLoops(ctx);
 
   return { declarations, enumTypes };
 }

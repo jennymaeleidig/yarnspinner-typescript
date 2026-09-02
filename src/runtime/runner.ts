@@ -118,6 +118,14 @@ export class YarnRunner {
     this.evaluator = new ExpressionEvaluator(this.variables, this.functions, this.program.enums);
     this.commandHandler = opts.commandHandler ?? new CommandHandler(this.variables);
 
+    // Smart variables (ticket 42): the program carries the classified
+    // `<<declare>>` initializers; register them so every read recomputes and
+    // the runtime declare handler skips storing an initial value for them
+    // (upstream: smart variables are not in Program.InitialValues).
+    for (const [name, expression] of Object.entries(this.program.smartVariables ?? {})) {
+      this.evaluator.setSmartVariable(name, expression);
+    }
+
     // Upstream Dialogue.SetProgram seeds the variable storage from
     // Program.InitialValues (the <<declare>>d defaults), so every declared
     // variable exists before the first node runs. Host-provided variables
@@ -759,10 +767,19 @@ export class YarnRunner {
   }
 
   /**
-   * Get variable value.
+   * Get variable value (upstream `Dialogue.TryGetVariable`: a smart variable
+   * recomputes; a stored value wins when a host has shadowed it).
    */
   getVariable(name: string): unknown {
-    return this.variables[name];
+    return this.evaluator.getVariable(name);
+  }
+
+  /**
+   * Upstream `Dialogue.TryGetSmartVariable`: compute a smart variable's
+   * current value. Reports failure when the name is not a smart variable.
+   */
+  tryGetSmartVariable(name: string): { ok: true; value: unknown } | { ok: false } {
+    return this.evaluator.tryGetSmartVariable(name);
   }
 
   /**

@@ -14,6 +14,15 @@ export type IRProgram = {
    * variables exist before the first node runs.
    */
   initialValues: Record<string, string>;
+  /**
+   * Smart variables (ticket 42; upstream "inline expansions"): variable name
+   * → the `<<declare>>` initializer expression. Smart variables are read-only
+   * and recomputed on every access; they carry no initial value (upstream:
+   * they are not in `Program.InitialValues`). The runtime re-evaluates the
+   * expression through the current variable storage each time it reads the
+   * name.
+   */
+  smartVariables: Record<string, string>;
 };
 
 export type IRNode = {

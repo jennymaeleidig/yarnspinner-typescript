@@ -7,7 +7,7 @@ Source: [YarnSpinnerTool/YarnSpinner](https://github.com/YarnSpinnerTool/YarnSpi
 - **Vendored**: `Tests/`, `Diagnostics/Definitions/` (the 53 per-code YSxxxx
   definition files — the authoritative registry; the docs site is stale on
   severities), and `YarnSpinner.Tests/TestPlan/YarnSpinnerTestPlan.g4`
-  (upstream paths: `YarnSpinner.Tests/Diagnostics/Definitions/`,
+  (upstream paths: `YarnSpinner.Diagnostics/Definitions/`,
   `YarnSpinner/Tests/`).
 
 ## Exclusions
@@ -27,7 +27,7 @@ Source: [YarnSpinnerTool/YarnSpinner](https://github.com/YarnSpinnerTool/YarnSpi
 ```
 git clone --depth 1 --branch v3.2.2 https://github.com/YarnSpinnerTool/YarnSpinner.git
 cp -R YarnSpinner/Tests <this dir>/YarnSpinner/Tests
-cp -R YarnSpinner/YarnSpinner.Tests/Diagnostics/Definitions <this dir>/YarnSpinner/Diagnostics/Definitions
+cp -R YarnSpinner/YarnSpinner.Diagnostics/Definitions <this dir>/YarnSpinner/Diagnostics/Definitions
 cp YarnSpinner/YarnSpinner.Tests/TestPlan/YarnSpinnerTestPlan.g4 <this dir>/YarnSpinner/
 ```
 

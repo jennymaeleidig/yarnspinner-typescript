@@ -410,17 +410,17 @@ export class ExpressionEvaluator {
       return undefined;
     }
 
-    // Try as variable first
+    // Try as variable first (a stored value shadows a smart variable of the
+    // same name — upstream VariableKind.Stored wins over VariableKind.Smart).
     const key = expr.startsWith("$") ? expr.slice(1) : expr;
-    
-    // Check if this is a smart variable (has stored expression)
-    if (Object.prototype.hasOwnProperty.call(this.smartVariables, key)) {
-      // Re-evaluate the expression each time it's accessed
-      return this.evaluateExpression(this.smartVariables[key]);
-    }
-    
+
     if (Object.prototype.hasOwnProperty.call(this.variables, key)) {
       return this.variables[key];
+    }
+
+    // Smart variable: re-evaluate its expression on every access (ticket 42).
+    if (Object.prototype.hasOwnProperty.call(this.smartVariables, key)) {
+      return this.evaluateExpression(this.smartVariables[key]);
     }
 
     // Try as number
@@ -458,23 +458,21 @@ export class ExpressionEvaluator {
 
   /**
    * Update variables. Can be used to mutate state during dialogue.
+   *
+   * Note: a write to a smart variable's name shadows its expression (upstream
+   * `VariableKind.Stored` wins); `<<set>>` to a smart variable is a compile
+   * error (YS0030), so only host writes can shadow.
    */
   setVariable(name: string, value: unknown): void {
-    // If setting a smart variable, remove it (converting to regular variable)
-    if (Object.prototype.hasOwnProperty.call(this.smartVariables, name)) {
-      delete this.smartVariables[name];
-    }
     this.variables[name] = value;
   }
   
   /**
-   * Register a smart variable (variable with expression that recalculates on access).
+   * Register a smart variable (variable with expression that recalculates on
+   * each access). Expressions are seeded from `program.smartVariables` at
+   * start-up; smart variables never take an initial stored value.
    */
   setSmartVariable(name: string, expression: string): void {
-    // Remove from regular variables if it exists
-    if (Object.prototype.hasOwnProperty.call(this.variables, name)) {
-      delete this.variables[name];
-    }
     this.smartVariables[name] = expression;
   }
   
@@ -486,9 +484,26 @@ export class ExpressionEvaluator {
   }
 
   /**
-   * Get variable value.
+   * Upstream `Dialogue.TryGetSmartVariable`: recompute a smart variable's
+   * current value. A stored value under the same name (a host write) shadows
+   * the expression, mirroring upstream's VariableKind.Stored precedence.
+   */
+  tryGetSmartVariable(name: string): { ok: true; value: unknown } | { ok: false } {
+    if (!this.isSmartVariable(name)) return { ok: false };
+    if (Object.prototype.hasOwnProperty.call(this.variables, name)) {
+      return { ok: true, value: this.variables[name] };
+    }
+    return { ok: true, value: this.evaluateExpression(this.smartVariables[name]) };
+  }
+
+  /**
+   * Get variable value (upstream `VariableStorage.TryGetValue`: a smart
+   * variable recomputes; a stored value wins when shadowed).
    */
   getVariable(name: string): unknown {
+    if (this.isSmartVariable(name) && !Object.prototype.hasOwnProperty.call(this.variables, name)) {
+      return this.evaluateExpression(this.smartVariables[name]);
+    }
     return this.variables[name];
   }
 }

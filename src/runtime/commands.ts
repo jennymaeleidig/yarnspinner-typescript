@@ -151,7 +151,11 @@ export class CommandHandler {
       const expr = exprParts.join(" ");
       const value = evaluator.evaluateExpression(expr);
 
-      // Setting a variable converts it from smart to regular
+      // A script-level set of a smart variable is a compile error (YS0030),
+      // so this write only ever lands on stored variables — or shadows a
+      // smart variable when a host drives the storage directly (upstream
+      // VariableKind.Stored precedence). No smart-to-regular downgrade:
+      // the smart expression stays registered.
       this.variables[key] = value;
       evaluator.setVariable(key, value);
     });
@@ -168,30 +172,21 @@ export class CommandHandler {
       // type postfix is compile metadata; evaluate the expression alone.
       const expr = exprParts.join(" ").replace(/\s+as\s+[A-Za-z_][A-Za-z0-9_]*\s*$/, "");
       
-      
       const key = varNameRaw.startsWith("$") ? varNameRaw.slice(1) : varNameRaw;
+
+      // Smart variables (ticket 42) were classified at compile time and
+      // registered from `program.smartVariables` at start-up: read-only,
+      // recomputed on every access, no initial stored value (upstream: they
+      // are not in Program.InitialValues).
+      if (evaluator.isSmartVariable(key)) return;
+
+      // Regular variable - evaluate once and store. Enum member access
+      // (Enum.Case, or compile-time-resolved shorthand) evaluates to the
+      // case's raw value via the evaluator's enum registry.
+      const value = evaluator.evaluateExpression(expr);
       
-      // Check if expression is "smart" (contains operators, comparisons, or variable references)
-      // Smart variables: expressions with operators, comparisons, logical ops, or function calls
-      const isSmart = /[+\-*/%<>=!&|]/.test(expr) || 
-                      /\$\w+/.test(expr) || // references other variables
-                      /[a-zA-Z_]\w*\s*\(/.test(expr); // function calls
-      
-      if (isSmart) {
-        // Store as smart variable - will recalculate on each access
-        evaluator.setSmartVariable(key, expr);
-        // Also store initial value in variables for immediate use
-        const initialValue = evaluator.evaluateExpression(expr);
-        this.variables[key] = initialValue;
-      } else {
-        // Regular variable - evaluate once and store. Enum member access
-        // (Enum.Case, or compile-time-resolved shorthand) evaluates to the
-        // case's raw value via the evaluator's enum registry.
-        const value = evaluator.evaluateExpression(expr);
-        
-        this.variables[key] = value;
-        evaluator.setVariable(key, value);
-      }
+      this.variables[key] = value;
+      evaluator.setVariable(key, value);
     });
 
     // <<stop>> - no-op, just a marker

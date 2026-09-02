@@ -44,7 +44,6 @@ const MUST_FAIL_ALLOWLIST: Record<string, string> = {
   "ShadowLines-MustBeIdenticalToSourceLines.yarn": "no #shadow: validation (spec story 29)",
   "ShadowLines-MustHaveValidSourceLine.yarn": "no #shadow: validation (spec story 29)",
   "ShadowLines-MustNotHaveExpressions.yarn": "no #shadow: validation (spec story 29)",
-  "SmartVariables-MustNotContainLoops.yarn": "no smart-variable cycle detection (spec story 15)",
   "Variables-CannotBeAssignedConflictingTypes.yarn": "no variable type checking (phase 1 diagnostics)",
   "Variables-MustBeAbleToInferDefinition.yarn": "no type inference validation (phase 1 diagnostics)",
   "DuplicateLineTags.yarn": "no duplicate #line: check — upstream fails with YS0018 (phase 1 diagnostics)",
