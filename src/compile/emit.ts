@@ -16,13 +16,15 @@
  *   commands) stays a `runCommand`;
  * - `if` chains lower to condition bytecode + `jumpIfFalse` over each
  *   branch, with `jumpTo` threading past earlier branches;
- * - option groups lower to per-option condition guards around `addOption`
- *   (destination = the body's entry index), one `showOptions`, and the
- *   inline bodies each ending in a `jumpTo` past the construct — selection
- *   runs the body and resumes after the options block; the
- *   no-option-selected fall-through is the pc after `showOptions`. Nested
- *   groups work because `showOptions` delivers and clears the accumulated
- *   set;
+ * - option groups lower to one availability push + `addOption` per option
+ *   (the compiled condition, or `pushBool true` when none; `addOption`
+ *   pops the flag as the option's `isAvailable`, mirroring upstream's
+ *   AddOption — the set assembles whole and `showOptions` delivers it with
+ *   per-option availability flags), one `showOptions`, and the inline
+ *   bodies each ending in a `jumpTo` past the construct — selection runs
+ *   the body and resumes after the options block; the no-option-selected
+ *   fall-through is the pc after `showOptions`. Nested groups work because
+ *   `showOptions` delivers and clears the accumulated set;
  * - `once` lowers to generated-variable reads/writes (no dedicated block
  *   op; coding standards §4) using the shared key contract in
  *   runtime/generatedVariables.ts;
@@ -214,18 +216,19 @@ function lowerInstructions(
       case "options": {
         const end = lowering.newLabel();
         const bodies = ins.options.map(() => lowering.newLabel());
-        // Condition guards and addOptions for the whole set, in order.
+        // One availability push + addOption per option, in authored order:
+        // `addOption` pops the availability (upstream AddOption), so the
+        // set assembles whole and `showOptions` delivers every option with
+        // its own isAvailable flag. An uncompilable condition keeps the
+        // evaluator's catch→false contract: the option is unavailable.
         for (let i = 0; i < ins.options.length; i++) {
           const option = ins.options[i];
-          const condition = option.condition ?? null;
-          if (condition === null) {
-            lowering.addOption(option.text, option.tags, bodies[i]);
-          } else {
-            const skip = lowering.newLabel();
-            lowering.branchOn(condition, enums, skip);
-            lowering.addOption(option.text, option.tags, bodies[i]);
-            lowering.place(skip);
-          }
+          const available: Instruction[] =
+            option.condition != null
+              ? (tryCompile(option.condition, enums) ?? [{ op: "pushBool", value: false }])
+              : [{ op: "pushBool", value: true }];
+          lowering.instructions.push(...available);
+          lowering.addOption(option.text, option.tags, bodies[i]);
         }
         lowering.instructions.push({ op: "showOptions" });
         lowering.jump("jumpTo", end);

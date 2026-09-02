@@ -16,11 +16,16 @@
  * - `runNode`/`detour` target nodes by name; `{expr}` targets stay strings
  *   the VM resolves at execution (upstream resolves dynamic node names at
  *   execution too).
- * - Option bodies lower inline: `addOption` carries the body's entry index
- *   (a resolved label), `showOptions` delivers and clears the accumulated
- *   set, and the compiler jumps past the inline bodies — so a selection
- *   runs the body and resumes after the options block, and the
- *   no-option-selected fall-through is simply the pc after `showOptions`.
+ * - Option groups lower to one availability push + `addOption` per option
+ *   (the evaluated condition bytecode, or `pushBool true` when none —
+ *   `addOption` pops it as the option's `isAvailable`, mirroring upstream's
+ *   AddOption), one `showOptions`, and inline bodies each ending in a
+ *   `jumpTo` past the construct — so the full set is delivered with
+ *   per-option availability flags (upstream `OptionSet.Option.IsAvailable`),
+ *   a selection runs the body and resumes after the options block, and the
+ *   no-option-selected fall-through is the pc after `showOptions`. Nested
+ *   groups work because `showOptions` delivers and clears the accumulated
+ *   set.
  * - Generated-variable state (once-state) is read/written with plain
  *   variable ops; the key naming contract lives in
  *   `runtime/generatedVariables.ts` (coding standards §4).
@@ -80,6 +85,15 @@ export type ProgramNodeGroup = {
 };
 
 /**
+ * Discriminate the instruction-stream program (this format) from the
+ * transitional tree-IR program: both ride the public runtime API during
+ * the VM transition (tickets 45–46), and `Dialogue` dispatches on it.
+ */
+export function isInstructionStreamProgram(program: unknown): program is Program {
+  return typeof program === "object" && program !== null && "languageVersion" in program;
+}
+
+/**
  * One instruction. Stack ops and operands mirror the upstream instruction
  * concepts (coding standards §5); jumps and option destinations are
  * instruction indices into the same node's stream, resolved by the
@@ -97,6 +111,8 @@ export type Instruction =
   // Delivery (authored text; the runtime line parser composes it).
   | { op: "runLine"; text: string; speaker?: string; tags?: string[] }
   | { op: "runCommand"; content: string }
+  /** Pops the option's availability (the evaluated condition; the compiler
+   *  emits `pushBool true` for unconditioned options — upstream AddOption). */
   | { op: "addOption"; text: string; tags?: string[]; destination: number }
   | { op: "showOptions" } // delivers and clears the accumulated set; halts
   // Stack: literals and variables.
@@ -104,7 +120,7 @@ export type Instruction =
   | { op: "pushNumber"; value: number }
   | { op: "pushBool"; value: boolean }
   | { op: "pushNull" }
-  | { op: "pushVariable"; name: string } // unset names push null
+  | { op: "pushVariable"; name: string } // unset names push undefined (the evaluator's unset contract)
   | { op: "popVariable"; name: string } // pops into the variable
   // Functions: pops `argc` operands, pushes the result.
   | { op: "callFunction"; name: string; argc: number }

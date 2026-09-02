@@ -1,0 +1,363 @@
+/**
+ * Runtime tests over the instruction-stream program (ticket 45): the VM
+ * executes the compiled bytecode (ADR 0001) behind the public runtime API —
+ * the same `Dialogue` event stream the tree-IR driver delivers while both
+ * drivers coexist (tickets 45–46).
+ *
+ * Coverage here is the VM behavior the conformance corpus leaves implicit:
+ * full-set option delivery with availability flags, the no-option-selected
+ * fall-through, node lifecycle across jumps, codegen-failure fallbacks,
+ * per-instance generated-variable state, and the variable access surface.
+ * (Coding standards §6: assertions only through the compile → run seam.)
+ */
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { compileSource, Dialogue, noOptionSelected } from "../index.js";
+import type { Dialogue as DialogueClass } from "../index.js";
+import type { DialogueEvent } from "../runtime/dialogue.js";
+import type { Program } from "../compile/program.js";
+
+function makeDialogue(source: string, opts?: ConstructorParameters<typeof DialogueClass>[1]): DialogueClass {
+  const result = compileSource(source);
+  assert.ok(result.bytecode, "the compile seam emits a bytecode program");
+  return new Dialogue(result.bytecode, { startAt: "Start", ...opts });
+}
+
+/** Run the dialogue to completion, auto-selecting via `onOptions`. */
+function drain(dialogue: DialogueClass, onOptions: (count: number) => number | typeof noOptionSelected): DialogueEvent[] {
+  const events: DialogueEvent[] = [];
+  for (let guard = 0; guard < 1000; guard++) {
+    const batch = dialogue.continue();
+    if (batch.length === 0) break;
+    events.push(...batch);
+    const options = batch.find((e): e is Extract<DialogueEvent, { type: "options" }> => e.type === "options");
+    if (options) dialogue.selectOption(onOptions(options.options.length));
+  }
+  return events;
+}
+
+const textsOf = (events: DialogueEvent[]) =>
+  events.filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line").map((e) => e.text);
+
+// ── Linear flow ──────────────────────────────────────────────────────────
+
+test("the VM runs linear flow end-to-end: lines, sets, ifs, node lifecycle", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+<<declare $count = 0>>
+<<set $count to {$count} + 1>>
+Narrator: Count is {$count}
+<<if $count == 1>>
+    First!
+<<else>>
+    Later
+<<endif>>
+<<jump End>>
+===
+title: End
+---
+Done
+===
+`);
+  const events = drain(dialogue, () => noOptionSelected);
+  assert.deepEqual(
+    events.map((e) => e.type),
+    ["nodeStart", "line", "line", "nodeComplete", "nodeStart", "line", "nodeComplete", "dialogueComplete"],
+  );
+  assert.deepEqual(textsOf(events), ["Count is 1", "First!", "Done"]);
+  assert.equal(dialogue.currentNode, null, "a completed dialogue is not in a node");
+  assert.equal(dialogue.isActive, false);
+});
+
+test("events batch to stopping points: one line per continue()", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+One
+Two
+===
+`);
+  const first = dialogue.continue();
+  assert.deepEqual(first.map((e) => e.type), ["nodeStart", "line"]);
+  const second = dialogue.continue();
+  assert.deepEqual(second.map((e) => e.type), ["line"]);
+  const last = dialogue.continue();
+  assert.deepEqual(last.map((e) => e.type), ["nodeComplete", "dialogueComplete"]);
+});
+
+// ── Options ──────────────────────────────────────────────────────────────
+
+test("the VM delivers the full option set with availability flags", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+<<declare $flag = false>>
+Choose
+-> Hidden <<if $flag>>
+    Never picked
+-> Shown
+    Picked
+===
+`);
+  // The set arrives in its own batch (the "Choose" line stops the previous one).
+  let batch = dialogue.continue();
+  while (!batch.some((e) => e.type === "options")) {
+    batch = dialogue.continue();
+  }
+  const options = batch.find((e): e is Extract<DialogueEvent, { type: "options" }> => e.type === "options");
+  assert.ok(options, "an options event is delivered");
+  // The full set, in authored order — unavailable options included
+  // (upstream OptionSet semantics; availability is advisory).
+  assert.deepEqual(
+    options.options.map((o) => [o.text, o.isAvailable]),
+    [
+      ["Hidden", false],
+      ["Shown", true],
+    ],
+  );
+
+  // Selecting the available option runs its body and resumes after the block.
+  dialogue.selectOption(1);
+  const rest = drain(dialogue, () => noOptionSelected);
+  assert.deepEqual(textsOf(rest), ["Picked"]);
+});
+
+test("selectOption(noOptionSelected) falls through the options block", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+Choose
+-> Only
+    Body
+After
+===
+`);
+  dialogue.continue();
+  dialogue.selectOption(noOptionSelected);
+  const rest = drain(dialogue, () => noOptionSelected);
+  // The option body is skipped entirely; execution resumes after the block.
+  assert.deepEqual(textsOf(rest), ["After"]);
+});
+
+test("an uncompilable option condition delivers the option as unavailable", () => {
+  // `$a +` cannot compile; the evaluator's catch → false is the observable
+  // contract, so the fallback pins the option unavailable (not missing).
+  const dialogue = makeDialogue(`
+title: Start
+---
+-> Broken <<if $a +>>
+    Never
+-> Fine
+    Body
+===
+`);
+  const batch = dialogue.continue();
+  const options = batch.find((e): e is Extract<DialogueEvent, { type: "options" }> => e.type === "options");
+  assert.ok(options);
+  assert.deepEqual(
+    options.options.map((o) => [o.text, o.isAvailable]),
+    [
+      ["Broken", false],
+      ["Fine", true],
+    ],
+  );
+});
+
+test("selectOption with an out-of-range index is a diagnostic, not a crash", () => {
+  const errors: string[] = [];
+  const dialogue = makeDialogue(
+    `
+title: Start
+---
+-> Only
+    Body
+===
+`,
+    { logError: (m) => errors.push(m) },
+  );
+  dialogue.continue();
+  dialogue.selectOption(5);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /not a valid option/);
+  // The set is still pending: a valid selection still works.
+  dialogue.selectOption(0);
+  assert.deepEqual(textsOf(drain(dialogue, () => noOptionSelected)), ["Body"]);
+});
+
+// ── State ────────────────────────────────────────────────────────────────
+
+test("host variables seed storage; smart variables recompute on the VM", () => {
+  const dialogue = makeDialogue(
+    `
+title: Start
+---
+<<declare $gold = 0>>
+<<declare $doubled = $gold * 2>>
+Narrator: You have {$gold} ({$doubled} doubled)
+===
+`,
+    { variables: { $gold: 25 } },
+  );
+  drain(dialogue, () => noOptionSelected);
+  assert.equal(dialogue.getVariable("gold"), 25);
+  const doubled = dialogue.tryGetSmartVariable("doubled");
+  assert.ok(doubled.ok && doubled.value === 50, "the smart variable recomputes");
+
+  dialogue.setVariable("gold", 7);
+  const recomputed = dialogue.tryGetSmartVariable("doubled");
+  assert.ok(recomputed.ok && recomputed.value === 14, "recomputing tracks new storage");
+
+  const visible = dialogue.getVariables();
+  assert.equal(visible["gold"], 7);
+  for (const key of Object.keys(visible)) {
+    assert.ok(!key.startsWith("Yarn.Internal."), "generated variables are not story variables");
+  }
+});
+
+test("generated-variable state is per-instance: two dialogues never share state", () => {
+  const source = `
+title: Start
+---
+-> Opt <<once>>
+    Once body
+Always
+===
+`;
+  const first = makeDialogue(source);
+  assert.deepEqual(textsOf(drain(first, () => 0)), ["Once body", "Always"]);
+
+  const second = makeDialogue(source);
+  assert.deepEqual(
+    textsOf(drain(second, () => 0)),
+    ["Once body", "Always"],
+    "a new dialogue starts with clean generated-variable state",
+  );
+});
+
+test("setNode preserves variables but restarts execution; stop() completes", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+<<declare $x = 1>>
+Narrator: x is {$x}
+===
+title: Other
+---
+Narrator: other node
+===
+`);
+  drain(dialogue, () => noOptionSelected);
+  dialogue.setNode("Other");
+  assert.equal(dialogue.currentNode, "Other");
+  assert.equal(dialogue.getVariable("x"), 1, "variables survive setNode");
+  assert.deepEqual(textsOf(drain(dialogue, () => noOptionSelected)), ["other node"]);
+
+  dialogue.setNode("Start");
+  dialogue.stop();
+  // The nodeStart queued by setNode() still delivers; nothing else runs.
+  const afterStop = dialogue.continue();
+  assert.deepEqual(afterStop.map((e) => e.type), ["nodeStart", "dialogueComplete"]);
+  assert.equal(dialogue.isActive, false);
+});
+
+// ── Line hints ───────────────────────────────────────────────────────────
+
+test("lineHints events are opt-in and cover line and option IDs", () => {
+  const source = `
+title: Start
+---
+Narrator: One
+-> Opt
+    Narrator: Option body
+===
+`;
+  const withHints = makeDialogue(source, { lineHints: true });
+  const first = withHints.continue();
+  assert.equal(first[0].type, "lineHints", "hints precede the node start");
+  assert.equal(first[1].type, "nodeStart");
+  const hintIds = first[0].type === "lineHints" ? first[0].lineIds : [];
+  assert.ok(hintIds.length >= 2, "line and option text IDs are hinted");
+
+  const withoutHints = makeDialogue(source);
+  assert.equal(withoutHints.continue()[0].type, "nodeStart", "no hints by default");
+});
+
+// ── Format dispatch ──────────────────────────────────────────────────────
+
+const EQUIVALENCE_SOURCES: Record<string, string> = {
+  "linear flow": `
+title: Start
+---
+Narrator: Same events either way
+===
+`,
+  "logical operators coerce to booleans": `
+title: Start
+---
+<<set $x to 1 and 2>>
+<<set $y to 0 or "">>
+Result: {$x} {$y}
+===
+`,
+  "nested option groups with conditions": `
+title: Start
+---
+<<declare $on = true>>
+-> Outer <<if $on>>
+    -> Inner
+        Deep
+    -> Inner2 <<if not $on>>
+        Deep2
+    Back
+-> Outer2
+    Other
+===
+`,
+  "compound assignment and string rendering": `
+title: Start
+---
+<<declare $n = 45>>
+<<set $n += 1>>
+<<set $s = "v" + $n>>
+{$s} {$n}
+===
+`,
+};
+
+test("both drivers deliver identical streams across the tranche surface", () => {
+  for (const [name, source] of Object.entries(EQUIVALENCE_SOURCES)) {
+    const result = compileSource(source);
+    assert.ok(result.program && result.bytecode, `${name}: compiles to both artifacts`);
+    const runDriver = (program: ConstructorParameters<typeof DialogueClass>[0]) => {
+      const dialogue = new Dialogue(program);
+      return drain(dialogue, (count) => (count > 0 ? 0 : noOptionSelected));
+    };
+    const summarize = (events: DialogueEvent[]) =>
+      events.map((e) =>
+        e.type === "line"
+          ? `line:${e.text}`
+          : e.type === "options"
+            ? `options:[${e.options.map((o) => `${o.text}${o.isAvailable ? "" : "!"}`).join("|")}]`
+            : e.type,
+      );
+    assert.deepEqual(
+      summarize(runDriver(result.bytecode as Program)),
+      summarize(runDriver(result.program)),
+      `${name}: the VM and the tree-IR driver agree`,
+    );
+  }
+});
+
+test("logical operators produce booleans the string evaluator agrees with", () => {
+  // `1 and 2` is 1 && 2 = 2 on raw JS values; the runtime contract (both
+  // drivers) is the evaluator's `!!`-coerced boolean.
+  const source = EQUIVALENCE_SOURCES["logical operators coerce to booleans"];
+  for (const program of [compileSource(source).bytecode, compileSource(source).program]) {
+    const dialogue = new Dialogue(program!);
+    drain(dialogue, () => noOptionSelected);
+    assert.equal(dialogue.getVariable("x"), true);
+    assert.equal(dialogue.getVariable("y"), false);
+  }
+});

@@ -13,7 +13,9 @@ export function stringifyOperand(value: unknown): string {
   return String(value ?? "");
 }
 
-/** The implicit default a variable has when compared against a typed value. */
+/**
+ * The implicit default a variable has when compared against a typed value.
+ */
 function defaultValueFor(value: unknown): unknown {
   switch (typeof value) {
     case "boolean": return false;
@@ -23,8 +25,46 @@ function defaultValueFor(value: unknown): unknown {
   }
 }
 
+/**
+ * Coerce an operand to a number the way the runtime's arithmetic does
+ * (upstream C# conversions): booleans are 1/0, null and the empty string
+ * are 0, anything else goes through `Number()` — and a non-numeric result
+ * is an error, which callers surface as a runtime diagnostic.
+ */
+export function toNumberOperand(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "boolean") return value ? 1 : 0;
+  if (value == null || value === "") return 0;
+  const num = Number(value);
+  if (Number.isNaN(num)) {
+    throw new Error(`Cannot convert ${String(value)} to number`);
+  }
+  return num;
+}
+
+/**
+ * The equality contract of the runtime's `==`/`!=` (shared with the VM's
+ * `equalTo`/`notEqualTo` ops): deep equality, where an unset variable
+ * carries its implicit default (upstream: bool→false, number→0,
+ * string→"") inferred from the other side of the comparison.
+ */
+export function deepEqualsOperands(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  // Unset variables carry their implicit default (upstream: bool→false,
+  // number→0, string→"") inferred from the other side of the comparison.
+  if (a === undefined && b !== undefined) return deepEqualsOperands(b, defaultValueFor(b));
+  if (b === undefined && a !== undefined) return deepEqualsOperands(a, defaultValueFor(a));
+  if (a == null || b == null) return a === b;
+  if (typeof a !== typeof b) return false;
+  if (typeof a === "object") {
+    return JSON.stringify(a) === JSON.stringify(b);
+  }
+  return false;
+}
+
 export class ExpressionEvaluator {
-  private smartVariables: Record<string, string> = {}; // variable name -> expression
+  /** variable name → recomputing read (a string-expression evaluator for the tree-IR driver; bytecode for the VM). */
+  private smartVariables: Record<string, () => unknown> = {}; // variable name -> read
   
   constructor(
     private variables: Record<string, unknown> = {},
@@ -419,9 +459,9 @@ export class ExpressionEvaluator {
       return this.variables[key];
     }
 
-    // Smart variable: re-evaluate its expression on every access (ticket 42).
+    // Smart variable: re-evaluate on every access (ticket 42).
     if (Object.prototype.hasOwnProperty.call(this.smartVariables, key)) {
-      return this.evaluateExpression(this.smartVariables[key]);
+      return this.smartVariables[key]();
     }
 
     // Try as number
@@ -444,17 +484,7 @@ export class ExpressionEvaluator {
   }
   
   private deepEquals(a: unknown, b: unknown): boolean {
-    if (a === b) return true;
-    // Unset variables carry their implicit default (upstream: bool→false,
-    // number→0, string→"") inferred from the other side of the comparison.
-    if (a === undefined && b !== undefined) return this.deepEquals(b, defaultValueFor(b));
-    if (b === undefined && a !== undefined) return this.deepEquals(a, defaultValueFor(a));
-    if (a == null || b == null) return a === b;
-    if (typeof a !== typeof b) return false;
-    if (typeof a === "object") {
-      return JSON.stringify(a) === JSON.stringify(b);
-    }
-    return false;
+    return deepEqualsOperands(a, b);
   }
 
   /**
@@ -469,12 +499,14 @@ export class ExpressionEvaluator {
   }
   
   /**
-   * Register a smart variable (variable with expression that recalculates on
-   * each access). Expressions are seeded from `program.smartVariables` at
-   * start-up; smart variables never take an initial stored value.
+   * Register a smart variable (variable with a value that recalculates on
+   * each access). Registered from the program's compiled smart variables at
+   * start-up: the tree-IR driver recomputes a stored string expression, the
+   * VM runs its bytecode. Smart variables never take an initial stored
+   * value.
    */
-  setSmartVariable(name: string, expression: string): void {
-    this.smartVariables[name] = expression;
+  setSmartVariable(name: string, compute: () => unknown): void {
+    this.smartVariables[name] = compute;
   }
   
   /**
@@ -485,16 +517,17 @@ export class ExpressionEvaluator {
   }
 
   /**
-   * Upstream `Dialogue.TryGetSmartVariable`: recompute a smart variable's
-   * current value. A stored value under the same name (a host write) shadows
-   * the expression, mirroring upstream's VariableKind.Stored precedence.
+   * Upstream `Dialogue.TryGetSmartVariable`: compute a smart variable's
+   * current value. Reports failure when the name is not a smart variable.
+   * A stored value under the same name (a host write) shadows the
+   * computation, mirroring upstream's VariableKind.Stored precedence.
    */
   tryGetSmartVariable(name: string): { ok: true; value: unknown } | { ok: false } {
     if (!this.isSmartVariable(name)) return { ok: false };
     if (Object.prototype.hasOwnProperty.call(this.variables, name)) {
       return { ok: true, value: this.variables[name] };
     }
-    return { ok: true, value: this.evaluateExpression(this.smartVariables[name]) };
+    return { ok: true, value: this.smartVariables[name]() };
   }
 
   /**
@@ -503,7 +536,7 @@ export class ExpressionEvaluator {
    */
   getVariable(name: string): unknown {
     if (this.isSmartVariable(name) && !Object.prototype.hasOwnProperty.call(this.variables, name)) {
-      return this.evaluateExpression(this.smartVariables[name]);
+      return this.smartVariables[name]();
     }
     return this.variables[name];
   }

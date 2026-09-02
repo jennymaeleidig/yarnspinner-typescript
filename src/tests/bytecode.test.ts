@@ -253,10 +253,11 @@ After
 `);
   assert.deepEqual(streamOf(program, "Start"), [
     { op: "runLine", text: "Choose", tags: ["line:0", "lastline"] },
-    // Condition bytecode guards each addOption.
+    // One availability push + addOption per option (addOption pops the
+    // availability; unconditioned options push true).
     { op: "pushVariable", name: "likes_red" },
-    { op: "jumpIfFalse", index: 4 }, // → next option's addOption
-    { op: "addOption", text: "Red", tags: ["line:1"], destination: 7 },
+    { op: "addOption", text: "Red", tags: ["line:1"], destination: 7 }, // 2
+    { op: "pushBool", value: true }, // 3
     { op: "addOption", text: "Blue", tags: ["line:3"], destination: 9 }, // 4
     { op: "showOptions" }, // 5: delivers and clears the accumulated set
     { op: "jumpTo", index: 11 }, // 6: skip the inline bodies
@@ -282,24 +283,29 @@ test("nested option groups each get their own addOption/showOptions cycle", () =
 ===
 `);
   assert.deepEqual(streamOf(program, "Start"), [
-    { op: "addOption", text: "Outer", tags: ["line:0"], destination: 4 },
-    { op: "addOption", text: "Outer2", tags: ["line:6"], destination: 14 },
-    { op: "showOptions" },
-    { op: "jumpTo", index: 16 },
+    // One availability push + addOption per option; addOption pops the flag.
+    { op: "pushBool", value: true }, // 0: Outer's availability
+    { op: "addOption", text: "Outer", tags: ["line:0"], destination: 6 }, // 1
+    { op: "pushBool", value: true }, // 2: Outer2's availability
+    { op: "addOption", text: "Outer2", tags: ["line:6"], destination: 18 }, // 3
+    { op: "showOptions" }, // 4: delivers and clears the outer set
+    { op: "jumpTo", index: 20 }, // 5
     // Outer's body: an inner option group (the inner showOptions delivers
     // and clears only the inner set).
-    { op: "addOption", text: "Inner", tags: ["line:1"], destination: 8 },
-    { op: "addOption", text: "Inner2", tags: ["line:3"], destination: 10 },
-    { op: "showOptions" },
-    { op: "jumpTo", index: 12 },
-    { op: "runLine", text: "Deep", tags: ["line:2"] },
-    { op: "jumpTo", index: 12 },
-    { op: "runLine", text: "Deep2", tags: ["line:4"] },
-    { op: "jumpTo", index: 12 },
-    { op: "runLine", text: "Back", tags: ["line:5"] },
-    { op: "jumpTo", index: 16 },
-    { op: "runLine", text: "Other", tags: ["line:7"] }, // 14: Outer2's body
-    { op: "jumpTo", index: 16 },
+    { op: "pushBool", value: true }, // 6: Inner's availability
+    { op: "addOption", text: "Inner", tags: ["line:1"], destination: 12 }, // 7
+    { op: "pushBool", value: true }, // 8: Inner2's availability
+    { op: "addOption", text: "Inner2", tags: ["line:3"], destination: 14 }, // 9
+    { op: "showOptions" }, // 10: delivers and clears the inner set
+    { op: "jumpTo", index: 16 }, // 11
+    { op: "runLine", text: "Deep", tags: ["line:2"] }, // 12: Inner's body
+    { op: "jumpTo", index: 16 }, // 13
+    { op: "runLine", text: "Deep2", tags: ["line:4"] }, // 14: Inner2's body
+    { op: "jumpTo", index: 16 }, // 15
+    { op: "runLine", text: "Back", tags: ["line:5"] }, // 16: after the inner group
+    { op: "jumpTo", index: 20 }, // 17
+    { op: "runLine", text: "Other", tags: ["line:7"] }, // 18: Outer2's body
+    { op: "jumpTo", index: 20 }, // 19
   ]);
 });
 

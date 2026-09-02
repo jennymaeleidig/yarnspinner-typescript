@@ -1,7 +1,11 @@
 /**
- * Command parser utilities for Yarn Spinner commands.
+ * Command utilities for Yarn Spinner commands: parsing (`parseCommand`)
+ * and state-statement execution (`executeStateStatement`).
  * Commands like <<command_name arg1 arg2>> or <<command_name "arg with spaces">>
  */
+
+import type { ExpressionEvaluator } from "./evaluator.js";
+import { stringifyOperand } from "./evaluator.js";
 
 export interface ParsedCommand {
   name: string;
@@ -75,4 +79,127 @@ export function parseCommand(content: string): ParsedCommand {
     args: parts.slice(1),
     raw: content,
   };
+}
+
+/** What a state-statement executor needs from its driver: the storage, an evaluator over it, and the error sink. */
+export interface StateStatementHost {
+  /** The variable storage (generated keys included). */
+  variables: Record<string, unknown>;
+  evaluator: ExpressionEvaluator;
+  logError(message: string): void;
+}
+
+/** Strip one layer of surrounding quotes from a command parameter. */
+export function stripQuotes(value: string): string {
+  if (
+    value.length >= 2 &&
+    ((value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'")))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value;
+}
+
+/**
+ * Execute a state statement's effect on variable storage (`<<set>>`/
+ * `<<declare>>` grammar: `set $var (to|=) expr`, compound assignment
+ * operators, `declare $var = expr (as TYPE)?`).
+ *
+ * Shared by both execution drivers (the transitional tree-IR runtime and
+ * the instruction-stream VM): the VM's `<<set>>` expressions compile to
+ * bytecode, but an uncompilable `<<set>>` keeps its authored command
+ * (the emit pass's documented fallback) and lands here, exactly as the
+ * tree-IR runtime's sets always have.
+ *
+ * Collect-don't-throw (coding standards §3): a failing statement is a
+ * runtime diagnostic, not a crash.
+ */
+export function executeStateStatement(host: StateStatementHost, content: string, parsed?: ParsedCommand): void {
+  const { variables, evaluator, logError } = host;
+  const setVariable = (name: string, value: unknown): void => {
+    variables[name] = value;
+    evaluator.setVariable(name, value);
+  };
+  try {
+    const command = parsed ?? parseCommand(content);
+    const name = command.name.toLowerCase();
+    const args = command.args;
+    if (name === "set") {
+      if (args.length < 2) return;
+      const varNameRaw = args[0];
+      let exprParts = args.slice(1);
+      if (exprParts[0] === "to") exprParts = exprParts.slice(1);
+      if (exprParts[0] === "=") exprParts = exprParts.slice(1);
+      const key = varNameRaw.startsWith("$") ? varNameRaw.slice(1) : varNameRaw;
+
+      const compoundOp = exprParts[0];
+      if (compoundOp === "+=" || compoundOp === "-=" || compoundOp === "*=" || compoundOp === "/=" || compoundOp === "%=") {
+        const rhs = evaluator.evaluateExpression(exprParts.slice(1).join(" "));
+        const current = variables[key];
+        let value: unknown;
+        if (compoundOp === "+=" && (typeof current === "string" || typeof rhs === "string")) {
+          // String concat renders operands the upstream way (C# ToString:
+          // booleans as "True"/"False").
+          value = stringifyOperand(current) + stringifyOperand(rhs);
+        } else {
+          const left = Number(current ?? 0);
+          const right = Number(rhs ?? 0);
+          switch (compoundOp) {
+            case "+=": value = left + right; break;
+            case "-=": value = left - right; break;
+            case "*=": value = left * right; break;
+            case "/=": value = left / right; break;
+            case "%=": value = left % right; break;
+          }
+        }
+        setVariable(key, value);
+        return;
+      }
+
+      const value = evaluator.evaluateExpression(exprParts.join(" "));
+      // A script-level set of a smart variable is a compile error (YS0030),
+      // so this write only ever lands on stored variables — or shadows a
+      // smart variable when a host drives the storage directly (upstream
+      // VariableKind.Stored precedence). No smart-to-regular downgrade:
+      // the smart expression stays registered.
+      setVariable(key, value);
+      return;
+    }
+    if (name === "declare") {
+      if (args.length < 3) return; // name, '=', expr
+      const varNameRaw = args[0];
+      let exprParts = args.slice(1);
+      if (exprParts[0] === "=") exprParts = exprParts.slice(1);
+      // Upstream declare grammar: <<declare $var = expr (as TYPE)?>> — the
+      // type postfix is compile metadata; evaluate the expression alone.
+      const expr = exprParts.join(" ").replace(/\s+as\s+[A-Za-z_][A-Za-z0-9_]*\s*$/, "");
+      const key = varNameRaw.startsWith("$") ? varNameRaw.slice(1) : varNameRaw;
+
+      // Smart variables (ticket 42) were classified at compile time and
+      // registered from the program's smart variables at start-up: read-only,
+      // recomputed on every access, no initial stored value (upstream:
+      // they are not in Program.InitialValues).
+      if (evaluator.isSmartVariable(key)) return;
+
+      // A declare is an initial value (upstream: Program.InitialValues,
+      // seeded at SetProgram time): it initializes, it never re-assigns.
+      // Upstream compiles declares to no instruction at all; the fork's
+      // declare handling stays for the tree-IR runtime until it retires
+      // (ticket 46), but its effect must not clobber storage that already
+      // holds a value (host writes win — upstream VariableKind.Stored
+      // precedence).
+      if (key in variables) return;
+
+      // Regular variable - evaluate once and store. Enum member access
+      // (Enum.Case, or compile-time-resolved shorthand) evaluates to the
+      // case's raw value via the evaluator's enum registry.
+      const value = evaluator.evaluateExpression(expr);
+      setVariable(key, value);
+    }
+  } catch (e) {
+    // collect-don't-throw: a failing state statement is a runtime
+    // diagnostic, not a crash.
+    logError(`Failed to execute statement "${content}": ${e instanceof Error ? e.message : String(e)}`);
+  }
 }

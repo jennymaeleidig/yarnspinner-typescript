@@ -18,7 +18,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseYarn, compile, compileSource, hasErrors } from "../index.js";
+import { compileSource, hasErrors } from "../index.js";
 import type { ExternalDeclarations } from "../compile/typeCheck.js";
 import { parseTestPlan } from "./upstream/testPlan.js";
 import { runTestPlan, PlanFailure } from "./upstream/testBase.js";
@@ -91,6 +91,37 @@ const HARNESS_FUNCTION_SIGNATURES = {
   is_objective_active: { params: ["string"], returns: "bool" },
   get_quest_status: { params: ["string"], returns: "string" },
 } as const satisfies ExternalDeclarations["functions"];
+
+/**
+ * The first VM tranche (ticket 45): fixtures whose plans are linear flow —
+ * lines, commands, options, `<<if>>` chains, jumps, node entry/exit — run
+ * against the instruction-stream program (ADR 0001 bytecode) through the
+ * same public runtime API. The remaining pairs stay on the tree-IR driver
+ * until ticket 46 moves them (detours, visit tracking, once, saliency
+ * strategies, line groups, and the runtime features still being built:
+ * escapes, replacement markers, line-level conditions, option `<<once>>`).
+ */
+const VM_FIRST_TRANCHE: ReadonlySet<string> = new Set([
+  "Commands.yarn",
+  "DecimalNumbers.yarn",
+  "Enums.yarn",
+  "Enums-FunctionsAcceptingStringMayAcceptAnyStringEnum.yarn",
+  "Enums-FunctionsReturningStringMayBeComparedToAnyStringEnum.yarn",
+  "Expressions.yarn",
+  "Functions.yarn",
+  "IfStatements.yarn",
+  "Indentation.yarn",
+  "Inference-FunctionsAndVarsInheritType.yarn",
+  "Inference-FunctionsCalledWithConvertibleParameters.yarn",
+  "InlineExpressions.yarn",
+  "Jumps.yarn",
+  "NodeGroupsWithImplicitDeclarations.yarn",
+  "ShadowLines.yarn",
+  "SmartVariables.yarn",
+  "Smileys.yarn",
+  "Types.yarn",
+  "VariableStorage.yarn",
+]);
 
 function attemptCompile(source: string): { ok: true } | { ok: false; error: string } {
   try {
@@ -173,7 +204,12 @@ test("upstream testplan pairs run per plan", async (t) => {
       const result = compileSource(readFixture(`TestCases/${name}`), {
         declarations: { functions: HARNESS_FUNCTION_SIGNATURES },
       });
-      const program = result.program;
+      // The VM tranche drives the instruction-stream program; the rest
+      // stay on the tree IR (both behind the same public runtime API).
+      const program = VM_FIRST_TRANCHE.has(name) ? result.bytecode : result.program;
+      if (VM_FIRST_TRANCHE.has(name)) {
+        assert.ok(result.bytecode, "the compile seam emits a bytecode program for the VM tranche");
+      }
       if (!program || hasErrors(result.diagnostics)) {
         throw new Error(`fixture failed to compile: ${result.diagnostics.map((d) => d.code).join(", ")}`);
       }
@@ -207,8 +243,11 @@ test("upstream testplan pairs run per plan", async (t) => {
 });
 
 test("upstream Example.yarn runs per Example.testplan", () => {
-  const doc = parseYarn(readFixture("Example.yarn"));
-  const program = compile(doc);
+  const result = compileSource(readFixture("Example.yarn"));
+  // Example.yarn is linear flow (lines, options, jumps): it rides the VM
+  // tranche of the ticket-45 transition.
+  const program = result.bytecode;
+  assert.ok(program, "the compile seam emits a bytecode program for Example.yarn");
   const plan = parseTestPlan(readFixture("Example.testplan"));
   runTestPlan(program, plan);
 });

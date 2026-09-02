@@ -1,7 +1,15 @@
 /**
- * The runtime (`Dialogue`): pull-based execution of a compiled program.
+ * The runtime (`Dialogue`): pull-based execution of a compiled program
+ * (ADR 0002, ticket 43).
  *
- * Consumers drive dialogue on their own clock (ADR 0002, ticket 43):
+ * During the VM transition (tickets 45–46) `Dialogue` dispatches by program
+ * format: the instruction-stream program (ADR 0001/0003 bytecode — the
+ * `VirtualMachine` in ./vm.js) or the transitional tree-IR program (the
+ * `TreeIrRuntime` below). Both implement the identical public surface, so
+ * consumers — and the conformance harness — drive either artifact through
+ * the same API. Ticket 46 retires the tree-IR driver.
+ *
+ * Consumers drive dialogue on their own clock:
  * `continue()` returns the dialogue events up to the next stopping point —
  * a delivered line, command, or option set, or the end of the dialogue.
  * Selection resumes a delivered option set via `selectOption(index |
@@ -31,110 +39,157 @@
  */
 
 import type { IRProgram, IRInstruction, IRNode, IRNodeGroup } from "../compile/ir.js";
-import type { MarkupParseResult, MarkupSegment, MarkupWrapper } from "../markup/types.js";
-import { ExpressionEvaluator, stringifyOperand } from "./evaluator.js";
+import type { Program } from "../compile/program.js";
+import { isInstructionStreamProgram } from "../compile/program.js";
+import type { MarkupParseResult } from "../markup/types.js";
+import { ExpressionEvaluator } from "./evaluator.js";
 import { Library, type YarnFunction } from "./library.js";
-import { parseCommand, type ParsedCommand } from "./commands.js";
+import {
+  parseCommand,
+  executeStateStatement,
+  stripQuotes,
+  type ParsedCommand,
+} from "./commands.js";
+import { interpolate } from "./interpolate.js";
+import { registerBuiltinFunctions } from "./builtins.js";
 import {
   generatedVariablePrefix,
   groupOnceVariableKey,
   onceVariableKey,
   visitCountVariableKey,
 } from "./generatedVariables.js";
+import {
+  defaultStartNodeName,
+  noOptionSelected,
+  type DialogueEvent,
+  type DialogueOptions,
+  type RuntimeDriver,
+  lineIdFromTags,
+} from "./events.js";
+import { VirtualMachine } from "./vm.js";
 
+export {
+  defaultStartNodeName,
+  noOptionSelected,
+  type CommandEvent,
+  type DialogueCompleteEvent,
+  type DialogueEvent,
+  type DialogueOption,
+  type DialogueOptions,
+  type LineEvent,
+  type LineHintsEvent,
+  type NodeCompleteEvent,
+  type NodeStartEvent,
+  type OptionsEvent,
+} from "./events.js";
 export { Library } from "./library.js";
 export type { YarnFunction, CommandHandler } from "./library.js";
 
 /**
- * The value indicating that no option was selected: the dialogue falls
- * through to the rest of the program (upstream `Dialogue.NoOptionSelected`).
+ * A program the runtime executes: the instruction-stream artifact (ADR
+ * 0001/0003) or — until ticket 46 retires it — the transitional tree IR.
  */
-export const noOptionSelected = -1;
+export type RuntimeProgram = IRProgram | Program;
 
-export interface LineEvent {
-  type: "line";
-  /** The line's ID (from its `line:` hashtag; values become stable with the line-ID/string-table work). */
-  lineId?: string;
-  speaker?: string;
-  /** Composed text: `{expr}` substitutions expanded. */
-  text: string;
-  tags?: string[];
-  markup?: MarkupParseResult;
-}
+/**
+ * The runtime object that executes a program and yields dialogue events
+ * (CONTEXT.md "Dialogue"). Dispatches by program format to the
+ * instruction-stream VM or the transitional tree-IR driver; both deliver
+ * the identical event stream.
+ */
+export class Dialogue {
+  private readonly engine: RuntimeDriver;
 
-export interface DialogueOption {
-  /** Position of this option in the delivered set (upstream `OptionSet.Option.ID`). */
-  index: number;
+  constructor(program: RuntimeProgram, opts: DialogueOptions = {}) {
+    this.engine = isInstructionStreamProgram(program)
+      ? new VirtualMachine(program, opts)
+      : new TreeIrRuntime(program, opts);
+  }
+
+  /** The node currently executing, or `null` when the dialogue is not active. */
+  get currentNode(): string | null {
+    return this.engine.currentNode;
+  }
+
+  /** The `scene:` header of the current node, if any (adapter-side concern). */
+  get currentScene(): string | undefined {
+    return this.engine.currentScene;
+  }
+
+  /** Whether the dialogue is running a node (not yet completed). */
+  get isActive(): boolean {
+    return this.engine.isActive;
+  }
+
+  /** The registry of host functions and command handlers (including built-ins). */
+  getLibrary(): Library {
+    return this.engine.getLibrary();
+  }
+
   /**
-   * Whether the option's condition held. Advisory: unavailable options are
-   * still delivered (upstream `OptionSet.Option.IsAvailable`); the consumer
-   * decides whether to offer them, and any index may be selected.
+   * Run the program until the next stopping point and return the events
+   * since the last stop: a delivered line, command, or option set — with
+   * node lifecycle and (opt-in) line-hint events riding along — or the end
+   * of the dialogue. Returns no events when the dialogue is not active.
    */
-  isAvailable: boolean;
-  /** Composed option text: `{expr}` substitutions expanded. */
-  text: string;
-  tags?: string[];
-  markup?: MarkupParseResult;
+  continue(): DialogueEvent[] {
+    return this.engine.continue();
+  }
+
+  /**
+   * Resume a delivered option set: run the selected option's body and then
+   * continue after the options block — or, with `noOptionSelected`, skip the
+   * whole options block (fall-through). Mirrors upstream `SetSelectedOption`.
+   */
+  selectOption(selectedOption: number | typeof noOptionSelected): void {
+    this.engine.selectOption(selectedOption);
+  }
+
+  /**
+   * Enter the named node: execution state is reset and the node's events are
+   * delivered by the next `continue()`. Variables, once-state, and visit
+   * counts are preserved. An unknown node is a runtime diagnostic; the
+   * dialogue's state is unchanged.
+   */
+  setNode(title: string): void {
+    this.engine.setNode(title);
+  }
+
+  /**
+   * Immediately stop the dialogue: execution state is discarded and the
+   * dialogue-complete event is delivered by the next `continue()`
+   * (upstream `Dialogue.Stop`).
+   */
+  stop(): void {
+    this.engine.stop();
+  }
+
+  /** Snapshot of the story variables (the variable storage minus generated variables). */
+  getVariables(): Readonly<Record<string, unknown>> {
+    return this.engine.getVariables();
+  }
+
+  /**
+   * Get a variable's value (upstream `Dialogue.TryGetVariable`: a smart
+   * variable recomputes; a stored value wins when a host has shadowed it).
+   */
+  getVariable(name: string): unknown {
+    return this.engine.getVariable(name);
+  }
+
+  /** Set a variable's value in storage. */
+  setVariable(name: string, value: unknown): void {
+    this.engine.setVariable(name, value);
+  }
+
+  /**
+   * Upstream `Dialogue.TryGetSmartVariable`: compute a smart variable's
+   * current value. Reports failure when the name is not a smart variable.
+   */
+  tryGetSmartVariable(name: string): { ok: true; value: unknown } | { ok: false } {
+    return this.engine.tryGetSmartVariable(name);
+  }
 }
-
-export interface OptionsEvent {
-  type: "options";
-  options: DialogueOption[];
-}
-
-export interface CommandEvent {
-  type: "command";
-  /** The delivered command text, `{expr}` substitutions expanded. */
-  command: string;
-}
-
-export interface NodeStartEvent {
-  type: "nodeStart";
-  nodeName: string;
-}
-
-export interface NodeCompleteEvent {
-  type: "nodeComplete";
-  nodeName: string;
-}
-
-export interface LineHintsEvent {
-  type: "lineHints";
-  /** Line IDs the current node may deliver soon (upstream `PrepareForLines`). */
-  lineIds: string[];
-}
-
-export interface DialogueCompleteEvent {
-  type: "dialogueComplete";
-}
-
-export type DialogueEvent =
-  | LineEvent
-  | OptionsEvent
-  | CommandEvent
-  | NodeStartEvent
-  | NodeCompleteEvent
-  | LineHintsEvent
-  | DialogueCompleteEvent;
-
-export interface DialogueOptions {
-  /** Node to enter at construction (upstream `DefaultStartNodeName` is `"Start"`). */
-  startAt?: string;
-  /** Host functions and command handlers, imported over the built-ins. */
-  library?: Library;
-  /** Host-provided initial variables (`$` prefix optional), applied after `<<declare>>` seeding. */
-  variables?: Record<string, unknown>;
-  /** Opt-in `LineHints` events (upstream `PrepareForLinesHandler`). */
-  lineHints?: boolean;
-  /** Runtime error diagnostics. Defaults to `console.error`. */
-  logError?: (message: string) => void;
-  /** Runtime debug diagnostics. Defaults to silent. */
-  logDebug?: (message: string) => void;
-}
-
-/** The default node a dialogue starts from (upstream `Dialogue.DefaultStartNodeName`). */
-export const defaultStartNodeName = "Start";
-
 
 type CompiledOption = {
   text: string;
@@ -151,7 +206,15 @@ type Frame =
 /** Outcome of executing one command instruction. */
 type CommandOutcome = "continued" | "delivered" | "halted";
 
-export class Dialogue {
+/**
+ * The transitional tree-IR execution driver (the fork-era engine): executes
+ * the tree-shaped IR while the instruction-stream VM takes over (tickets
+ * 45–46 retire this driver). Its observable behavior is pinned by the full
+ * suite and the conformance corpus; shared machinery (built-ins, line
+ * composition, state statements) lives in its own modules so both drivers
+ * run one implementation.
+ */
+class TreeIrRuntime implements RuntimeDriver {
   private readonly program: IRProgram;
   private readonly variables: Record<string, unknown> = {};
   /** The runtime's library: built-ins + imported host entries. */
@@ -174,7 +237,7 @@ export class Dialogue {
   constructor(program: IRProgram, opts: DialogueOptions = {}) {
     this.program = program;
     this.library = new Library();
-    this.registerBuiltins();
+    registerBuiltinFunctions(this.library, () => this.variables);
     if (opts.library) this.library.importLibrary(opts.library);
     this.lineHintsEnabled = opts.lineHints ?? false;
     this.logError = opts.logError ?? ((message) => console.error(message));
@@ -193,7 +256,7 @@ export class Dialogue {
     // the runtime declare handler skips storing an initial value for them
     // (upstream: smart variables are not in Program.InitialValues).
     for (const [name, expression] of Object.entries(this.program.smartVariables ?? {})) {
-      this.evaluator.setSmartVariable(name, expression);
+      this.evaluator.setSmartVariable(name, () => this.evaluator.evaluateExpression(expression));
     }
 
     // Upstream Dialogue.SetProgram seeds the variable storage from
@@ -678,96 +741,21 @@ export class Dialogue {
         }
       }
     }
-    const { text: expandedCommand } = this.interpolate(content);
+    const { text: expandedCommand } = this.composeLine(content);
     batch.push({ type: "command", command: expandedCommand });
   }
 
   /**
    * Execute a state statement's effect on variable storage (`<<set>>`/
-   * `<<declare>>` grammar: `set $var (to|=) expr`, compound assignment
-   * operators, `declare $var = expr (as TYPE)?`).
+   * `<<declare>>` grammar) — the shared executor in ./commands.js, over
+   * this driver's storage and evaluator.
    */
   private executeStateStatement(content: string, parsed?: ParsedCommand): void {
-    try {
-      const command = parsed ?? parseCommand(content);
-      const name = command.name.toLowerCase();
-      const args = command.args;
-      if (name === "set") {
-        if (args.length < 2) return;
-        const varNameRaw = args[0];
-        let exprParts = args.slice(1);
-        if (exprParts[0] === "to") exprParts = exprParts.slice(1);
-        if (exprParts[0] === "=") exprParts = exprParts.slice(1);
-        const key = varNameRaw.startsWith("$") ? varNameRaw.slice(1) : varNameRaw;
-
-        const compoundOp = exprParts[0];
-        if (compoundOp === "+=" || compoundOp === "-=" || compoundOp === "*=" || compoundOp === "/=" || compoundOp === "%=") {
-          const rhs = this.evaluator.evaluateExpression(exprParts.slice(1).join(" "));
-          const current = this.variables[key];
-          let value: unknown;
-          if (compoundOp === "+=" && (typeof current === "string" || typeof rhs === "string")) {
-            // String concat renders operands the upstream way (C# ToString:
-            // booleans as "True"/"False").
-            value = stringifyOperand(current) + stringifyOperand(rhs);
-          } else {
-            const left = Number(current ?? 0);
-            const right = Number(rhs ?? 0);
-            switch (compoundOp) {
-              case "+=": value = left + right; break;
-              case "-=": value = left - right; break;
-              case "*=": value = left * right; break;
-              case "/=": value = left / right; break;
-              case "%=": value = left % right; break;
-            }
-          }
-          this.setVariable(key, value);
-          return;
-        }
-
-        const value = this.evaluator.evaluateExpression(exprParts.join(" "));
-        // A script-level set of a smart variable is a compile error (YS0030),
-        // so this write only ever lands on stored variables — or shadows a
-        // smart variable when a host drives the storage directly (upstream
-        // VariableKind.Stored precedence). No smart-to-regular downgrade:
-        // the smart expression stays registered.
-        this.setVariable(key, value);
-        return;
-      }
-      if (name === "declare") {
-        if (args.length < 3) return; // name, '=', expr
-        const varNameRaw = args[0];
-        let exprParts = args.slice(1);
-        if (exprParts[0] === "=") exprParts = exprParts.slice(1);
-        // Upstream declare grammar: <<declare $var = expr (as TYPE)?>> — the
-        // type postfix is compile metadata; evaluate the expression alone.
-        const expr = exprParts.join(" ").replace(/\s+as\s+[A-Za-z_][A-Za-z0-9_]*\s*$/, "");
-        const key = varNameRaw.startsWith("$") ? varNameRaw.slice(1) : varNameRaw;
-
-        // Smart variables (ticket 42) were classified at compile time and
-        // registered from `program.smartVariables` at start-up: read-only,
-        // recomputed on every access, no initial stored value (upstream:
-        // they are not in Program.InitialValues).
-        if (this.evaluator.isSmartVariable(key)) return;
-
-        // A declare is an initial value (upstream: Program.InitialValues,
-        // seeded at SetProgram time): it initializes, it never re-assigns.
-        // Upstream compiles declares to no instruction at all; the fork's
-        // declare instruction stays for the VM tickets to retire, but its
-        // effect must not clobber storage that already holds a value
-        // (host writes win — upstream VariableKind.Stored precedence).
-        if (key in this.variables) return;
-
-        // Regular variable - evaluate once and store. Enum member access
-        // (Enum.Case, or compile-time-resolved shorthand) evaluates to the
-        // case's raw value via the evaluator's enum registry.
-        const value = this.evaluator.evaluateExpression(expr);
-        this.setVariable(key, value);
-      }
-    } catch (e) {
-      // collect-don't-throw: a failing state statement is a runtime
-      // diagnostic, not a crash.
-      this.logError(`Failed to execute statement "${content}": ${e instanceof Error ? e.message : String(e)}`);
-    }
+    executeStateStatement(
+      { variables: this.variables, evaluator: this.evaluator, logError: this.logError },
+      content,
+      parsed,
+    );
   }
 
   /**
@@ -906,250 +894,9 @@ export class Dialogue {
     }
   }
 
-  // ── Built-in functions ──────────────────────────────────────────────
-
-  /**
-   * Register the built-in functions every dialogue carries (upstream
-   * `StandardLibrary` role). Host libraries are imported over these, so a
-   * host may override any of them.
-   */
-  private registerBuiltins(): void {
-    const builtins: Record<string, YarnFunction> = {
-      // Default conversion helpers
-      string: (v: unknown) => String(v ?? ""),
-      number: (v: unknown) => Number(v),
-      bool: (v: unknown) => Boolean(v),
-      visited: (nodeName: unknown) => {
-        const name = String(nodeName ?? "");
-        return (Number(this.variables[visitCountVariableKey(name)]) || 0) > 0;
-      },
-      visited_count: (nodeName: unknown) => {
-        const name = String(nodeName ?? "");
-        return Number(this.variables[visitCountVariableKey(name)]) || 0;
-      },
-      format_invariant: (n: unknown) => {
-        const num = Number(n);
-        if (!isFinite(num)) return "0";
-        return new Intl.NumberFormat("en-US", { useGrouping: false, maximumFractionDigits: 20 }).format(num);
-      },
-      random: () => Math.random(),
-      // Upstream: random_range returns an integer.
-      random_range: (a: unknown, b: unknown) => {
-        const x = Number(a), y = Number(b);
-        const min = Math.min(x, y);
-        const max = Math.max(x, y);
-        return Math.floor(min + Math.random() * (max - min + 1));
-      },
-      dice: (sides: unknown) => {
-        const s = Math.max(1, Math.floor(Number(sides)) || 1);
-        return Math.floor(Math.random() * s) + 1;
-      },
-      // Variadic (upstream std-lib: min/max take any number of arguments).
-      min: (...args: unknown[]) => Math.min(...args.map(Number)),
-      max: (...args: unknown[]) => Math.max(...args.map(Number)),
-      round: (n: unknown) => Math.round(Number(n)),
-      round_places: (n: unknown, places: unknown) => {
-        const p = Math.max(0, Math.floor(Number(places)) || 0);
-        const factor = Math.pow(10, p);
-        return Math.round(Number(n) * factor) / factor;
-      },
-      floor: (n: unknown) => Math.floor(Number(n)),
-      ceil: (n: unknown) => Math.ceil(Number(n)),
-      inc: (n: unknown) => {
-        const v = Number(n);
-        return Number.isInteger(v) ? v + 1 : Math.ceil(v);
-      },
-      dec: (n: unknown) => {
-        const v = Number(n);
-        return Number.isInteger(v) ? v - 1 : Math.floor(v);
-      },
-      decimal: (n: unknown) => {
-        const v = Number(n);
-        return Math.abs(v - Math.trunc(v));
-      },
-      int: (n: unknown) => Math.trunc(Number(n)),
-      // Upstream std-lib `format`: positional `{0}`-style placeholders.
-      format: (fmt: unknown, ...args: unknown[]) =>
-        String(fmt ?? "").replace(/\{(\d+)\}/g, (match, i: string) => {
-          const value = args[Number(i)];
-          return value === undefined ? match : stringifyOperand(value);
-        }),
-    };
-    for (const [name, fn] of Object.entries(builtins)) {
-      this.library.registerFunction(name, fn);
-    }
-  }
-
   // ── Line composition (substitutions + markup) ───────────────────────
 
   private composeLine(text: string, markup?: MarkupParseResult): { text: string; markup?: MarkupParseResult } {
-    return this.interpolate(text, markup);
+    return interpolate(text, (expr) => this.evaluator.evaluateExpression(expr), markup);
   }
-
-  private interpolate(text: string, markup?: MarkupParseResult): { text: string; markup?: MarkupParseResult } {
-    const evaluateExpression = (expr: string): string => {
-      try {
-        const value = this.evaluator.evaluateExpression(expr.trim());
-        if (value === null || value === undefined) {
-          return "";
-        }
-        // Upstream composed text (C# ToString): booleans as "True"/"False".
-        return stringifyOperand(value);
-      } catch {
-        return "";
-      }
-    };
-
-    if (!markup) {
-      const interpolated = text.replace(/\{([^}]+)\}/g, (_m, expr) => evaluateExpression(expr));
-      return { text: interpolated };
-    }
-
-    const segments = markup.segments.filter((segment) => !segment.selfClosing);
-    const getWrappersAt = (index: number): MarkupWrapper[] => {
-      for (const segment of segments) {
-        if (segment.start <= index && index < segment.end) {
-          return segment.wrappers.map((wrapper) => ({
-            name: wrapper.name,
-            type: wrapper.type,
-            properties: { ...wrapper.properties },
-          }));
-        }
-      }
-      if (segments.length === 0) {
-        return [];
-      }
-      if (index > 0) {
-        return getWrappersAt(index - 1);
-      }
-      return segments[0].wrappers.map((wrapper) => ({
-        name: wrapper.name,
-        type: wrapper.type,
-        properties: { ...wrapper.properties },
-      }));
-    };
-
-    const resultChars: string[] = [];
-    const newSegments: MarkupSegment[] = [];
-    let currentSegment: MarkupSegment | null = null;
-
-    const wrappersEqual = (a: MarkupWrapper[], b: MarkupWrapper[]) => {
-      if (a.length !== b.length) return false;
-      for (let i = 0; i < a.length; i++) {
-        const wa = a[i];
-        const wb = b[i];
-        if (wa.name !== wb.name || wa.type !== wb.type) return false;
-        const keysA = Object.keys(wa.properties);
-        const keysB = Object.keys(wb.properties);
-        if (keysA.length !== keysB.length) return false;
-        for (const key of keysA) {
-          if (wa.properties[key] !== wb.properties[key]) return false;
-        }
-      }
-      return true;
-    };
-
-    const flushSegment = () => {
-      if (currentSegment) {
-        newSegments.push(currentSegment);
-        currentSegment = null;
-      }
-    };
-
-    const appendCharWithWrappers = (char: string, wrappers: MarkupWrapper[]) => {
-      const index = resultChars.length;
-      resultChars.push(char);
-      const wrappersCopy = wrappers.map((wrapper) => ({
-        name: wrapper.name,
-        type: wrapper.type,
-        properties: { ...wrapper.properties },
-      }));
-      if (currentSegment && wrappersEqual(currentSegment.wrappers, wrappersCopy)) {
-        currentSegment.end = index + 1;
-      } else {
-        flushSegment();
-        currentSegment = { start: index, end: index + 1, wrappers: wrappersCopy };
-      }
-    };
-
-    const appendStringWithWrappers = (value: string, wrappers: MarkupWrapper[]) => {
-      if (!value) {
-        flushSegment();
-        return;
-      }
-      for (const ch of value) {
-        appendCharWithWrappers(ch, wrappers);
-      }
-    };
-
-    let i = 0;
-    while (i < text.length) {
-      const char = text[i];
-      if (char === '{') {
-        const close = text.indexOf('}', i + 1);
-        if (close === -1) {
-          appendCharWithWrappers(char, getWrappersAt(Math.max(0, Math.min(i, text.length - 1))));
-          i += 1;
-          continue;
-        }
-        const expr = text.slice(i + 1, close);
-        const evaluated = evaluateExpression(expr);
-        const wrappers = getWrappersAt(Math.max(0, Math.min(i, text.length - 1)));
-        appendStringWithWrappers(evaluated, wrappers);
-        i = close + 1;
-        continue;
-      }
-      appendCharWithWrappers(char, getWrappersAt(i));
-      i += 1;
-    }
-
-    flushSegment();
-    const interpolatedText = resultChars.join('');
-    const normalizedMarkup = this.normalizeMarkupResult({ text: interpolatedText, segments: newSegments });
-    return { text: interpolatedText, markup: normalizedMarkup };
-  }
-
-  private normalizeMarkupResult(result: MarkupParseResult): MarkupParseResult | undefined {
-    if (!result) return undefined;
-    if (result.segments.length === 0) {
-      return undefined;
-    }
-    const hasFormatting = result.segments.some(
-      (segment) => segment.wrappers.length > 0 || segment.selfClosing
-    );
-    if (!hasFormatting) {
-      return undefined;
-    }
-    return {
-      text: result.text,
-      segments: result.segments.map((segment) => ({
-        start: segment.start,
-        end: segment.end,
-        wrappers: segment.wrappers.map((wrapper) => ({
-          name: wrapper.name,
-          type: wrapper.type,
-          properties: { ...wrapper.properties },
-        })),
-        selfClosing: segment.selfClosing,
-      })),
-    };
-  }
-}
-
-/** The line's ID from its `line:` hashtag, if present. */
-function lineIdFromTags(tags: string[] | undefined): string | undefined {
-  const tag = tags?.find((t) => t.startsWith("line:"));
-  return tag ? tag.slice("line:".length) : undefined;
-}
-
-/** Strip one layer of surrounding quotes from a command parameter. */
-function stripQuotes(value: string): string {
-  if (
-    value.length >= 2 &&
-    ((value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'")))
-  ) {
-    return value.slice(1, -1);
-  }
-  return value;
 }

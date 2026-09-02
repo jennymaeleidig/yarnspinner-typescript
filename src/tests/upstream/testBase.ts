@@ -42,6 +42,7 @@
 import { Dialogue, Library, noOptionSelected } from "../../runtime/dialogue.js";
 import type { DialogueEvent } from "../../runtime/dialogue.js";
 import type { IRProgram } from "../../compile/ir.js";
+import type { Program } from "../../compile/program.js";
 import type { TestPlan, TestPlanRun, TestPlanStep } from "./testPlan.js";
 
 export class PlanFailure extends Error {}
@@ -113,7 +114,14 @@ function assertHashtags(expected: string[], actual: string[] | undefined, what: 
   }
 }
 
-export function runTestPlan(program: IRProgram, plan: TestPlan): void {
+/**
+ * The program under test: the tree IR, or — for the VM transition's first
+ * tranche (ticket 45) — the instruction-stream program, driven through the
+ * same public runtime API.
+ */
+export type ConformanceProgram = IRProgram | Program;
+
+export function runTestPlan(program: ConformanceProgram, plan: TestPlan): void {
   const firstRun = plan.runs[0];
   if (!program.nodes[firstRun.startNode]) {
     // Upstream: a plan is only executed when the start node exists;

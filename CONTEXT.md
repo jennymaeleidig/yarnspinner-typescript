@@ -33,7 +33,7 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 ### Compiler
 
 - **Program**: the compiled, serializable artifact of a set of `.yarn` sources; consumed by the runtime. This project's program format is its own versioned JSON (not upstream's protobuf).
-- **Compilation result**: what `compile()` returns — program, string table, declarations, diagnostics, file tags, implicit-string-tag flag, user-defined types. During the VM transition (tickets 44–46) the compile seam also emits the **instruction-stream program** (the versioned-JSON bytecode artifact of the "Program" entry, under the result's `bytecode` field until the tree IR retires); it is inert to the tree-IR runtime.
+- **Compilation result**: what `compile()` returns — program, string table, declarations, diagnostics, file tags, implicit-string-tag flag, user-defined types. During the VM transition (tickets 44–46) the compile seam also emits the **instruction-stream program** (the versioned-JSON bytecode artifact of the "Program" entry, under the result's `bytecode` field until the tree IR retires); the VM executes it behind the same public runtime API, while the tree-IR runtime ignores it.
 - **Compilation mode**: full, strings-only, declarations-only, or type-check-only.
 - **External declaration**: a variable, function, or enum provided by the host, known to the compiler without appearing in `.yarn`.
 - **Diagnostic**: a problem report with a stable code, severity, message, file, and range; collected by default, thrown in strict mode.
@@ -45,6 +45,7 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 ### Runtime
 
 - **Dialogue**: the runtime object that executes a program and yields dialogue events.
+- **Virtual machine**: the instruction-stack executor inside `Dialogue` that runs the compiled **instruction-stream program** (upstream `VirtualMachine`); its public surface is `Dialogue` — consumers never drive the machine directly.
 - **Dialogue event**: the unit of runtime output — `Line`, `Options`, `Command`, `NodeStart`, `NodeComplete`, `LineHints`, `DialogueComplete`.
 - **Continue**: the pull operation returning the events up to the next stopping point.
 - **No-option-selected**: the sentinel option selection that falls through when all options are unavailable.
