@@ -1,24 +1,24 @@
 /**
- * The single-file compile seam (spec ticket 23): parse → validate → compile,
- * returning the program together with its diagnostics instead of throwing.
+ * The compile seam (spec ticket 23): parse → validate → type-check →
+ * compile, returning the program together with its diagnostics instead of
+ * throwing.
  *
  * Collect by default (coding standards §3): syntax errors and validation
  * failures come back as diagnostics; `strict: true` throws on the first
  * error. Codes and severities come from the vendored 3.2.2 registry via
  * ./diagnostics.js.
  *
- * The validations here are the ones that fall out of the existing front-end
- * (node structure, group membership, jump targets). The language-level
- * validations owed by the first-tranche YS codes (set/declare value checks,
- * enum typing, smart-variable cycles, shadow lines) land with tickets 40–42
- * and will join this pass.
+ * Since ticket 46 the program is the instruction-stream artifact (ADR
+ * 0001/0003) — the tree IR is retired and the VM executes this artifact
+ * behind the public runtime API. The validations here are the ones that
+ * fall out of the front-end (node structure, group membership, jump
+ * targets); the language-level YS-code validations live in the type
+ * checking pass.
  */
 
 import { parseYarn, ParseError } from "../parse/parser.js";
 import type { YarnDocument, YarnNode, Statement } from "../model/ast.js";
-import { compile } from "./compiler.js";
-import type { IRProgram } from "./ir.js";
-import { emitProgram, LoweringError } from "./emit.js";
+import { compile, LoweringError } from "./compiler.js";
 import type { Program } from "./program.js";
 import { makeDiagnostic, hasErrors } from "./diagnostics.js";
 import type { Diagnostic, YarnRange } from "./diagnostics.js";
@@ -41,14 +41,12 @@ export interface CompileSourceOptions {
 }
 
 export interface CompileSourceResult {
-  program: IRProgram | null;
   /**
-   * The instruction-stream program (ADR 0001, ADR 0003): the versioned JSON
-   * bytecode artifact with expressions compiled and jump labels resolved.
-   * Inert to the current tree-IR runtime; the VM (tickets 45–46) consumes
-   * it behind the same public API. `null` when parsing failed.
+   * The compiled, serializable program (the glossary's Program): the
+   * instruction-stream artifact (ADR 0001/0003) the runtime executes.
+   * `null` when parsing failed.
    */
-  bytecode: Program | null;
+  program: Program | null;
   diagnostics: Diagnostic[];
   /** `<<declare>>`d variables (upstream CompilationResult.Declarations). */
   declarations: VariableDeclaration[];
@@ -69,7 +67,7 @@ export function compileSource(source: string, opts: CompileSourceOptions = {}): 
       range: e.range as YarnRange | undefined,
     });
     if (opts.strict) throw new Error(`${diagnostic.code}: ${diagnostic.message}`);
-    return { program: null, bytecode: null, diagnostics: [diagnostic], declarations: [], userDefinedTypes: [] };
+    return { program: null, diagnostics: [diagnostic], declarations: [], userDefinedTypes: [] };
   }
 
   validate(doc, diagnostics, opts.file);
@@ -79,22 +77,21 @@ export function compileSource(source: string, opts: CompileSourceOptions = {}): 
   // `.Case` shorthand in place, and collects declarations.
   const checked = typeCheck(doc, { declarations: opts.declarations }, (d) => diagnostics.push(d));
 
-  const program = compile(doc, { generateOnceIds: opts.generateOnceIds, enumTypes: checked.enumTypes });
-  validateJumps(program, doc, diagnostics, opts.file);
-
-  // The instruction-stream artifact (ADR 0001/0003), emitted alongside the
-  // tree IR. Inert until the VM tickets (45–46) consume it.
-  let bytecode: Program | null = null;
+  // The instruction-stream artifact (ADR 0001/0003). A LoweringError guards
+  // a lowering invariant that is unbreakable by construction (every label
+  // reference is created alongside its label in the same node's lowering),
+  // so catching one here means a compiler bug, not user content — reported
+  // as a diagnostic, with no program (coding standards §3).
+  let program: Program | null = null;
   try {
-    bytecode = emitProgram(program);
+    program = compile(doc, { generateOnceIds: opts.generateOnceIds, enumTypes: checked.enumTypes });
   } catch (e) {
-    // Collect-don't-throw (coding standards §3): a lowering failure must
-    // not escape the seam. `LoweringError` guards a lowering invariant that
-    // is unbreakable by construction (every label reference is created
-    // alongside its label in the same node's lowering), so this branch —
-    // and the missing bytecode — would mean a compiler bug, not user
-    // content; the golden suite pins the artifact either way.
     if (!(e instanceof LoweringError)) throw e;
+    diagnostics.push(makeDiagnostic("YS0005", `Internal lowering failure: ${e.message}`, { file: opts.file }));
+  }
+
+  if (program) {
+    validateJumps(program, doc, diagnostics, opts.file);
   }
 
   if (opts.strict) {
@@ -103,7 +100,6 @@ export function compileSource(source: string, opts: CompileSourceOptions = {}): 
   }
   return {
     program,
-    bytecode,
     diagnostics,
     declarations: checked.declarations,
     userDefinedTypes: [...checked.enumTypes.values()],
@@ -172,16 +168,17 @@ function collectTargets(stmts: Statement[], into: string[]): void {
     switch (s.type) {
       case "Jump":
       case "Detour":
-        into.push((s as { target: string }).target);
+        into.push(s.target);
         break;
       case "If":
-        for (const b of (s as { branches: Array<{ body: Statement[] }> }).branches) collectTargets(b.body, into);
+        for (const b of s.branches) collectTargets(b.body, into);
         break;
       case "Once":
-        collectTargets((s as { body: Statement[] }).body, into);
+        collectTargets(s.body, into);
+        if (s.elseBody) collectTargets(s.elseBody, into);
         break;
       case "OptionGroup":
-        for (const o of (s as { options: Array<{ body: Statement[] }> }).options) collectTargets(o.body, into);
+        for (const o of s.options) collectTargets(o.body, into);
         break;
     }
   }
@@ -189,7 +186,7 @@ function collectTargets(stmts: Statement[], into: string[]): void {
 
 /** Jump/detour targets must resolve to a node (upstream YS0012, warning). */
 function validateJumps(
-  program: IRProgram,
+  program: Program,
   doc: YarnDocument,
   diagnostics: Diagnostic[],
   file?: string,

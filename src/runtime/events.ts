@@ -1,9 +1,8 @@
 /**
  * The public runtime API shape (ADR 0002): the dialogue event vocabulary,
  * the pull-API constants, and the construction options — shared verbatim by
- * both execution drivers during the VM transition (tickets 45–46), so the
- * instruction-stream VM rides the same public runtime API as the
- * transitional tree-IR runtime.
+ * the one execution driver (the instruction-stream VM), so the events
+ * ride the same public runtime API as before the tree IR retired.
  *
  * Event vocabulary (camelCased; each mirrors its upstream counterpart):
  * `Line`, `Options`, `Command`, `NodeStart`, `NodeComplete`, opt-in
@@ -104,9 +103,8 @@ export interface DialogueOptions {
 }
 
 /**
- * The execution-driver contract (internal): the tree-IR runtime and the
- * instruction-stream VM both implement this surface, and `Dialogue`
- * dispatches to one of them by program format. Not public API — the public
+ * The execution-driver contract (internal): the instruction-stream VM
+ * implements this surface behind `Dialogue`. Not public API — the public
  * surface is `Dialogue`.
  */
 export interface RuntimeDriver {

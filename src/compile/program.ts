@@ -31,7 +31,12 @@
  *   `runtime/generatedVariables.ts` (coding standards §4).
  * - `when` conditions stay evaluator strings until the saliency machinery
  *   compiles them (ticket 47).
+ * - A node-group member's `subtitle:` header carries into the program: it
+ *   qualifies the member's visit-tracking key (`Title.Subtitle`, upstream
+ *   node-group naming — ticket 46).
  */
+
+import type { MarkupParseResult } from "../markup/types.js";
 
 /** The program format's language version (ADR 0003). Bump on schema changes. */
 export const programLanguageVersion = 1;
@@ -76,6 +81,8 @@ export type ProgramNode = {
   scene?: string;
   /** `tracking:` header (visit-tracking mode). */
   tracking?: "always" | "never";
+  /** `subtitle:` header — qualifies the node's visit-tracking key. */
+  subtitle?: string;
 };
 
 /** Multiple same-titled nodes; saliency picks a member at entry. */
@@ -83,15 +90,6 @@ export type ProgramNodeGroup = {
   title: string;
   nodes: ProgramNode[];
 };
-
-/**
- * Discriminate the instruction-stream program (this format) from the
- * transitional tree-IR program: both ride the public runtime API during
- * the VM transition (tickets 45–46), and `Dialogue` dispatches on it.
- */
-export function isInstructionStreamProgram(program: unknown): program is Program {
-  return typeof program === "object" && program !== null && "languageVersion" in program;
-}
 
 /**
  * One instruction. Stack ops and operands mirror the upstream instruction
@@ -109,11 +107,11 @@ export type Instruction =
   | { op: "return" } // end a detour; acts as stop outside one
   | { op: "stop" } // complete the dialogue
   // Delivery (authored text; the runtime line parser composes it).
-  | { op: "runLine"; text: string; speaker?: string; tags?: string[] }
+  | { op: "runLine"; text: string; speaker?: string; tags?: string[]; markup?: MarkupParseResult }
   | { op: "runCommand"; content: string }
   /** Pops the option's availability (the evaluated condition; the compiler
    *  emits `pushBool true` for unconditioned options — upstream AddOption). */
-  | { op: "addOption"; text: string; tags?: string[]; destination: number }
+  | { op: "addOption"; text: string; tags?: string[]; destination: number; markup?: MarkupParseResult }
   | { op: "showOptions" } // delivers and clears the accumulated set; halts
   // Stack: literals and variables.
   | { op: "pushString"; value: string }

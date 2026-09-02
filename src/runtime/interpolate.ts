@@ -2,11 +2,10 @@
  * Line composition (the runtime line-parser stage): `{expr}` substitutions
  * expanded, then markup segments rebuilt around the substituted spans.
  *
- * Shared by both execution drivers (the transitional tree-IR runtime and
- * the instruction-stream VM, tickets 45–46): lines and commands keep
- * authored text in the program, so composition happens at delivery in
- * either driver, through this one implementation. The evaluator function
- * is injected — each driver passes its own expression evaluator's
+ * Shared by the one execution driver (the instruction-stream VM): lines
+ * and commands keep authored text in the program, so composition happens
+ * at delivery, through this one implementation. The evaluator function is
+ * injected — the VM passes its expression evaluator's
  * `evaluateExpression`.
  *
  * Errors are data, not throws (coding standards §3): an expression that
@@ -41,7 +40,13 @@ export function interpolate(
   };
 
   if (!markup) {
-    const interpolated = text.replace(/\{([^}]+)\}/g, (_m, expr) => evaluate(expr));
+    // Escaped braces (`\{`, `\}` — the tier-2 unescape keeps them for the
+    // runtime line parser) compose as literal braces; unescaped braces
+    // expand their expression.
+    const interpolated = text.replace(
+      /\\([{}])|\{([^}]+)\}/g,
+      (_m, esc: string | undefined, expr: string | undefined) => (esc ? esc : evaluate(expr!)),
+    );
     return { text: interpolated };
   }
 
@@ -125,6 +130,13 @@ export function interpolate(
   let i = 0;
   while (i < text.length) {
     const char = text[i];
+    if (char === "\\" && (text[i + 1] === "{" || text[i + 1] === "}")) {
+      // Escaped brace: compose the literal character (the wrapper context is
+      // the backslash's position).
+      appendCharWithWrappers(text[i + 1], getWrappersAt(Math.max(0, Math.min(i, text.length - 1))));
+      i += 2;
+      continue;
+    }
     if (char === '{') {
       const close = text.indexOf('}', i + 1);
       if (close === -1) {

@@ -102,7 +102,7 @@ function tokenize(input: string): Token[] {
       i += 2;
       continue;
     }
-    if ("+-*/%<>!()=.".includes(c)) {
+    if (",+-*/%<>!()=.".includes(c)) {
       tokens.push({ kind: "op", text: c });
       i++;
       continue;

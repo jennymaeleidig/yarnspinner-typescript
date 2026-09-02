@@ -2,7 +2,7 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 import { Dialogue, Library } from "../runtime/dialogue.js";
 import type { DialogueEvent, YarnFunction } from "../runtime/dialogue.js";
 import type { MarkupParseResult } from "../markup/types.js";
-import type { IRProgram } from "../compile/ir.js";
+import type { Program } from "../compile/program.js";
 
 /**
  * React adapter over the pull-based event-stream runtime (ticket 43).
@@ -96,7 +96,7 @@ function buildLibrary(functions?: Record<string, YarnFunction>): Library {
 }
 
 export function useYarnRunner(
-  program: IRProgram,
+  program: Program,
   options: UseYarnRunnerOptions,
 ): UseYarnRunnerResult {
   const dialogueRef = useRef<Dialogue | null>(null);

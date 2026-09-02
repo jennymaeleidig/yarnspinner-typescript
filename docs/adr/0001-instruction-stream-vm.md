@@ -1,5 +1,9 @@
 # Instruction-stream VM over the tree IR
 
+> Status: fully adopted (ticket 46). The tree IR is deleted; `compile()`
+> emits the instruction-stream program directly and it is the one program
+> format.
+
 The fork compiled `.yarn` to a custom tree-shaped IR whose conditions were re-evaluated from strings at runtime. Every upstream-conformance feature we adopted (saliency candidates, opt-in line hints, visit tracking on node return, detour return stacks, once-state as generated variables) assumes VM machinery a tree IR can only fake. We decided the compiler emits a TS-idiomatic instruction-stream stack VM program with upstream-equivalent observable semantics, and the tree IR retires (the AST remains the front-end representation). We rejected bug-for-bug opcode mirroring because compiled-artifact compatibility with upstream's protobuf `Program` is explicitly out of scope — the conformance contract is behavior (the event stream), not bytecode.
 
 ## Considered options

@@ -5,14 +5,12 @@
  * versioned JSON artifact (`languageVersion`) in which expressions are
  * compiled to bytecode and jumps are instruction indices whose labels were
  * resolved in a compiler pass. These golden assertions run over the emitted
- * program through the public compile seam (`compileSource().bytecode`)
- * while the tree-IR runtime keeps working unchanged (tickets 45–46 swap the
- * VM in behind the same artifact).
+ * program through the public compile seam (`compileSource().program`).
  *
  * Seam note: these golden assertions pin the EMITTED ARTIFACT — the program
  * format is public contract per ADR 0003 ("the format's schema is part of
  * the public contract once 0.2.0 ships"), and the artifact is observed
- * through the public compile seam (`compileSource().bytecode`). Coding
+ * through the public compile seam (`compileSource().program`). Coding
  * standards §6's "no tests against opcode layout" governs the VM's private
  * execution machinery (tickets 45–46), not the documented program format.
  *
@@ -43,8 +41,8 @@ import type { Instruction, Program } from "../compile/program.js";
 
 function emit(source: string): Program {
   const result = compileSource(source);
-  assert.ok(result.bytecode, "the compile seam emits a bytecode program");
-  return result.bytecode;
+  assert.ok(result.program, "the compile seam emits a program");
+  return result.program;
 }
 
 /** The instruction stream of one (single) node. */
@@ -75,10 +73,9 @@ Hi
   ]);
 });
 
-test("a failed parse emits no bytecode", () => {
+test("a failed parse emits no program", () => {
   const result = compileSource("not a node");
   assert.equal(result.program, null);
-  assert.equal(result.bytecode, null);
 });
 
 // ── Lowering: lines, state statements, jumps ─────────────────────────────
@@ -258,10 +255,10 @@ After
     { op: "pushVariable", name: "likes_red" },
     { op: "addOption", text: "Red", tags: ["line:1"], destination: 7 }, // 2
     { op: "pushBool", value: true }, // 3
-    { op: "addOption", text: "Blue", tags: ["line:3"], destination: 9 }, // 4
+    { op: "addOption", text: "Blue", tags: ["line:2"], destination: 9 }, // 4
     { op: "showOptions" }, // 5: delivers and clears the accumulated set
     { op: "jumpTo", index: 11 }, // 6: skip the inline bodies
-    { op: "runLine", text: "Red picked", tags: ["line:2"] }, // 7: Red's body
+    { op: "runLine", text: "Red picked", tags: ["line:3"] }, // 7: Red's body
     { op: "jumpTo", index: 11 },
     { op: "runLine", text: "Blue picked", tags: ["line:4"] }, // 9: Blue's body
     { op: "jumpTo", index: 11 },
@@ -287,22 +284,22 @@ test("nested option groups each get their own addOption/showOptions cycle", () =
     { op: "pushBool", value: true }, // 0: Outer's availability
     { op: "addOption", text: "Outer", tags: ["line:0"], destination: 6 }, // 1
     { op: "pushBool", value: true }, // 2: Outer2's availability
-    { op: "addOption", text: "Outer2", tags: ["line:6"], destination: 18 }, // 3
+    { op: "addOption", text: "Outer2", tags: ["line:1"], destination: 18 }, // 3
     { op: "showOptions" }, // 4: delivers and clears the outer set
     { op: "jumpTo", index: 20 }, // 5
     // Outer's body: an inner option group (the inner showOptions delivers
     // and clears only the inner set).
     { op: "pushBool", value: true }, // 6: Inner's availability
-    { op: "addOption", text: "Inner", tags: ["line:1"], destination: 12 }, // 7
+    { op: "addOption", text: "Inner", tags: ["line:2"], destination: 12 }, // 7
     { op: "pushBool", value: true }, // 8: Inner2's availability
     { op: "addOption", text: "Inner2", tags: ["line:3"], destination: 14 }, // 9
     { op: "showOptions" }, // 10: delivers and clears the inner set
     { op: "jumpTo", index: 16 }, // 11
-    { op: "runLine", text: "Deep", tags: ["line:2"] }, // 12: Inner's body
+    { op: "runLine", text: "Deep", tags: ["line:4"] }, // 12: Inner's body
     { op: "jumpTo", index: 16 }, // 13
-    { op: "runLine", text: "Deep2", tags: ["line:4"] }, // 14: Inner2's body
+    { op: "runLine", text: "Deep2", tags: ["line:5"] }, // 14: Inner2's body
     { op: "jumpTo", index: 16 }, // 15
-    { op: "runLine", text: "Back", tags: ["line:5"] }, // 16: after the inner group
+    { op: "runLine", text: "Back", tags: ["line:6"] }, // 16: after the inner group
     { op: "jumpTo", index: 20 }, // 17
     { op: "runLine", text: "Other", tags: ["line:7"] }, // 18: Outer2's body
     { op: "jumpTo", index: 20 }, // 19

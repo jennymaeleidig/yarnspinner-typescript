@@ -45,6 +45,11 @@ export interface Line {
   text: string;
   tags?: string[];
   markup?: MarkupParseResult;
+  /** Line-level `<<if expr>>` condition (upstream line conditions). */
+  condition?: string;
+  /** Line-level `<<once>>` / `<<once if expr>>` (upstream once modifiers);
+   *  `condition` is the `<<once if expr>>` expression when present. */
+  once?: OnceModifier;
 }
 
 export interface Command {
@@ -74,6 +79,15 @@ export interface Option {
   tags?: string[];
   markup?: MarkupParseResult;
   condition?: string;
+  /** Option-level `<<once>>` / `<<once if expr>>` (upstream once options):
+   *  the option is selectable once; the flag records on selection. */
+  once?: OnceModifier;
+}
+
+/** A `<<once>>`/`<<once if expr>>` modifier shared by lines and options. */
+export interface OnceModifier {
+  /** The `<<once if expr>>` expression, when the modifier is conditional. */
+  condition?: string;
 }
 
 export interface IfBlock {
@@ -87,6 +101,11 @@ export interface IfBlock {
 export interface OnceBlock {
   type: "Once";
   body: Statement[];
+  /** `<<once if expr>>` gate (absent for a plain `<<once>>`). */
+  condition?: string;
+  /** `<<else>>` body — runs when the once-state is already seen or the
+   *  `<<once if>>` gate fails (upstream `<<once>>...<<else>>...<<endonce>>`). */
+  elseBody?: Statement[];
 }
 
 export interface EnumCaseDef {

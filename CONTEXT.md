@@ -29,11 +29,16 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 - **Hashtag**: per-line metadata (`#tag`); reserved tags include `#line:` and `#shadow:`.
 - **Detour / return**: call-and-return node flow; a jump inside a detoured node clears the return stack.
 - **Once-state**: the record that content has been viewed, stored as generated variables.
+- **Subtitle**: a node-group member's identity (`subtitle:` header); qualifies the member's visit-tracking key (`Title.Subtitle`, upstream node-group naming) and must be unique within its group.
 
 ### Compiler
 
 - **Program**: the compiled, serializable artifact of a set of `.yarn` sources; consumed by the runtime. This project's program format is its own versioned JSON (not upstream's protobuf).
-- **Compilation result**: what `compile()` returns — program, string table, declarations, diagnostics, file tags, implicit-string-tag flag, user-defined types. During the VM transition (tickets 44–46) the compile seam also emits the **instruction-stream program** (the versioned-JSON bytecode artifact of the "Program" entry, under the result's `bytecode` field until the tree IR retires); the VM executes it behind the same public runtime API, while the tree-IR runtime ignores it.
+- **Compilation result**: what `compileSource()` returns — program,
+  declarations, diagnostics, user-defined types. Since ticket 46 the
+  program is the instruction-stream artifact (the versioned-JSON bytecode
+  of the "Program" entry, ADR 0001/0003); the tree-IR program is retired
+  and the VM executes this artifact behind the public runtime API.
 - **Compilation mode**: full, strings-only, declarations-only, or type-check-only.
 - **External declaration**: a variable, function, or enum provided by the host, known to the compiler without appearing in `.yarn`.
 - **Diagnostic**: a problem report with a stable code, severity, message, file, and range; collected by default, thrown in strict mode.

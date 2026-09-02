@@ -334,7 +334,7 @@ test("an option with two different <<if>> conditions is a diagnostic", () => {
 ===
 `);
   assert.deepEqual(codesOf(diagnostics), ["YS0005"]);
-  assert.match(diagnostics[0].message, /only one <<if>> condition/);
+  assert.match(diagnostics[0].message, /only one <<if>>\/<<once>> condition/);
 });
 
 test("every emitted code exists in the vendored 3.2.2 definitions registry", () => {

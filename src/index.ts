@@ -1,7 +1,6 @@
 export * from "./model/ast.js";
 export * from "./parse/lexer.js";
 export * from "./parse/parser.js";
-export * from "./compile/ir.js";
 export * from "./compile/program.js";
 export * from "./compile/compiler.js";
 export * from "./compile/compileSource.js";

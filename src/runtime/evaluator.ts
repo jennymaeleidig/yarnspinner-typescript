@@ -63,7 +63,7 @@ export function deepEqualsOperands(a: unknown, b: unknown): boolean {
 }
 
 export class ExpressionEvaluator {
-  /** variable name → recomputing read (a string-expression evaluator for the tree-IR driver; bytecode for the VM). */
+  /** variable name → recomputing read (compiled bytecode; ticket 42). */
   private smartVariables: Record<string, () => unknown> = {}; // variable name -> read
   
   constructor(
@@ -501,9 +501,8 @@ export class ExpressionEvaluator {
   /**
    * Register a smart variable (variable with a value that recalculates on
    * each access). Registered from the program's compiled smart variables at
-   * start-up: the tree-IR driver recomputes a stored string expression, the
-   * VM runs its bytecode. Smart variables never take an initial stored
-   * value.
+   * start-up: the VM evaluates the initializer's bytecode. Smart variables
+   * never take an initial stored value.
    */
   setSmartVariable(name: string, compute: () => unknown): void {
     this.smartVariables[name] = compute;

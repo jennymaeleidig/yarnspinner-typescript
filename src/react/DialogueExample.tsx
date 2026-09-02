@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { parseYarn } from "../parse/parser.js";
 import { compile } from "../compile/compiler.js";
+import { programLanguageVersion } from "../compile/program.js";
 import { DialogueView } from "./DialogueView.js";
 import { parseScenes } from "../scene/parser.js";
 import type { SceneCollection } from "../scene/types.js";
@@ -103,7 +104,7 @@ export function DialogueExample() {
         )}
 
         <DialogueView 
-          program={program || { nodes: {}, enums: {}, initialValues: {}, smartVariables: {} }}
+          program={program || { languageVersion: programLanguageVersion, nodes: {}, enums: {}, initialValues: {}, smartVariables: {} }}
           startNode="Start"
           scenes={scenes}
           variables={{ playerName: "V", reputation: 3 }}

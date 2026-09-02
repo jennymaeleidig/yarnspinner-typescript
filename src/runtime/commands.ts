@@ -106,11 +106,10 @@ export function stripQuotes(value: string): string {
  * `<<declare>>` grammar: `set $var (to|=) expr`, compound assignment
  * operators, `declare $var = expr (as TYPE)?`).
  *
- * Shared by both execution drivers (the transitional tree-IR runtime and
- * the instruction-stream VM): the VM's `<<set>>` expressions compile to
- * bytecode, but an uncompilable `<<set>>` keeps its authored command
- * (the emit pass's documented fallback) and lands here, exactly as the
- * tree-IR runtime's sets always have.
+ * The one execution driver (the instruction-stream VM): `<<set>>`
+ * expressions compile to bytecode, but an uncompilable `<<set>>` keeps its
+ * authored command (the compiler's documented fallback) and lands here —
+ * the runtime's error handling applies unchanged.
  *
  * Collect-don't-throw (coding standards §3): a failing statement is a
  * runtime diagnostic, not a crash.
@@ -184,9 +183,9 @@ export function executeStateStatement(host: StateStatementHost, content: string,
 
       // A declare is an initial value (upstream: Program.InitialValues,
       // seeded at SetProgram time): it initializes, it never re-assigns.
-      // Upstream compiles declares to no instruction at all; the fork's
-      // declare handling stays for the tree-IR runtime until it retires
-      // (ticket 46), but its effect must not clobber storage that already
+      // Upstream compiles declares to no instruction at all; this handling
+      // stays for the compiler's fallback paths, but its effect must not
+      // clobber storage that already
       // holds a value (host writes win — upstream VariableKind.Stored
       // precedence).
       if (key in variables) return;

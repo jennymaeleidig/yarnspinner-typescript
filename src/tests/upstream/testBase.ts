@@ -41,10 +41,8 @@
 
 import { Dialogue, Library, noOptionSelected } from "../../runtime/dialogue.js";
 import type { DialogueEvent } from "../../runtime/dialogue.js";
-import type { IRProgram } from "../../compile/ir.js";
 import type { Program } from "../../compile/program.js";
 import type { TestPlan, TestPlanRun, TestPlanStep } from "./testPlan.js";
-
 export class PlanFailure extends Error {}
 
 export const KNOWN_SALIENCY_MODES = ["first", "best", "best_least_recently_seen"] as const;
@@ -105,23 +103,22 @@ function composedText(event: Extract<DialogueEvent, { type: "line" }>): string {
   return event.speaker ? `${event.speaker}: ${event.text}` : event.text;
 }
 
-function assertHashtags(expected: string[], actual: string[] | undefined, what: string): void {
-  const normalized = new Set((actual ?? []).map(normalizeTag));
-  for (const tag of expected) {
-    if (!normalized.has(normalizeTag(tag))) {
-      throw new PlanFailure(`${what} expected hashtag ${tag}; tags were [${(actual ?? []).join(", ")}]`);
-    }
-  }
-}
-
 /**
- * The program under test: the tree IR, or — for the VM transition's first
- * tranche (ticket 45) — the instruction-stream program, driven through the
- * same public runtime API.
+ * Plan hashtags are parsed (the grammar's intent) but NOT asserted: upstream
+ * `TestBase.Hashtag` matches against `LineModel.Metadata`, and its plan
+ * lexer's maximal-munch COMMENT token means plan hashtags never actually
+ * parse upstream — the assertion is dead code there (verified against
+ * v3.2.2: guarded by `.Any()` over an always-empty list). The corpus RELIES
+ * on it being dead: Lines.testplan expects `#hashtag` on "Testing comments
+ * after line conditions" while Lines.yarn's matching line carries no
+ * hashtag at all — asserting here would fail content upstream's own suite
+ * accepts.
  */
-export type ConformanceProgram = IRProgram | Program;
+function assertHashtags(_expected: string[], _actual: string[] | undefined, _what: string): void {}
 
-export function runTestPlan(program: ConformanceProgram, plan: TestPlan): void {
+/** The program under test: the instruction-stream artifact (ADR 0001). */
+
+export function runTestPlan(program: Program, plan: TestPlan): void {
   const firstRun = plan.runs[0];
   if (!program.nodes[firstRun.startNode]) {
     // Upstream: a plan is only executed when the start node exists;

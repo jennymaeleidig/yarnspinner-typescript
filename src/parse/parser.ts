@@ -32,6 +32,131 @@ export function parseYarn(text: string): YarnDocument {
   return p.parseDocument();
 }
 
+/**
+ * The character-name prefix (upstream `implicitCharacterRegex`): everything
+ * before the first unescaped `:` is the speaker. The pair-scan (`\\.`)
+ * keeps an escaped colon (`Character\: text`) from splitting the line.
+ */
+const SPEAKER_RE = /^((?:[^:\s]|\\.)(?:[^:\\]|\\.)*)\s*:\s*([\s\S]*)$/;
+
+/**
+ * Truncate line text at the first unescaped `//` outside `<<...>>` spans
+ * (upstream: an unescaped `//` starts a comment anywhere in line text, so
+ * a literal `//` — a URL, say — must be written `\/`). Escape-aware: `\X`
+ * pairs are skipped.
+ */
+function truncateAtComment(text: string): string {
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "\\") {
+      i++;
+      continue;
+    }
+    if (ch === "<" && text[i + 1] === "<") {
+      const close = text.indexOf(">>", i + 2);
+      i = close === -1 ? text.length : close + 1;
+      continue;
+    }
+    if (ch === "/" && text[i + 1] === "/") return text.slice(0, i);
+  }
+  return text;
+}
+
+/** A line-level modifier: `<<if expr>>` or `<<once>>`/`<<once if expr>>`. */
+type LineModifier = { kind: "if"; condition: string } | { kind: "once"; condition?: string };
+
+/**
+ * Extract the line-level `<<if expr>>` / `<<once>>` / `<<once if expr>>`
+ * modifier (upstream line conditions). At most one modifier per line or
+ * option; an expression-less `<<if>>` or `<<once if>>` is the upstream
+ * ParseFailures case (YS0005 via the compile seam).
+ */
+function extractLineModifier(text: string, token: Token): { text: string; modifier?: LineModifier } {
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "\\") {
+      i++;
+      continue;
+    }
+    if (text[i] === "<" && text[i + 1] === "<") {
+      const close = text.indexOf(">>", i + 2);
+      if (close === -1) break;
+      const inner = text.slice(i + 2, close).trim();
+      const modifier = parseModifierInner(inner, token);
+      if (modifier) {
+        const remainder = (text.slice(0, i) + " " + text.slice(close + 2)).trim();
+        if (extractLineModifier(remainder, token).modifier) {
+          throw new ParseError(
+            "A line or option can have only one <<if>>/<<once>> condition (Yarn Spinner 3.x syntax)",
+            rangeOf(token),
+          );
+        }
+        return { text: remainder, modifier };
+      }
+      i = close + 1;
+      continue;
+    }
+  }
+  return { text };
+}
+
+function parseModifierInner(inner: string, token: Token): LineModifier | null {
+  const onceIf = inner.match(/^once\s+if\s+([\s\S]+)$/);
+  if (onceIf) {
+    const condition = onceIf[1].trim();
+    if (!condition) {
+      throw new ParseError("<<once if>> requires an expression (Yarn Spinner 3.x syntax)", rangeOf(token));
+    }
+    return { kind: "once", condition };
+  }
+  if (inner === "once") return { kind: "once" };
+  if (inner === "if") {
+    throw new ParseError(
+      "Option condition <<if>> requires an expression (Yarn Spinner 3.x syntax)",
+      rangeOf(token),
+    );
+  }
+  const plainIf = inner.match(/^if\s+([\s\S]+)$/);
+  if (plainIf) {
+    const condition = plainIf[1].trim();
+    if (!condition) {
+      throw new ParseError("<<if>> requires an expression (Yarn Spinner 3.x syntax)", rangeOf(token));
+    }
+    return { kind: "if", condition };
+  }
+  return null;
+}
+
+/**
+ * The main-grammar escape sequences (upstream TextEscapedMode): these
+ * unescape to the literal character at compile time. The runtime-owned
+ * escapes — `\{`, `\}`, `\[`, `\]`, `\:` — keep their backslash; the line
+ * parser (interpolate/markup) consumes them at delivery (upstream leaves
+ * them for the LineParser too).
+ */
+const MAIN_GRAMMAR_ESCAPES: ReadonlySet<string> = new Set(["#", "<", ">", "/", "\\"]);
+
+function unescapeMainGrammar(text: string): string {
+  let out = "";
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "\\" && i + 1 < text.length && MAIN_GRAMMAR_ESCAPES.has(text[i + 1])) {
+      out += text[i + 1];
+      i++;
+      continue;
+    }
+    out += text[i];
+  }
+  return out;
+}
+
+function rangeOf(token: Token): ParseError["range"] {
+  return {
+    startLine: token.line - 1,
+    startCol: token.column - 1,
+    endLine: token.line - 1,
+    endCol: token.column - 1 + Math.max(token.text.length, 1),
+  };
+}
+
 class Parser {
   private i = 0;
   constructor(private readonly tokens: Token[]) {}
@@ -205,7 +330,7 @@ class Parser {
       if (cmd.startsWith("jump ")) return { type: "Jump", target: cmd.slice(5).trim() } as Jump;
       if (cmd.startsWith("detour ")) return { type: "Detour", target: cmd.slice(7).trim() } as Detour;
       if (cmd.startsWith("if ")) return this.parseIfCommandBlock(cmd);
-      if (cmd === "once") return this.parseOnceBlock();
+      if (cmd === "once" || cmd.startsWith("once ")) return this.parseOnceBlock(cmd);
       if (cmd.startsWith("enum ")) {
         const enumName = cmd.slice(5).trim();
         return this.parseEnumBlock(enumName);
@@ -222,47 +347,64 @@ class Parser {
       return { type: "Command", content: cmd } as Command;
     }
     if (t.type === "TEXT") {
-      const raw = this.take("TEXT").text.replace(/\s\/\/.*$/, "").trimEnd();
-      const { cleanText: textWithoutTags, tags } = this.extractTags(raw);
+      const raw = this.take("TEXT").text;
+      // Line-suffix pipeline (upstream TextMode order): an unescaped `//`
+      // comment ends the line; a `<<if>>`/`<<once>>`/`<<once if>>` modifier
+      // is extracted; hashtags are pulled; the main-grammar escapes
+      // unescape (the runtime-owned ones — `\{`, `\}`, `\[`, `\]`, `\:` —
+      // survive to the line parser).
+      const commented = truncateAtComment(raw).trimEnd();
+      const { text: withoutModifier, modifier } = extractLineModifier(commented, t);
+      const { cleanText: textWithoutTags, tags } = this.extractTags(withoutModifier);
       // Removed fork extensions (ticket 40): &css{} and inline {if} blocks.
       this.rejectRemovedSyntax(textWithoutTags, t);
-      const markup = parseMarkup(textWithoutTags);
-      const speakerMatch = markup.text.match(/^([^:\s][^:]*)\s*:\s*(.*)$/);
-      if (speakerMatch) {
-        const messageText = speakerMatch[2];
-        const messageOffset = markup.text.length - messageText.length;
-        const slicedMarkup = sliceMarkup(markup, messageOffset);
-        const normalizedMarkup = this.normalizeMarkup(slicedMarkup);
-        return {
-          type: "Line",
-          speaker: speakerMatch[1].trim(),
-          text: messageText,
-          tags,
-          markup: normalizedMarkup,
-        } as Line;
-      }
-      return {
+      const markup = parseMarkup(unescapeMainGrammar(textWithoutTags));
+      const line: Line = {
         type: "Line",
         text: markup.text,
         tags,
         markup: this.normalizeMarkup(markup),
-      } as Line;
+      };
+      const speakerMatch = SPEAKER_RE.exec(markup.text);
+      if (speakerMatch) {
+        line.speaker = speakerMatch[1].trim().replace(/\\:/g, ":");
+        const messageOffset = markup.text.length - speakerMatch[2].length;
+        line.markup = this.normalizeMarkup(sliceMarkup(markup, messageOffset));
+        line.text = speakerMatch[2];
+      } else {
+        // No speaker: an escaped colon ("Character\\: text") composes as a
+        // literal colon in the line text — upstream's line parser unescapes
+        // `\\:` at composition.
+        line.text = line.text.replace(/\\:/g, ":");
+      }
+      if (modifier?.kind === "if") line.condition = modifier.condition;
+      if (modifier?.kind === "once") line.once = modifier.condition ? { condition: modifier.condition } : {};
+      return line;
     }
     throw new ParseError(`Unexpected token ${t.type}`, this.rangeAt(t));
   }
 
   private parseOptionGroup(): OptionGroup {
     const options: Option[] = [];
+    // Reset here: the flag is only meaningful to the parseStatementsUntil
+    // invocation that set it. Nested body parses (an option body ending in
+    // blank lines) would otherwise leak a stale "ended after blanks" into
+    // this loop and split consecutive options into separate groups.
+    this.trailingBlankBeforeEnd = false;
     // One or more OPTION lines, with bodies under INDENT
     while (this.at("OPTION")) {
       const optTok = this.take("OPTION");
-      const raw = optTok.text.replace(/\s\/\/.*$/, "").trimEnd();
-      const { cleanText: textWithAttrs, tags } = this.extractTags(raw);
+      const raw = optTok.text;
+      // Option-line pipeline: same stages as a text line (see
+      // parseStatement) — comment, condition/once modifier, hashtags,
+      // main-grammar escapes.
+      const commented = truncateAtComment(raw).trimEnd();
+      const { text: withoutModifier, modifier } = extractLineModifier(commented, optTok);
+      const { cleanText: textWithAttrs, tags } = this.extractTags(withoutModifier);
       // Removed fork extensions (ticket 40): &css{} and the [if expr] option
       // condition suffix.
       this.rejectRemovedSyntax(textWithAttrs, optTok);
-      const { text: optionText, condition } = this.extractOptionIfCondition(textWithAttrs, optTok);
-      const markup = parseMarkup(optionText);
+      const markup = parseMarkup(unescapeMainGrammar(textWithAttrs));
       let body: Statement[] = [];
       if (this.at("INDENT")) {
         this.take("INDENT");
@@ -270,14 +412,16 @@ class Parser {
         this.take("DEDENT");
         while (this.at("EMPTY")) this.i++;
       }
-      options.push({
+      const option: Option = {
         type: "Option",
         text: markup.text,
         body,
         tags,
         markup: this.normalizeMarkup(markup),
-        condition,
-      });
+      };
+      if (modifier?.kind === "if") option.condition = modifier.condition;
+      if (modifier?.kind === "once") option.once = modifier.condition ? { condition: modifier.condition } : {};
+      options.push(option);
       // Consecutive options belong to the same group; a blank line between
       // options separates groups (upstream: options must be consecutive lines).
       let blanks = 0;
@@ -360,33 +504,6 @@ class Parser {
     }
   }
 
-  /**
-   * Upstream option conditions: an <<if expr>> suffix on the option line.
-   * The expression is stripped from the option text and returned; an
-   * expression-less <<if>> is the upstream ParseFailures case
-   * (OptionConditions-MustHaveExpressions) and throws YS0005 via the seam.
-   */
-  private extractOptionIfCondition(input: string, token: Token): { text: string; condition?: string } {
-    if (/<<\s*if\s*>>/.test(input)) {
-      throw new ParseError(
-        "Option condition <<if>> requires an expression (Yarn Spinner 3.x syntax)",
-        this.rangeAt(token),
-      );
-    }
-    let condition: string | undefined;
-    const text = input.replace(/<<\s*if\s+([\s\S]+?)>>/g, (_m, expr) => {
-      if (condition !== undefined && condition !== expr.trim()) {
-        throw new ParseError(
-          "An option can have only one <<if>> condition (Yarn Spinner 3.x syntax)",
-          this.rangeAt(token),
-        );
-      }
-      condition ??= expr.trim();
-      return "";
-    });
-    return { text: text.trim(), condition };
-  }
-
   private parseStatementsUntilStop(shouldStop: () => boolean): Statement[] {
     const out: Statement[] = [];
     while (!this.at("EOF")) {
@@ -412,22 +529,45 @@ class Parser {
     return out;
   }
 
-  private parseOnceBlock(): OnceBlock {
-    // Already consumed <<once>>; expect body under INDENT then <<endonce>> as COMMAND
-    let body: Statement[] = [];
-    if (this.at("INDENT")) {
-      this.take("INDENT");
-      body = this.parseStatementsUntil("DEDENT");
-      this.take("DEDENT");
-    } else {
-      // Alternatively, body until explicit <<endonce>> command on single line
-      body = [];
+  /**
+   * A `<<once>>` / `<<once if expr>>` block: the body runs once (the
+   * once-state is a generated variable — coding standards §4); `<<else>>`
+   * starts the else body, and `<<endonce>>` closes the block.
+   */
+  private parseOnceBlock(cmd: string): OnceBlock {
+    let condition: string | undefined;
+    const rest = cmd.slice(4).trim();
+    if (rest.length > 0) {
+      if (rest === "if" || !rest.startsWith("if ")) {
+        throw new ParseError(
+          `Unexpected content after <<once>>: "${rest}" — expected <<once>>, <<once if expr>>, <<else>>, or <<endonce>>`,
+          this.rangeAt(this.peek()),
+        );
+      }
+      condition = rest.slice(3).trim();
+      if (!condition) {
+        throw new ParseError("<<once if>> requires an expression (Yarn Spinner 3.x syntax)", this.rangeAt(this.peek()));
+      }
     }
-    // consume closing command if present on own line
+    // Body until <<else>> or <<endonce>> at the same level (indentation is
+    // transparent here, as in if-blocks).
+    const atOnceClose = () =>
+      this.at("COMMAND") && (this.peek().text === "else" || this.peek().text === "endonce");
+    const body = this.parseStatementsUntilStop(atOnceClose);
+    let elseBody: Statement[] | undefined;
+    if (this.at("COMMAND") && this.peek().text === "else") {
+      this.take("COMMAND");
+      elseBody = this.parseStatementsUntilStop(
+        () => this.at("COMMAND") && this.peek().text === "endonce",
+      );
+    }
     if (this.at("COMMAND") && this.peek().text === "endonce") {
       this.take("COMMAND");
     }
-    return { type: "Once", body };
+    const block: OnceBlock = { type: "Once", body };
+    if (condition !== undefined) block.condition = condition;
+    if (elseBody) block.elseBody = elseBody;
+    return block;
   }
 
   private parseEnumBlock(enumName: string): EnumBlock {

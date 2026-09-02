@@ -1,8 +1,7 @@
 /**
- * Runtime tests over the instruction-stream program (ticket 45): the VM
- * executes the compiled bytecode (ADR 0001) behind the public runtime API —
- * the same `Dialogue` event stream the tree-IR driver delivers while both
- * drivers coexist (tickets 45–46).
+ * Runtime tests over the instruction-stream program (tickets 45–46): the
+ * VM executes the compiled bytecode (ADR 0001) behind the public runtime
+ * API — the one `Dialogue` event stream since the tree IR retired.
  *
  * Coverage here is the VM behavior the conformance corpus leaves implicit:
  * full-set option delivery with availability flags, the no-option-selected
@@ -20,8 +19,8 @@ import type { Program } from "../compile/program.js";
 
 function makeDialogue(source: string, opts?: ConstructorParameters<typeof DialogueClass>[1]): DialogueClass {
   const result = compileSource(source);
-  assert.ok(result.bytecode, "the compile seam emits a bytecode program");
-  return new Dialogue(result.bytecode, { startAt: "Start", ...opts });
+  assert.ok(result.program, "the compile seam emits a program");
+  return new Dialogue(result.program, { startAt: "Start", ...opts });
 }
 
 /** Run the dialogue to completion, auto-selecting via `onOptions`. */
@@ -326,11 +325,11 @@ title: Start
 `,
 };
 
-test("both drivers deliver identical streams across the tranche surface", () => {
+test("event streams across the surface", () => {
   for (const [name, source] of Object.entries(EQUIVALENCE_SOURCES)) {
     const result = compileSource(source);
-    assert.ok(result.program && result.bytecode, `${name}: compiles to both artifacts`);
-    const runDriver = (program: ConstructorParameters<typeof DialogueClass>[0]) => {
+    assert.ok(result.program, `${name}: compiles`);
+    const run = (program: ConstructorParameters<typeof DialogueClass>[0]) => {
       const dialogue = new Dialogue(program);
       return drain(dialogue, (count) => (count > 0 ? 0 : noOptionSelected));
     };
@@ -342,22 +341,16 @@ test("both drivers deliver identical streams across the tranche surface", () => 
             ? `options:[${e.options.map((o) => `${o.text}${o.isAvailable ? "" : "!"}`).join("|")}]`
             : e.type,
       );
-    assert.deepEqual(
-      summarize(runDriver(result.bytecode as Program)),
-      summarize(runDriver(result.program)),
-      `${name}: the VM and the tree-IR driver agree`,
-    );
+    assert.ok(summarize(run(result.program))!.length > 0, `${name}: delivers events`);
   }
 });
 
-test("logical operators produce booleans the string evaluator agrees with", () => {
-  // `1 and 2` is 1 && 2 = 2 on raw JS values; the runtime contract (both
-  // drivers) is the evaluator's `!!`-coerced boolean.
+test("logical operators produce booleans", () => {
+  // `1 and 2` is 1 && 2 = 2 on raw JS values; the runtime contract is the
+  // evaluator's `!!`-coerced boolean.
   const source = EQUIVALENCE_SOURCES["logical operators coerce to booleans"];
-  for (const program of [compileSource(source).bytecode, compileSource(source).program]) {
-    const dialogue = new Dialogue(program!);
-    drain(dialogue, () => noOptionSelected);
-    assert.equal(dialogue.getVariable("x"), true);
-    assert.equal(dialogue.getVariable("y"), false);
-  }
+  const dialogue = new Dialogue(compileSource(source).program!);
+  drain(dialogue, () => noOptionSelected);
+  assert.equal(dialogue.getVariable("x"), true);
+  assert.equal(dialogue.getVariable("y"), false);
 });

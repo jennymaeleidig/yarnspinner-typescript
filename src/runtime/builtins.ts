@@ -3,11 +3,11 @@
  * role). Registered into the runtime's Library at construction; host
  * libraries are imported over them, so a host may override any entry.
  *
- * Shared by both execution drivers (the transitional tree-IR runtime and
- * the instruction-stream VM, tickets 45–46): visit-count queries read
- * through the driver's variable storage — the generated-variable key
+ * Shared by the one execution driver (the instruction-stream VM):
+ * visit-count queries read
+ * through the VM's variable storage — the generated-variable key
  * contract (coding standards §4) is what makes `visited()`/`visited_count()`
- * driver-independent.
+ * work uniformly.
  */
 
 import type { Library } from "./library.js";

@@ -61,24 +61,16 @@ const COMPILE_CLEAN_ALLOWLIST: Record<string, string> = {};
  * Must shrink to empty by phase-2 exit ("testplan runner green on the 32 pairs").
  */
 const PLAN_RUN_ALLOWLIST: Record<string, string> = {
-  "Escaping.yarn":
-    "escape sequences (\\#, \\\\, \\[) not processed in line text (spec stories 9, 26)",
   "FormatFunctions.yarn":
-    "replacement markers [select]/[plural]/[ordinal] not implemented (spec story 27)",
+    "replacement markers [select]/[plural]/[ordinal] not implemented (spec story 27; ticket 48)",
   "LineGroups.yarn":
-    "=> line groups with saliency selection not supported; '=> ' lines are delivered as text (spec story 19)",
-  "Lines.yarn":
-    "line-level <<if>>/<<once if>> conditions not supported; condition text leaks into line text (spec story 2)",
+    "=> line groups with saliency selection not supported; '=> ' lines are delivered as text (spec story 19; ticket 47)",
   "NodeGroups.yarn":
-    "no swappable saliency strategies; group selection is first-match, not best_least_recently_seen (spec stories 17-18)",
+    "no swappable saliency strategies; group selection is first-match, not best_least_recently_seen (spec stories 17-18; ticket 47)",
   "NodeGroupsContentQuerying.yarn":
-    "has_any_content() and node-group runtime queries not registered (spec story 20)",
+    "has_any_content() and node-group runtime queries not registered (spec story 20; ticket 47)",
   "Once.yarn":
-    "<<else>> branch on <<once>> blocks not supported (spec story 2)",
-  "ShortcutOptions.yarn":
-    "option <<once>>/<<once if>> conditions not supported; <<if>> conditions filter at runtime since ticket 40 (spec story 25)",
-  "VisitTracking.yarn":
-    "subtitle-qualified visit queries (visited(Group.SUBTITLE)) unsupported; no subtitle mechanism (spec story 24)",
+    "plan's '=> ' line groups need saliency selection (spec story 19; ticket 47) — once blocks/options/lines themselves run on the VM",
 };
 
 /**
@@ -93,35 +85,10 @@ const HARNESS_FUNCTION_SIGNATURES = {
 } as const satisfies ExternalDeclarations["functions"];
 
 /**
- * The first VM tranche (ticket 45): fixtures whose plans are linear flow —
- * lines, commands, options, `<<if>>` chains, jumps, node entry/exit — run
- * against the instruction-stream program (ADR 0001 bytecode) through the
- * same public runtime API. The remaining pairs stay on the tree-IR driver
- * until ticket 46 moves them (detours, visit tracking, once, saliency
- * strategies, line groups, and the runtime features still being built:
- * escapes, replacement markers, line-level conditions, option `<<once>>`).
+ * Every plan-driven pair runs on the instruction-stream program (ADR 0001)
+ * through the same public runtime API — the tree-IR driver is retired
+ * (ticket 46), so there is no per-fixture driver split any more.
  */
-const VM_FIRST_TRANCHE: ReadonlySet<string> = new Set([
-  "Commands.yarn",
-  "DecimalNumbers.yarn",
-  "Enums.yarn",
-  "Enums-FunctionsAcceptingStringMayAcceptAnyStringEnum.yarn",
-  "Enums-FunctionsReturningStringMayBeComparedToAnyStringEnum.yarn",
-  "Expressions.yarn",
-  "Functions.yarn",
-  "IfStatements.yarn",
-  "Indentation.yarn",
-  "Inference-FunctionsAndVarsInheritType.yarn",
-  "Inference-FunctionsCalledWithConvertibleParameters.yarn",
-  "InlineExpressions.yarn",
-  "Jumps.yarn",
-  "NodeGroupsWithImplicitDeclarations.yarn",
-  "ShadowLines.yarn",
-  "SmartVariables.yarn",
-  "Smileys.yarn",
-  "Types.yarn",
-  "VariableStorage.yarn",
-]);
 
 function attemptCompile(source: string): { ok: true } | { ok: false; error: string } {
   try {
@@ -204,12 +171,9 @@ test("upstream testplan pairs run per plan", async (t) => {
       const result = compileSource(readFixture(`TestCases/${name}`), {
         declarations: { functions: HARNESS_FUNCTION_SIGNATURES },
       });
-      // The VM tranche drives the instruction-stream program; the rest
-      // stay on the tree IR (both behind the same public runtime API).
-      const program = VM_FIRST_TRANCHE.has(name) ? result.bytecode : result.program;
-      if (VM_FIRST_TRANCHE.has(name)) {
-        assert.ok(result.bytecode, "the compile seam emits a bytecode program for the VM tranche");
-      }
+      // Every pair drives the instruction-stream program (ADR 0001); the
+      // tree-IR driver is retired (ticket 46).
+      const program = result.program;
       if (!program || hasErrors(result.diagnostics)) {
         throw new Error(`fixture failed to compile: ${result.diagnostics.map((d) => d.code).join(", ")}`);
       }
@@ -244,10 +208,8 @@ test("upstream testplan pairs run per plan", async (t) => {
 
 test("upstream Example.yarn runs per Example.testplan", () => {
   const result = compileSource(readFixture("Example.yarn"));
-  // Example.yarn is linear flow (lines, options, jumps): it rides the VM
-  // tranche of the ticket-45 transition.
-  const program = result.bytecode;
-  assert.ok(program, "the compile seam emits a bytecode program for Example.yarn");
+  const program = result.program;
+  assert.ok(program, "the compile seam emits a program for Example.yarn");
   const plan = parseTestPlan(readFixture("Example.testplan"));
   runTestPlan(program, plan);
 });

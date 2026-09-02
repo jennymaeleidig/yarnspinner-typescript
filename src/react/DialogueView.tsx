@@ -7,10 +7,10 @@ import { MarkupRenderer } from "./MarkupRenderer.js";
 // Note: CSS is imported in the browser demo entry point (examples/browser/main.tsx)
 // This prevents Node.js from trying to resolve CSS imports during tests
 
-import type { IRProgram } from "../compile/ir.js";
+import type { Program } from "../compile/program.js";
 
 export interface DialogueViewProps {
-  program: IRProgram;
+  program: Program;
   startNode?: string;
   className?: string;
   scenes?: SceneCollection;

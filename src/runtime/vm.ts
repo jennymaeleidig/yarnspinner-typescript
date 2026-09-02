@@ -3,10 +3,9 @@
  * per-node instruction streams whose expressions are bytecode and whose
  * jumps are instruction indices — end-to-end for linear flow, behind the
  * public runtime API (`Dialogue` dispatches here for bytecode programs
- * during the VM transition, tickets 45–46).
+ * during the VM work, tickets 45–46).
  *
- * Semantics mirror the transitional tree-IR runtime (and through it,
- * upstream 3.2.2 `VirtualMachine.cs`):
+ * Semantics mirror upstream 3.2.2 `VirtualMachine.cs`:
  * - `NodeStart` fires when a node is entered (`setNode`, `runNode`, detour);
  *   `NodeComplete` when a node is left (end, `runNode`, `<<return>>`,
  *   `<<stop>>`) — and a node left records its visit (upstream records on
@@ -33,8 +32,8 @@
  *   a `null`, and execution continues.
  *
  * Story state (variables, generated variables, smart variables) lives in
- * the variable storage / evaluator exactly as in the tree-IR driver
- * (coding standards §4) — the engine is stateless across instances.
+ * the variable storage / evaluator (coding standards §4) — the engine is
+ * stateless across instances.
  */
 
 import type { Instruction, Program, ProgramNode } from "../compile/program.js";
@@ -60,7 +59,7 @@ type CommandOutcome = "continued" | "delivered" | "halted";
 type ReturnFrame = { title: string; ip: number; nodeIndex: number };
 
 /** An option accumulated by `addOption`, awaiting delivery by `showOptions`. */
-type AccumulatedOption = { text: string; tags?: string[]; destination: number; isAvailable: boolean };
+type AccumulatedOption = { text: string; tags?: string[]; destination: number; isAvailable: boolean; markup?: MarkupParseResult };
 
 /** The literal-push ops: infallible, so they are not stack *producers* in the failure sense. */
 const LITERAL_OPS: ReadonlySet<Instruction["op"]> = new Set(["pushString", "pushNumber", "pushBool", "pushNull"]);
@@ -329,7 +328,7 @@ export class VirtualMachine {
         // Node ended: the visit is recorded (upstream records on node
         // return); a detoured node returns to its caller, otherwise the
         // dialogue completes.
-        this.recordVisit(this.nodeTitle!);
+        this.recordVisit(this.nodeTitle!, this.currentNodeIndex);
         batch.push({ type: "nodeComplete", nodeName: this.nodeTitle! });
         const frame = this.returnStack.pop();
         if (frame) {
@@ -345,7 +344,7 @@ export class VirtualMachine {
       try {
         switch (ins.op) {
           case "runLine": {
-            const composed = this.compose(ins.text);
+            const composed = this.compose(ins.text, ins.markup);
             batch.push({
               type: "line",
               lineId: lineIdFromTags(ins.tags),
@@ -399,6 +398,7 @@ export class VirtualMachine {
               text: ins.text,
               tags: ins.tags,
               destination: ins.destination,
+              markup: ins.markup,
               // The availability (the evaluated condition, or `true` for
               // unconditioned options) is on the stack — upstream AddOption.
               isAvailable: Boolean(this.pop()),
@@ -591,10 +591,15 @@ export class VirtualMachine {
    * header and instruction-stream reads.
    */
   private currentMember(): ProgramNode | undefined {
-    const nodeOrGroup = this.program.nodes[this.nodeTitle!];
+    return this.memberFor(this.nodeTitle!, this.currentNodeIndex);
+  }
+
+  /** The named node — the given member when the node is a group. */
+  private memberFor(title: string, nodeIndex: number): ProgramNode | undefined {
+    const nodeOrGroup = this.program.nodes[title];
     if (!nodeOrGroup) return undefined;
     if (!("nodes" in nodeOrGroup)) return nodeOrGroup;
-    return this.currentNodeIndex >= 0 ? nodeOrGroup.nodes[this.currentNodeIndex] : undefined;
+    return nodeIndex >= 0 ? nodeOrGroup.nodes[nodeIndex] : undefined;
   }
 
   /**
@@ -696,9 +701,9 @@ export class VirtualMachine {
    */
   private jumpTo(target: string, batch: DialogueEvent[]): void {
     batch.push({ type: "nodeComplete", nodeName: this.nodeTitle! });
-    this.recordVisit(this.nodeTitle!);
+    this.recordVisit(this.nodeTitle!, this.currentNodeIndex);
     for (const frame of this.returnStack) {
-      this.recordVisit(frame.title);
+      this.recordVisit(frame.title, frame.nodeIndex);
     }
     this.returnStack.length = 0;
     this.enterNode(this.resolveDestination(target), batch);
@@ -717,7 +722,7 @@ export class VirtualMachine {
       return "halted";
     }
     batch.push({ type: "nodeComplete", nodeName: this.nodeTitle! });
-    this.recordVisit(this.nodeTitle!); // <<return>> is a node return
+    this.recordVisit(this.nodeTitle!, this.currentNodeIndex); // <<return>> is a node return
     this.returnStack.pop();
     this.nodeTitle = frame.title;
     this.ip = frame.ip;
@@ -727,9 +732,10 @@ export class VirtualMachine {
 
   /**
    * Run one command instruction: state statements (`<<set>>`/`<<declare>>`/
-   * `<<call>>`) execute internally and never surface; `<<stop>>` and
-   * `<<return>>` compile to dedicated ops — these raw-command forms are
-   * defensive, mirroring the tree-IR dispatch — and any other command is
+   * `<<call>>`) execute internally and never surface — `<<set>>` reaches
+   * here only through the compiler's uncompilable-expression fallback, and
+   * `<<stop>>`/`<<return>>` compile to dedicated ops, never raw commands
+   * (upstream's compiler does the same) — and any other command is
    * delivered as a `Command` event after invoking its registered Library
    * handler, if one is registered.
    */
@@ -743,14 +749,6 @@ export class VirtualMachine {
       return "delivered";
     }
     const name = parsed.name.toLowerCase();
-    if (name === "return") {
-      return this.runReturn(batch);
-    }
-    if (name === "stop") {
-      batch.push({ type: "nodeComplete", nodeName: this.nodeTitle! });
-      this.complete(batch);
-      return "halted";
-    }
     if (name === "set" || name === "declare" || name === "call") {
       // State statements are internal (spec, ticket 03 conformance): they
       // execute their effect and never surface as Command events.
@@ -803,7 +801,7 @@ export class VirtualMachine {
     const accumulated = this.accumulatedOptions;
     this.accumulatedOptions = [];
     const delivered = accumulated.map((option, index) => {
-      const composed = this.compose(option.text);
+      const composed = this.compose(option.text, option.markup);
       return {
         index,
         isAvailable: option.isAvailable,
@@ -837,22 +835,20 @@ export class VirtualMachine {
 
   /**
    * Record a node visit (upstream records on node return). Nodes with a
-   * `tracking: never` header are not recorded.
+   * `tracking: never` header are not recorded. A node carrying a
+   * `subtitle:` header records a second count under its qualified name
+   * `Title.Subtitle` (upstream node-group naming — the key
+   * `visited("Title.Subtitle")` reads).
    */
-  private recordVisit(title: string): void {
-    if (this.trackingSuppressedFor(title)) return;
+  private recordVisit(title: string, nodeIndex: number): void {
+    const member = this.memberFor(title, nodeIndex);
+    if (member?.tracking === "never") return;
     const key = visitCountVariableKey(title);
     this.storage[key] = (Number(this.storage[key]) || 0) + 1;
-  }
-
-  private trackingSuppressedFor(title: string): boolean {
-    const nodeOrGroup = this.program.nodes[title];
-    if (!nodeOrGroup) return false;
-    if ("nodes" in nodeOrGroup) {
-      const member = this.currentNodeIndex >= 0 ? nodeOrGroup.nodes[this.currentNodeIndex] : undefined;
-      return member?.tracking === "never";
+    if (member?.subtitle) {
+      const subKey = visitCountVariableKey(`${title}.${member.subtitle}`);
+      this.storage[subKey] = (Number(this.storage[subKey]) || 0) + 1;
     }
-    return nodeOrGroup.tracking === "never";
   }
 
   /**
@@ -879,7 +875,7 @@ export class VirtualMachine {
    * expression subset) and return the value it leaves. Errors propagate:
    * the constructor reports them for `initialValues`; a smart variable's
    * failure surfaces through its reader (the evaluator's condition/
-   * interpolation contracts) exactly as the tree-IR driver's do.
+   * interpolation contracts).
    */
   private evaluateInitializer(code: Instruction[], name: string): unknown {
     const saved = this.stack.splice(0, this.stack.length);
@@ -903,7 +899,7 @@ export class VirtualMachine {
 
   // ── Line composition (substitutions + markup) ───────────────────────
 
-  private compose(text: string): { text: string; markup?: MarkupParseResult } {
-    return interpolate(text, (expr) => this.evaluator.evaluateExpression(expr));
+  private compose(text: string, markup?: MarkupParseResult): { text: string; markup?: MarkupParseResult } {
+    return interpolate(text, (expr) => this.evaluator.evaluateExpression(expr), markup);
   }
 }

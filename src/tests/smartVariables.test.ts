@@ -26,9 +26,9 @@ import { Dialogue } from "../runtime/dialogue.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
 import type { Diagnostic } from "../compile/diagnostics.js";
 import { hasErrors } from "../compile/diagnostics.js";
-import type { IRProgram } from "../compile/ir.js";
+import type { Program } from "../compile/program.js";
 
-function compile(source: string): { program: IRProgram | null; diagnostics: Diagnostic[] } {
+function compile(source: string): { program: Program | null; diagnostics: Diagnostic[] } {
   return compileSource(source);
 }
 
@@ -52,7 +52,13 @@ test("a declare whose initializer references variables is a smart variable", () 
 ===
 `);
   assert.equal(hasErrors(result.diagnostics), false, JSON.stringify(result.diagnostics));
-  assert.equal(result.program?.smartVariables["can_afford"], "$money > 10");
+  // Smart variables compile their initializer to bytecode (ticket 42's
+  // compiled form).
+  assert.deepEqual(result.program?.smartVariables["can_afford"], [
+    { op: "pushVariable", name: "money" },
+    { op: "pushNumber", value: 10 },
+    { op: "greaterThan" },
+  ]);
   // Smart variables have no initial value (upstream: not in InitialValues).
   assert.equal(result.program?.initialValues["can_afford"], undefined);
 });
