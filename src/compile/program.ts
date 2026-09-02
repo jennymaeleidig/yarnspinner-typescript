@@ -1,0 +1,131 @@
+/**
+ * The instruction-stream program format (ADR 0001, ADR 0003).
+ *
+ * The compiler emits a TS-idiomatic instruction-stream stack-VM program: a
+ * versioned JSON artifact (its own format — upstream's protobuf `Program`
+ * is explicitly out of scope) in which expressions are compiled to bytecode
+ * and jumps are instruction indices, with labels resolved in a compiler
+ * pass before the artifact is handed out.
+ *
+ * Idioms:
+ * - Op names mirror the upstream instruction concepts in camelCase (coding
+ *   standards §5): `runLine`, `addOption`, `pushVariable`, …
+ * - Lines and commands keep their authored text; the runtime line parser
+ *   owns `{expr}` substitutions and markup (upstream's compiler/runtime
+ *   split). Only condition and assignment expressions compile to bytecode.
+ * - `runNode`/`detour` target nodes by name; `{expr}` targets stay strings
+ *   the VM resolves at execution (upstream resolves dynamic node names at
+ *   execution too).
+ * - Option bodies lower inline: `addOption` carries the body's entry index
+ *   (a resolved label), `showOptions` delivers and clears the accumulated
+ *   set, and the compiler jumps past the inline bodies — so a selection
+ *   runs the body and resumes after the options block, and the
+ *   no-option-selected fall-through is simply the pc after `showOptions`.
+ * - Generated-variable state (once-state) is read/written with plain
+ *   variable ops; the key naming contract lives in
+ *   `runtime/generatedVariables.ts` (coding standards §4).
+ * - `when` conditions stay evaluator strings until the saliency machinery
+ *   compiles them (ticket 47).
+ */
+
+/** The program format's language version (ADR 0003). Bump on schema changes. */
+export const programLanguageVersion = 1;
+
+/**
+ * The compiled, serializable artifact of a set of `.yarn` sources (the
+ * glossary's Program): versioned JSON, consumed by the runtime.
+ */
+export type Program = {
+  /** Format version of this artifact (ADR 0003); see `programLanguageVersion`. */
+  languageVersion: number;
+  /**
+   * Enum types available to the program: enum name → case name → raw value.
+   * Member access has already been folded to raw values at compile time;
+   * the table remains for host-side inspection and `.Case` resolution.
+   */
+  enums: Record<string, Record<string, number | string>>;
+  /** Node title → node, or → a node group of same-titled members. */
+  nodes: Record<string, ProgramNode | ProgramNodeGroup>;
+  /**
+   * Compiled `<<declare>>` initializers (upstream `Program.InitialValues`):
+   * variable name → bytecode whose execution pushes the declared default.
+   * The VM seeds variable storage from these at start-up; declares compile
+   * to no instruction in the stream.
+   */
+  initialValues: Record<string, Instruction[]>;
+  /**
+   * Smart variables (ticket 42, upstream "inline expansion"): variable name
+   * → compiled initializer expression, recomputed on every access; they
+   * carry no initial stored value.
+   */
+  smartVariables: Record<string, Instruction[]>;
+};
+
+/** A compiled node: one instruction stream plus its headers. */
+export type ProgramNode = {
+  title: string;
+  instructions: Instruction[];
+  /** `when:` header conditions, verbatim (saliency compilation: ticket 47). */
+  when?: string[];
+  /** `scene:` header (adapter-side concern). */
+  scene?: string;
+  /** `tracking:` header (visit-tracking mode). */
+  tracking?: "always" | "never";
+};
+
+/** Multiple same-titled nodes; saliency picks a member at entry. */
+export type ProgramNodeGroup = {
+  title: string;
+  nodes: ProgramNode[];
+};
+
+/**
+ * One instruction. Stack ops and operands mirror the upstream instruction
+ * concepts (coding standards §5); jumps and option destinations are
+ * instruction indices into the same node's stream, resolved by the
+ * compiler's label pass before the program is emitted.
+ */
+export type Instruction =
+  // Flow control.
+  | { op: "jumpTo"; index: number }
+  | { op: "jumpIfFalse"; index: number } // pops the condition
+  | { op: "jumpIfTrue"; index: number } // pops the condition
+  | { op: "runNode"; node: string } // enter node (jump semantics)
+  | { op: "detour"; node: string } // call-and-return node entry
+  | { op: "return" } // end a detour; acts as stop outside one
+  | { op: "stop" } // complete the dialogue
+  // Delivery (authored text; the runtime line parser composes it).
+  | { op: "runLine"; text: string; speaker?: string; tags?: string[] }
+  | { op: "runCommand"; content: string }
+  | { op: "addOption"; text: string; tags?: string[]; destination: number }
+  | { op: "showOptions" } // delivers and clears the accumulated set; halts
+  // Stack: literals and variables.
+  | { op: "pushString"; value: string }
+  | { op: "pushNumber"; value: number }
+  | { op: "pushBool"; value: boolean }
+  | { op: "pushNull" }
+  | { op: "pushVariable"; name: string } // unset names push null
+  | { op: "popVariable"; name: string } // pops into the variable
+  // Functions: pops `argc` operands, pushes the result.
+  | { op: "callFunction"; name: string; argc: number }
+  // Arithmetic (stack semantics: `add` concatenates when either operand is
+  // a string, rendering operands the upstream way; the numeric ops coerce
+  // to numbers).
+  | { op: "add" }
+  | { op: "subtract" }
+  | { op: "multiply" }
+  | { op: "divide" }
+  | { op: "modulo" }
+  | { op: "negate" }
+  // Comparison (equality uses the evaluator's deep-equality contract,
+  // including unset-variable defaults).
+  | { op: "equalTo" }
+  | { op: "notEqualTo" }
+  | { op: "lessThan" }
+  | { op: "greaterThan" }
+  | { op: "lessThanOrEqualTo" }
+  | { op: "greaterThanOrEqualTo" }
+  // Logic (both operands are evaluated; results are boolean).
+  | { op: "and" }
+  | { op: "or" }
+  | { op: "not" };

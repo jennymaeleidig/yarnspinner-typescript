@@ -1,0 +1,25 @@
+/**
+ * Generated-variable naming (coding standards §4, CONTEXT.md "Generated
+ * variable"): all story state that is not authored content — once-state,
+ * visit counts, saliency history — lives in the pluggable variable storage
+ * under these reserved keys, so it resets with the storage and never in
+ * module globals.
+ *
+ * The key builders are shared by the runtime (which reads and writes the
+ * state) and the program lowering pass (whose `<<once>>` lowering emits
+ * `pushVariable`/`popVariable` against the once-state keys), so the bytecode
+ * and the runtime reference state by one contract.
+ */
+
+/** Reserved namespace for generated variables — never authored content. */
+export const generatedVariablePrefix = "Yarn.Internal.";
+
+/** Storage key for an `<<once>>` block's seen-state, by its compiled id. */
+export const onceVariableKey = (id: string) => `${generatedVariablePrefix}Once:${id}`;
+
+/** Storage key for a node-group member's `when: once` seen-state. */
+export const groupOnceVariableKey = (key: string) => `${generatedVariablePrefix}GroupOnce:${key}`;
+
+/** Storage key for a node's visit count (recorded on node return). */
+export const visitCountVariableKey = (title: string) =>
+  `${generatedVariablePrefix}VisitCount:${title}`;

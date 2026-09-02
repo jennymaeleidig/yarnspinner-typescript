@@ -18,6 +18,8 @@ import { parseYarn, ParseError } from "../parse/parser.js";
 import type { YarnDocument, YarnNode, Statement } from "../model/ast.js";
 import { compile } from "./compiler.js";
 import type { IRProgram } from "./ir.js";
+import { emitProgram, LoweringError } from "./emit.js";
+import type { Program } from "./program.js";
 import { makeDiagnostic, hasErrors } from "./diagnostics.js";
 import type { Diagnostic, YarnRange } from "./diagnostics.js";
 import { typeCheck } from "./typeCheck.js";
@@ -40,6 +42,13 @@ export interface CompileSourceOptions {
 
 export interface CompileSourceResult {
   program: IRProgram | null;
+  /**
+   * The instruction-stream program (ADR 0001, ADR 0003): the versioned JSON
+   * bytecode artifact with expressions compiled and jump labels resolved.
+   * Inert to the current tree-IR runtime; the VM (tickets 45–46) consumes
+   * it behind the same public API. `null` when parsing failed.
+   */
+  bytecode: Program | null;
   diagnostics: Diagnostic[];
   /** `<<declare>>`d variables (upstream CompilationResult.Declarations). */
   declarations: VariableDeclaration[];
@@ -60,7 +69,7 @@ export function compileSource(source: string, opts: CompileSourceOptions = {}): 
       range: e.range as YarnRange | undefined,
     });
     if (opts.strict) throw new Error(`${diagnostic.code}: ${diagnostic.message}`);
-    return { program: null, diagnostics: [diagnostic], declarations: [], userDefinedTypes: [] };
+    return { program: null, bytecode: null, diagnostics: [diagnostic], declarations: [], userDefinedTypes: [] };
   }
 
   validate(doc, diagnostics, opts.file);
@@ -73,12 +82,28 @@ export function compileSource(source: string, opts: CompileSourceOptions = {}): 
   const program = compile(doc, { generateOnceIds: opts.generateOnceIds, enumTypes: checked.enumTypes });
   validateJumps(program, doc, diagnostics, opts.file);
 
+  // The instruction-stream artifact (ADR 0001/0003), emitted alongside the
+  // tree IR. Inert until the VM tickets (45–46) consume it.
+  let bytecode: Program | null = null;
+  try {
+    bytecode = emitProgram(program);
+  } catch (e) {
+    // Collect-don't-throw (coding standards §3): a lowering failure must
+    // not escape the seam. `LoweringError` guards a lowering invariant that
+    // is unbreakable by construction (every label reference is created
+    // alongside its label in the same node's lowering), so this branch —
+    // and the missing bytecode — would mean a compiler bug, not user
+    // content; the golden suite pins the artifact either way.
+    if (!(e instanceof LoweringError)) throw e;
+  }
+
   if (opts.strict) {
     const firstError = diagnostics.find((d) => d.severity === "error");
     if (firstError) throw new Error(`${firstError.code}: ${firstError.message}`);
   }
   return {
     program,
+    bytecode,
     diagnostics,
     declarations: checked.declarations,
     userDefinedTypes: [...checked.enumTypes.values()],

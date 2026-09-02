@@ -35,6 +35,12 @@ import type { MarkupParseResult, MarkupSegment, MarkupWrapper } from "../markup/
 import { ExpressionEvaluator, stringifyOperand } from "./evaluator.js";
 import { Library, type YarnFunction, type CommandHandler } from "./library.js";
 import { parseCommand, type ParsedCommand } from "./commands.js";
+import {
+  generatedVariablePrefix,
+  groupOnceVariableKey,
+  onceVariableKey,
+  visitCountVariableKey,
+} from "./generatedVariables.js";
 
 export { Library } from "./library.js";
 export type { YarnFunction, CommandHandler } from "./library.js";
@@ -129,16 +135,6 @@ export interface DialogueOptions {
 /** The default node a dialogue starts from (upstream `Dialogue.DefaultStartNodeName`). */
 export const defaultStartNodeName = "Start";
 
-/**
- * Reserved namespace for generated variables: internal state (once-state,
- * visit counts) that lives in the variable storage so it resets with it.
- * Coding standards §4 / CONTEXT.md "Generated variable" — never module
- * globals or runtime-owned side tables.
- */
-const GENERATED_PREFIX = "Yarn.Internal.";
-const onceKey = (id: string) => `${GENERATED_PREFIX}Once:${id}`;
-const groupOnceKey = (key: string) => `${GENERATED_PREFIX}GroupOnce:${key}`;
-const visitCountKey = (title: string) => `${GENERATED_PREFIX}VisitCount:${title}`;
 
 type CompiledOption = {
   text: string;
@@ -356,7 +352,7 @@ export class Dialogue {
   getVariables(): Readonly<Record<string, unknown>> {
     const visible: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(this.variables)) {
-      if (!key.startsWith(GENERATED_PREFIX)) visible[key] = value;
+      if (!key.startsWith(generatedVariablePrefix)) visible[key] = value;
     }
     return visible;
   }
@@ -838,19 +834,19 @@ export class Dialogue {
 
   /** Once-state for <<once>> block ids, as generated variables. */
   private hasOnce(id: string): boolean {
-    return this.variables[onceKey(id)] === true;
+    return this.variables[onceVariableKey(id)] === true;
   }
 
   private markOnce(id: string): void {
-    this.variables[onceKey(id)] = true;
+    this.variables[onceVariableKey(id)] = true;
   }
 
   private markGroupOnceSeen(nodeTitle: string, nodeIndex: number): void {
-    this.variables[groupOnceKey(`${nodeTitle}#${nodeIndex}`)] = true;
+    this.variables[groupOnceVariableKey(`${nodeTitle}#${nodeIndex}`)] = true;
   }
 
   private hasGroupOnceSeen(key: string): boolean {
-    return this.variables[groupOnceKey(key)] === true;
+    return this.variables[groupOnceVariableKey(key)] === true;
   }
 
   /**
@@ -859,7 +855,7 @@ export class Dialogue {
    */
   private recordVisit(title: string): void {
     if (this.trackingSuppressedFor(title)) return;
-    const key = visitCountKey(title);
+    const key = visitCountVariableKey(title);
     this.variables[key] = (Number(this.variables[key]) || 0) + 1;
   }
 
@@ -925,11 +921,11 @@ export class Dialogue {
       bool: (v: unknown) => Boolean(v),
       visited: (nodeName: unknown) => {
         const name = String(nodeName ?? "");
-        return (Number(this.variables[visitCountKey(name)]) || 0) > 0;
+        return (Number(this.variables[visitCountVariableKey(name)]) || 0) > 0;
       },
       visited_count: (nodeName: unknown) => {
         const name = String(nodeName ?? "");
-        return Number(this.variables[visitCountKey(name)]) || 0;
+        return Number(this.variables[visitCountVariableKey(name)]) || 0;
       },
       format_invariant: (n: unknown) => {
         const num = Number(n);
