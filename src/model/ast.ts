@@ -38,14 +38,10 @@ export type Statement =
   | Detour
   | EnumBlock;
 
-import type { MarkupParseResult } from "../markup/types.js";
-
 export interface Line {
   type: "Line";
-  speaker?: string;
   text: string;
   tags?: string[];
-  markup?: MarkupParseResult;
   /** Line-level `<<if expr>>` condition (upstream line conditions). */
   condition?: string;
   /** Line-level `<<once>>` / `<<once if expr>>` (upstream once modifiers);
@@ -78,7 +74,6 @@ export interface Option {
   text: string;
   body: Statement[]; // executed if chosen
   tags?: string[];
-  markup?: MarkupParseResult;
   condition?: string;
   /** Option-level `<<once>>` / `<<once if expr>>` (upstream once options):
    *  the option is selectable once; the flag records on selection. */

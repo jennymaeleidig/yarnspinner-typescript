@@ -310,14 +310,12 @@ class NodeLowering {
   }
 
   /** Emit `addOption` with a label destination (resolved at `resolve` time). */
-  addOption(text: string, tags: string[] | undefined, markup: MarkupParseResult | undefined, label: string): void {
+  addOption(text: string, tags: string[] | undefined, label: string): void {
     this.refs.push({ at: this.instructions.length, key: "destination", label });
     this.instructions.push(
-      markup !== undefined
-        ? { op: "addOption", text, tags, markup, destination: -1 }
-        : tags
-          ? { op: "addOption", text, tags, destination: -1 }
-          : { op: "addOption", text, destination: -1 },
+      tags
+        ? { op: "addOption", text, tags, destination: -1 }
+        : { op: "addOption", text, destination: -1 },
     );
   }
 
@@ -442,13 +440,11 @@ function lowerLine(line: Line, lowering: NodeLowering, ctx: LoweringContext): vo
     gate.push(...compileCondition(line.condition, ctx.enums));
   }
   const emitRunLine = (): void => {
-    const runLine: { op: "runLine"; text: string; speaker?: string; tags?: string[]; markup?: MarkupParseResult } = {
+    const runLine: { op: "runLine"; text: string; tags?: string[] } = {
       op: "runLine",
       text: line.text,
     };
-    if (line.speaker !== undefined) runLine.speaker = line.speaker;
     if (tags !== undefined) runLine.tags = tags;
-    if (line.markup !== undefined) runLine.markup = line.markup;
     lowering.instructions.push(runLine);
   };
   if (gate.length > 0) {
@@ -522,13 +518,11 @@ function lowerLineGroup(
  * speaker, tags, and markup.
  */
 function lowerLineBody(line: Line, tags: string[] | undefined, lowering: NodeLowering): void {
-  const runLine: { op: "runLine"; text: string; speaker?: string; tags?: string[]; markup?: MarkupParseResult } = {
+  const runLine: { op: "runLine"; text: string; tags?: string[] } = {
     op: "runLine",
     text: line.text,
   };
-  if (line.speaker !== undefined) runLine.speaker = line.speaker;
   if (tags !== undefined) runLine.tags = tags;
-  if (line.markup !== undefined) runLine.markup = line.markup;
   lowering.instructions.push(runLine);
 }
 
@@ -577,7 +571,7 @@ function lowerOptions(
   });
   for (const p of prepared) {
     lowering.instructions.push(...p.availability);
-    lowering.addOption(p.option.text, p.tags, p.option.markup, p.label);
+    lowering.addOption(p.option.text, p.tags, p.label);
   }
   lowering.instructions.push({ op: "showOptions" });
   lowering.jump("jumpTo", end);

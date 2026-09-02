@@ -46,8 +46,6 @@
  *   node-group naming — ticket 46) and its saliency content ID (ticket 47).
  */
 
-import type { MarkupParseResult } from "../markup/types.js";
-
 /** The program format's language version (ADR 0003). Bump on schema changes. */
 export const programLanguageVersion = 1;
 
@@ -117,11 +115,11 @@ export type Instruction =
   | { op: "return" } // end a detour; acts as stop outside one
   | { op: "stop" } // complete the dialogue
   // Delivery (authored text; the runtime line parser composes it).
-  | { op: "runLine"; text: string; speaker?: string; tags?: string[]; markup?: MarkupParseResult }
+  | { op: "runLine"; text: string; tags?: string[] }
   | { op: "runCommand"; content: string }
   /** Pops the option's availability (the evaluated condition; the compiler
    *  emits `pushBool true` for unconditioned options — upstream AddOption). */
-  | { op: "addOption"; text: string; tags?: string[]; destination: number; markup?: MarkupParseResult }
+  | { op: "addOption"; text: string; tags?: string[]; destination: number }
   | { op: "showOptions" } // delivers and clears the accumulated set; halts
   /** Records a line-group item as a saliency candidate (ticket 47): pops the
    *  item's evaluated condition (upstream AddSaliencyCandidate). */

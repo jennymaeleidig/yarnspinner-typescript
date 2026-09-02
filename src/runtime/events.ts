@@ -10,6 +10,7 @@
  */
 
 import type { MarkupParseResult } from "../markup/types.js";
+import type { LineParser } from "../markup/lineParser.js";
 import type { Library } from "./library.js";
 import type { ContentSaliencyOption, ContentSaliencyStrategy } from "./saliency.js";
 
@@ -138,6 +139,12 @@ export interface RuntimeDriver {
   getSaliencyOptionsForNodeGroup(nodeGroup: string): ContentSaliencyOption[];
   /** Upstream `Dialogue.HasSalientContent`. */
   hasSalientContent(nodeGroup: string): boolean;
+  /** The locale replacement markers compose under (upstream `Dialogue.LocaleCode`). */
+  getLocale(): string;
+  /** Override the locale replacement markers resolve under. */
+  setLocale(localeCode: string): void;
+  /** The line parser, for host marker-processor registration. */
+  getLineParser(): LineParser;
 }
 
 /** The line's ID from its `line:` hashtag, if present (shared by both drivers for `LineEvent.lineId`). */

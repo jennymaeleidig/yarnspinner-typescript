@@ -1,6 +1,4 @@
 import { lex, Token } from "./lexer.js";
-import { parseMarkup, sliceMarkup } from "../markup/parser.js";
-import type { MarkupParseResult } from "../markup/types.js";
 import type {
   YarnDocument,
   YarnNode,
@@ -34,11 +32,11 @@ export function parseYarn(text: string): YarnDocument {
 }
 
 /**
- * The character-name prefix (upstream `implicitCharacterRegex`): everything
- * before the first unescaped `:` is the speaker. The pair-scan (`\\.`)
- * keeps an escaped colon (`Character\: text`) from splitting the line.
+ * Speaker identity is resolved at RUNTIME by the line parser's implicit
+ * `[character name=]` marker (ticket 48) — no compile-time regex split.
+ * The compiler stores raw line text; the speaker surfaces on the delivered
+ * event, derived from the markup attribute.
  */
-const SPEAKER_RE = /^((?:[^:\s]|\\.)(?:[^:\\]|\\.)*)\s*:\s*([\s\S]*)$/;
 
 /**
  * Truncate line text at the first unescaped `//` outside `<<...>>` spans
@@ -128,11 +126,11 @@ function parseModifierInner(inner: string, token: Token): LineModifier | null {
 }
 
 /**
- * The main-grammar escape sequences (upstream TextEscapedMode): these
- * unescape to the literal character at compile time. The runtime-owned
- * escapes — `\{`, `\}`, `\[`, `\]`, `\:` — keep their backslash; the line
- * parser (interpolate/markup) consumes them at delivery (upstream leaves
- * them for the LineParser too).
+ * The main-grammar escape sequences (upstream TextEscapedMode) unescape to
+ * the literal character at compile time: `\#`, `\<`, `\>`, `\/`, `\\`. The
+ * runtime-owned escapes — `\{`, `\}`, `\[`, `\]`, `\:` — keep their
+ * backslash; the line-parser module consumes them at delivery (upstream
+ * leaves them for its LineParser too).
  */
 const MAIN_GRAMMAR_ESCAPES: ReadonlySet<string> = new Set(["#", "<", ">", "/", "\\"]);
 
@@ -398,8 +396,10 @@ class Parser {
    * Parse one line of text (a TEXT or LINE_GROUP token's content) through
    * the line-suffix pipeline (upstream TextMode order): an unescaped `//`
    * comment ends the line; a `<<if>>`/`<<once>>`/`<<once if>>` modifier is
-   * extracted; hashtags are pulled; the main-grammar escapes unescape; the
-   * speaker prefix splits.
+   * extracted; hashtags are pulled. The text is stored raw — markup
+   * parsing, `{expr}` substitution, and speaker resolution all happen at
+   * runtime through the line-parser module (ticket 48); the runtime-owned
+   * escapes (`\{`, `\}`, `\[`, `\]`, `\:`) keep their backslashes.
    */
   private parseLineFromText(raw: string, token: Token): Line {
     const commented = truncateAtComment(raw).trimEnd();
@@ -407,25 +407,11 @@ class Parser {
     const { cleanText: textWithoutTags, tags } = this.extractTags(withoutModifier);
     // Removed fork extensions (ticket 40): &css{} and inline {if} blocks.
     this.rejectRemovedSyntax(textWithoutTags, token);
-    const markup = parseMarkup(unescapeMainGrammar(textWithoutTags));
     const line: Line = {
       type: "Line",
-      text: markup.text,
+      text: unescapeMainGrammar(textWithoutTags),
       tags,
-      markup: this.normalizeMarkup(markup),
     };
-    const speakerMatch = SPEAKER_RE.exec(markup.text);
-    if (speakerMatch) {
-      line.speaker = speakerMatch[1].trim().replace(/\\:/g, ":");
-      const messageOffset = markup.text.length - speakerMatch[2].length;
-      line.markup = this.normalizeMarkup(sliceMarkup(markup, messageOffset));
-      line.text = speakerMatch[2];
-    } else {
-      // No speaker: an escaped colon ("Character\\: text") composes as a
-      // literal colon in the line text — upstream's line parser unescapes
-      // `\\:` at composition.
-      line.text = line.text.replace(/\\:/g, ":");
-    }
     if (modifier?.kind === "if") line.condition = modifier.condition;
     if (modifier?.kind === "once") line.once = modifier.condition ? { condition: modifier.condition } : {};
     return line;
@@ -443,15 +429,15 @@ class Parser {
       const optTok = this.take("OPTION");
       const raw = optTok.text;
       // Option-line pipeline: same stages as a text line (see
-      // parseStatement) — comment, condition/once modifier, hashtags,
-      // main-grammar escapes.
+      // parseStatement) — comment, condition/once modifier, hashtags. The
+      // option's text is stored raw; markup and substitutions compose at
+      // runtime through the line-parser module (ticket 48).
       const commented = truncateAtComment(raw).trimEnd();
       const { text: withoutModifier, modifier } = extractLineModifier(commented, optTok);
       const { cleanText: textWithAttrs, tags } = this.extractTags(withoutModifier);
       // Removed fork extensions (ticket 40): &css{} and the [if expr] option
       // condition suffix.
       this.rejectRemovedSyntax(textWithAttrs, optTok);
-      const markup = parseMarkup(unescapeMainGrammar(textWithAttrs));
       let body: Statement[] = [];
       if (this.at("INDENT")) {
         this.take("INDENT");
@@ -461,10 +447,9 @@ class Parser {
       }
       const option: Option = {
         type: "Option",
-        text: markup.text,
+        text: unescapeMainGrammar(textWithAttrs),
         body,
         tags,
-        markup: this.normalizeMarkup(markup),
       };
       if (modifier?.kind === "if") option.condition = modifier.condition;
       if (modifier?.kind === "once") option.once = modifier.condition ? { condition: modifier.condition } : {};
@@ -476,32 +461,6 @@ class Parser {
       if (blanks > 0 || this.trailingBlankBeforeEnd) break;
     }
     return { type: "OptionGroup", options };
-  }
-
-  private normalizeMarkup(result: MarkupParseResult): MarkupParseResult | undefined {
-    if (!result) return undefined;
-    if (result.segments.length === 0) {
-      return undefined;
-    }
-    const hasFormatting = result.segments.some(
-      (segment) => segment.wrappers.length > 0 || segment.selfClosing
-    );
-    if (!hasFormatting) {
-      return undefined;
-    }
-    return {
-      text: result.text,
-      segments: result.segments.map((segment) => ({
-        start: segment.start,
-        end: segment.end,
-        wrappers: segment.wrappers.map((wrapper) => ({
-          name: wrapper.name,
-          type: wrapper.type,
-          properties: { ...wrapper.properties },
-        })),
-        selfClosing: segment.selfClosing,
-      })),
-    };
   }
 
   private extractTags(input: string): { cleanText: string; tags?: string[] } {

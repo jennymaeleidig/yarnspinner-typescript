@@ -57,7 +57,8 @@ import {
 import { Library, type YarnFunction } from "./library.js";
 import { ExpressionEvaluator, deepEqualsOperands, stringifyOperand, toNumberOperand } from "./evaluator.js";
 import { executeStateStatement, parseCommand, stripQuotes, type ParsedCommand } from "./commands.js";
-import { interpolate } from "./interpolate.js";
+import { LineComposer } from "./interpolate.js";
+import { LineParser } from "../markup/lineParser.js";
 import { registerBuiltinFunctions } from "./builtins.js";
 import {
   contentViewCountVariableKey,
@@ -85,7 +86,7 @@ type CommandOutcome = "continued" | "delivered" | "halted";
 type ReturnFrame = { title: string; ip: number; nodeIndex: number };
 
 /** An option accumulated by `addOption`, awaiting delivery by `showOptions`. */
-type AccumulatedOption = { text: string; tags?: string[]; destination: number; isAvailable: boolean; markup?: MarkupParseResult };
+type AccumulatedOption = { text: string; tags?: string[]; destination: number; isAvailable: boolean };
 
 /** The literal-push ops: infallible, so they are not stack *producers* in the failure sense. */
 const LITERAL_OPS: ReadonlySet<Instruction["op"]> = new Set(["pushString", "pushNumber", "pushBool", "pushNull"]);
@@ -458,11 +459,11 @@ export class VirtualMachine {
       try {
         switch (ins.op) {
           case "runLine": {
-            const composed = this.compose(ins.text, ins.markup);
+            const composed = this.compose(ins.text);
             batch.push({
               type: "line",
               lineId: lineIdFromTags(ins.tags),
-              speaker: ins.speaker,
+              speaker: composed.speaker,
               text: composed.text,
               tags: ins.tags,
               markup: composed.markup,
@@ -512,7 +513,6 @@ export class VirtualMachine {
               text: ins.text,
               tags: ins.tags,
               destination: ins.destination,
-              markup: ins.markup,
               // The availability (the evaluated condition, or `true` for
               // unconditioned options) is on the stack — upstream AddOption.
               isAvailable: Boolean(this.pop()),
@@ -1035,7 +1035,7 @@ export class VirtualMachine {
         }
       }
     }
-    const { text: expandedCommand } = this.compose(content);
+    const expandedCommand = this.expandCommand(content);
     batch.push({ type: "command", command: expandedCommand });
   }
 
@@ -1048,7 +1048,10 @@ export class VirtualMachine {
     const accumulated = this.accumulatedOptions;
     this.accumulatedOptions = [];
     const delivered = accumulated.map((option, index) => {
-      const composed = this.compose(option.text, option.markup);
+      // Options compose like lines (substitutions + markup, implicit
+      // character attribute enabled — upstream GetComposedTextForLine) but
+      // deliver the full text with the speaker prefix intact.
+      const composed = this.getOrCreateComposer().composeOption(option.text);
       return {
         index,
         isAvailable: option.isAvailable,
@@ -1144,9 +1147,44 @@ export class VirtualMachine {
     }
   }
 
-  // ── Line composition (substitutions + markup) ───────────────────────
+  // ── Line composition (substitutions + markup, ticket 48) ────────────
 
-  private compose(text: string, markup?: MarkupParseResult): { text: string; markup?: MarkupParseResult } {
-    return interpolate(text, (expr) => this.evaluator.evaluateExpression(expr), markup);
+  /** The line composer: substitutions, markup, and speaker resolution. */
+  private composer: LineComposer | null = null;
+
+  private compose(text: string): { text: string; speaker?: string; markup?: MarkupParseResult } {
+    return this.getOrCreateComposer().composeLine(text);
+  }
+
+  /**
+   * Expand `{expr}` substitutions in command text only — upstream runs
+   * commands through `ExpandSubstitutions` alone, never through the markup
+   * parser (so a colon in `<<hide Collision:GermOnPorch>>` is not a speaker
+   * separator).
+   */
+  private expandCommand(text: string): string {
+    return this.getOrCreateComposer().interpolate(text);
+  }
+
+  /** The locale replacement markers compose under (upstream `Dialogue.LocaleCode`). */
+  getLocale(): string {
+    return this.getOrCreateComposer().getLocale();
+  }
+
+  /** Override the locale replacement markers resolve under. */
+  setLocale(localeCode: string): void {
+    this.getOrCreateComposer().setLocale(localeCode);
+  }
+
+  /** The line parser, for host marker-processor registration. */
+  getLineParser(): LineParser {
+    return this.getOrCreateComposer().getParser();
+  }
+
+  private getOrCreateComposer(): LineComposer {
+    if (this.composer === null) {
+      this.composer = new LineComposer((expr) => this.evaluator.evaluateExpression(expr));
+    }
+    return this.composer;
   }
 }

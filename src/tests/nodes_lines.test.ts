@@ -61,17 +61,12 @@ Narrator: Plain [b]bold[/b] [wave speed=2]custom[/wave]
   const markup = event!.markup!;
   strictEqual(markup.text, "Plain bold custom");
 
-  const boldSegment = markup.segments.find((segment) =>
-    segment.wrappers.some((wrapper) => wrapper.name === "b" && wrapper.type === "default")
-  );
-  ok(boldSegment, "Expected bold segment");
-  strictEqual(markup.text.slice(boldSegment!.start, boldSegment!.end), "bold");
+  const bold = markup.attributes.find((attribute) => attribute.name === "b");
+  ok(bold, "Expected bold attribute");
+  strictEqual(markup.text.slice(bold.position, bold.position + bold.length), "bold");
 
-  const customSegment = markup.segments.find((segment) =>
-    segment.wrappers.some((wrapper) => wrapper.name === "wave" && wrapper.type === "custom")
-  );
-  ok(customSegment, "Expected custom segment");
-  const waveWrapper = customSegment!.wrappers.find((wrapper) => wrapper.name === "wave");
-  ok(waveWrapper);
-  strictEqual(waveWrapper!.properties.speed, 2);
+  const wave = markup.attributes.find((attribute) => attribute.name === "wave");
+  ok(wave, "Expected wave attribute");
+  strictEqual(markup.text.slice(wave.position, wave.position + wave.length), "custom");
+  strictEqual(wave.properties["speed"]?.integerValue, 2);
 });

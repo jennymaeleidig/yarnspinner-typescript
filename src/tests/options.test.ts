@@ -69,16 +69,12 @@ Narrator: Choose
   const boldMarkup = options[0].markup!;
   strictEqual(boldMarkup.text, "Bold");
   ok(
-    boldMarkup.segments.some((segment) =>
-      segment.wrappers.some((wrapper) => wrapper.name === "b" && wrapper.type === "default")
-    ),
-    "Expected bold wrapper"
+    boldMarkup.attributes.some((attribute) => attribute.name === "b"),
+    "Expected bold attribute"
   );
-  const customWrapper = options[1].markup!.segments
-    .flatMap((segment) => segment.wrappers)
-    .find((wrapper) => wrapper.name === "wave");
-  ok(customWrapper, "Expected custom wrapper on second option");
-  strictEqual(customWrapper!.properties.intensity, 5);
+  const custom = options[1].markup!.attributes.find((attribute) => attribute.name === "wave");
+  ok(custom, "Expected wave attribute on second option");
+  strictEqual(custom.properties["intensity"]?.integerValue, 5);
 });
 
 test("option text interpolates variables", () => {

@@ -46,6 +46,7 @@ import {
   type RuntimeDriver,
 } from "./events.js";
 import { VirtualMachine } from "./vm.js";
+import type { LineParser } from "../markup/lineParser.js";
 
 export {
   defaultStartNodeName,
@@ -198,5 +199,32 @@ export class Dialogue {
   /** Upstream `Dialogue.HasSalientContent`. */
   hasSalientContent(nodeGroup: string): boolean {
     return this.engine.hasSalientContent(nodeGroup);
+  }
+
+  // ── Markup / locale (ticket 48) ─────────────────────────────────────
+
+  /**
+   * The locale replacement markers (`[select]`, `[plural]`, `[ordinal]`)
+   * compose under (upstream `Dialogue.LocaleCode`; BCP-47).
+   */
+  getLocale(): string {
+    return this.engine.getLocale();
+  }
+
+  /**
+   * Override the locale replacement markers resolve under (upstream
+   * `Dialogue.LocaleCode`).
+   */
+  setLocale(localeCode: string): void {
+    this.engine.setLocale(localeCode);
+  }
+
+  /**
+   * The runtime's line parser: register or deregister custom marker
+   * processors (upstream `Dialogue.LineParser`) for markers other than the
+   * built-in `[select]`/`[plural]`/`[ordinal]`.
+   */
+  getLineParser(): LineParser {
+    return this.engine.getLineParser();
   }
 }

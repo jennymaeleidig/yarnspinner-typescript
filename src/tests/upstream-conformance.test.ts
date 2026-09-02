@@ -60,10 +60,7 @@ const COMPILE_CLEAN_ALLOWLIST: Record<string, string> = {};
  * Plan-driven fixtures that currently fail. Each entry cites the runtime gap.
  * Must shrink to empty by phase-2 exit ("testplan runner green on the 32 pairs").
  */
-const PLAN_RUN_ALLOWLIST: Record<string, string> = {
-  "FormatFunctions.yarn":
-    "replacement markers [select]/[plural]/[ordinal] not implemented (spec story 27; ticket 48)",
-};
+const PLAN_RUN_ALLOWLIST: Record<string, string> = {};
 
 /**
  * Compile-time function signatures for the harness-registered quest stubs
