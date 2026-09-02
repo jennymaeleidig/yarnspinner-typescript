@@ -143,11 +143,11 @@ function validate(doc: YarnDocument, diagnostics: Diagnostic[], file?: string): 
       const membersWithoutWhen = nodes.filter((n) => !n.when || n.when.length === 0);
       if (membersWithoutWhen.length > 0) {
         diagnostics.push(makeDiagnostic("YS0011", `Duplicate node title: '${title}'`, { file }));
-        for (const _node of membersWithoutWhen) {
+        membersWithoutWhen.forEach(() => {
           diagnostics.push(
             makeDiagnostic("YS0031", `Node '${title}' is part of a node group but has no when: clause`, { file }),
           );
-        }
+        });
       }
       const subtitles = new Map<string, number>();
       for (const node of nodes) {

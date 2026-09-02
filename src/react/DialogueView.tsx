@@ -198,7 +198,7 @@ export function DialogueView({
           <div className="yd-options-box">
             <div className="yd-options-title">Choose an option:</div>
             <div className="yd-options-list">
-              {result.options.map((option, index) => {
+              {result.options.map((option) => {
                 return (
                   <button
                     key={option.index}

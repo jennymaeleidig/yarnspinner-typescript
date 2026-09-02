@@ -33,7 +33,7 @@
 import type { IRProgram, IRInstruction, IRNode, IRNodeGroup } from "../compile/ir.js";
 import type { MarkupParseResult, MarkupSegment, MarkupWrapper } from "../markup/types.js";
 import { ExpressionEvaluator, stringifyOperand } from "./evaluator.js";
-import { Library, type YarnFunction, type CommandHandler } from "./library.js";
+import { Library, type YarnFunction } from "./library.js";
 import { parseCommand, type ParsedCommand } from "./commands.js";
 import {
   generatedVariablePrefix,

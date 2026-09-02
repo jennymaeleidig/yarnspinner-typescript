@@ -40,7 +40,10 @@ async function runTests() {
 
   const args = ["--test", "--enable-source-maps", ...testFiles];
   
-  const proc = spawn("node", args, {
+  // process.execPath (the running node binary) instead of a bare "node":
+  // a PATH lookup can fail on restricted environments where exec'ing by
+  // bare name aborts on unreadable PATH directories.
+  const proc = spawn(process.execPath, args, {
     stdio: "inherit",
     cwd: projectRoot,
   });
