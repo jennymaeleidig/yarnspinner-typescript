@@ -119,7 +119,7 @@ export function DialogueExample() {
         {program && (
           <DialogueView
             program={program}
-            startNode="Start"
+            startAt="Start"
             scenes={scenes}
             variables={Object.fromEntries(
               Object.entries(DEMO_VARIABLES).map(([name, { value }]) => [name, value]),

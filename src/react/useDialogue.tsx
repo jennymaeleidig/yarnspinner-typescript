@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { Dialogue, Library } from "../runtime/dialogue.js";
-import type { YarnFunction } from "../runtime/dialogue.js";
+import type { YarnFunction, DialogueOptions } from "../runtime/dialogue.js";
 import { EMPTY_TRANSCRIPT, runUntilStopped } from "../runtime/transcript.js";
 import type { StoppingPoint, Transcript } from "../runtime/transcript.js";
-import type { TextProvider } from "../runtime/textProvider.js";
-import type { VariableStorage } from "../runtime/variableStorage.js";
 import type { MarkupParseResult } from "../markup/types.js";
 import type { Program } from "../compile/program.js";
 
@@ -91,36 +89,18 @@ export interface StoryEndInfo {
  * identity**. A new config object means a new dialogue, even if every value
  * inside is identical; per-call inputs (callbacks, logging) belong in
  * `UseDialogueLive`.
+ *
+ * Derived from the runtime's `DialogueOptions` (deepening-wave ticket 06):
+ * a runtime option declared there flows into the hook without a second
+ * declaration. `library` is re-modeled as `functions` (the hook builds the
+ * `Library`); the diagnostics live in `UseDialogueLive`, never frozen at
+ * construction.
  */
-export interface UseDialogueOptions {
-  startAt?: string;
+export interface UseDialogueOptions
+  extends Omit<DialogueOptions, "library" | "logError" | "logDebug"> {
+  /** Host functions and command handlers, imported over the built-ins —
+   *  the hook's re-model of `DialogueOptions.library`. */
   functions?: Record<string, YarnFunction>;
-  /** Initial host variable values, seeded into storage before the first event.
-   *  Variables seed state: different values means a new dialogue, not live
-   *  re-seeding. */
-  variables?: Record<string, unknown>;
-  /**
-   * Host-provided variable storage (glossary "variable storage", spec
-   * story 39): the persistence seam. Injecting a pre-populated storage
-   * restores state — declare-default seeding skips the names it already
-   * holds.
-   */
-  variableStorage?: VariableStorage;
-  /**
-   * Host-provided text provider (ticket 51): resolves line IDs to text for
-   * the current language; lines it lacks fall back to the program's own
-   * text. Language switching needs no rebuild — call `setLanguage` on the
-   * result's `dialogue` (the ticket-51 surface; the hook adds no language
-   * API).
-   */
-  textProvider?: TextProvider;
-  /**
-   * Opt-in `LineHints` events (upstream `PrepareForLines`). The hook
-   * consumes them silently — they never surface in the view — so hosts
-   * observe hints through the provider's `acceptLineHints` or the
-   * `dialogue` escape hatch.
-   */
-  lineHints?: boolean;
 }
 
 /**
@@ -252,20 +232,20 @@ export function useDialogue(
   // identity changed, then synchronously pull the first view state (keeps SSR
   // markup correct). One comparison rule — config identity = dialogue
   // identity; a fresh object with identical values still rebuilds.
+  //
+  // The config spreads into the runtime's DialogueOptions (ticket 06): new
+  // runtime options forward without per-field code here. `variables` seeds
+  // in the VM constructor after <<declare>> defaults (with `$`-prefix
+  // normalization); diagnostics route to the live object's current logging
+  // via trampolines, never frozen at construction.
   if (
     !dialogueRef.current ||
     programRef.current !== program ||
     configRef.current !== config
   ) {
     const dialogue = new Dialogue(program, {
-      startAt: config.startAt ?? "Start",
+      ...config,
       library: buildLibrary(config.functions),
-      variableStorage: config.variableStorage,
-      textProvider: config.textProvider,
-      lineHints: config.lineHints,
-      // Trampolines, not the callbacks themselves: diagnostics route to the
-      // live object's current logging, so hosts can swap loggers after
-      // construction (the old construction-time freeze is gone).
       logError: (message) => {
         const onError = liveRef.current.logError;
         if (onError) onError(message);
@@ -275,9 +255,6 @@ export function useDialogue(
         liveRef.current.logDebug?.(message);
       },
     });
-    for (const [name, value] of Object.entries(config.variables ?? {})) {
-      dialogue.setVariable(name, value);
-    }
     dialogueRef.current = dialogue;
     dialogueCompleteFiredRef.current = false;
     dialogueCompletePendingRef.current = false;

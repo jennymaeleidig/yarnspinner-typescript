@@ -39,6 +39,8 @@ import {
   type UseDialogueResult,
 } from "../react/useDialogue.js";
 import { DialogueView } from "../react/DialogueView.js";
+import type { DialogueViewProps } from "../react/DialogueView.js";
+import type { DialogueOptions } from "../runtime/dialogue.js";
 import { setupClientDom } from "./clientDomHarness.js";
 import { InMemoryVariableStorage } from "../runtime/variableStorage.js";
 import { StringTableTextProvider } from "../runtime/textProvider.js";
@@ -303,6 +305,18 @@ test("DialogueView forwards variableStorage and textProvider to the hook", () =>
 });
 
 // ── config/live split (deepening-wave ticket 05): the one rule ────────────
+
+// Type-level: the one-edit rule (deepening-wave ticket 06) — an option
+// declared on the runtime's `DialogueOptions` flows into both adapter types
+// without a second declaration. These assignments compile only while
+// `UseDialogueOptions` derives from `DialogueOptions` and
+// `DialogueViewProps` derives from the hook's types.
+const _runtimeOptionsFlowToHook: UseDialogueOptions = {} as DialogueOptions;
+const _runtimeOptionsFlowToView: DialogueViewProps = { program: {} as Program } as DialogueOptions & {
+  program: Program;
+};
+void _runtimeOptionsFlowToHook;
+void _runtimeOptionsFlowToView;
 
 const CONFIG_LIVE_YARN = `title: Start
 ---

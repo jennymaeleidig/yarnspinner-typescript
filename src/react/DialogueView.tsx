@@ -3,14 +3,12 @@ import { DialogueScene } from "./DialogueScene.js";
 import type { SceneCollection } from "../scene/types.js";
 import { TypingText } from "./TypingText.js";
 import { useDialogue } from "./useDialogue.js";
-import type { DialogueViewResult } from "./useDialogue.js";
+import type { DialogueViewResult, UseDialogueOptions, UseDialogueLive } from "./useDialogue.js";
 import { MarkupRenderer } from "./MarkupRenderer.js";
 // Note: CSS is imported in the browser demo entry point (examples/browser/main.tsx)
 // This prevents Node.js from trying to resolve CSS imports during tests
 
 import type { Program } from "../compile/program.js";
-import type { TextProvider } from "../runtime/textProvider.js";
-import type { VariableStorage } from "../runtime/variableStorage.js";
 
 /** Why the continue scheduler is deferring a continue; each cause maps to
  *  its delay: a command flashes for `COMMAND_CONTINUE_DELAY_MS`, a finished
@@ -22,34 +20,11 @@ type ContinueCause = "command" | "typing-done" | "click";
  *  past it (not configurable — commands are never the point of the story). */
 const COMMAND_CONTINUE_DELAY_MS = 50;
 
-export interface DialogueViewProps {
+export interface DialogueViewProps extends UseDialogueOptions, UseDialogueLive {
   program: Program;
-  startNode?: string;
   className?: string;
   scenes?: SceneCollection;
   actorTransitionDuration?: number;
-  // Custom functions and callbacks
-  functions?: Record<string, (...args: unknown[]) => unknown>;
-  variables?: Record<string, unknown>;
-  /** Variable storage (the persistence seam); identity change rebuilds the dialogue. */
-  variableStorage?: VariableStorage;
-  /** Text provider (localisation); identity change rebuilds the dialogue. There is no
-   *  component-level language switch — hosts needing `setLanguage` should use the
-   *  `useDialogue` hook, whose result exposes the `dialogue` for it. */
-  textProvider?: TextProvider;
-  /** Opt-in `LineHints` events (consumed silently by the hook); flipping rebuilds. */
-  lineHints?: boolean;
-  /** Runtime error diagnostics (default `console.error`); read live — the
-   *  hook's latest live object is always in effect. */
-  logError?: (message: string) => void;
-  /** Runtime debug diagnostics (default silent); read live. */
-  logDebug?: (message: string) => void;
-  /** Fired after commit when the dialogue completes (the `DialogueComplete`
-   *  event). Takes precedence over the deprecated `onStoryEnd`. */
-  onDialogueComplete?: (info: { variables: Readonly<Record<string, unknown>>; dialogueComplete: true }) => void;
-  /** @deprecated Renamed to `onDialogueComplete` (ticket 55); removed in the
-   *  release after the one that ships this alias. */
-  onStoryEnd?: (info: { variables: Readonly<Record<string, unknown>>; storyEnd: true }) => void;
   // Typing animation options
   enableTypingAnimation?: boolean;
   typingSpeed?: number;
@@ -71,58 +46,53 @@ export interface DialogueViewProps {
   pauseBeforeAdvance?: number;
 }
 
-export function DialogueView({
-  program,
-  startNode = "Start",
-  className,
-  scenes,
-  actorTransitionDuration = 350,
-  functions,
-  variables,
-  variableStorage,
-  textProvider,
-  lineHints,
-  logError,
-  logDebug,
-  onDialogueComplete,
-  onStoryEnd,
-  enableTypingAnimation = false,
-  typingSpeed = 50, // Characters per second (50 cps = ~20ms per character)
-  showTypingCursor = true,
-  cursorCharacter = "|",
-  autoContinueAfterTyping,
-  autoContinueDelay,
-  pauseBeforeContinue,
-  autoAdvanceAfterTyping,
-  autoAdvanceDelay,
-  pauseBeforeAdvance,
-}: DialogueViewProps) {
+export function DialogueView(props: DialogueViewProps) {
+  const {
+    program,
+    startAt,
+    className,
+    scenes,
+    actorTransitionDuration = 350,
+    functions,
+    variables,
+    variableStorage,
+    contentSaliencyStrategy,
+    textProvider,
+    lineHints,
+    enableTypingAnimation = false,
+    typingSpeed = 50, // Characters per second (50 cps = ~20ms per character)
+    showTypingCursor = true,
+    cursorCharacter = "|",
+    autoContinueAfterTyping,
+    autoContinueDelay,
+    pauseBeforeContinue,
+    autoAdvanceAfterTyping,
+    autoAdvanceDelay,
+    pauseBeforeAdvance,
+  } = props;
   // Deprecated names fold into the new ones (new name wins).
   const autoContinue = autoContinueAfterTyping ?? autoAdvanceAfterTyping ?? false;
   const continueDelay = autoContinueDelay ?? autoAdvanceDelay ?? 500;
   const clickPause = pauseBeforeContinue ?? pauseBeforeAdvance ?? 0;
 
-  // Construction-only inputs go in the config (one rule: config identity =
-  // dialogue identity — so it is memoized); callbacks and logging go in
-  // `live`, which the hook reads through a ref — a fresh literal every
-  // render is exactly the intended shape.
-  const config = useMemo(
+  // The config fields forward as one memoized spread (config identity is
+  // dialogue identity, so it must be stable across renders); the live fields
+  // forward as the whole props object — the hook ref-reads exactly its live
+  // fields off it (logError, logDebug, onDialogueComplete, onStoryEnd) and
+  // ignores everything else, so new live options forward with zero edits.
+  const config = useMemo<UseDialogueOptions>(
     () => ({
-      startAt: startNode,
+      startAt,
       functions,
       variables,
       variableStorage,
+      contentSaliencyStrategy,
       textProvider,
       lineHints,
     }),
-    [startNode, functions, variables, variableStorage, textProvider, lineHints],
+    [startAt, functions, variables, variableStorage, contentSaliencyStrategy, textProvider, lineHints],
   );
-  const { result, continue: continueDialogue, selectOption } = useDialogue(program, config, {
-    logError,
-    logDebug,
-    onDialogueComplete,
-    onStoryEnd,
-  });
+  const { result, continue: continueDialogue, selectOption } = useDialogue(program, config, props);
 
   const sceneName = result?.type === "text" || result?.type === "options" ? result.scene : undefined;
   const speaker = result?.type === "text" ? result.speaker : undefined;

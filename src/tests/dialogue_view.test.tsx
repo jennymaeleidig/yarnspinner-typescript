@@ -18,7 +18,7 @@ Narrator: Hello {$playerName}!
   const program = compileDocument(parseYarn(yarn));
 
   const html = renderToStaticMarkup(
-    <DialogueView program={program} startNode="Start" variables={{ playerName: "V" }} />
+    <DialogueView program={program} startAt="Start" variables={{ playerName: "V" }} />
   );
 
   ok(
@@ -47,7 +47,7 @@ Narrator: Done
   };
 
   const html = renderToStaticMarkup(
-    <DialogueView program={program} startNode="Run" scenes={scenes} variables={{}} />
+    <DialogueView program={program} startAt="Run" scenes={scenes} variables={{}} />
   );
 
   ok(
@@ -88,7 +88,7 @@ Innkeep: A tale for the road, then — once only.
 ===`;
 
   const program = compileDocument(parseYarn(yarn));
-  const html = renderToStaticMarkup(<DialogueView program={program} startNode="Start" />);
+  const html = renderToStaticMarkup(<DialogueView program={program} startAt="Start" />);
 
   // Default saliency (random best-least-recent) deterministically picks the
   // sole most-complex member (`once`, complexity 1) on a fresh dialogue.
