@@ -61,3 +61,14 @@ Type: task
 - **Docs**: README loader section (the two new functions), CONTEXT.md
   YarnProject entry (localisation resolution + assets-not-loaded), and the
   `YarnProject` interface comments that deferred to this ticket.
+- **Two-axis code review**: Standards 7 met / 0 missing; Spec 4 met / 0
+  missing. Resolution: the read-time YP0006 push was a raw literal bypassing
+  the registry-keyed `projectDiagnostic()` helper — `projectDiagnostic` is
+  now exported (`@internal`) and the localisation module builds its
+  diagnostic through it, keeping code + severity keyed to
+  `PROJECT_DIAGNOSTIC_REGISTRY` at every call site. Not acted on: the
+  empty-id CSV guard stays inline (the smoke test pins its agreement with
+  `csvEntriesToTable`); direct `stringsFile`/`nodeProjectFs` imports in the
+  test match ticket-51 prior-art house style; read-time YP0006 accepted as
+  disclosed scope (the ticket-02 warning validates existence, the read-time
+  warning covers read failure).

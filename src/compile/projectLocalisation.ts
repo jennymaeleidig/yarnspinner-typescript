@@ -26,6 +26,7 @@
  */
 
 import { csvEntriesToTable, parseCSV } from "./stringsFile.js";
+import { projectDiagnostic } from "./yarnProject.js";
 import type { Diagnostic } from "./diagnostics.js";
 import type { LoadProjectResult, YarnProjectFileSystem } from "./yarnProject.js";
 import { StringTableTextProvider } from "../runtime/textProvider.js";
@@ -83,12 +84,13 @@ export function loadLocalisations(
     if (entry.strings !== undefined) {
       const csvText = fileSystem.read(entry.strings);
       if (csvText === null) {
-        diagnostics.push({
-          code: "YP0006",
-          severity: "warning",
-          message: `Localised strings file for \`${lang}\` could not be read: ${entry.strings}`,
-          file: entry.strings,
-        });
+        diagnostics.push(
+          projectDiagnostic(
+            "YP0006",
+            `Localised strings file for \`${lang}\` could not be read: ${entry.strings}`,
+            entry.strings,
+          ),
+        );
       } else {
         // Rows without an id register nothing (an empty key would shadow
         // every lookup); csvEntriesToTable drops empty-text rows so

@@ -45,7 +45,15 @@ export const PROJECT_DIAGNOSTIC_REGISTRY: Record<
   YP0008: { name: "UnreadableSourceFile", defaultSeverity: "error" },
 };
 
-function projectDiagnostic(
+/**
+ * Build a YPxxxx diagnostic with the registry's default severity — the one
+ * shape every project diagnostic takes, so code and severity stay keyed to
+ * {@link PROJECT_DIAGNOSTIC_REGISTRY} at every call site. Shared with the
+ * localisation-wiring module; not intended for consumer use.
+ *
+ * @internal
+ */
+export function projectDiagnostic(
   code: keyof typeof PROJECT_DIAGNOSTIC_REGISTRY & string,
   message: string,
   file?: string,
