@@ -111,7 +111,7 @@ export interface YarnProject {
   baseLanguage: string;
   excludeFiles?: string[];
   projectName?: string;
-  /** Per-locale string-table CSV paths and asset directories (ticket 03 owns the wiring). */
+  /** Per-locale string-table CSV paths and asset directories; resolved by `projectLocalisation.ts`. */
   localisation?: Record<string, { strings?: string; assets?: string }>;
 }
 
@@ -479,7 +479,7 @@ function resolveSources(
     );
   }
   // Referenced strings files must exist — diagnosed here at validation time;
-  // consuming their contents is ticket 03 (localisation wiring).
+  // consuming their contents is projectLocalisation.ts (localisation wiring).
   for (const [lang, entry] of Object.entries(project.localisation ?? {})) {
     if (entry.strings !== undefined && fileSystem.read(entry.strings) === null) {
       diagnostics.push(

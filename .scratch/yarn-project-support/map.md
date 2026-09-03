@@ -19,7 +19,7 @@ Spec'd from `future-work.md` item 1 before ticket 53 started.
 |---|---|---|
 | [01 workspace editor project](issues/01-workspace-editor-project.md) | resolved | — |
 | [02 YarnProject loader core](issues/02-yarnproject-loader.md) | resolved | — |
-| [03 localisation wiring](issues/03-localisation-wiring.md) | ready-for-agent | 02 |
+| [03 localisation wiring](issues/03-localisation-wiring.md) | resolved | 02 |
 | [04 Next.js host](issues/04-nextjs-host.md) | ready-for-agent | 02 |
 | [05 SvelteKit host](issues/05-sveltekit-host.md) | ready-for-agent | 02 |
 
@@ -39,6 +39,13 @@ Spec'd from `future-work.md` item 1 before ticket 53 started.
   has no compiler equivalent yet — surface the gap, don't silently ignore.
 - Ticket 03: examples, not package surface — no adapter abstraction until a
   second real consumer forces the shape.
+- Ticket 03: localisation wiring is pure glue (`loadLocalisations` +
+  `createProjectTextProvider`) over the ticket-51 strings-file and
+  text-provider surfaces — no new provider abstraction; assets directories
+  surface as configured paths and are never loaded by the library (spec
+  story 15); an unreadable strings file drops that locale's table (YP0006
+  read-time counterpart of ticket 02's validation warning) and playback
+  falls back to base.
 - Ticket split (to-tickets review): loader core (02) and localisation wiring
   (03) are separate slices; each host is its own ticket (04, 05), all gated
   by 02 only — the locale-switch story is proven by 03, the hosts demo
