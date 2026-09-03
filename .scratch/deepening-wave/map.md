@@ -30,7 +30,7 @@ stays as-is and nothing here extends it.
 | [01 demo compiles through the public seam](issues/01-demo-public-compile.md) | resolved | — |
 | [02 Dialogue state queries + mirror collapse](issues/02-dialogue-state-queries.md) | resolved | — |
 | [03 event-reduction module (Transcript)](issues/03-event-reduction.md) | resolved | 02 |
-| [04 dead state out, one continue scheduler](issues/04-continue-scheduler.md) | open | 03 |
+| [04 dead state out, one continue scheduler](issues/04-continue-scheduler.md) | resolved | 03 |
 | [05 useDialogue config/live split](issues/05-hook-config-live-split.md) | open | 04 |
 | [06 single-source the view props](issues/06-view-props-extends.md) | open | 05 |
 | [07 scene on NodeStartEvent; js-yaml leaves](issues/07-scene-node-start.md) | open | 04 |
@@ -90,6 +90,16 @@ From the grilling session (2026-09-03), binding on every ticket:
   option set leaves the transcript on the next pull; module recorded in
   compatibility.md as non-upstream orchestration; glossary gained
   Transcript + stopping point.
+- [04 dead state out, one continue scheduler](issues/04-continue-scheduler.md):
+  `isDialogueEnd` deleted outright (field, always-`false` write, four view
+  branches, dead CSS rule) — end-ness is `result === null`; DialogueView's
+  three `setTimeout` paths folded into one `scheduleContinue(cause)`
+  (command 50ms / typing-done / click-pause), scheduling replacing any
+  pending timer, with a single view-state-keyed invalidation effect; the
+  typing-done guard became the result identity (`typingDoneFor`) to kill a
+  stale-completion spurious skip the old per-effect cleanups had absorbed;
+  timing tests rewritten on a fake clock (`t.mock.timers` + shared
+  `clientDomHarness.ts`) — all widened margins gone.
 
 ## Notes
 
@@ -118,6 +128,11 @@ recorded here so future explorers don't re-derive or re-suggest it:
   resolutions (stories 39/4/7/47) — listed here only to close the loop;
   see `docs/compatibility.md` and the ys32-parity-impl tracker map entry
   for the wave.
+- **`tmp-react-vars.mjs`** (repo root, tracked in git): pre-parity scratch
+  already importing retired API (`dist/runtime/runner.js`,
+  `currentResult`, `advance()`, `res.isDialogueEnd`) — cannot run against
+  any recent build. Delete or gitignore in a housekeeping pass (surfaced
+  by ticket 04's `isDialogueEnd` sweep; left untouched as out of scope).
 
 ## Fog
 
