@@ -44,9 +44,18 @@ the spec and the implementation tickets.
 | [52 React adapter + demo](issues/52-react-adapter-demo.md) | resolved | 47, 48 |
 | [53 rename + docs + 0.2.0](issues/53-rename-docs-release.md) | resolved | 52 |
 | [54 ParseFailures validation wave](issues/54-parse-failure-validations.md) | open | — |
+| [55 adapter resurfacing](issues/55-adapter-resurfacing.md) | resolved | 53 |
 | [30–33 phase buckets](issues/30-phase1-compiler-language-core.md) | superseded | — |
 
 ## Decisions so far
+
+- Ticket 55 (adapter resurfacing, the slice ticket 53 deferred):
+  `advance` → `continue`, `onStoryEnd` → `onDialogueComplete` (payload
+  `storyEnd:` → `dialogueComplete:`), typing-flow props
+  `autoAdvance*`/`pauseBeforeAdvance` → `autoContinue*`/
+  `pauseBeforeContinue` — one-release `@deprecated` exact aliases, the
+  ticket-53 pattern. DialogueOptions passthrough (variableStorage etc.)
+  deliberately stays out — adapter surface growth, own ticket if wanted.
 
 - Multi-stage spec-vs-impl review (2026-09-03) close-out: four spec gaps
   landed as review resolutions — pluggable variable storage (story 39),

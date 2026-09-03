@@ -1,7 +1,8 @@
 # 55 — Adapter resurfacing: retire `advance`/`onStoryEnd` vocabulary
 
 Type: task
-Status: claimed
+Status: resolved
+Landed in: ee13b19
 Blocked by: 53 (the rename wave — this is the adapter slice ticket 53 deferred)
 
 ## What to build
@@ -40,3 +41,18 @@ the no-adapter-feature-work rule; its own ticket if wanted.
 New names everywhere in src/react, docs, README; deprecated aliases
 `@deprecated`-tagged and pinned (identity + behaviour) in
 deprecatedAliases.test.ts; suite + lint green; demo build green.
+
+## Answer
+
+Landed in: ee13b19 — exactly the scope above. `advance` is the same
+function value as `continue` (identity pinned via an SSR hook-probe test);
+`onStoryEnd` keeps its original payload and fires only when
+`onDialogueComplete` is absent; the three typing-flow props rename with
+aliases folding into the new names. Docs: README options/exports/example,
+typing-animation.md, migration-notes §6, CONTEXT.md retired-terms note —
+plus the stale `onAdvance`/`result`-prop DialogueView snippets in README,
+scenes.md, typing-animation.md, and actor-transition.md corrected to the
+real component API (§7: those props never existed). Suite 476/476, lint
+clean, demo/host/sveltekit builds green. Out-of-scope note stands:
+DialogueOptions passthrough (variableStorage/textProvider/lineHints/
+logError) needs its own ticket if wanted.
