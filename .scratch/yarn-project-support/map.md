@@ -20,7 +20,7 @@ Spec'd from `future-work.md` item 1 before ticket 53 started.
 | [01 workspace editor project](issues/01-workspace-editor-project.md) | resolved | — |
 | [02 YarnProject loader core](issues/02-yarnproject-loader.md) | resolved | — |
 | [03 localisation wiring](issues/03-localisation-wiring.md) | resolved | 02 |
-| [04 Next.js host](issues/04-nextjs-host.md) | ready-for-agent | 02 |
+| [04 Next.js host](issues/04-nextjs-host.md) | resolved | 02 |
 | [05 SvelteKit host](issues/05-sveltekit-host.md) | ready-for-agent | 02 |
 
 ## Decisions so far
@@ -46,6 +46,12 @@ Spec'd from `future-work.md` item 1 before ticket 53 started.
   story 15); an unreadable strings file drops that locale's table (YP0006
   read-time counterpart of ticket 02's validation warning) and playback
   falls back to base.
+- Ticket 04: the Next.js host consumes the library by package name via the
+  root package.json's `exports` self-reference (built `dist/`) — the
+  `./node` subpath split is exercised for real, and `host:build` statically
+  prerenders the page so the server-side load runs at build time; `next`
+  14.2.x pinned (React 18-compatible, no React 19 churn for the library
+  toolchain).
 - Ticket split (to-tickets review): loader core (02) and localisation wiring
   (03) are separate slices; each host is its own ticket (04, 05), all gated
   by 02 only — the locale-switch story is proven by 03, the hosts demo

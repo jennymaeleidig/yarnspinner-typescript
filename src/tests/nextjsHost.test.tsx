@@ -1,0 +1,185 @@
+/**
+ * Next.js host harness (yarn-project-support ticket 04): the end-to-end
+ * story proven by the example app at `examples/nextjs-host/` — the
+ * YarnProject loader runs server-side (`loadYarnProject` over the app's own
+ * authored content), the compiled program crosses the RSC boundary as a
+ * plain serializable object, and the client component runs `Dialogue`'s
+ * pull-based continue loop with variable-storage reset.
+ *
+ * Tests run from src only (no package surface for a one-app example, the
+ * ticket-52 precedent), so the client component's initial-pull logic is
+ * mirrored here — the content itself is NOT mirrored: the real
+ * `examples/nextjs-host/content/` files are the single source of truth,
+ * loaded through the same server-side path the host's page uses. The SSR
+ * pattern mirrors the ticket-52 demo harness (renderToStaticMarkup over the
+ * first pull).
+ */
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { join, dirname } from "node:path";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+
+import { Dialogue, noOptionSelected } from "../index.js";
+import { loadYarnProject } from "../compile/nodeProjectFs.js";
+import type { DialogueEvent, Program } from "../index.js";
+
+/** Directory of the compiled test file (dist/tests/). */
+const HERE = dirname(fileURLToPath(import.meta.url));
+
+/** The host's authored content — the same files the server component loads. */
+const CONTENT_DIR = join(HERE, "..", "..", "examples", "nextjs-host", "content");
+
+/** The built main entry — what the host's client bundle consumes. */
+const DIST_INDEX = join(HERE, "..", "..", "dist", "index.js");
+
+/** Load the host's project the way the server component does. */
+function loadHostProject(): { program: Program; sources: string[]; projectName?: string } {
+  const result = loadYarnProject(join(CONTENT_DIR, "project.yarnproject"));
+  assert.ok(result.program, `host project must load: ${result.diagnostics.map((d) => d.code).join(", ")}`);
+  return { program: result.program, sources: result.sources, projectName: result.project?.projectName };
+}
+
+// ── Server-side load path (the host's page.tsx, minus the markup) ─────────
+
+test("the host's project loads server-side through the Node provider", () => {
+  const { sources, projectName } = loadHostProject();
+  assert.deepEqual(sources, ["crossroads.yarn"]);
+  assert.equal(projectName, "Crossroads");
+});
+
+test("the compiled program is serializable across the RSC boundary", () => {
+  const { program } = loadHostProject();
+  // The server component hands the program to the client component as a
+  // plain prop — it must survive a JSON round-trip unchanged (ADR 0001).
+  assert.deepEqual(JSON.parse(JSON.stringify(program)), program);
+});
+
+test("the client bundle's main entry carries no Node builtins (§2)", () => {
+  // DialogueHost imports the package's main entry; the loader's Node access
+  // lives only under the ./node subpath. The built artifacts prove the
+  // split: the main entry is node-free, the node subpath is where node:fs
+  // lives.
+  const index = readFileSync(DIST_INDEX, "utf8");
+  assert.ok(!index.includes("node:"), "dist/index.js must not reference node: builtins");
+});
+
+// ── SSR harness (mirrors the ticket-52 demo pattern over the first pull) ──
+
+/** The mirrored client component's initial pull: a fresh Dialogue and its
+ *  first continue() batch — exactly what DialogueHost's useState
+ *  initializer runs, server-side included. */
+function initialTranscript(program: Program) {
+  const dialogue = new Dialogue(program);
+  const lines: { speaker?: string; text: string }[] = [];
+  for (const event of dialogue.continue() as DialogueEvent[]) {
+    if (event.type === "line") lines.push({ speaker: event.speaker, text: event.text });
+  }
+  return lines;
+}
+
+function MirroredHost({ program }: { program: Program }) {
+  const lines = initialTranscript(program);
+  return (
+    <main>
+      <h1>Crossroads — Next.js host</h1>
+      <div aria-live="polite">
+        {lines.map((line, i) => (
+          <p key={i}>
+            {line.speaker && <strong>{line.speaker}</strong>}
+            <span>{line.text}</span>
+          </p>
+        ))}
+      </div>
+      <button type="button">Continue</button>
+      <button type="button">Reset (variable-storage reset)</button>
+    </main>
+  );
+}
+
+test("the host renders its opening line server-side (SSR harness)", () => {
+  const { program } = loadHostProject();
+  const html = renderToStaticMarkup(<MirroredHost program={program} />);
+
+  assert.match(
+    html,
+    /A crossroads at dusk/,
+    "the opening Narrator line must be in the SSR output (the first pull runs during render)",
+  );
+  assert.match(html, /<strong>Narrator<\/strong>/, "the opening line's speaker renders");
+  assert.match(html, /Continue/, "the pull loop's control renders");
+  assert.match(html, /Reset/, "the variable-storage reset control renders");
+});
+
+// ── Variable-storage reset through the host's flow ────────────────────────
+
+test("the host's dialogue flow: buy the map, arrive, complete — then reset replays", () => {
+  const { program } = loadHostProject();
+  const dialogue = new Dialogue(program);
+
+  // First pull: declares seed the storage, opening line delivers.
+  dialogue.continue();
+  assert.equal(dialogue.getVariable("gold"), 5);
+  assert.equal(dialogue.getVariable("hasMap"), false);
+
+  // The option set; buy the map → the price comes off, the jump fires.
+  void dialogue.continue(); // the options event
+  dialogue.selectOption(0);
+  const events: DialogueEvent[] = [];
+  for (;;) {
+    const batch = dialogue.continue();
+    if (batch.length === 0) break;
+    events.push(...batch);
+    if (events.some((e) => e.type === "dialogueComplete")) break;
+    if (!dialogue.isActive && !batch.some((e) => e.type === "line" || e.type === "options")) break;
+  }
+  assert.equal(dialogue.getVariable("gold"), 3, "the map cost 2 gold");
+  assert.equal(dialogue.getVariable("hasMap"), true);
+  assert.ok(events.some((e) => e.type === "line" && e.text.includes("chapel path is due north")));
+  assert.ok(events.some((e) => e.type === "line" && e.text.includes("glints on the altar")));
+  assert.ok(events.some((e) => e.type === "dialogueComplete"), "the flow runs to completion");
+
+  // Variable-storage reset (§4): a fresh Dialogue is a fresh storage — the
+  // declares reseed, once-state clears, and the story replays from the top.
+  const replay = new Dialogue(program);
+  assert.equal(replay.getVariable("gold"), 5, "the seed reapplies — storage was reset");
+  assert.equal(replay.getVariable("hasMap"), false);
+  const line = replay
+    .continue()
+    .find((e): e is Extract<typeof e, { type: "line" }> => e.type === "line");
+  assert.ok(line);
+  assert.match(line.text, /A crossroads at dusk/, "the flow replays from the top");
+});
+
+test("the walk-on path completes without the map", () => {
+  const { program } = loadHostProject();
+  const dialogue = new Dialogue(program);
+  void dialogue.continue(); // opening line
+  void dialogue.continue(); // options
+  dialogue.selectOption(1); // Walk on
+  const events: DialogueEvent[] = [];
+  for (;;) {
+    const batch = dialogue.continue();
+    if (batch.length === 0) break;
+    events.push(...batch);
+    if (events.some((e) => e.type === "dialogueComplete")) break;
+  }
+  assert.ok(events.some((e) => e.type === "line" && e.text.includes("leave the Rogue")));
+  assert.equal(dialogue.getVariable("hasMap"), false);
+});
+
+test("noOptionSelected falls through the host's option set", () => {
+  const { program } = loadHostProject();
+  const dialogue = new Dialogue(program);
+  void dialogue.continue(); // opening line
+  void dialogue.continue(); // options
+  dialogue.selectOption(noOptionSelected);
+  const events = dialogue.continue();
+  assert.ok(
+    events.some((e) => e.type === "dialogueComplete"),
+    "falling through the options ends the Start node — and with it, the dialogue",
+  );
+});

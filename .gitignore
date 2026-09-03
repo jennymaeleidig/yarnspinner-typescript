@@ -41,6 +41,10 @@ coverage/
 # Vite
 .vite/
 
+# Next.js host
+examples/nextjs-host/.next/
+examples/nextjs-host/tsconfig.tsbuildinfo
+
 # Temporary files
 *.tmp
 *.temp

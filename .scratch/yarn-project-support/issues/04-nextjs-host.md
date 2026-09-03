@@ -13,11 +13,45 @@ surface.
 
 Type: task
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Server-side project load via the loader; client `Dialogue` loop with no
+- [x] Server-side project load via the loader; client `Dialogue` loop with no
       Node APIs in the client path
-- [ ] Variable-storage reset demonstrated
-- [ ] Builds clean in CI (npm run target alongside `demo:build`); SSR-style
+- [x] Variable-storage reset demonstrated
+- [x] Builds clean in CI (npm run target alongside `demo:build`); SSR-style
       render test mirroring the ticket 52 demo harness
-- [ ] README documents the host
+- [x] README documents the host
+
+## Landing notes (ticket 04)
+
+- **App**: `examples/nextjs-host/` — app router, two components.
+  `app/page.tsx` (server) runs `loadYarnProject()` over the app's own
+  authored content (`content/project.yarnproject` + `content/crossroads.yarn`:
+  a crossroads/Rogue flow with `<<declare>>` seeds, a gold-priced option, a
+  conditional `<<jump>>`, and a walk-on path) through the Node provider; the
+  compiled program crosses the RSC boundary as a plain serializable object.
+  `app/DialogueHost.tsx` (client) imports only the package's browser-safe
+  main entry — the first pull runs in the useState initializer so the opening
+  line is in the SSR output; Continue delivers one `continue()` batch; option
+  buttons plus a `noOptionSelected` fall-through; Reset demonstrates
+  variable-storage reset (a fresh `Dialogue` is a fresh storage, §4).
+- **Resolution**: the host imports `yarn-spinner-runner-ts` by package name;
+  Node and Next's bundler resolve the root package.json's `exports`
+  self-reference to the built `dist/` — the truest consumer story (the host
+  consumes the built artifact, and the `./node` subpath split is exercised
+  for real: `node:` builtins appear only in the node subpath bundle).
+- **CI target**: `next` (14.2.x — React 18-compatible; no React 19 churn for
+  the library's toolchain) added to root devDependencies; npm targets
+  `host:build` (npm run build + next build; the whole page statically
+  prerenders, so the server-side load runs at build time) and `host:start`
+  alongside `demo:build`. The build was verified in-session; ticket 53 owns
+  wiring it into actual CI.
+- **Tests**: 7 in `src/tests/nextjsHost.test.tsx` (ticket-52 harness shape,
+  content files as single source of truth, client-pull logic mirrored in-test
+  since tests compile from src only — no package surface for a one-app
+  example): server-side load, program JSON round-trip (the RSC boundary
+  claim), main-entry bundle node-free vs `./node` (§2 verified on the built
+  artifacts), SSR opening-line render, the buy-the-map flow to
+  DialogueComplete with variable assertions, reset replay, walk-on path,
+  `noOptionSelected` fall-through. Suite 451/451, lint clean.
+- **Docs**: README Next.js Host section, `examples/nextjs-host/README.md`.

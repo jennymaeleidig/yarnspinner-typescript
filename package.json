@@ -23,7 +23,9 @@
     "pretest": "npm run build",
     "test": "node scripts/run-tests.js",
     "demo": "vite --config examples/browser/vite.config.ts --host 0.0.0.0",
-    "demo:build": "vite build --config examples/browser/vite.config.ts"
+    "demo:build": "vite build --config examples/browser/vite.config.ts",
+    "host:build": "npm run build && next build examples/nextjs-host",
+    "host:start": "next start examples/nextjs-host"
   },
   "exports": {
     ".": {
@@ -61,15 +63,16 @@
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {
-    "@types/node": "^22.7.4",
+    "@eslint/js": "^9.12.0",
     "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.7.4",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
-    "@eslint/js": "^9.12.0",
-    "@typescript-eslint/parser": "^8.8.1",
     "@typescript-eslint/eslint-plugin": "^8.8.1",
+    "@typescript-eslint/parser": "^8.8.1",
     "@vitejs/plugin-react": "^4.3.1",
     "eslint": "^9.12.0",
+    "next": "^14.2.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "rimraf": "^6.0.1",
@@ -77,4 +80,3 @@
     "vite": "^5.4.3"
   }
 }
-

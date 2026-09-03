@@ -185,6 +185,29 @@ node-group/saliency demo with switchable saliency strategies
 (`examples/browser/StoryletsDemo.tsx`). See
 [examples/browser/README.md](./examples/browser/README.md).
 
+### Next.js Host
+
+A worked app-router example proving the YarnProject story in Next.js
+(`examples/nextjs-host/`): the loader runs server-side — `loadYarnProject()`
+over the app's own authored content (`content/project.yarnproject` +
+`content/crossroads.yarn`) through the Node file-access provider — and the
+compiled program crosses the React Server Component boundary as a plain
+serializable object. The client component runs `Dialogue`'s pull-based
+continue loop natively, importing only the package's browser-safe main entry
+(no Node APIs in the client path), with a **Reset** button demonstrating
+variable-storage reset: a fresh `Dialogue` is a fresh storage, so the
+`<<declare>>` seeds reapply and the story replays from the top.
+
+```bash
+npm run host:build   # builds the library, then `next build` the host
+npm run host:start   # serve the built host (after host:build)
+```
+
+Run from the repo root — the server component resolves the content directory
+relative to `process.cwd()`. The SSR render test (the ticket-52 demo-harness
+pattern over the host's first pull) lives in
+`src/tests/nextjsHost.test.tsx`.
+
 ### Editing the Yarn scripts
 
 The repo root contains `yarn-spinner-runner-ts.yarnproject`, so the
