@@ -178,13 +178,16 @@ Shadowed. #shadow:my_id
     lineNumber: 4,
     fileName: "shape.yarn",
     isImplicitTag: false,
-    metadata: ["colour"],
+    // Upstream metadata is the line's hashtag texts verbatim (including an
+    // authored #line: tag) plus the auto-added lastline marker.
+    metadata: ["line:my_id", "colour"],
     shadowLineID: null,
   });
-  const shadowEntry = Object.values(table).find((e) => e.shadowLineID === "my_id");
+  const shadowEntry = Object.values(table).find((e) => e.shadowLineID === "line:my_id");
   assert.ok(shadowEntry, "the shadow line is registered with its source line's ID");
   assert.equal(shadowEntry!.isImplicitTag, true, "shadow lines carry implicit IDs of their own");
   assert.equal(shadowEntry!.nodeName, "Node");
+  assert.equal(shadowEntry!.text, null, "shadow lines do not carry their text (upstream strips it)");
   const implicit = Object.values(table).find((e) => e.text === "Plain line.");
   assert.ok(implicit);
   assert.equal(implicit!.isImplicitTag, true);
@@ -203,16 +206,18 @@ test("no explicit tags → containsImplicitStringTags; all explicit → false", 
   assert.equal(explicit.containsImplicitStringTags, false);
 });
 
-test("duplicate explicit line IDs across files produce YS0018 (upstream DuplicateLineTags)", () => {
+test("duplicate explicit line IDs across files produce YS0018 on both occurrences (upstream DuplicateLineTags)", () => {
   const files: CompileFile[] = [
     { name: "a.yarn", source: "title: A\n---\nFirst. #line:dupe\n===\n" },
     { name: "b.yarn", source: "title: B\n---\nSecond. #line:dupe\n===\n" },
   ];
   const result = compile(files, { mode: "stringsOnly" });
   const dupes = result.diagnostics.filter((d) => d.code === "YS0018");
-  assert.equal(dupes.length, 1);
-  assert.equal(dupes[0].file, "b.yarn");
+  assert.equal(dupes.length, 2, "upstream reports both occurrences");
+  assert.deepEqual(dupes.map((d) => d.file).sort(), ["a.yarn", "b.yarn"]);
   assert.equal(hasErrors(result.diagnostics), true);
+  // The first entry stands: the duplicate did not overwrite it.
+  assert.equal(result.stringTable!["line:dupe"].text, "First.");
 });
 
 // ── External declarations: variables (story 32) ──────────────────────────

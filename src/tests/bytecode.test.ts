@@ -110,7 +110,7 @@ Done
           { op: "pushString", value: " there" },
           { op: "add" },
           { op: "popVariable", name: "greeting" },
-          { op: "runLine", text: "Done", tags: ["line:0"] },
+          { op: "runLine", text: "Done", tags: ["line:db1929bc"] },
         ],
       },
     },
@@ -167,15 +167,15 @@ test("if/elseif/else lowers to resolved jump indices", () => {
     { op: "pushNumber", value: 0 },
     { op: "greaterThan" },
     { op: "jumpIfFalse", index: 6 }, // → else-if condition
-    { op: "runLine", text: "Alive", tags: ["line:0"] },
+    { op: "runLine", text: "Alive", tags: ["line:db1929bc"] },
     { op: "jumpTo", index: 13 }, // → past the whole chain
     { op: "pushVariable", name: "hp" }, // 6: else-if condition
     { op: "pushNumber", value: 0 },
     { op: "equalTo" },
     { op: "jumpIfFalse", index: 12 }, // → else body
-    { op: "runLine", text: "Dying", tags: ["line:1"] },
+    { op: "runLine", text: "Dying", tags: ["line:4d292ecb"] },
     { op: "jumpTo", index: 13 },
-    { op: "runLine", text: "Dead", tags: ["line:2"] }, // 12: else body; 13 = end
+    { op: "runLine", text: "Dead", tags: ["line:f7782752"] }, // 12: else body; 13 = end
   ]);
 });
 
@@ -202,13 +202,13 @@ test("expressions compile with sane precedence and upstream word aliases", () =>
     { op: "and" },
     { op: "or" },
     { op: "jumpIfFalse", index: 11 },
-    { op: "runLine", text: "Yes", tags: ["line:0"] },
+    { op: "runLine", text: "Yes", tags: ["line:db1929bc"] },
     // <<if $s is "abc">> — `is` is an equality alias.
     { op: "pushVariable", name: "s" }, // 11
     { op: "pushString", value: "abc" },
     { op: "equalTo" },
     { op: "jumpIfFalse", index: 16 },
-    { op: "runLine", text: "Match", tags: ["line:1"] },
+    { op: "runLine", text: "Match", tags: ["line:4d292ecb"] },
   ]);
 });
 
@@ -232,7 +232,7 @@ test("enum member access folds to the case's raw value at compile time", () => {
     { op: "pushNumber", value: 2 },
     { op: "equalTo" },
     { op: "jumpIfFalse", index: 5 },
-    { op: "runLine", text: "Green", tags: ["line:0"] },
+    { op: "runLine", text: "Green", tags: ["line:db1929bc"] },
   ]);
 });
 
@@ -251,20 +251,20 @@ After
 ===
 `);
   assert.deepEqual(streamOf(program, "Start"), [
-    { op: "runLine", text: "Choose", tags: ["line:0", "lastline"] },
+    { op: "runLine", text: "Choose", tags: ["line:db1929bc", "lastline"] },
     // One availability push + addOption per option (addOption pops the
     // availability; unconditioned options push true).
     { op: "pushVariable", name: "likes_red" },
-    { op: "addOption", text: "Red", tags: ["line:1"], destination: 7 }, // 2
+    { op: "addOption", text: "Red", tags: ["line:4d292ecb"], destination: 7 }, // 2
     { op: "pushBool", value: true }, // 3
-    { op: "addOption", text: "Blue", tags: ["line:2"], destination: 9 }, // 4
+    { op: "addOption", text: "Blue", tags: ["line:61482025"], destination: 9 }, // 4
     { op: "showOptions" }, // 5: delivers and clears the accumulated set
     { op: "jumpTo", index: 11 }, // 6: skip the inline bodies
-    { op: "runLine", text: "Red picked", tags: ["line:3"] }, // 7: Red's body
+    { op: "runLine", text: "Red picked", tags: ["line:f7782752"] }, // 7: Red's body
     { op: "jumpTo", index: 11 },
-    { op: "runLine", text: "Blue picked", tags: ["line:4"] }, // 9: Blue's body
+    { op: "runLine", text: "Blue picked", tags: ["line:c2dd44bb"] }, // 9: Blue's body
     { op: "jumpTo", index: 11 },
-    { op: "runLine", text: "After", tags: ["line:5"] }, // 11: after the block
+    { op: "runLine", text: "After", tags: ["line:54ed43cc"] }, // 11: after the block
   ]);
 });
 
@@ -284,26 +284,26 @@ test("nested option groups each get their own addOption/showOptions cycle", () =
   assert.deepEqual(streamOf(program, "Start"), [
     // One availability push + addOption per option; addOption pops the flag.
     { op: "pushBool", value: true }, // 0: Outer's availability
-    { op: "addOption", text: "Outer", tags: ["line:0"], destination: 6 }, // 1
+    { op: "addOption", text: "Outer", tags: ["line:db1929bc"], destination: 6 }, // 1
     { op: "pushBool", value: true }, // 2: Outer2's availability
-    { op: "addOption", text: "Outer2", tags: ["line:1"], destination: 18 }, // 3
+    { op: "addOption", text: "Outer2", tags: ["line:eebc4a55"], destination: 18 }, // 3
     { op: "showOptions" }, // 4: delivers and clears the outer set
     { op: "jumpTo", index: 20 }, // 5
     // Outer's body: an inner option group (the inner showOptions delivers
     // and clears only the inner set).
     { op: "pushBool", value: true }, // 6: Inner's availability
-    { op: "addOption", text: "Inner", tags: ["line:2"], destination: 12 }, // 7
+    { op: "addOption", text: "Inner", tags: ["line:4d292ecb"], destination: 12 }, // 7
     { op: "pushBool", value: true }, // 8: Inner2's availability
-    { op: "addOption", text: "Inner2", tags: ["line:3"], destination: 14 }, // 9
+    { op: "addOption", text: "Inner2", tags: ["line:61482025"], destination: 14 }, // 9
     { op: "showOptions" }, // 10: delivers and clears the inner set
     { op: "jumpTo", index: 16 }, // 11
-    { op: "runLine", text: "Deep", tags: ["line:4"] }, // 12: Inner's body
+    { op: "runLine", text: "Deep", tags: ["line:f7782752"] }, // 12: Inner's body
     { op: "jumpTo", index: 16 }, // 13
-    { op: "runLine", text: "Deep2", tags: ["line:5"] }, // 14: Inner2's body
+    { op: "runLine", text: "Deep2", tags: ["line:c2dd44bb"] }, // 14: Inner2's body
     { op: "jumpTo", index: 16 }, // 15
-    { op: "runLine", text: "Back", tags: ["line:6"] }, // 16: after the inner group
+    { op: "runLine", text: "Back", tags: ["line:54ed43cc"] }, // 16: after the inner group
     { op: "jumpTo", index: 20 }, // 17
-    { op: "runLine", text: "Other", tags: ["line:7"] }, // 18: Outer2's body
+    { op: "runLine", text: "Other", tags: ["line:788c4d22"] }, // 18: Outer2's body
     { op: "jumpTo", index: 20 }, // 19
   ]);
 });
@@ -332,13 +332,13 @@ Side line
     { op: "jumpIfTrue", index: 5 }, // already seen → skip the block
     { op: "pushBool", value: true },
     { op: "popVariable", name: onceKey },
-    { op: "runLine", text: "Once line", tags: ["line:0"] },
+    { op: "runLine", text: "Once line", tags: ["line:db1929bc"] },
     { op: "detour", node: "Side" },
-    { op: "runLine", text: "After detour", tags: ["line:1"] },
+    { op: "runLine", text: "After detour", tags: ["line:4d292ecb"] },
     { op: "stop" },
   ]);
   assert.deepEqual(streamOf(program, "Side"), [
-    { op: "runLine", text: "Side line", tags: ["line:2"] },
+    { op: "runLine", text: "Side line", tags: ["line:3d9c747e"] },
     { op: "return" },
   ]);
 });
@@ -364,14 +364,14 @@ B
     nodes: [
       {
         title: "Start",
-        instructions: [{ op: "runLine", text: "A", tags: ["line:0"] }],
+        instructions: [{ op: "runLine", text: "A", tags: ["line:db1929bc"] }],
         when: ["always"],
         scene: "Kitchen",
         tracking: "never",
       },
       {
         title: "Start",
-        instructions: [{ op: "runLine", text: "B", tags: ["line:1"] }],
+        instructions: [{ op: "runLine", text: "B", tags: ["line:4d292ecb"] }],
         when: ["$x > 0"],
       },
     ],
@@ -394,7 +394,7 @@ test("uncompilable conditions fall back to pushBool false; sets keep the raw com
     // observable contract, so the fallback reproduces it exactly.
     { op: "pushBool", value: false },
     { op: "jumpIfFalse", index: 3 },
-    { op: "runLine", text: "Never", tags: ["line:0"] },
+    { op: "runLine", text: "Never", tags: ["line:db1929bc"] },
     // A set whose expression cannot compile keeps the raw command so the
     // VM inherits today's runtime error handling.
     { op: "runCommand", content: "set $x to +" },
@@ -414,7 +414,7 @@ test("unresolvable member accesses compile to null like the evaluator's undefine
     { op: "pushNumber", value: 1 },
     { op: "equalTo" },
     { op: "jumpIfFalse", index: 5 },
-    { op: "runLine", text: "Never", tags: ["line:0"] },
+    { op: "runLine", text: "Never", tags: ["line:db1929bc"] },
   ]);
 });
 

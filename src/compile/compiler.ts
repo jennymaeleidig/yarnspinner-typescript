@@ -67,8 +67,23 @@ import { booleanOperatorCount } from "../runtime/saliency.js";
 import { parseCommand, type ParsedCommand } from "../runtime/commands.js";
 import { isSmartVariableInitializer, parseDeclareCommand } from "./smartVariables.js";
 import { buildEnumTypes, collectEnumBlocks } from "./enums.js";
-import { groupNodesByTitle } from "./stringTable.js";
 import type { EnumType } from "./enums.js";
+
+/**
+ * Group nodes by title: titles by first occurrence, members in document
+ * order. The lowering walks this grouping so node-group members lower
+ * together (ticket 47).
+ */
+function groupNodesByTitle(docs: YarnDocument[]): Map<string, YarnNode[]> {
+  const nodesByTitle = new Map<string, YarnNode[]>();
+  for (const doc of docs) {
+    for (const node of doc.nodes) {
+      if (!nodesByTitle.has(node.title)) nodesByTitle.set(node.title, []);
+      nodesByTitle.get(node.title)!.push(node);
+    }
+  }
+  return nodesByTitle;
+}
 
 /** Extract the tracking: header (visit-tracking mode) from node headers. */
 function trackingHeader(headers: Record<string, string>): "always" | "never" | undefined {
@@ -118,7 +133,13 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
 
   const genOnce = opts.generateOnceIds ?? ((x) => `${x.node}#once#${x.index}`);
   let globalLineCounter = 0;
-  /** Assign the line's `line:` ID (implicit counter until ticket 50's CRC32 scheme). */
+  /**
+   * Assign the line's `line:` ID. The string-table pass (ticket 50) writes
+   * every implicit ID into the AST before lowering, so this finds the tag
+   * already in place; the counter fallback only fires for lines that bailed
+   * registration (YS0017/YS0062) — the compile carries error diagnostics
+   * there, and the program still needs a stable ID to lower.
+   */
   const ensureLineId = (tags?: string[]): { tags: string[] | undefined; lineId: string } => {
     const t = tags ? [...tags] : [];
     const existing = t.find((x) => x.startsWith("line:"));

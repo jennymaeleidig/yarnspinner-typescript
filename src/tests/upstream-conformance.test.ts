@@ -41,9 +41,6 @@ const MUST_FAIL_ALLOWLIST: Record<string, string> = {
   "Notes-WhenHeadersMustHaveExpressions.yarn": "no when: header validation (phase 1 diagnostics)",
   "Operators-AdditionsRequireNumbersOrStrings.yarn": "no operator typing (phase 1 diagnostics)",
   "SetStatements-MustHaveValues.yarn": "no <<set>> value validation (phase 1 diagnostics)",
-  "ShadowLines-MustBeIdenticalToSourceLines.yarn": "no #shadow: validation (spec story 29)",
-  "ShadowLines-MustHaveValidSourceLine.yarn": "no #shadow: validation (spec story 29)",
-  "ShadowLines-MustNotHaveExpressions.yarn": "no #shadow: validation (spec story 29)",
   "Variables-CannotBeAssignedConflictingTypes.yarn": "no variable type checking (phase 1 diagnostics)",
   "Variables-MustBeAbleToInferDefinition.yarn": "no type inference validation (phase 1 diagnostics)",
   // DuplicateLineTags.yarn self-cleaned with ticket 49: the string-table

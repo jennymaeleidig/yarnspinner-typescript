@@ -1,0 +1,27 @@
+# This file records external code incorporated into this project.
+# New, original code is CC0-1.0 and is not listed here.
+cff-version: 1.2.0
+message: >-
+  External sources incorporated into yarn-spinner-runner-ts. Language and
+  behavior parity target: Yarn Spinner 3.2.x (algorithms and diagnostics
+  mirrored; TypeScript reimplementation unless noted as a code borrow).
+title: yarn-spinner-runner-ts external sources
+references:
+  - type: software
+    title: YarnSpinner
+    authors:
+      - name: Yarn Spinner Pty. Ltd.
+      - name: Secret Lab Pty. Ltd.
+      - name: Yarn Spinner contributors
+    version: main (commit ec1a680fae4c0fc8aae73b23c7b87f3e5f894100)
+    date-released: "2026-09-02"
+    license: MIT
+    urls:
+      - https://github.com/YarnSpinnerTool/YarnSpinner
+    notes: >-
+      src/compile/crc32.ts adapts YarnSpinner/CRC32.cs (standard CRC-32,
+      little-endian hex formatting for implicit line IDs). Other compiler
+      and runtime behavior is a parity-driven reimplementation of the
+      documented upstream algorithms (string table, shadow-line validation,
+      diagnostics registry), not a code borrow.
+      Accessed 2026-09-02.

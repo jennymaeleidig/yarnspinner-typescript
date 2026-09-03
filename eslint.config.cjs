@@ -21,6 +21,7 @@ module.exports = [
         setInterval: "readonly",
         clearInterval: "readonly",
         requestAnimationFrame: "readonly",
+        TextEncoder: "readonly",
       },
     },
     plugins: {

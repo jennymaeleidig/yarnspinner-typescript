@@ -25,7 +25,7 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 - **Enum**: a named set of cases with uniform raw values (numeric or string, auto-numbered when omitted); comparable only within the same enum; `.Case` shorthand.
 - **Raw value**: the constant (number or string) backing an enum case; unique within its enum; what variables hold at runtime.
 - **EnumTypeBuilder**: host-side builder of enum types from TypeScript (upstream `YarnSpinner.Compiler.EnumTypeBuilder`; cases require explicit raw values), registered through the external declarations path.
-- **Shadow line**: a line reusing another line's text via `#shadow:`, without its own string-table entry.
+- **Shadow line**: a line reusing another line's text via `#shadow:`; it registers in the string table under its own (implicit, `sh_`-prefixed) line ID with `text: null` and `shadowLineID` pointing at its source, validated at compile time (YS0042/43/44).
 - **Hashtag**: per-line metadata (`#tag`); reserved tags include `#line:` and `#shadow:`.
 - **Detour / return**: call-and-return node flow; a jump inside a detoured node clears the return stack.
 - **Once-state**: the record that content has been viewed, stored as generated variables.

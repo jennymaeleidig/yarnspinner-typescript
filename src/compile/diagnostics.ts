@@ -49,6 +49,7 @@ export const DIAGNOSTIC_REGISTRY: Record<string, DiagnosticDescriptor> = {
   YS0011: { name: "DuplicateNodeTitle", defaultSeverity: "error" },
   YS0012: { name: "UndefinedNode", defaultSeverity: "warning" },
   YS0014: { name: "WrongFunctionParameters", defaultSeverity: "error" },
+  YS0017: { name: "LinesCantHaveLineAndShadowTag", defaultSeverity: "error" },
   YS0018: { name: "DuplicateLineID", defaultSeverity: "error" },
   YS0021: { name: "StrayCommandEnd", defaultSeverity: "warning" },
   YS0027: { name: "InvalidNodeName", defaultSeverity: "error" },
@@ -63,10 +64,14 @@ export const DIAGNOSTIC_REGISTRY: Record<string, DiagnosticDescriptor> = {
   YS0039: { name: "RedeclarationOfExistingVariable", defaultSeverity: "error" },
   YS0040: { name: "RedeclarationOfExistingType", defaultSeverity: "error" },
   YS0041: { name: "InternalError", defaultSeverity: "error" },
+  YS0042: { name: "UnknownLineIDForShadowLine", defaultSeverity: "error" },
+  YS0043: { name: "ShadowLinesCantHaveExpressions", defaultSeverity: "error" },
+  YS0044: { name: "ShadowLinesMustHaveSameTextAsSource", defaultSeverity: "error" },
   YS0045: { name: "SmartVariableLoop", defaultSeverity: "error" },
   YS0050: { name: "TypeCheckerError", defaultSeverity: "error" },
   YS0051: { name: "NodeMissingTitle", defaultSeverity: "error" },
   YS0052: { name: "NodeHasMoreThanOneTitle", defaultSeverity: "error" },
+  YS0062: { name: "MultipleLineOrShadowIDsOnALine", defaultSeverity: "error" },
 };
 
 /** Build a diagnostic from a registry code, filling in the default severity. */

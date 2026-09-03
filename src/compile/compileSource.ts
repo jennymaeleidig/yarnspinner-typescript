@@ -21,11 +21,13 @@
  *   fork keeps the lowering result observable — collect-don't-throw, §3 —
  *   recorded as a deliberate divergence in ticket 49's notes).
  *
- * The string table (ticket 49's slice of upstream `StringInfo`) is assigned
- * in one pass over all files in the compiler's lowering order, so a full
- * compile's program and its table agree on every line's ID. Line IDs use
- * the fork's per-compile counter until ticket 50 lands upstream's CRC32
- * scheme and the `#shadow:` validation suite.
+ * The string table (ticket 50: the full upstream contract) is assigned in
+ * one pass over all files in the upstream registration order — files in
+ * input order, nodes in document order, statements depth-first — so the
+ * IDs match upstream's CRC32(file + node + count) scheme exactly, and the
+ * implicit IDs are written back into the AST so a full compile's program
+ * and its table agree on every line's ID. Shadow lines are validated in
+ * the same pass (YS0042/43/44); invalid shadow text strips to null.
  *
  * Collect by default (coding standards §3): syntax errors and validation
  * failures come back as diagnostics; `strict: true` throws on the first
@@ -174,7 +176,9 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
 
   // Line IDs + string table (every mode — upstream registers strings before
   // the StringsOnly stop, and TypeCheck has carried the table since 3.2.1).
-  const manager = new StringTableManager();
+  // The manager reports internal exhaustions (YS0041) through the same
+  // diagnostics channel.
+  const manager = new StringTableManager((d) => diagnostics.push(d));
   assignLineIds(docs, manager, (d) => diagnostics.push(d));
 
   // Node-structure + jump-target validation runs in every mode (upstream
