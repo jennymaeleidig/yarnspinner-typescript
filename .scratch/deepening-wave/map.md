@@ -32,7 +32,7 @@ stays as-is and nothing here extends it.
 | [03 event-reduction module (Transcript)](issues/03-event-reduction.md) | resolved | 02 |
 | [04 dead state out, one continue scheduler](issues/04-continue-scheduler.md) | resolved | 03 |
 | [05 useDialogue config/live split](issues/05-hook-config-live-split.md) | resolved | 04 |
-| [06 single-source the view props](issues/06-view-props-extends.md) | open | 05 |
+| [06 single-source the view props](issues/06-view-props-extends.md) | resolved | 05 |
 | [07 scene on NodeStartEvent; js-yaml leaves](issues/07-scene-node-start.md) | open | 04 |
 | [08 localisation folded into loadProject](issues/08-loader-localisations.md) | open | — |
 | [09 compileDocument demoted to internal](issues/09-compile-document-internal.md) | open | 01 |
@@ -110,6 +110,16 @@ From the grilling session (2026-09-03), binding on every ticket:
   config and passes a fresh live literal; alias machinery untouched by
   keeping `UseDialogueOptions` as the config type; new pins: config
   identity rebuilds (identical values included), live is always current.
+- [06 single-source the view props](issues/06-view-props-extends.md):
+  `DialogueViewProps extends UseDialogueOptions, UseDialogueLive` and
+  `UseDialogueOptions extends Omit<DialogueOptions, ...>` — one declaration
+  per runtime option across all three layers, pinned by type-level
+  assignments; hook construction spreads the config (new runtime options
+  forward without per-field code); `contentSaliencyStrategy` reaches React
+  hosts for the first time; the hook's manual variables loop deleted (the
+  VM constructor seeds — `$`-prefixed keys now normalize); view prop
+  `startNode` renamed to the inherited `startAt` (hard break); headless
+  split deferred to `future-work.md` per the binding.
 
 ## Notes
 

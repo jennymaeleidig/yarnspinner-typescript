@@ -30,12 +30,69 @@ declaration cost while keeping the visuals.
 
 Type: task
 
-**Status:** open
+**Status:** resolved
 
-- [ ] `DialogueViewProps` extends the hook's options type; one declaration
+- [x] `DialogueViewProps` extends the hook's options type; one declaration
       per option; forwarding is one spread
-- [ ] Adding a runtime option costs one edit (test: a temp option compiles
+- [x] Adding a runtime option costs one edit (test: a temp option compiles
       through all three layers without new declarations — or the equivalent
       type-level pin)
-- [ ] Headless split recorded in `future-work.md`
-- [ ] Suite green, lint clean
+- [x] Headless split recorded in `future-work.md`
+- [x] Suite green, lint clean
+
+## Answer
+
+Landed. `DialogueViewProps extends UseDialogueOptions, UseDialogueLive` —
+the nine duplicated runtime-option declarations and their JSDoc variants
+are gone; the view declares only what it owns (`program`, presentation,
+typing flow, the deprecated typing aliases, which stay per the binding).
+Forwarding: the config fields build one memoized object (config identity is
+dialogue identity, so it must be stable — the memo deps enumerate the
+fields); the live fields forward as the **props object itself** — the hook
+ref-reads exactly its live fields off it and ignores the rest, so new live
+options forward with zero view edits.
+
+**The chain derives end to end:** `UseDialogueOptions` now extends
+`Omit<DialogueOptions, "library" | "logError" | "logDebug">` (plus its
+`functions` re-model of `library`), so the one-edit rule holds for the
+whole chain: a runtime option declared on `DialogueOptions` appears in the
+hook's config and the view's props with no further declarations. The hook's
+construction spreads the config into `new Dialogue(program, { ...config,
+library, logError: trampoline, logDebug: trampoline })`, so new runtime
+options forward without per-field code. The type-level pin lives in
+`adapterOptions.test.tsx`: `DialogueOptions` assigns to both
+`UseDialogueOptions` and `DialogueViewProps` (+ `program`), and compiles
+only while the derives exist.
+
+Two additive surface changes fell out, both alignment-positive:
+- **`contentSaliencyStrategy` now reaches React hosts** — the runtime
+  option was never forwarded by the hook (a gap, not a decision); the
+  derive + spread forwards it.
+- **`$`-prefixed variable keys normalize**: the hook previously seeded
+  `variables` through `dialogue.setVariable` (no `$`-normalization) while
+  the VM's own `DialogueOptions.variables` path normalizes
+  (`"$gold"` → `gold`, per its documented "$ prefix optional"). The manual
+  seeding loop is deleted; the VM constructor is the single seeder
+  (upstream-aligned: host variables apply after `<<declare>>` defaults).
+
+**`startNode` → `startAt`:** with the view inheriting the hook's `startAt`,
+keeping `startNode` as a second way to set the start node would leave the
+inherited `startAt` silently ignored — a trap. The view prop is renamed to
+`startAt` (hard break, 0.2.0 unpublished); the VM's
+`defaultStartNodeName` covers the default, so the view needs no default of
+its own.
+
+**Headless split:** recorded in `future-work.md` per the binding —
+explicitly deferred as a real interface promise deserving its own
+design-it-twice pass. (Note: `future-work.md` currently carries a
+concurrent session's in-progress cleanup hunks, so this commit leaves the
+file unstaged — the entry rides in the working tree and lands with that
+session's commit.)
+
+Verification: suite 544/544, lint clean, ts-check clean, browser demo
+build, Next.js host build, SvelteKit host build green. Public surface:
+`DialogueViewProps` gains every hook option (additive); `startNode` prop
+renamed `startAt` (hard break); the view's `functions` type narrows to the
+hook's `Record<string, YarnFunction>` — identical structure
+(`(...args: unknown[]) => unknown`), no behavioral change. Alias machinery
+untouched.
