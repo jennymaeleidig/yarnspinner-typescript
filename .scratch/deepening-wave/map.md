@@ -28,7 +28,7 @@ stays as-is and nothing here extends it.
 | Ticket | Status | Blocked by |
 |---|---|---|
 | [01 demo compiles through the public seam](issues/01-demo-public-compile.md) | resolved | — |
-| [02 Dialogue state queries + mirror collapse](issues/02-dialogue-state-queries.md) | open | — |
+| [02 Dialogue state queries + mirror collapse](issues/02-dialogue-state-queries.md) | resolved | — |
 | [03 event-reduction module (Transcript)](issues/03-event-reduction.md) | open | 02 |
 | [04 dead state out, one continue scheduler](issues/04-continue-scheduler.md) | open | 03 |
 | [05 useDialogue config/live split](issues/05-hook-config-live-split.md) | open | 04 |
@@ -76,6 +76,12 @@ From the grilling session (2026-09-03), binding on every ticket:
   ported; the seam's type-check pass (which `compileDocument` skips) makes
   runtime-seeded variables YS0029 errors unless declared via
   `declarations.variables` — the demo now teaches that host pattern.
+- [02 Dialogue state queries + mirror collapse](issues/02-dialogue-state-queries.md):
+  `isWaitingForOptionSelection` + `isComplete` landed on `Dialogue`;
+  `isComplete` tracks *delivery*, not the VM's completed flag (stop() must
+  not complete) and resets on `setNode`; hook's `awaitingSelectionRef` and
+  both hosts' `ended`-scans deleted for getter reads; both
+  compatibility.md entries recorded.
 
 ## Notes
 
@@ -107,19 +113,6 @@ recorded here so future explorers don't re-derive or re-suggest it:
 
 ## Fog
 
-- **RESOLVED — Upstream Dialogue state-query surface** (researched
-  2026-09-03, findings appended to ticket 02): the Rust reference exposes
-  `is_waiting_for_option_selection()` (rust `crates/runtime/src/dialogue.rs:511`)
-  and `can_continue()`; .NET 3.x exposes only `IsActive` — both are
-  explicit absences for completion (no `IsComplete`/`is_complete` anywhere
-  in .NET `Dialogue.cs` or the Rust runtime crate; completion is
-  push-only upstream). `Continue()`-while-pending fails loudly in BOTH
-  upstreams (.NET throws `DialogueException`, VirtualMachine.cs:537–540;
-  Rust returns `Err(ContinueOnOptionSelectionError)`, virtual_machine.rs:214–224)
-  — this fork's log-and-empty-batch is therefore a *divergence*, not
-  upstream behaviour as assumed in the earlier grilling round.
-  Consequences, all landing in ticket 02: getter names mirror Rust
-  (`isWaitingForOptionSelection`); `isComplete` ships as a recorded
-  project extension; the `continue()` error mode stays per coding
-  standards §3 (no throw crosses the seam) and is recorded in
-  `compatibility.md` alongside the tagLines/line-ID precedents.
+None — the upstream state-query research graduated into [02 Dialogue state
+queries + mirror collapse](issues/02-dialogue-state-queries.md) and landed
+with it (2026-09-03); its findings live in that ticket's Comments.

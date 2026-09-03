@@ -50,7 +50,7 @@ research in map.md Fog — resolve that before writing the public names)
 
 Type: task
 
-**Status:** open
+**Status:** resolved
 
 - [ ] `isWaitingForOptionSelection` (Rust-mirrored) + `isComplete` on
       `Dialogue`, semantics per above, pinned by unit tests including the
@@ -77,3 +77,51 @@ considers it user surface, which supports keeping our getters as the
 consumer-facing projection rather than exposing raw state. Completion is
 push-only in both (handler/delegate). No name collisions in this repo's
 `src/` (verified).
+
+## Answer
+
+Landed. Both getters are on `Dialogue` (forwarded through the internal
+`RuntimeDriver` contract to the VM), named per the research:
+`isWaitingForOptionSelection` (Rust mirror) and `isComplete` (recorded
+extension).
+
+**One implementation refinement the ticket's prose needed:** "forwarding to
+the VM's private `completed`" would have broken the decided `stop()` edge —
+`stop()` calls the VM's `complete()` immediately (upstream semantics: the
+complete event rides *queued* until the next `continue()`), so raw
+`completed` flips the moment `stop()` runs. `isComplete` therefore tracks
+**delivery**, which is the ticket's own definition: a private
+`completeDelivered` flag is set only when a `continue()` batch actually
+carries the `dialogueComplete` event (both the drained-queue and run-batch
+paths). `stop()` alone → inactive, `isComplete` false; the next pull
+delivers → true. `isWaitingForOptionSelection` is the plain
+`pendingOptions !== null` read (false before the first `continue()`, as
+decided).
+
+**One new edge decision recorded here:** `setNode()` resets `isComplete`
+(alongside the existing `completed`/`pendingOptions` resets) — a fresh run;
+consistent with its "execution state is reset" contract. Neither host uses
+`setNode` (both Reset by discarding the Dialogue), so no consumer impact.
+
+**Mirror collapse:** the hook's `awaitingSelectionRef` is deleted; the hook
+reads `dialogue.isWaitingForOptionSelection` (guard in `continue`, guard +
+clear in `selectOption`, queue-empty branch in the reducer). Equivalence
+holds because the runtime stops each batch at exactly one user-facing
+event, so at rest the hook's queue is always empty and VM-pending is
+exactly "the options view is surfaced". Both hosts deleted the
+transcript-scan `ended` derivation (and the `ended` field): completion
+reads `dialogue.isComplete`; the `options !== null` *queries* read
+`isWaitingForOptionSelection` while the transcript keeps the delivered
+options array purely as render data.
+
+**compatibility.md** gained the two deliberate-divergences entries:
+`continue()`-while-pending logged-not-thrown (citing .NET
+`DialogueException` VirtualMachine.cs:537–540 and Rust
+`Err(ContinueOnOptionSelectionError)` virtual_machine.rs:214–224), and
+`isComplete` as recorded project extension (verified upstream absence).
+
+Verification: suite 525/525 (four new pins in `dialogue.test.ts`: full
+query lifecycle, the `stop()` edge, the pending-continue divergence, the
+`setNode` reset), lint clean, ts-check clean, Next.js host build green,
+SvelteKit host build green. Public surface: two new readonly getters on
+`Dialogue` — hard break acceptable (0.2.0 unpublished).
