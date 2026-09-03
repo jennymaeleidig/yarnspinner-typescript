@@ -18,7 +18,7 @@ Spec'd from `future-work.md` item 1 before ticket 53 started.
 | Ticket | Status | Blocked by |
 |---|---|---|
 | [01 workspace editor project](issues/01-workspace-editor-project.md) | resolved | — |
-| [02 YarnProject loader core](issues/02-yarnproject-loader.md) | ready-for-agent | — |
+| [02 YarnProject loader core](issues/02-yarnproject-loader.md) | resolved | — |
 | [03 localisation wiring](issues/03-localisation-wiring.md) | ready-for-agent | 02 |
 | [04 Next.js host](issues/04-nextjs-host.md) | ready-for-agent | 02 |
 | [05 SvelteKit host](issues/05-sveltekit-host.md) | ready-for-agent | 02 |

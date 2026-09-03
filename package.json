@@ -30,6 +30,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./node": {
+      "types": "./dist/compile/nodeProjectFs.d.ts",
+      "import": "./dist/compile/nodeProjectFs.js",
+      "require": "./dist/compile/nodeProjectFs.cjs"
     }
   },
   "files": [

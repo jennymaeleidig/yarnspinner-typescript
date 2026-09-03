@@ -4,6 +4,7 @@ export * from "./parse/parser.js";
 export * from "./compile/program.js";
 export * from "./compile/compiler.js";
 export * from "./compile/compileSource.js";
+export * from "./compile/yarnProject.js";
 export * from "./compile/stringTable.js";
 export * from "./compile/stringsFile.js";
 export * from "./compile/tagLines.js";

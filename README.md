@@ -208,6 +208,15 @@ auto-fixed by editor tooling.
 * `compile(files: CompileFile[], opts?: CompileOptions): CompileResult` — Compile `{ name, source }` files (multi-file; four modes, string table, external declarations, diagnostics)
 * `compileSource(source: string, opts?: CompileSourceOptions): CompileResult` — Single-file convenience wrapper
 
+### YarnProject loader
+
+Loads upstream-style `.yarnproject` files (format v4, legacy v2 accepted; schema: <https://schemas.yarnspinner.dev/yarnproject.schema.json>) and compiles their sources in one call. File access is injected — the loader core performs no I/O, keeping it bundler-safe; problems surface as collectible `YP` diagnostics (this project's own code range; upstream has no project-file registry).
+
+* `loadProject({ project, fileSystem, projectFile?, ...compileOptions })` — Validate the project, resolve `sourceFiles`/`excludeFiles` globs relative to the project location, and return a `CompileResult` plus `{ project, sources }`. Validation errors skip the compile (`program: null`); referenced-but-missing localisation strings files warn without blocking the base-language compile
+* `listSources({ project, fileSystem })` — `ysc list-sources` equivalent: the resolved source paths without compiling
+* `parseYarnProject(project, projectFile?)` — Pure project-file validation (types + schema conformance)
+* Node hosts: `import { loadYarnProject, nodeProjectFs } from "yarn-spinner-runner-ts/node"` — `loadYarnProject("path/to/MyProject.yarnproject")` loads and compiles from disk in one call; `nodeProjectFs(dir)` is the default `YarnProjectFileSystem` (skips `node_modules`/`.git`)
+
 ### Runtime
 
 * `new Dialogue(program: IRProgram, options?: DialogueOptions)` — Pull-based dialogue runner
