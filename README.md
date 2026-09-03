@@ -277,8 +277,9 @@ Loads upstream-style `.yarnproject` files (format v4, legacy v2 accepted; schema
   * `getVariable(name: string): unknown` / `setVariable(name: string, value: unknown): void` / `getVariables(): Readonly<Record<string, unknown>>`
   * `tryGetSmartVariable(name: string)` — Read a smart variable's current value
   * `currentNode: string | null` / `currentScene: string | undefined` — Current node title and `scene:` header
-  * Options: `startAt` (default `"Start"`), `library`, `variables`, `lineHints` (opt-in `LineHintsEvent`), `textProvider` (line-ID → text resolver for localisation; lines a provider lacks fall back to the program's text), `logError` (default `console.error`), `logDebug` (default silent)
+  * Options: `startAt` (default `"Start"`), `library`, `variables`, `variableStorage` (pluggable store for story and generated variables; the persistence seam — inject a pre-populated `VariableStorage` to restore state, see [docs/logic-and-variables.md](docs/logic-and-variables.md)), `lineHints` (opt-in `LineHintsEvent`), `textProvider` (line-ID → text resolver for localisation; lines a provider lacks fall back to the program's text), `logError` (default `console.error`), `logDebug` (default silent)
   * Events (all camelCased): `LineEvent`, `OptionsEvent` (full option set with advisory `isAvailable` flags), `CommandEvent` (state commands like `<<set>>` never surface), `NodeStartEvent`, `NodeCompleteEvent`, `LineHintsEvent`, `DialogueCompleteEvent`
+* `VariableStorage` / `InMemoryVariableStorage` — The storage contract the runtime drives (`has`/`get`/`set`/`entries`) and its in-memory default; exported from `dialogue.ts` and the package root. Generated variables (once-state, visit tracking) live in the same storage and appear in `entries()` but not `getVariables()` snapshots
 * `Library` — Registry of host functions and command handlers (replaces the old `functions` map and `handleCommand` option)
   * `registerFunction(name, fn)` — Throws on duplicate; `getFunction(name)` returns undefined when missing
   * `registerCommandHandler(name, handler)` / `getCommandHandler(name)` — Handlers receive quote-stripped parameters

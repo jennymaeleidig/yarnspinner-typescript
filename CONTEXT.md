@@ -61,7 +61,7 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 - **Dialogue event**: the unit of runtime output — `Line`, `Options`, `Command`, `NodeStart`, `NodeComplete`, `LineHints`, `DialogueComplete`.
 - **Continue**: the pull operation returning the events up to the next stopping point.
 - **No-option-selected**: the sentinel option selection that falls through when all options are unavailable.
-- **Variable storage**: pluggable store for dialogue variables (bool/number/string) with an in-memory default; resettable as a whole.
+- **Variable storage**: pluggable store for all dialogue state — story variables and generated variables alike — with an in-memory default; resettable as a whole, and the persistence seam (a host implementation carries state across sessions).
 - **Generated variable**: internal state (once-state, visit tracking, saliency history) stored in variable storage so it resets with it — never module globals.
 - **Library**: registry of host functions (variadic supported) and command handlers; functions may carry compile-time signatures used by the compile seam for signature checking (upstream `CompilationJob.Library`).
 - **File tags**: file-level hashtags (`#tag` lines preceding a file's first node), surfaced per file in the compile result's `fileTags`.
