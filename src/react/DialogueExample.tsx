@@ -1,7 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { parseYarn } from "../parse/parser.js";
-import { compileDocument } from "../compile/compiler.js";
-import { programLanguageVersion } from "../compile/program.js";
+import { compileSource } from "../compile/compileSource.js";
 import { DialogueView } from "./DialogueView.js";
 import { parseScenes } from "../scene/parser.js";
 import type { SceneCollection } from "../scene/types.js";
@@ -47,7 +45,6 @@ actors:
 
 export function DialogueExample() {
   const [yarnText] = useState(DEFAULT_YARN);
-  const [error, setError] = useState<string | null>(null);
   const enableTypingAnimation = false;
   
   const scenes: SceneCollection = useMemo(() => {
@@ -59,16 +56,23 @@ export function DialogueExample() {
     }
   }, []);
 
-  const program = useMemo(() => {
-    try {
-      setError(null);
-      const ast = parseYarn(yarnText);
-      return compileDocument(ast);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-      return null;
-    }
-  }, [yarnText]);
+  // The compile seam (coding standards §3): problems come back as
+  // diagnostics with the result, not as throws. The variables seeded at
+  // runtime below are declared externally so type checking can resolve
+  // them (YS0029 otherwise).
+  const { program, diagnostics } = useMemo(
+    () =>
+      compileSource(yarnText, {
+        declarations: {
+          variables: {
+            playerName: { type: "string" },
+            reputation: { type: "number" },
+          },
+        },
+      }),
+    [yarnText],
+  );
+  const errors = diagnostics.filter((d) => d.severity === "error");
 
   const customFunctions = useMemo(() => ({
     greet: () => {console.log('test')},
@@ -89,8 +93,9 @@ export function DialogueExample() {
       <div style={{ maxWidth: "1000px", width: "100%" }}>
         <h1 style={{ color: "#ffffff", textAlign: "center", marginBottom: "30px" }}>yarn-spinner-ts Dialogue Demo</h1>
 
-        {error && (
+        {errors.map((d) => (
           <div
+            key={`${d.code}:${d.range?.startLine ?? 0}:${d.message}`}
             style={{
               backgroundColor: "#ff4444",
               color: "#ffffff",
@@ -99,28 +104,30 @@ export function DialogueExample() {
               marginBottom: "20px",
             }}
           >
-            <strong>Error:</strong> {error}
+            <strong>{d.code}:</strong> {d.message}
           </div>
-        )}
+        ))}
 
-        <DialogueView 
-          program={program || { languageVersion: programLanguageVersion, nodes: {}, enums: {}, initialValues: {}, smartVariables: {} }}
-          startNode="Start"
-          scenes={scenes}
-          variables={{ playerName: "V", reputation: 3 }}
-          enableTypingAnimation={enableTypingAnimation}
-          showTypingCursor={true}
-          typingSpeed={20}
-          cursorCharacter="$"
-          autoContinueAfterTyping={true}
-          autoContinueDelay={2000}
-          actorTransitionDuration={1000} 
-          pauseBeforeContinue={enableTypingAnimation ? 1000 : 0}
-          onDialogueComplete={(info) => {
-            console.log('Dialogue completed with variables:', info.variables);
-          }}
-          functions={customFunctions}
-        />
+        {program && (
+          <DialogueView
+            program={program}
+            startNode="Start"
+            scenes={scenes}
+            variables={{ playerName: "V", reputation: 3 }}
+            enableTypingAnimation={enableTypingAnimation}
+            showTypingCursor={true}
+            typingSpeed={20}
+            cursorCharacter="$"
+            autoContinueAfterTyping={true}
+            autoContinueDelay={2000}
+            actorTransitionDuration={1000}
+            pauseBeforeContinue={enableTypingAnimation ? 1000 : 0}
+            onDialogueComplete={(info) => {
+              console.log('Dialogue completed with variables:', info.variables);
+            }}
+            functions={customFunctions}
+          />
+        )}
       </div>
     </div>
   );
