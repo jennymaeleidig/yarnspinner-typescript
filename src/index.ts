@@ -31,6 +31,7 @@ export * from "./types.js";
 export * from "./scene/types.js";
 export * from "./react/useDialogue.js";
 export * from "./react/DialogueView.js";
+export * from "./react/DialogueRunner.js";
 export * from "./react/DialogueExample.js";
 export * from "./react/DialogueScene.js";
 export * from "./react/MarkupRenderer.js";

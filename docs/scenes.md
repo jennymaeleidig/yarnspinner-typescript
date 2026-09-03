@@ -39,10 +39,10 @@ User: Let's begin!
 
 ## Integration
 
-The scene collection is host input — plain data passed to `DialogueView`:
+The scene collection is host input — plain data passed to `DialogueRunner` (or, headless, to `DialogueView` alongside a `useDialogue` result):
 
 ```tsx
-import { DialogueView } from "yarn-spinner-ts";
+import { DialogueRunner } from "yarn-spinner-runner-ts";
 import type { SceneCollection } from "yarn-spinner-ts";
 
 const scenes: SceneCollection = {
@@ -54,7 +54,7 @@ const scenes: SceneCollection = {
   },
 };
 
-<DialogueView program={program} scenes={scenes} />
+<DialogueRunner program={program} scenes={scenes} />
 ```
 
 The package ships no YAML scene parser — if you author scenes in YAML, parse

@@ -22,6 +22,12 @@ test("compileDocument and its error types are not package surface", () => {
   strictEqual("CompileDocumentOptions" in pkg, false);
 });
 
+// The headless split (headless-view ticket 01): the wired container is
+// package surface alongside the presentational view.
+test("DialogueRunner is exported from the package root", () => {
+  strictEqual(typeof (pkg as Record<string, unknown>).DialogueRunner, "function");
+});
+
 test("basic dialogue with options", () => {
   const dialogue = `
 title: Start

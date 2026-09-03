@@ -5,11 +5,11 @@
 ### Configuring the transition
 
 - `DialogueScene` accepts an `actorTransitionDuration` prop (milliseconds).
-- `DialogueView` forwards the same prop so you can set it once at the top level.
+- `DialogueRunner` forwards the same prop so you can set it once at the top level.
 - Default is `350` ms; smaller values snap faster, larger values linger.
 
 ```tsx
-<DialogueView
+<DialogueRunner
   program={program}
   scenes={scenes}
   actorTransitionDuration={900}

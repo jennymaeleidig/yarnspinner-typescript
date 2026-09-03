@@ -3,7 +3,7 @@
  * `variableStorage` (spec story 39, the persistence seam), `textProvider`
  * (ticket 51, localisation), the opt-in `lineHints` flag, and the
  * `logError`/`logDebug` diagnostics — reach React consumers through
- * `useDialogue` (and `<DialogueView>`).
+ * `useDialogue` (and `<DialogueRunner>`, the wired container).
  *
  * The hook takes `(program, config, live)` with one comparison rule —
  * **config identity = dialogue identity** — pinned below alongside the
@@ -38,6 +38,8 @@ import {
   type UseDialogueLive,
   type UseDialogueResult,
 } from "../react/useDialogue.js";
+import { DialogueRunner } from "../react/DialogueRunner.js";
+import type { DialogueRunnerProps } from "../react/DialogueRunner.js";
 import { DialogueView } from "../react/DialogueView.js";
 import type { DialogueViewProps } from "../react/DialogueView.js";
 import type { DialogueOptions } from "../runtime/dialogue.js";
@@ -280,27 +282,27 @@ Mae: only
   );
 });
 
-// ── <DialogueView> passthrough ────────────────────────────────────────────
+// ── <DialogueRunner> passthrough (headless split: the wired surface) ──
 
 test("DialogueView forwards variableStorage and textProvider to the hook", () => {
   const restored = compileOk(DECLARE_YARN);
   const storage = new InMemoryVariableStorage();
   storage.set("playerName", "Persisted");
   const persistedHtml = renderToStaticMarkup(
-    React.createElement(DialogueView, { program: restored, variableStorage: storage }),
+    React.createElement(DialogueRunner, { program: restored, variableStorage: storage }),
   );
   ok(
     persistedHtml.includes("Hello Persisted"),
-    "expected DialogueView to pass variableStorage through to the hook",
+    "expected DialogueRunner to pass variableStorage through to the hook",
   );
 
   const localised = compileOk(LOCALISED_YARN);
   const localisedHtml = renderToStaticMarkup(
-    React.createElement(DialogueView, { program: localised, textProvider: makeProvider() }),
+    React.createElement(DialogueRunner, { program: localised, textProvider: makeProvider() }),
   );
   ok(
     localisedHtml.includes("Hello from provider"),
-    "expected DialogueView to pass textProvider through to the hook",
+    "expected DialogueRunner to pass textProvider through to the hook",
   );
 });
 
@@ -310,13 +312,32 @@ test("DialogueView forwards variableStorage and textProvider to the hook", () =>
 // declared on the runtime's `DialogueOptions` flows into both adapter types
 // without a second declaration. These assignments compile only while
 // `UseDialogueOptions` derives from `DialogueOptions` and
-// `DialogueViewProps` derives from the hook's types.
+// `DialogueRunnerProps` derives from the hook's types (headless-view
+// ticket 01: the wired surface moved from `DialogueView` to
+// `DialogueRunner`).
 const _runtimeOptionsFlowToHook: UseDialogueOptions = {} as DialogueOptions;
-const _runtimeOptionsFlowToView: DialogueViewProps = { program: {} as Program } as DialogueOptions & {
-  program: Program;
-};
+const _runtimeOptionsFlowToRunner: DialogueRunnerProps = {
+  program: {} as Program,
+} as DialogueOptions & { program: Program };
 void _runtimeOptionsFlowToHook;
-void _runtimeOptionsFlowToView;
+void _runtimeOptionsFlowToRunner;
+
+// Headless split (headless-view ticket 01): presentation options stay
+// single-sourced on `DialogueViewProps` — the runner derives them, so a
+// presentation option declared on the view flows into the runner without a
+// second declaration. And the view itself takes no `program`.
+const _presentationSingleSourced: Omit<DialogueViewProps, "result"> =
+  {} as DialogueRunnerProps;
+void _presentationSingleSourced;
+function _noProgramOnView(props: { program: Program }) {
+  void props;
+  return (
+    // @ts-expect-error — the presentational view renders a result, it has
+    // no `program` prop; passing one must not compile.
+    <DialogueView program={{}} result={{} as UseDialogueResult} />
+  );
+}
+void _noProgramOnView;
 
 const CONFIG_LIVE_YARN = `title: Start
 ---

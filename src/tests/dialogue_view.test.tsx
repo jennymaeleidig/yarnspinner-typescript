@@ -4,11 +4,13 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { parseYarn } from "../parse/parser.js";
 import { compileOk } from "./compileOk.js";
+import { DialogueRunner } from "../react/DialogueRunner.js";
 import { DialogueView } from "../react/DialogueView.js";
+import type { UseDialogueResult } from "../react/useDialogue.js";
 import { DialogueExample } from "../react/DialogueExample.js";
 import { Dialogue } from "../runtime/dialogue.js";
 
-test("DialogueView renders initial variables provided via props", () => {
+test("DialogueRunner renders initial variables provided via props", () => {
   const yarn = `
 title: Start
 ---
@@ -20,7 +22,7 @@ Narrator: Hello {$playerName}!
   });
 
   const html = renderToStaticMarkup(
-    <DialogueView program={program} startAt="Start" variables={{ playerName: "V" }} />
+    <DialogueRunner program={program} startAt="Start" variables={{ playerName: "V" }} />
   );
 
   ok(
@@ -29,7 +31,65 @@ Narrator: Hello {$playerName}!
   );
 });
 
-test("DialogueView keeps scene visible during command results", () => {
+// ── the headless split (headless-view ticket 01): the presentational view ─
+
+/** A hand-built `UseDialogueResult` — no `program`, no hook call. The
+ *  `dialogue` escape hatch is unused by the view, so tests stub it. */
+function stubResult(
+  view: UseDialogueResult["result"],
+  overrides: Partial<UseDialogueResult> = {},
+): UseDialogueResult {
+  return {
+    result: view,
+    continue: () => {},
+    advance: () => {},
+    selectOption: () => {},
+    dialogue: {} as Dialogue,
+    ...overrides,
+  };
+}
+
+const HAND_SCENE = { scenes: { street: { background: "bg.png", actors: {} } } };
+
+test("DialogueView (headless) renders a hand-built text result — no program, no hook", () => {
+  const html = renderToStaticMarkup(
+    <DialogueView
+      result={stubResult({ type: "text", text: "Hand-built line", speaker: "Mae" })}
+      scenes={HAND_SCENE}
+    />,
+  );
+
+  ok(html.includes("Hand-built line"), "the hand-built view state renders");
+  ok(html.includes("Mae"), "the speaker renders");
+  ok(html.includes("yd-scene"), "the sceneName rides on the result object");
+});
+
+test("DialogueView (headless) renders options and the empty state from a hand-built result", () => {
+  const optionsHtml = renderToStaticMarkup(
+    <DialogueView
+      result={stubResult({
+        type: "options",
+        options: [
+          { index: 0, text: "Knock", isAvailable: true },
+          { index: 1, text: "Leave", isAvailable: false },
+        ],
+      })}
+    />,
+  );
+  ok(optionsHtml.includes("Knock"), "the available option renders");
+  ok(optionsHtml.includes("Leave"), "the unavailable option renders");
+  ok(
+    optionsHtml.includes("disabled"),
+    "the unavailable option is disabled (isAvailable gates the button)",
+  );
+
+  const emptyHtml = renderToStaticMarkup(
+    <DialogueView result={stubResult(null)} />,
+  );
+  ok(emptyHtml.includes("yd-empty"), "a null view state renders the empty box");
+});
+
+test("DialogueRunner keeps scene visible during command results", () => {
   const yarn = `
 title: Run
 scene: street
@@ -49,7 +109,7 @@ Narrator: Done
   };
 
   const html = renderToStaticMarkup(
-    <DialogueView program={program} startAt="Run" scenes={scenes} variables={{}} />
+    <DialogueRunner program={program} startAt="Run" scenes={scenes} variables={{}} />
   );
 
   ok(
@@ -68,7 +128,7 @@ test("DialogueExample (the browser demo) renders its opening line", () => {
   ok(html.includes("yd-scene"), "Expected the demo's scene: header to reach the scene view");
 });
 
-test("DialogueView renders a node-group program through the adapter", () => {
+test("DialogueRunner renders a node-group program through the adapter", () => {
   // The adapter works over node groups unchanged: the runtime picks a
   // member by saliency and the view shows the selected member's line.
   const yarn = `
@@ -90,7 +150,7 @@ Innkeep: A tale for the road, then — once only.
 ===`;
 
   const program = compileOk(yarn);
-  const html = renderToStaticMarkup(<DialogueView program={program} startAt="Start" />);
+  const html = renderToStaticMarkup(<DialogueRunner program={program} startAt="Start" />);
 
   // Default saliency (random best-least-recent) deterministically picks the
   // sole most-complex member (`once`, complexity 1) on a fresh dialogue.

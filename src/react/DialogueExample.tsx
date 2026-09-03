@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { compileSource } from "../compile/compileSource.js";
-import { DialogueView } from "./DialogueView.js";
+import { DialogueRunner } from "./DialogueRunner.js";
 import type { SceneCollection } from "../scene/types.js";
 
 const EMPTY_SCENES: SceneCollection = { scenes: {} };
@@ -110,7 +110,7 @@ export function DialogueExample({
         ))}
 
         {program && (
-          <DialogueView
+          <DialogueRunner
             program={program}
             startAt="Start"
             scenes={scenes}

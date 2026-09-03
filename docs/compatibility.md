@@ -60,6 +60,15 @@ Parity here means the observable contract upstream's own test suite pins:
     their scene collection.
   - The `.yarnproject` loader and the React adapter are this project's own
     surface (non-upstream).
+  - React component split (headless-view ticket 01, hard break — 0.2.0 is
+    unpublished): `DialogueView` is presentational — it renders a
+    `UseDialogueResult` and no longer accepts `program` or any config/live
+    prop; the wired surface moved verbatim to the new `DialogueRunner`
+    container, which also resolves the ticket-55 deprecated prop aliases
+    (the aliases live on the runner, not on the clean presentational view).
+    The interface promise: the view owns presentation state only — typing
+    progress, the typing skip, and the one continue scheduler — all dialogue
+    state and transitions arrive on the result object.
 
 ## Historical fork syntax
 

@@ -120,7 +120,7 @@ const { result, continue: continueDialogue, selectOption } = useDialogue(program
   // `continue` is a reserved word — destructure it under a local name.
   onDialogueComplete: (info) => console.log(info.dialogueComplete, info.variables),
 });
-<DialogueView program={program} autoContinueAfterTyping pauseBeforeContinue={500} />;
+<DialogueRunner program={program} autoContinueAfterTyping pauseBeforeContinue={500} />;
 ```
 
 - `advance` is the same function as `continue` (identity pinned by the
@@ -128,9 +128,11 @@ const { result, continue: continueDialogue, selectOption } = useDialogue(program
 - `onStoryEnd` fires only when `onDialogueComplete` is absent, and keeps
   its original payload (`storyEnd: true`); the new callback's payload uses
   `dialogueComplete: true`.
-- `DialogueView`'s typing-flow props rename with the same verb:
-  `autoAdvanceAfterTyping` → `autoContinueAfterTyping`, `autoAdvanceDelay`
-  → `autoContinueDelay`, `pauseBeforeAdvance` → `pauseBeforeContinue`.
+- `DialogueRunner`'s typing-flow props rename with the same verb (the headless
+  split moved the wired prop surface from `DialogueView` to
+  `DialogueRunner`): `autoAdvanceAfterTyping` → `autoContinueAfterTyping`,
+  `autoAdvanceDelay` → `autoContinueDelay`, `pauseBeforeAdvance` →
+  `pauseBeforeContinue`.
 
 ## Unchanged
 

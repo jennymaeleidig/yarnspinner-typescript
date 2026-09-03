@@ -1,15 +1,15 @@
 ## Typing Animation (React)
 
-The demo UI ships with a `TypingText` React component that renders dialogue one character at a time. `DialogueView` stitches this into `Dialogue` so you can opt into typewriter-style delivery without touching lower-level runtime code.
+The demo UI ships with a `TypingText` React component that renders dialogue one character at a time. `DialogueRunner` stitches this into `Dialogue` so you can opt into typewriter-style delivery without touching lower-level runtime code; the presentational `DialogueView` owns the same typing state when you wire the hook yourself.
 
 ### Enabling the effect
 
-- Toggle the animation with the `enableTypingAnimation` prop on `DialogueView`.
+- Toggle the animation with the `enableTypingAnimation` prop on `DialogueRunner` (or pass the result to a headless `DialogueView`).
 - When enabled, text is revealed via `TypingText`; when disabled, full lines render immediately.
 - Example:
 
 ```tsx
-<DialogueView
+<DialogueRunner
   program={program}
   enableTypingAnimation={true}
   typingSpeed={45}

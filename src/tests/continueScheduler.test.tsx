@@ -3,11 +3,13 @@ import { ok } from "node:assert";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { compileOk } from "./compileOk.js";
+import { DialogueRunner } from "../react/DialogueRunner.js";
 import { DialogueView } from "../react/DialogueView.js";
+import { useDialogue } from "../react/useDialogue.js";
 import { setupClientDom, tickClock } from "./clientDomHarness.js";
 
 /**
- * The continue scheduler (deepening-wave ticket 04): DialogueView defers
+ * The continue scheduler (deepening-wave ticket 04): the view defers
  * continues through ONE timer fed by named causes — a surfaced command
  * flashes for a hardcoded 50ms, a finished typing animation waits for
  * `autoContinueDelay`, a clicked line waits for `pauseBeforeContinue` —
@@ -42,6 +44,50 @@ Mae: after the command
 ===
 `;
 
+test("scheduler: works headless — a host's own useDialogue + DialogueView, no runner", async (t) => {
+  // The headless split (headless-view ticket 01): the scheduler and typing
+  // state are presentation state owned by the view, and the result object
+  // carries every dialogue transition — so a host that pairs `useDialogue`
+  // with `DialogueView` directly (no `DialogueRunner`) gets the identical
+  // behavior. Pinned with the command-flash timeline.
+  setupClientDom();
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const program = compileOk(COMMAND_THEN_LINE_YARN);
+  // Config identity = dialogue identity: the host must pass a stable config
+  // object (a fresh literal every render would rebuild the dialogue on every
+  // render — the documented rule, obeyed by the host under test too).
+  const EMPTY_CONFIG: Parameters<typeof useDialogue>[1] = {};
+  function HeadlessHost(props: { program: typeof program }) {
+    const result = useDialogue(props.program, EMPTY_CONFIG);
+    return React.createElement(DialogueView, { result });
+  }
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  try {
+    await act(async () => {
+      root.render(React.createElement(HeadlessHost, { program }));
+    });
+    ok(
+      container.textContent?.includes("Executing"),
+      `expected the command view to surface first, got: ${container.textContent}`,
+    );
+
+    // The scheduler is the view's own: past the 50ms flash it continues via
+    // the result object's `continue` — no runner in sight.
+    await tickClock(t, 60);
+    ok(
+      container.textContent?.includes("after the command"),
+      `expected the headless scheduler to skip past the command, got: ${container.textContent}`,
+    );
+  } finally {
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  }
+});
+
 function clickBox(container: HTMLElement): void {
   const box = container.querySelector(".yd-dialogue-box");
   ok(box, "the clickable dialogue box rendered");
@@ -57,7 +103,7 @@ test("scheduler: a surfaced command auto-continues after its 50ms flash", async 
   const root = createRoot(container);
   try {
     await act(async () => {
-      root.render(React.createElement(DialogueView, { program }));
+      root.render(React.createElement(DialogueRunner, { program }));
     });
     ok(
       container.textContent?.includes("Executing"),
@@ -95,7 +141,7 @@ test("scheduler: a zero-pause click continues synchronously within the click", a
   const root = createRoot(container);
   try {
     await act(async () => {
-      root.render(React.createElement(DialogueView, { program }));
+      root.render(React.createElement(DialogueRunner, { program }));
     });
     ok(container.textContent?.includes("one"), "the first line rendered");
 
@@ -125,7 +171,7 @@ test("scheduler: a paused click defers, and re-clicking replaces the pending tim
   const root = createRoot(container);
   try {
     await act(async () => {
-      root.render(React.createElement(DialogueView, { program, pauseBeforeContinue: 50 }));
+      root.render(React.createElement(DialogueRunner, { program, pauseBeforeContinue: 50 }));
     });
     ok(container.textContent?.includes("one"), "the first line rendered");
 
@@ -170,7 +216,7 @@ test("scheduler: a click supersedes a pending typing-done continue", async (t) =
   try {
     await act(async () => {
       root.render(
-        React.createElement(DialogueView, {
+        React.createElement(DialogueRunner, {
           program,
           enableTypingAnimation: true,
           typingSpeed: 1, // setTimeout-driven typing on the fake clock

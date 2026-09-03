@@ -18,7 +18,7 @@ TypeScript parser, compiler, and runtime for Yarn Spinner 3.x with React adapter
 * ✅ Compiler: AST → instruction-stream program (versioned JSON bytecode, ADR 0001)
 * ✅ Runtime with `Dialogue` class (pull-based event stream)
 * ✅ React hook: `useDialogue()`
-* ✅ React components: `<DialogueView />`, `<DialogueScene />`, `<DialogueExample />`
+* ✅ React components: `<DialogueRunner />` (wired), `<DialogueView />` (presentational), `<DialogueScene />`, `<DialogueExample />`
 * ✅ Typing animation with configurable speeds, cursor styles, and auto-continue controls
 * ✅ Markup parsing with HTML formatting tags and CSS-ready spans
 * ✅ Expression evaluator for conditions
@@ -133,6 +133,8 @@ Narrator: Current street cred: {$reputation}, score: {$score}
 
 ### React Usage
 
+Two layers, your choice of seam (headless split):
+
 ```tsx
 import { compileSource, useDialogue, DialogueView } from "yarn-spinner-runner-ts";
 import type { SceneCollection } from "yarn-spinner-runner-ts";
@@ -153,15 +155,22 @@ function MyDialogue() {
     },
   };
 
-  const { result, continue: continueDialogue, selectOption } = useDialogue(program, {
-    startAt: "Start",
-    variables: { score: 10 },
-  });
-
-  // `continue` is a reserved word, so destructure it under a local name.
-  // Prefer the ready-to-use component? It takes the program directly:
-  return <DialogueView program={program} scenes={scenes} />;
+  // Full control: the hook carries all dialogue state and transitions; the
+  // presentational view owns only presentation state (typing, the continue
+  // scheduler). One rule: config identity = dialogue identity, so keep the
+  // config object stable across renders (module constant or useMemo).
+  const result = useDialogue(program, { startAt: "Start", variables: { score: 10 } });
+  return <DialogueView result={result} scenes={scenes} />;
 }
+```
+
+Prefer the wiring done for you? `DialogueRunner` takes the program directly
+and forwards every runtime, live, and presentation option:
+
+```tsx
+import { DialogueRunner } from "yarn-spinner-runner-ts";
+
+<DialogueRunner program={program} startAt="Start" scenes={scenes} autoContinueAfterTyping />;
 ```
 
 ### Full Example Component
@@ -176,7 +185,7 @@ function App() {
 
 ### Typing Animation
 
-Set `enableTypingAnimation` on `DialogueView` to enable the `TypingText` component for typewriter-style delivery. Tweak props like `typingSpeed`, `showTypingCursor`, `cursorCharacter`, `autoAdvanceAfterTyping`, `autoAdvanceDelay`, and `pauseBeforeAdvance` to fine-tune behaviour, and see [Typing Animation (React)](./docs/typing-animation.md) for details.
+Set `enableTypingAnimation` on `DialogueView` (or `DialogueRunner`) to enable the `TypingText` component for typewriter-style delivery. Tweak props like `typingSpeed`, `showTypingCursor`, and `cursorCharacter` to fine-tune behaviour, and see [Typing Animation (React)](./docs/typing-animation.md) for details.
 
 ### Browser Demo
 
@@ -299,7 +308,8 @@ Loads upstream-style `.yarnproject` files (format v4, legacy v2 accepted; schema
   * `config` holds construction-only inputs, reference-compared as a whole — one rule: **config identity = dialogue identity** (a new config object means a new dialogue, even with identical values): `startAt`, `functions`, `variables` (they seed state — different values means a new dialogue), `variableStorage` (the persistence seam — inject a pre-populated storage to restore state), `textProvider` (line-ID → text for the current language; switch languages via `dialogue.setLanguage` on the hook result, no rebuild), `lineHints` (opt-in `LineHintsEvent`; the hook consumes hints silently, so observe them via the provider's `acceptLineHints` or the `dialogue` escape hatch)
   * `live` holds per-call inputs, read through a ref — identity is ignored and the latest object is always in effect (a fresh literal every render is fine): `onDialogueComplete` (fired once on dialogue completion, with the story variables; deprecated alias: `onStoryEnd`), `logError`/`logDebug` (runtime diagnostics; defaults `console.error`/silent)
   * Deprecated aliases: `advance` (same function as `continue`)
-* `<DialogueView program={...} startAt={...} scenes={...} onDialogueComplete={...} />` — Ready-to-use dialogue component; its props extend the hook's `UseDialogueOptions` + `UseDialogueLive`, so every runtime option is accepted here under the same rules as the hook (deprecated prop aliases: `onStoryEnd`, `autoAdvanceAfterTyping`/`autoAdvanceDelay`/`pauseBeforeAdvance` → `autoContinueAfterTyping`/`autoContinueDelay`/`pauseBeforeContinue`); the scene background follows the hook's `sceneName` automatically
+* `<DialogueRunner program={...} startAt={...} scenes={...} onDialogueComplete={...} />` — The wired component: calls the hook and renders `DialogueView`; its props extend the hook's `UseDialogueOptions` + `UseDialogueLive` and the view's presentation options, so every runtime option is accepted here under the same rules as the hook (deprecated prop aliases: `onStoryEnd`, `autoAdvanceAfterTyping`/`autoAdvanceDelay`/`pauseBeforeAdvance` → `autoContinueAfterTyping`/`autoContinueDelay`/`pauseBeforeContinue`); the scene background follows the hook's `sceneName` automatically
+* `<DialogueView result={hookResult} scenes={...} enableTypingAnimation={...} />` — The presentational view: renders a `UseDialogueResult` — **no `program` prop, no hook call**. It owns presentation state only: typing progress, the typing skip, and the continue scheduler (a surfaced command auto-continues after its 50ms flash, a finished typing animation waits `autoContinueDelay`, a click waits `pauseBeforeContinue`); all dialogue state and transitions arrive on the result object. Pair it with `useDialogue` for full control
 * `<DialogueScene sceneName={...} speaker={...} scenes={...} actorTransitionDuration={...} /> — Scene background, actor display, and portrait transitions` — Scene background and actor display
 * `<DialogueExample scenes={...} />` — Full example with editor (the scene collection is host input; the browser demo parses its own YAML in `examples/browser/scenes.ts`)
 

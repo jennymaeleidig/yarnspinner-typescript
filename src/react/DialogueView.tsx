@@ -1,14 +1,9 @@
-import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import { DialogueScene } from "./DialogueScene.js";
 import type { SceneCollection } from "../scene/types.js";
 import { TypingText } from "./TypingText.js";
-import { useDialogue } from "./useDialogue.js";
-import type { DialogueViewResult, UseDialogueOptions, UseDialogueLive } from "./useDialogue.js";
+import type { DialogueViewResult, UseDialogueResult } from "./useDialogue.js";
 import { MarkupRenderer } from "./MarkupRenderer.js";
-// Note: CSS is imported in the browser demo entry point (examples/browser/main.tsx)
-// This prevents Node.js from trying to resolve CSS imports during tests
-
-import type { Program } from "../compile/program.js";
 
 /** Why the continue scheduler is deferring a continue; each cause maps to
  *  its delay: a command flashes for `COMMAND_CONTINUE_DELAY_MS`, a finished
@@ -20,8 +15,25 @@ type ContinueCause = "command" | "typing-done" | "click";
  *  past it (not configurable — commands are never the point of the story). */
 const COMMAND_CONTINUE_DELAY_MS = 50;
 
-export interface DialogueViewProps extends UseDialogueOptions, UseDialogueLive {
-  program: Program;
+/**
+ * The presentational dialogue view (headless split, headless-view ticket
+ * 01): it renders a `UseDialogueResult` — no `program`, no hook call — and
+ * owns **presentation state only**: the typing progress and skip, and the
+ * one continue scheduler (ticket 04's causes: command flash, typing-done,
+ * click). All dialogue state and transitions arrive on the result object.
+ *
+ * Hosts that want the wiring done for them use `DialogueRunner` (program +
+ * config + live, the deprecated alias names resolved there); hosts that
+ * want control pair `useDialogue` with this view directly:
+ *
+ * ```tsx
+ * const result = useDialogue(program, config);
+ * <DialogueView result={result} enableTypingAnimation />
+ * ```
+ */
+export interface DialogueViewProps {
+  /** The dialogue to render — the hook's whole return value. */
+  result: UseDialogueResult;
   className?: string;
   scenes?: SceneCollection;
   actorTransitionDuration?: number;
@@ -35,30 +47,14 @@ export interface DialogueViewProps extends UseDialogueOptions, UseDialogueLive {
   autoContinueDelay?: number; // Delay in ms after typing completes before auto-continuing
   // Pause before continuing
   pauseBeforeContinue?: number; // Delay in ms before continuing when clicking (0 = no pause)
-  /** @deprecated Renamed to `autoContinueAfterTyping` (ticket 55); removed in
-   *  the release after the one that ships this alias. */
-  autoAdvanceAfterTyping?: boolean;
-  /** @deprecated Renamed to `autoContinueDelay` (ticket 55); removed in the
-   *  release after the one that ships this alias. */
-  autoAdvanceDelay?: number;
-  /** @deprecated Renamed to `pauseBeforeContinue` (ticket 55); removed in the
-   *  release after the one that ships this alias. */
-  pauseBeforeAdvance?: number;
 }
 
 export function DialogueView(props: DialogueViewProps) {
   const {
-    program,
-    startAt,
+    result,
     className,
     scenes,
     actorTransitionDuration = 350,
-    functions,
-    variables,
-    variableStorage,
-    contentSaliencyStrategy,
-    textProvider,
-    lineHints,
     enableTypingAnimation = false,
     typingSpeed = 50, // Characters per second (50 cps = ~20ms per character)
     showTypingCursor = true,
@@ -66,36 +62,15 @@ export function DialogueView(props: DialogueViewProps) {
     autoContinueAfterTyping,
     autoContinueDelay,
     pauseBeforeContinue,
-    autoAdvanceAfterTyping,
-    autoAdvanceDelay,
-    pauseBeforeAdvance,
   } = props;
-  // Deprecated names fold into the new ones (new name wins).
-  const autoContinue = autoContinueAfterTyping ?? autoAdvanceAfterTyping ?? false;
-  const continueDelay = autoContinueDelay ?? autoAdvanceDelay ?? 500;
-  const clickPause = pauseBeforeContinue ?? pauseBeforeAdvance ?? 0;
+  const continueDelay = autoContinueDelay ?? 500;
+  const clickPause = pauseBeforeContinue ?? 0;
 
-  // The config fields forward as one memoized spread (config identity is
-  // dialogue identity, so it must be stable across renders); the live fields
-  // forward as the whole props object — the hook ref-reads exactly its live
-  // fields off it (logError, logDebug, onDialogueComplete, onStoryEnd) and
-  // ignores everything else, so new live options forward with zero edits.
-  const config = useMemo<UseDialogueOptions>(
-    () => ({
-      startAt,
-      functions,
-      variables,
-      variableStorage,
-      contentSaliencyStrategy,
-      textProvider,
-      lineHints,
-    }),
-    [startAt, functions, variables, variableStorage, contentSaliencyStrategy, textProvider, lineHints],
-  );
-  const { result, sceneName: sceneNameFromHook, continue: continueDialogue, selectOption } = useDialogue(program, config, props);
+  // The result object carries every dialogue state and transition; the view
+  // destructures the parts presentation needs.
+  const { result: view, continue: continueDialogue, selectOption, sceneName } = result;
 
-  const sceneName = sceneNameFromHook;
-  const speaker = result?.type === "text" ? result.speaker : undefined;
+  const speaker = view?.type === "text" ? view.speaker : undefined;
   const sceneCollection = scenes || { scenes: {} };
   const sceneElement = (
     <DialogueScene
@@ -146,34 +121,38 @@ export function DialogueView(props: DialogueViewProps) {
   // state that scheduled it, so a new view state (or unmount) cancels it.
   // React runs cleanups before setups in a commit, so the previous state's
   // timer is always gone before the next state's effects schedule anew.
-  useEffect(() => cancelScheduledContinue, [cancelScheduledContinue, result]);
+  useEffect(() => cancelScheduledContinue, [cancelScheduledContinue, view]);
 
   // A surfaced command auto-continues after its brief flash.
   useEffect(() => {
-    if (result?.type === "command") {
+    if (view?.type === "command") {
       scheduleContinue("command");
     }
-  }, [result, scheduleContinue]);
+  }, [view, scheduleContinue]);
 
   // Reset typing state when the text changes (TypingText remounts per line).
   useEffect(() => {
-    if (result?.type === "text") {
+    if (view?.type === "text") {
       setTypingDoneFor(null);
       setSkipTyping(false);
       setCurrentTextKey((prev) => prev + 1); // Force re-render of TypingText
     }
-  }, [result?.type === "text" ? result.text : null]);
+  }, [view?.type === "text" ? view.text : null]);
 
   // Auto-continue after the typing animation completes (if enabled). The
   // guard is the result identity the typing finished for, so a stale
   // completion can never schedule a continue for newer text.
   useEffect(() => {
-    if (autoContinue && result?.type === "text" && typingDoneFor === result) {
+    if (
+      autoContinueAfterTyping &&
+      view?.type === "text" &&
+      typingDoneFor === view
+    ) {
       scheduleContinue("typing-done");
     }
-  }, [autoContinue, typingDoneFor, result, scheduleContinue]);
+  }, [autoContinueAfterTyping, typingDoneFor, view, scheduleContinue]);
 
-  if (!result) {
+  if (!view) {
     return (
       <div className={`yd-empty ${className || ""}`}>
         <p>Dialogue ended or not started.</p>
@@ -181,15 +160,15 @@ export function DialogueView(props: DialogueViewProps) {
     );
   }
 
-  if (result.type === "text") {
-    const displayText = result.text || "\u00A0";
+  if (view.type === "text") {
+    const displayText = view.text || "\u00A0";
 
     const handleClick = () => {
       // If typing is in progress, skip it; the scheduler's typing-done cause
       // takes over from there.
-      if (enableTypingAnimation && typingDoneFor !== result) {
+      if (enableTypingAnimation && typingDoneFor !== view) {
         setSkipTyping(true);
-        setTypingDoneFor(result);
+        setTypingDoneFor(view);
         return;
       }
       // A click supersedes any scheduled continue (a pending typing-done,
@@ -211,25 +190,25 @@ export function DialogueView(props: DialogueViewProps) {
           onClick={handleClick}
         >
           <div className="yd-text-box">
-            {result.speaker && (
+            {view.speaker && (
               <div className="yd-speaker">
-                {result.speaker}
+                {view.speaker}
               </div>
             )}
-            <p className={`yd-text ${result.speaker ? "yd-text-with-speaker" : ""}`}>
+            <p className={`yd-text ${view.speaker ? "yd-text-with-speaker" : ""}`}>
               {enableTypingAnimation ? (
                 <TypingText
                   key={currentTextKey}
                   text={displayText}
-                  markup={result.markup}
+                  markup={view.markup}
                   typingSpeed={typingSpeed}
                   showCursor={showTypingCursor}
                   cursorCharacter={cursorCharacter}
                   disabled={skipTyping}
-                  onComplete={() => setTypingDoneFor(result)}
+                  onComplete={() => setTypingDoneFor(view)}
                 />
               ) : (
-                <MarkupRenderer text={displayText} markup={result.markup} />
+                <MarkupRenderer text={displayText} markup={view.markup} />
               )}
             </p>
             {!enableTypingAnimation && (
@@ -243,7 +222,7 @@ export function DialogueView(props: DialogueViewProps) {
     );
   }
 
-  if (result.type === "options") {
+  if (view.type === "options") {
     return (
       <div className="yd-container">
         {sceneElement}
@@ -251,7 +230,7 @@ export function DialogueView(props: DialogueViewProps) {
           <div className="yd-options-box">
             <div className="yd-options-title">Choose an option:</div>
             <div className="yd-options-list">
-              {result.options.map((option) => {
+              {view.options.map((option) => {
                 return (
                   <button
                     key={option.index}
@@ -271,12 +250,12 @@ export function DialogueView(props: DialogueViewProps) {
   }
 
   // Command result - auto-continue
-  if (result.type === "command") {
+  if (view.type === "command") {
     return (
       <div className="yd-container">
         {sceneElement}
         <div className={`yd-command ${className || ""}`}>
-          <p>Executing: {result.command}</p>
+          <p>Executing: {view.command}</p>
         </div>
       </div>
     );

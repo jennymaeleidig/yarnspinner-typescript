@@ -17,7 +17,7 @@ import type {
   UseYarnRunnerOptions,
   UseYarnRunnerResult,
 } from "../react/useDialogue.js";
-import { DialogueView } from "../react/DialogueView.js";
+import { DialogueRunner } from "../react/DialogueRunner.js";
 import { setupClientDom, tickClock } from "./clientDomHarness.js";
 
 /**
@@ -176,7 +176,7 @@ test("onStoryEnd (deprecated): onDialogueComplete wins when both are given", asy
   }
 });
 
-test("DialogueView typing-flow aliases: autoAdvanceAfterTyping + autoAdvanceDelay drive the auto-continue", async (t) => {
+test("DialogueRunner typing-flow aliases: autoAdvanceAfterTyping + autoAdvanceDelay drive the auto-continue", async (t) => {
   setupClientDom();
   // The continue scheduler is under test, so the clock is fake: typing
   // (typingSpeed 3 ms/character is setTimeout-driven in TypingText) and the
@@ -190,7 +190,7 @@ test("DialogueView typing-flow aliases: autoAdvanceAfterTyping + autoAdvanceDela
   try {
     await act(async () => {
       root.render(
-        React.createElement(DialogueView, {
+        React.createElement(DialogueRunner, {
           program,
           enableTypingAnimation: true,
           typingSpeed: 3,
@@ -222,7 +222,7 @@ test("DialogueView typing-flow aliases: autoAdvanceAfterTyping + autoAdvanceDela
   }
 });
 
-test("DialogueView typing-flow aliases: pauseBeforeAdvance pauses a click before continuing", async (t) => {
+test("DialogueRunner typing-flow aliases: pauseBeforeAdvance pauses a click before continuing", async (t) => {
   setupClientDom();
   // Fake clock: the 50ms alias pause and the probe can't reorder, no matter
   // how the event loop stalls — tick draws the exact timeline instead.
@@ -233,7 +233,7 @@ test("DialogueView typing-flow aliases: pauseBeforeAdvance pauses a click before
   const root = createRoot(container);
   try {
     await act(async () => {
-      root.render(React.createElement(DialogueView, { program, pauseBeforeAdvance: 50 }));
+      root.render(React.createElement(DialogueRunner, { program, pauseBeforeAdvance: 50 }));
     });
     ok(container.textContent?.includes("one"), "the first line rendered");
 
