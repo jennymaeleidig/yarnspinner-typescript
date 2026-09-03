@@ -43,6 +43,15 @@ actors:
     npc: https://i.pinimg.com/1200x/81/12/1c/81121c69ef3e5bf657a7bacd9ff9d08e.jpg
 `;
 
+// The demo's host-provided variables, declared once: type feeds the
+// compile-time `declarations.variables`, value seeds the runtime `variables`
+// prop. One source so the two can't drift (YS0029 if a declaration is
+// missing; a wrong type silently misbehaves).
+const DEMO_VARIABLES = {
+  playerName: { type: "string", value: "V" },
+  reputation: { type: "number", value: 3 },
+} as const;
+
 export function DialogueExample() {
   const [yarnText] = useState(DEFAULT_YARN);
   const enableTypingAnimation = false;
@@ -64,10 +73,9 @@ export function DialogueExample() {
     () =>
       compileSource(yarnText, {
         declarations: {
-          variables: {
-            playerName: { type: "string" },
-            reputation: { type: "number" },
-          },
+          variables: Object.fromEntries(
+            Object.entries(DEMO_VARIABLES).map(([name, { type }]) => [name, { type }]),
+          ),
         },
       }),
     [yarnText],
@@ -113,7 +121,9 @@ export function DialogueExample() {
             program={program}
             startNode="Start"
             scenes={scenes}
-            variables={{ playerName: "V", reputation: 3 }}
+            variables={Object.fromEntries(
+              Object.entries(DEMO_VARIABLES).map(([name, { value }]) => [name, value]),
+            )}
             enableTypingAnimation={enableTypingAnimation}
             showTypingCursor={true}
             typingSpeed={20}
