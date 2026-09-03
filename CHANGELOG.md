@@ -38,6 +38,18 @@ covers these renames — and CONTEXT.md "Retired terms".
   implicit/explicit line IDs + the upstream 8-column strings CSV, saliency
   machinery, and the `.yarnproject` loader all landed per the parity spec.
 
+### React adapter
+
+- The newer `DialogueOptions` reach React consumers: `useDialogue` (and
+  `<DialogueView>`) now take `variableStorage` (the persistence seam),
+  `textProvider` (localisation), the opt-in `lineHints` flag, and
+  `logError`/`logDebug` diagnostics. Passthrough only, with per-option
+  rebuild-on-change behaviour documented on the option types: storage and
+  provider identity rebuild the dialogue; `lineHints` rebuilds on flip;
+  the diagnostics callbacks are construction-time (changing them is
+  ignored). Language switching stays on `Dialogue.setLanguage`, reached
+  through the hook result's `dialogue` escape hatch (no rebuild needed).
+
 ### Docs
 
 - The stale compatibility checklist is replaced by

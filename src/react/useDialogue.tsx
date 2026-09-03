@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { Dialogue, Library } from "../runtime/dialogue.js";
 import type { DialogueEvent, YarnFunction } from "../runtime/dialogue.js";
+import type { TextProvider } from "../runtime/textProvider.js";
+import type { VariableStorage } from "../runtime/variableStorage.js";
 import type { MarkupParseResult } from "../markup/types.js";
 import type { Program } from "../compile/program.js";
 
@@ -78,6 +80,36 @@ export interface UseDialogueOptions {
   functions?: Record<string, YarnFunction>;
   /** Initial host variable values, seeded into storage before the first event. */
   variables?: Record<string, unknown>;
+  /**
+   * Host-provided variable storage (glossary "variable storage", spec
+   * story 39): the persistence seam. Injecting a pre-populated storage
+   * restores state — declare-default seeding skips the names it already
+   * holds. Changing its identity rebuilds the dialogue (reference compare:
+   * a storage is stateful, so only a new storage means a new dialogue).
+   */
+  variableStorage?: VariableStorage;
+  /**
+   * Host-provided text provider (ticket 51): resolves line IDs to text for
+   * the current language; lines it lacks fall back to the program's own
+   * text. Changing its identity rebuilds the dialogue (reference compare).
+   * Language switching needs no rebuild — call `setLanguage` on the result's
+   * `dialogue` (the ticket-51 surface; the hook adds no language API).
+   */
+  textProvider?: TextProvider;
+  /**
+   * Opt-in `LineHints` events (upstream `PrepareForLines`). The hook
+   * consumes them silently — they never surface in the view — so hosts
+   * observe hints through the provider's `acceptLineHints` or the `dialogue`
+   * escape hatch. Changing the flag rebuilds the dialogue (value compare,
+   * like `startAt`).
+   */
+  lineHints?: boolean;
+  /** Runtime error diagnostics. Defaults to `console.error`. Construction-time:
+   *  changing it after the dialogue exists is ignored — pass a stable callback. */
+  logError?: (message: string) => void;
+  /** Runtime debug diagnostics. Defaults to silent. Construction-time: changing
+   *  it after the dialogue exists is ignored — pass a stable callback. */
+  logDebug?: (message: string) => void;
   /** Fired after commit when the dialogue completes (the `DialogueComplete`
    *  event, glossary). Takes precedence over the deprecated `onStoryEnd`. */
   onDialogueComplete?: (info: DialogueCompleteInfo) => void;
@@ -213,11 +245,19 @@ export function useDialogue(
     programRef.current !== program ||
     haveFunctionsChanged(optionsRef.current?.functions, options.functions) ||
     optionsRef.current?.startAt !== options.startAt ||
-    haveVariablesChanged(optionsRef.current?.variables, options.variables)
+    haveVariablesChanged(optionsRef.current?.variables, options.variables) ||
+    optionsRef.current?.variableStorage !== options.variableStorage ||
+    optionsRef.current?.textProvider !== options.textProvider ||
+    !!optionsRef.current?.lineHints !== !!options.lineHints
   ) {
     const dialogue = new Dialogue(program, {
       startAt: options.startAt ?? "Start",
       library: buildLibrary(options.functions),
+      variableStorage: options.variableStorage,
+      textProvider: options.textProvider,
+      lineHints: options.lineHints,
+      logError: options.logError,
+      logDebug: options.logDebug,
     });
     for (const [name, value] of Object.entries(options.variables ?? {})) {
       dialogue.setVariable(name, value);

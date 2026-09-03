@@ -8,6 +8,8 @@ import { MarkupRenderer } from "./MarkupRenderer.js";
 // This prevents Node.js from trying to resolve CSS imports during tests
 
 import type { Program } from "../compile/program.js";
+import type { TextProvider } from "../runtime/textProvider.js";
+import type { VariableStorage } from "../runtime/variableStorage.js";
 
 export interface DialogueViewProps {
   program: Program;
@@ -18,6 +20,18 @@ export interface DialogueViewProps {
   // Custom functions and callbacks
   functions?: Record<string, (...args: unknown[]) => unknown>;
   variables?: Record<string, unknown>;
+  /** Variable storage (the persistence seam); identity change rebuilds the dialogue. */
+  variableStorage?: VariableStorage;
+  /** Text provider (localisation); identity change rebuilds the dialogue. There is no
+   *  component-level language switch — hosts needing `setLanguage` should use the
+   *  `useDialogue` hook, whose result exposes the `dialogue` for it. */
+  textProvider?: TextProvider;
+  /** Opt-in `LineHints` events (consumed silently by the hook); flipping rebuilds. */
+  lineHints?: boolean;
+  /** Runtime error diagnostics (default `console.error`); changing it is ignored. */
+  logError?: (message: string) => void;
+  /** Runtime debug diagnostics (default silent); changing it is ignored. */
+  logDebug?: (message: string) => void;
   /** Fired after commit when the dialogue completes (the `DialogueComplete`
    *  event). Takes precedence over the deprecated `onStoryEnd`. */
   onDialogueComplete?: (info: { variables: Readonly<Record<string, unknown>>; dialogueComplete: true }) => void;
@@ -53,6 +67,11 @@ export function DialogueView({
   actorTransitionDuration = 350,
   functions,
   variables,
+  variableStorage,
+  textProvider,
+  lineHints,
+  logError,
+  logDebug,
   onDialogueComplete,
   onStoryEnd,
   enableTypingAnimation = false,
@@ -75,6 +94,11 @@ export function DialogueView({
     startAt: startNode,
     functions,
     variables,
+    variableStorage,
+    textProvider,
+    lineHints,
+    logError,
+    logDebug,
     onDialogueComplete,
     onStoryEnd,
   });
