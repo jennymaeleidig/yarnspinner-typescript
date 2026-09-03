@@ -18,8 +18,10 @@ Spec'd from `future-work.md` item 1 before ticket 53 started.
 | Ticket | Status | Blocked by |
 |---|---|---|
 | [01 workspace editor project](issues/01-workspace-editor-project.md) | resolved | — |
-| [02 YarnProject loader](issues/02-yarnproject-loader.md) | ready-for-agent | — |
-| [03 framework hosts: Next.js + SvelteKit](issues/03-framework-hosts.md) | ready-for-agent | 02 |
+| [02 YarnProject loader core](issues/02-yarnproject-loader.md) | ready-for-agent | — |
+| [03 localisation wiring](issues/03-localisation-wiring.md) | ready-for-agent | 02 |
+| [04 Next.js host](issues/04-nextjs-host.md) | ready-for-agent | 02 |
+| [05 SvelteKit host](issues/05-sveltekit-host.md) | ready-for-agent | 02 |
 
 ## Decisions so far
 
@@ -37,3 +39,7 @@ Spec'd from `future-work.md` item 1 before ticket 53 started.
   has no compiler equivalent yet — surface the gap, don't silently ignore.
 - Ticket 03: examples, not package surface — no adapter abstraction until a
   second real consumer forces the shape.
+- Ticket split (to-tickets review): loader core (02) and localisation wiring
+  (03) are separate slices; each host is its own ticket (04, 05), all gated
+  by 02 only — the locale-switch story is proven by 03, the hosts demo
+  variable-storage reset.

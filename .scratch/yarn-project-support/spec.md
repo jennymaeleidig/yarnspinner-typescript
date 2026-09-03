@@ -64,8 +64,8 @@ C#/C++ engines.
 13. As a framework developer, I want both hosts to build clean in CI, so
     framework support can't silently rot between releases.
 14. As a consumer with dialogue state, I want the hosts to demonstrate
-    variable-storage reset and a locale switch, so the full runtime surface
-    (not just `continue()`) is shown per framework.
+    variable-storage reset, so the runtime surface beyond `continue()` is
+    shown per framework.
 15. As a maintainer, I want this effort independent of the 0.2.0 release
     wave, so it lands or slips without holding the rename hostage.
 
@@ -143,9 +143,12 @@ C#/C++ engines.
 ## Further Notes
 
 - Landed order agreed with the maintainer: 01 (workspace project, resolved
-  and user-verified in the field), then 02 (loader), then 03 (hosts) — all
-  before ticket 53's 0.2.0 release wave, which stays independent of this
-  effort.
+  and user-verified in the field), then 02 (loader core), 03 (localisation
+  wiring), then the hosts (04 Next.js, 05 SvelteKit) — all before ticket 53's
+  0.2.0 release wave, which stays independent of this effort. Tickets were
+  split along these lines in a to-tickets review: loader core and localisation
+  wiring are separate slices, and each host is its own ticket so every slice
+  is demoable and window-sized.
 - Content-parity confidence comes from the existing conformance corpus
   (tickets 20/21): upstream-authored `.yarn` content compiling identically is
   the guarantee underneath the "their setup → our compiler" promise.
