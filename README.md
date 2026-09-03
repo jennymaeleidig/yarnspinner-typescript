@@ -185,6 +185,17 @@ node-group/saliency demo with switchable saliency strategies
 (`examples/browser/StoryletsDemo.tsx`). See
 [examples/browser/README.md](./examples/browser/README.md).
 
+### Editing the Yarn scripts
+
+The repo root contains `yarn-spinner-runner-ts.yarnproject`, so the
+[Yarn Spinner extension for VS Code](https://marketplace.visualstudio.com/items?itemName=SecretLab.yarn-spinner)
+(git-ignored `.vscode/extensions.json` recommends it) treats the workspace as
+a Yarn project: syntax highlighting, node navigation, and error checking are
+scoped to the authored content in `examples/yarn/`. Vendored upstream
+conformance fixtures under `test/fixtures/` are deliberately outside the
+project — they are byte-compared against upstream and must not be edited or
+auto-fixed by editor tooling.
+
 ## API Reference
 
 ### Parser

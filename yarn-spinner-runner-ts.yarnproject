@@ -1,0 +1,13 @@
+{
+    "projectFileVersion": 4,
+    "projectName": "yarn-spinner-runner-ts",
+    "sourceFiles": [
+        "examples/yarn/**/*.yarn"
+    ],
+    "excludeFiles": [
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/dist-demo/**"
+    ],
+    "baseLanguage": "en"
+}
