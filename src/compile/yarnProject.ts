@@ -424,8 +424,9 @@ export function parseYarnProject(
   }
 
   // compilerOptions: the schema leaves it open (additionalProperties: true),
-  // so unknown keys are silently allowed; the two known upstream options this
-  // compiler has no equivalent for are diagnosed (never silently dropped).
+  // so unknown keys are valid per upstream — but this compiler has no
+  // equivalent for anything it doesn't recognise, so every key either maps
+  // or is diagnosed. Nothing is silently dropped (no-silent-option-drops).
   const compilerOptions = raw.compilerOptions;
   if (compilerOptions !== undefined) {
     if (typeof compilerOptions !== "object" || compilerOptions === null || Array.isArray(compilerOptions)) {
@@ -433,17 +434,19 @@ export function parseYarnProject(
         projectDiagnostic("YP0003", "`compilerOptions` must be an object", projectFile),
       );
     }
-    for (const key of ["requireVariableDeclarations", "allowPreviewFeatures"]) {
-      if (key in compilerOptions) {
-        diagnostics.push(
-          projectDiagnostic(
-            "YP0005",
-            `\`compilerOptions.${key}\` has no equivalent in this compiler and was ignored`,
-            projectFile,
-            `compilerOptions.${key}`,
-          ),
-        );
-      }
+    for (const key of Object.keys(compilerOptions)) {
+      const knownUpstream =
+        key === "requireVariableDeclarations" || key === "allowPreviewFeatures";
+      diagnostics.push(
+        projectDiagnostic(
+          "YP0005",
+          knownUpstream
+            ? `\`compilerOptions.${key}\` has no equivalent in this compiler and was ignored`
+            : `\`compilerOptions.${key}\` is not recognised by this compiler and was ignored`,
+          projectFile,
+          `compilerOptions.${key}`,
+        ),
+      );
     }
   }
 

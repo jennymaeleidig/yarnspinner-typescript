@@ -71,3 +71,13 @@ Type: task
   Not acted on: lockfile churn (npm pruned stale vitest/chai entries while
   adding next), the content's two-branch flow (one flow, as asked — branches
   demonstrate the loop).
+
+### Final spec-vs-impl review (yarn-project-support close-out)
+
+Reviewer flagged story 13 partial: the "Builds clean in CI" checkbox was
+checked while the CI workflow ran only `npm test` — the `host:build` target
+was verified in-session but never wired into CI, contradicting the ticket.
+Resolved in close-out rather than deferring to ticket 53: the root workflow
+(`.github/workflows/npm-publish-github-packages.yml`) now runs
+`demo:build`, `host:build`, and `sveltekit:build` on every push to main, after
+`npm test`. All three targets verified passing locally in the same pass.

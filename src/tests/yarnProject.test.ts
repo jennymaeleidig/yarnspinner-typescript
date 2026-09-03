@@ -149,7 +149,7 @@ test("unknown top-level fields warn; known editor-only fields are silent", () =>
   assert.deepEqual(ypCodes(knownIgnored.diagnostics), []);
 });
 
-test("known upstream compilerOptions without a local equivalent are diagnosed, unknown ones are silent", () => {
+test("every compilerOptions key is either mapped or diagnosed — never silently dropped", () => {
   const r = loadProject({
     project: {
       ...baseProject,
@@ -161,7 +161,18 @@ test("known upstream compilerOptions without a local equivalent are diagnosed, u
     },
     fileSystem: memoryFs({ "a.yarn": "title: A\n---\n===\n" }),
   });
-  assert.deepEqual(ypCodes(r.diagnostics).sort(), ["YP0005", "YP0005"]);
+  assert.deepEqual(ypCodes(r.diagnostics).sort(), ["YP0005", "YP0005", "YP0005"]);
+  // known upstream options get the "no equivalent" message; unknown ones the
+  // "not recognised" variant — both keyed to the offending option. YP-filtered:
+  // the compile result also carries compiler diagnostics (YSxxxx).
+  assert.deepEqual(
+    r.diagnostics.filter((d) => d.code.startsWith("YP")).map((d) => d.context).sort(),
+    [
+      "compilerOptions.allowPreviewFeatures",
+      "compilerOptions.requireVariableDeclarations",
+      "compilerOptions.someFutureFlag",
+    ],
+  );
   assert.ok(r.program);
 });
 

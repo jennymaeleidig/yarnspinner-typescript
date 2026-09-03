@@ -37,6 +37,12 @@ Spec'd from `future-work.md` item 1 before ticket 53 started.
 - Ticket 02: file access is injected (Node `fs` is only the default provider)
   so the loader runs under Vite/Next/SvelteKit bundling; `requireVariableDeclarations`
   has no compiler equivalent yet — surface the gap, don't silently ignore.
+- Final review close-out: unknown `compilerOptions` keys now warn YP0005
+  ("not recognised by this compiler and was ignored") — the ticket-02
+  silent-unknown-key call is superseded per the spec's
+  no-silent-option-drops decision (story 8); the CI workflow runs
+  `demo:build`/`host:build`/`sveltekit:build` on every push to main (story
+  13), superseding the ticket-53 deferral.
 - Ticket 03: examples, not package surface — no adapter abstraction until a
   second real consumer forces the shape.
 - Ticket 03: localisation wiring is pure glue (`loadLocalisations` +
@@ -63,4 +69,7 @@ Spec'd from `future-work.md` item 1 before ticket 53 started.
   from the app dir, so the `sveltekit:*` npm targets `cd` into the host and
   its server load resolves `content/` from there — hosts are self-contained
   (no inter-host edge: Night Market content authored fresh). CI wiring for
-  both host builds stays ticket 53.
+  both host builds stays ticket 53. **Superseded at close-out**: the final
+  spec-vs-impl review wired `demo:build`, `host:build`, and
+  `sveltekit:build` into the root CI workflow directly (spec story 13), so
+  ticket 53 has no CI scope left for this effort.

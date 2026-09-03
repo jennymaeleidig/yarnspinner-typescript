@@ -20,6 +20,12 @@ jobs:
           node-version: 20
       - run: npm ci
       - run: npm test
+      # Story 13 (yarn-project-support): framework support can't silently rot
+      # — the browser demo and both reference hosts build on every push to
+      # main, not just at release prep.
+      - run: npm run demo:build
+      - run: npm run host:build
+      - run: npm run sveltekit:build
 
   publish-gpr:
     needs: build

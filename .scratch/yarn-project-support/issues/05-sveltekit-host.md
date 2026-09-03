@@ -98,3 +98,11 @@ Type: task
   the component (a .svelte file has no importable type surface); root
   README Project Structure/Development stale-section fixes kept (§7 — they
   pre-dated this ticket missing both hosts).
+
+### Final spec-vs-impl review (yarn-project-support close-out)
+
+Same story-13 resolution as ticket 04: `sveltekit:build` is now wired into the
+root CI workflow (alongside `demo:build` and `host:build`) instead of waiting
+for ticket 53 — verified passing locally in the close-out pass. The map's
+"CI wiring stays ticket 53" decision is superseded; ticket 53's remaining
+scope for this effort is nil on the CI axis.

@@ -77,3 +77,19 @@ Type: task
   (`loadProject`/`listSources` over an in-memory provider; Node provider
   against a tmpdir and the vendored Space fixture). Suite 430/430, lint
   clean, build clean.
+
+### Final spec-vs-impl review (yarn-project-support close-out)
+
+Reviewer flagged story 8 partial: unknown `compilerOptions` keys were silently
+ignored (rationale: schema-open, `additionalProperties: true`). Resolved — the
+loader now warns **YP0005** for every `compilerOptions` key it has no
+equivalent for, with distinct messages: the two known upstream options
+(`requireVariableDeclarations`, `allowPreviewFeatures`) get "has no equivalent
+in this compiler and was ignored"; unknown keys get "is not recognised by this
+compiler and was ignored". Schema-openness is respected (a warning, not an
+error — a newer upstream option still loads), but project intent is never
+silently dropped, per the spec's no-silent-option-drops decision. Test updated
+(`every compilerOptions key is either mapped or diagnosed — never silently
+dropped`, keyed to each offending option's `context`). Suite 458/458, lint
+clean. Earlier severity note corrected: unknown compilerOptions keys are no
+longer silent.
