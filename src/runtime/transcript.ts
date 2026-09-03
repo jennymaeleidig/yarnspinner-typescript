@@ -8,8 +8,10 @@
  * upstream has no such accumulator, but the contract it encodes is upstream
  * behaviour, re-delivered — each `continue()` batch pauses at the next
  * stopping point and the consumer resumes (ADR 0002; .NET `Dialogue`
- * handlers / Rust `Dialogue::continue_`). Pinned by
- * `src/tests/transcript.test.ts` against those upstream semantics.
+ * handlers / Rust `Dialogue::continue_`). `runUntilComplete` drains through
+ * line and command stops to the terminal one (the auto-continue shape).
+ * Pinned by `src/tests/transcript.test.ts` against those upstream
+ * semantics.
  *
  * The module is a pure pull→transcript function (no I/O, no clocks — coding
  * standards §2): the per-framework seam that *creates* a dialogue and times
@@ -18,20 +20,12 @@
  * state directly.
  */
 
-import type { DialogueEvent, DialogueOption } from "./events.js";
-import type { MarkupParseResult } from "../markup/types.js";
+import type { DialogueEvent, DialogueOption, LineEvent } from "./events.js";
 import type { Dialogue } from "./dialogue.js";
 
-/** One delivered line in a transcript (the runtime's `LineEvent` content). */
-export interface TranscriptLine {
-  /** The line's canonical ID (upstream `Line.ID`), when the line has one. */
-  lineId?: string;
-  speaker?: string;
-  /** Composed text: substitutions expanded. */
-  text: string;
-  tags?: string[];
-  markup?: MarkupParseResult;
-}
+/** One delivered line in a transcript — the runtime's `LineEvent` content
+ *  (derived, so the two shapes cannot drift). */
+export type TranscriptLine = Omit<LineEvent, "type">;
 
 /**
  * The accumulated view of a dialogue run (CONTEXT.md "Transcript"): every
@@ -121,6 +115,8 @@ function mergeBatch(prior: Transcript, batch: DialogueEvent[]): Transcript {
   let commands: string[] | null = null;
   for (const event of batch) {
     if (event.type === "line") {
+      // TranscriptLine is derived from LineEvent (Omit "type"), so a new
+      // required line field fails this literal at compile time.
       (lines ??= [...prior.lines]).push({
         lineId: event.lineId,
         speaker: event.speaker,
@@ -159,4 +155,22 @@ function stoppingPointOf(batch: DialogueEvent[]): StoppingPoint | null {
     }
   }
   return null;
+}
+
+/**
+ * Drain `dialogue` through every stopping point to the terminal one:
+ * auto-continue across line and command stops, stop at an option selection
+ * (only `selectOption` can cross it — the transcript carries the live set)
+ * or at completion. The drain-loop shape hosts and tests previously pasted
+ * at every auto-continue site; the returned `stopped` names where it ended.
+ */
+export function runUntilComplete(
+  dialogue: Dialogue,
+  prior: Transcript = EMPTY_TRANSCRIPT,
+): { transcript: Transcript; stopped: StoppingPoint } {
+  let result = runUntilStopped(dialogue, prior);
+  while (result.stopped === "line" || result.stopped === "command") {
+    result = runUntilStopped(dialogue, result.transcript);
+  }
+  return result;
 }

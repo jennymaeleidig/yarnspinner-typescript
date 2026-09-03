@@ -28,9 +28,9 @@ import { join, dirname } from "node:path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { Dialogue, noOptionSelected, runUntilStopped } from "../index.js";
+import { Dialogue, noOptionSelected, runUntilComplete, runUntilStopped } from "../index.js";
 import { loadYarnProject } from "../compile/nodeProjectFs.js";
-import type { Program, StoppingPoint, Transcript } from "../index.js";
+import type { Program } from "../index.js";
 
 /** Directory of the compiled test file (dist/tests/). */
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -77,18 +77,6 @@ test("the client bundle's main entry carries no Node builtins (§2)", () => {
 });
 
 // ── SSR harness (mirrors the ticket-52 demo pattern over the first pull) ──
-
-/** Drain the dialogue through every stopping point to the end — a thin
- *  adapter over the shipped transcript-reduction module. */
-function runUntilComplete(
-  dialogue: Dialogue,
-): { transcript: Transcript; stopped: StoppingPoint } {
-  let result = runUntilStopped(dialogue);
-  while (result.stopped === "line" || result.stopped === "command") {
-    result = runUntilStopped(dialogue, result.transcript);
-  }
-  return result;
-}
 
 /** The mirrored client component's initial pull: a fresh Dialogue and its
  *  first transcript — exactly what DialogueHost's render-time adjustment

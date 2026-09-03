@@ -72,9 +72,10 @@ is gone; per-feature documentation lives in the language docs under
 
 - A ternary expression (`a ? b : c`) in `<<declare>>`/`<<set>>` currently
   parses without a diagnostic but silently evaluates to nothing — the
-  variable is left unset. Upstream has no ternary; this should be a compile
-  error and is tracked for the next release (fix prescription in the
-  deepening-wave tracker map). Branch with `<<if>>` instead.
+  variable is left unset. Upstream has no ternary; the fix is a parser
+  rejection with a YS0005 pointing at the `<<if>>` branch pattern, tracked
+  for the next release (the language docs are already corrected). Branch
+  with `<<if>>` instead.
 - Conformance-harness note: the vendored testplan hashtags are parsed but
   not asserted — upstream's own assertion on them is dead code, and one
   upstream fixture's plan has a hashtag its own compiler cannot parse

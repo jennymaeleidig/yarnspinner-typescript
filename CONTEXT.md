@@ -82,9 +82,10 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
   `runUntilStopped` produces it by merging each pull into the prior one.
 - **Stopping point**: where the runtime pauses a `continue()` batch for the
   consumer — a delivered line, an option set, or a command, with node
-  lifecycle and line-hint events riding through; completion terminates.
-  `runUntilStopped` pulls to the next stopping point and names it, so no
-  consumer re-derives the contract.
+  lifecycle and line-hint events riding through; completion is the
+  terminal stopping point. `runUntilStopped` pulls to the next stopping
+  point and names it; `runUntilComplete` drains through line and command
+  stops to the terminal one, so no consumer re-derives the contract.
 - **Scene system**: YAML scene/actor definitions and portrait handling reached via the `scene:` header (which itself is an ordinary upstream-compatible header). Exists only in the React adapter layer; not part of language parity.
 - **Storylet**: the browser demo's presentation name for a node-group member drawn by saliency (`examples/browser/StoryletsDemo.tsx`); demo-layer vocabulary, not upstream's — the glossary term for the thing being drawn is **node-group member**.
 

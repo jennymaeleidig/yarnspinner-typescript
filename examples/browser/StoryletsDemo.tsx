@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { parseYarn } from "../../src/parse/parser.js";
 import { compileDocument } from "../../src/compile/compiler.js";
 import { Dialogue } from "../../src/runtime/dialogue.js";
-import { runUntilStopped } from "../../src/runtime/transcript.js";
+import { runUntilComplete } from "../../src/runtime/transcript.js";
 import type { TranscriptLine } from "../../src/runtime/transcript.js";
 import type { ContentSaliencyOption } from "../../src/runtime/saliency.js";
 
@@ -148,15 +148,12 @@ export function StoryletsDemo() {
   const drawStorylet = useCallback(() => {
     const dialogue = getDialogue();
     dialogue.setNode("Storylets");
-    // Drain the draw through every stopping point (storylets deliver lines
-    // only): auto-continue across line/command stops, stop at completion.
-    // The module owns the stopping contract — an awaiting option set or a
-    // completed dialogue can never be mistaken for an over-drain here.
-    let result = runUntilStopped(dialogue);
-    while (result.stopped === "line" || result.stopped === "command") {
-      result = runUntilStopped(dialogue, result.transcript);
-    }
-    const lines = result.transcript.lines;
+    // Drain the draw to its terminal stopping point (storylets deliver
+    // lines only). The module owns the stopping contract — an awaiting
+    // option set or a completed dialogue can never be mistaken for an
+    // over-drain here.
+    const { transcript } = runUntilComplete(dialogue);
+    const lines = transcript.lines;
     if (lines.length > 0) {
       setDraw({ lines, label: lines[0].text });
       setHistory((prev) => [...prev.slice(-7), lines[0].text]);

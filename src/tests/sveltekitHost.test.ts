@@ -33,9 +33,9 @@ import { compile } from "svelte/compiler";
 import type { Component } from "svelte";
 import { render } from "svelte/server";
 
-import { Dialogue, noOptionSelected, runUntilStopped } from "../index.js";
+import { Dialogue, noOptionSelected, runUntilComplete, runUntilStopped } from "../index.js";
 import { loadYarnProject } from "../compile/nodeProjectFs.js";
-import type { Diagnostic, Program, StoppingPoint, Transcript } from "../index.js";
+import type { Diagnostic, Program } from "../index.js";
 
 /** Directory of the compiled test file (dist/tests/). */
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -120,17 +120,9 @@ after(() => {
 	rmSync(join(HERE, "..", ".svelte-ssr-harness"), { recursive: true, force: true });
 });
 
-/** Drain the dialogue through every stopping point to the end — a thin
- *  adapter over the shipped transcript-reduction module. */
-function runUntilComplete(
-	dialogue: Dialogue,
-): { transcript: Transcript; stopped: StoppingPoint } {
-	let result = runUntilStopped(dialogue);
-	while (result.stopped === "line" || result.stopped === "command") {
-		result = runUntilStopped(dialogue, result.transcript);
-	}
-	return result;
-}
+/** Drain the dialogue through every stopping point to the end — the
+ *  shipped module's own drain, the same function the host component could
+ *  call; no local copy. */
 
 // ── Server-side load path (+page.server.ts, minus the markup) ─────────────
 

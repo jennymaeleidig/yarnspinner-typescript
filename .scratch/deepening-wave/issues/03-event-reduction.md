@@ -114,3 +114,18 @@ each citing its upstream counterpart — .NET `Dialogue.cs` handlers /
 build, Next.js host build, and SvelteKit host build all green. Public
 surface: `runUntilStopped`, `Transcript`, `TranscriptLine`, `StoppingPoint`,
 `EMPTY_TRANSCRIPT` — additive; hard breaks acceptable (0.2.0 unpublished).
+
+## Comments
+
+### Review fixes (2026-09-03, two-axis review of 0c9409a)
+
+Standards axis: no hard violations. Spec axis: faithful, all checklist items verified. Fixes landed for the actionable findings:
+
+- **Duplicated drain loop (the strongest finding)**: `runUntilComplete` extracted into the module (drains line/command stops to the terminal stopping point); the four pasted copies (StoryletsDemo, both host-test helpers, the in-test copy) now call it; dedicated pin added. The glossary's stopping-point entry records `runUntilComplete` too.
+- **Data Clump**: `TranscriptLine` is now derived (`Omit<LineEvent, "type">`), so the line shapes cannot drift — a new required `LineEvent` field fails `mergeBatch`'s literal at compile time.
+- **§5 glossary/type tension**: the stopping-point glossary entry now states completion is the terminal stopping point, matching `StoppingPoint`'s union.
+- **§7 fragile pointer (+ the spec axis's scope-creep note)**: the compatibility.md ternary known-issue is self-contained again (fix prescription inline, no `.scratch/` tracker pointer).
+
+Not changed, deliberately: the hook's pending re-guard (disclosed UI-level idempotence; the reviewer judged it reasonable) and the module's invariant-loop failure mode (empty batch → hang in CI is loud rather than silently wrong; documented on `runUntilStopped` and covered by the stop() pin — recorded as the accepted trade-off).
+
+Verification: suite 538/538, lint clean, demo/next/sveltekit builds green.

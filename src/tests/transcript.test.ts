@@ -28,7 +28,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseYarn, compileDocument } from "../index.js";
 import { Dialogue, noOptionSelected } from "../index.js";
-import { EMPTY_TRANSCRIPT, runUntilStopped } from "../index.js";
+import { EMPTY_TRANSCRIPT, runUntilComplete, runUntilStopped } from "../index.js";
 import type { Transcript } from "../index.js";
 
 function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
@@ -132,15 +132,32 @@ Narrator: After the flash
   );
   assert.deepEqual(second.transcript.commands, ["flash red"], "commands accumulate in the merge");
 
-  // A second command surfaces with the first still in the transcript.
+  // A second command surfaces with the first still in the transcript —
+  // pinned through the module's own drain, with the prior transcript
+  // carried in so commands accumulate across the setNode boundary.
   void dialogue.setNode("Start");
-  let merged = second.transcript;
-  let result = runUntilStopped(dialogue, merged);
-  while (result.stopped === "line" || result.stopped === "command") {
-    result = runUntilStopped(dialogue, result.transcript);
-    merged = result.transcript;
-  }
-  assert.deepEqual(merged.commands, ["flash red", "flash red"]);
+  const drained = runUntilComplete(dialogue, second.transcript);
+  assert.deepEqual(drained.transcript.commands, ["flash red", "flash red"]);
+  assert.equal(drained.stopped, "complete");
+});
+
+test("runUntilComplete drains line and command stops to the terminal stopping point", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+<<flash>>
+Narrator: One
+Narrator: Two
+===
+`);
+
+  const { transcript, stopped } = runUntilComplete(dialogue);
+  assert.equal(stopped, "complete");
+  assert.deepEqual(transcript.commands, ["flash"]);
+  assert.deepEqual(
+    transcript.lines.map((l) => l.text),
+    ["One", "Two"],
+  );
 });
 
 test("node lifecycle events ride through; a jump lands as one stopped line on the new node", () => {
