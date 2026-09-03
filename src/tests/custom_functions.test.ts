@@ -1,11 +1,17 @@
 import { test } from "node:test";
 import { strictEqual, ok, match } from "node:assert";
-import { parseYarn, compileDocument } from "../index.js";
+import { compileOk } from "./compileOk.js";
 import { Dialogue, Library } from "../runtime/dialogue.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
 
-function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
-  const program = compileDocument(parseYarn(source));
+function makeDialogue(
+  source: string,
+  opts?: ConstructorParameters<typeof Dialogue>[1],
+  compileOpts?: Parameters<typeof compileOk>[1],
+): Dialogue {
+  // The runtime library doubles as the compile-time signature source; the
+  // compile options carry host variable declarations for the type checker.
+  const program = compileOk(source, { library: opts?.library, ...compileOpts });
   return new Dialogue(program, { startAt: "Start", ...opts });
 }
 
@@ -46,10 +52,10 @@ Result: {$doubled}, {$concatenated}, {$power}, {$conditionalValue}
     startAt: "CustomFuncs",
     library: (() => {
       const lib = new Library();
-      lib.registerFunction("multiply", (a, b) => Number(a) * Number(b));
-      lib.registerFunction("concat", (a, b) => String(a) + String(b));
-      lib.registerFunction("pow", (base, exp) => Math.pow(Number(base), Number(exp)));
-      lib.registerFunction("ifThen", (cond, yes, no) => Boolean(cond) ? yes : no);
+      lib.registerFunction("multiply", (a, b) => Number(a) * Number(b), { params: ["any", "any"], returns: "number" });
+      lib.registerFunction("concat", (a, b) => String(a) + String(b), { params: ["any", "any"], returns: "string" });
+      lib.registerFunction("pow", (base, exp) => Math.pow(Number(base), Number(exp)), { params: ["any", "any"], returns: "number" });
+      lib.registerFunction("ifThen", (cond, yes, no) => Boolean(cond) ? yes : no, { params: ["any", "any", "any"], returns: "string" });
       return lib;
     })(),
   });
@@ -75,9 +81,9 @@ Result: {$numFromStr}, {$concatNums}, {$boolStr}
     startAt: "TypeCoercion",
     library: (() => {
       const lib = new Library();
-      lib.registerFunction("multiply", (a, b) => Number(a) * Number(b));
-      lib.registerFunction("concat", (a, b) => String(a) + String(b));
-      lib.registerFunction("ifThen", (cond, yes, no) => Boolean(cond) ? yes : no);
+      lib.registerFunction("multiply", (a, b) => Number(a) * Number(b), { params: ["any", "any"], returns: "number" });
+      lib.registerFunction("concat", (a, b) => String(a) + String(b), { params: ["any", "any"], returns: "string" });
+      lib.registerFunction("ifThen", (cond, yes, no) => Boolean(cond) ? yes : no, { params: ["any", "any", "any"], returns: "string" });
       return lib;
     })(),
   });
@@ -103,7 +109,7 @@ Result: {$result}
         const numerator = Number(a);
         const denominator = Number(b);
         return denominator === 0 ? "Cannot divide by zero" : numerator / denominator;
-      });
+      }, { params: ["any", "any"], returns: "string" });
       return lib;
     })(),
   });
@@ -127,10 +133,14 @@ Result: {$formatted}
     startAt: "MixedFunctions",
     library: (() => {
       const lib = new Library();
-      lib.registerFunction("multiply", (a, b) => Number(a) * Number(b));
-      lib.registerFunction("format_number", (n) => Number(n).toFixed(2));
+      lib.registerFunction("multiply", (a, b) => Number(a) * Number(b), { params: ["any", "any"], returns: "number" });
+      lib.registerFunction("format_number", (n) => Number(n).toFixed(2), { params: ["any"], returns: "string" });
       return lib;
     })(),
+  }, {
+    // `random` is a runtime built-in; the type checker still needs its
+    // signature declared to type the <<declare>> initializer.
+    declarations: { functions: { random: { params: [], returns: "number" } } },
   });
 
   const line = firstLine(dialogue);

@@ -3,7 +3,8 @@ import { strictEqual, ok, deepEqual } from "node:assert";
 import React, { act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createRoot } from "react-dom/client";
-import { parseYarn, compileDocument, Dialogue, YarnRunner } from "../index.js";
+import { Dialogue, YarnRunner } from "../index.js";
+import { compileOk } from "./compileOk.js";
 import type { Program } from "../compile/program.js";
 import {
   useDialogue,
@@ -36,13 +37,11 @@ test("useYarnRunner is a deprecated alias of useDialogue (same value)", () => {
 });
 
 test("the YarnRunner alias runs dialogue exactly like Dialogue", () => {
-  const program = compileDocument(
-    parseYarn(`title: Start
+  const program = compileOk(`title: Start
 ---
 Narrator: Hi
 ===
-`),
-  );
+`);
   // Cast through the alias's documented type to prove it is usable as the
   // runtime in old consumer code.
   const runner: YarnRunner = new YarnRunner(program, { startAt: "Start" });
@@ -62,15 +61,13 @@ void _resultAliasCheck;
 // onDialogueComplete. Same one-release alias contract as ticket 53.
 
 test("useDialogue result: advance is a deprecated exact alias of continue (same function)", () => {
-  const program: Program = compileDocument(
-    parseYarn(`title: Start
+  const program = compileOk(`title: Start
 ---
 <<set $gold = 1>>
 Mae: one
 Mae: two
 ===
-`),
-  );
+`);
 
   // The hook runs during server render (useRef/useCallback/useReducer are
   // SSR-supported), so a probe component can capture the result object.
@@ -118,7 +115,7 @@ Mae: two
 
 test("onStoryEnd (deprecated): fires only when onDialogueComplete is absent, with its original payload", async () => {
   setupClientDom();
-  const program = compileDocument(parseYarn(COMPLETE_YARN));
+  const program = compileOk(COMPLETE_YARN);
   const storyEnds: StoryEndInfo[] = [];
   const capture: { hook: UseDialogueResult | null } = { hook: null };
   function Probe() {
@@ -147,7 +144,7 @@ test("onStoryEnd (deprecated): fires only when onDialogueComplete is absent, wit
 
 test("onStoryEnd (deprecated): onDialogueComplete wins when both are given", async () => {
   setupClientDom();
-  const program = compileDocument(parseYarn(COMPLETE_YARN));
+  const program = compileOk(COMPLETE_YARN);
   const storyEnds: StoryEndInfo[] = [];
   const completes: { variables: Readonly<Record<string, unknown>>; dialogueComplete: boolean }[] = [];
   const capture: { hook: UseDialogueResult | null } = { hook: null };
@@ -186,7 +183,7 @@ test("DialogueView typing-flow aliases: autoAdvanceAfterTyping + autoAdvanceDela
   // scheduled continue both advance only when ticked — no real-time polling,
   // no event-loop margins.
   t.mock.timers.enable({ apis: ["setTimeout"] });
-  const program = compileDocument(parseYarn(TWO_LINE_YARN));
+  const program = compileOk(TWO_LINE_YARN);
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
@@ -230,7 +227,7 @@ test("DialogueView typing-flow aliases: pauseBeforeAdvance pauses a click before
   // Fake clock: the 50ms alias pause and the probe can't reorder, no matter
   // how the event loop stalls — tick draws the exact timeline instead.
   t.mock.timers.enable({ apis: ["setTimeout"] });
-  const program = compileDocument(parseYarn(TWO_LINE_YARN));
+  const program = compileOk(TWO_LINE_YARN);
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);

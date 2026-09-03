@@ -3,7 +3,7 @@ import { ok, deepEqual } from "node:assert";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { parseYarn } from "../parse/parser.js";
-import { compileDocument } from "../compile/compiler.js";
+import { compileOk } from "./compileOk.js";
 import { DialogueView } from "../react/DialogueView.js";
 import { DialogueExample } from "../react/DialogueExample.js";
 import { Dialogue } from "../runtime/dialogue.js";
@@ -15,7 +15,9 @@ title: Start
 Narrator: Hello {$playerName}!
 ===`;
 
-  const program = compileDocument(parseYarn(yarn));
+  const program = compileOk(yarn, {
+    declarations: { variables: { playerName: { type: "string" } } },
+  });
 
   const html = renderToStaticMarkup(
     <DialogueView program={program} startAt="Start" variables={{ playerName: "V" }} />
@@ -36,7 +38,7 @@ scene: street
 Narrator: Done
 ===`;
 
-  const program = compileDocument(parseYarn(yarn));
+  const program = compileOk(yarn);
   const scenes = {
     scenes: {
       street: {
@@ -87,7 +89,7 @@ when: once
 Innkeep: A tale for the road, then — once only.
 ===`;
 
-  const program = compileDocument(parseYarn(yarn));
+  const program = compileOk(yarn);
   const html = renderToStaticMarkup(<DialogueView program={program} startAt="Start" />);
 
   // Default saliency (random best-least-recent) deterministically picks the
@@ -171,7 +173,7 @@ function drawStorylet(dialogue: Dialogue): string[] {
 }
 
 test("storylet demo: saliency strategies switch mid-story and steer the draws", () => {
-  const program = compileDocument(parseYarn(STORYLET_YARN));
+  const program = compileOk(STORYLET_YARN);
   const dialogue = new Dialogue(program, { startAt: "Start" });
 
   // The query APIs the demo panel shows: every member with its complexity

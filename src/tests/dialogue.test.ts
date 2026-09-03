@@ -10,12 +10,18 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseYarn, compileDocument } from "../index.js";
+import { compileOk } from "./compileOk.js";
 import { Dialogue, noOptionSelected, Library } from "../runtime/dialogue.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
 
-function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
-  const program = compileDocument(parseYarn(source));
+function makeDialogue(
+  source: string,
+  opts?: ConstructorParameters<typeof Dialogue>[1],
+  compileOpts?: Parameters<typeof compileOk>[1],
+): Dialogue {
+  // The runtime library doubles as the compile-time signature source; the
+  // compile options carry host variable declarations for the type checker.
+  const program = compileOk(source, { library: opts?.library, ...compileOpts });
   return new Dialogue(program, opts);
 }
 
@@ -374,8 +380,8 @@ Result: {$doubled} {random_check()} {min(3, 1, 2)}
     {
       library: (() => {
         const lib = new Library();
-        lib.registerFunction("multiply", (a, b) => Number(a) * Number(b));
-        lib.registerFunction("random_check", () => "ok");
+        lib.registerFunction("multiply", (a, b) => Number(a) * Number(b), { params: ["any", "any"], returns: "number" });
+        lib.registerFunction("random_check", () => "ok", { params: [], returns: "string" });
         return lib;
       })(),
     },
@@ -488,6 +494,7 @@ Narrator: Gold {$gold}
 ===
 `,
     { variables: { $gold: 25 } },
+    { declarations: { variables: { gold: { type: "number" } } } },
   );
   drain(dialogue);
   assert.equal(dialogue.getVariable("gold"), 25);

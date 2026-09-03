@@ -52,7 +52,7 @@ npm run build
 ### Basic Usage
 
 ```typescript
-import { parseYarn, compileDocument, Dialogue, Library } from "yarn-spinner-runner-ts";
+import { compileSource, Dialogue, Library } from "yarn-spinner-runner-ts";
 
 const yarnText = `
 title: Start
@@ -65,8 +65,14 @@ Narrator: Hello!
 ===
 `;
 
-const ast = parseYarn(yarnText);
-const program = compileDocument(ast);
+// Compile through the collect-don't-throw seam: diagnostics come back with
+// the result instead of throwing (program is null only when lowering could
+// not produce anything observable).
+const { program, diagnostics } = compileSource(yarnText);
+const errors = diagnostics.filter((d) => d.severity === "error");
+if (!program || errors.length > 0) {
+  throw new Error(errors.map((d) => `${d.code}: ${d.message}`).join("\n"));
+}
 const library = new Library();
 library.registerFunction("add", (a: number, b: number) => a + b);
 library.registerCommandHandler("flash", (params) => {
@@ -128,14 +134,12 @@ Narrator: Current street cred: {$reputation}, score: {$score}
 ### React Usage
 
 ```tsx
-import { parseYarn, compileDocument, useDialogue, DialogueView } from "yarn-spinner-runner-ts";
+import { compileSource, useDialogue, DialogueView } from "yarn-spinner-runner-ts";
 import type { SceneCollection } from "yarn-spinner-runner-ts";
 
 function MyDialogue() {
-  const [program] = useState(() => {
-    const ast = parseYarn(yarnText);
-    return compileDocument(ast);
-  });
+  // Collect-don't-throw: diagnostics come back with the result.
+  const { program, diagnostics } = compileSource(yarnText);
 
   // The scene collection is host input — plain data, no library parser
   // (the package ships no YAML scene parser; the browser demo keeps one in
@@ -255,9 +259,9 @@ auto-fixed by editor tooling.
 
 ### Compiler
 
-* `compileDocument(doc: YarnDocument, opts?: CompileDocumentOptions): Program` — Compile an AST to the instruction-stream program
 * `compile(files: CompileFile[], opts?: CompileOptions): CompileResult` — Compile `{ name, source }` files (multi-file; four modes, string table, external declarations, diagnostics)
-* `compileSource(source: string, opts?: CompileSourceOptions): CompileResult` — Single-file convenience wrapper
+* `compileSource(source: string, opts?: CompileSourceOptions): CompileResult` — Single-file convenience wrapper — **the public compile seam**: collect-don't-throw, diagnostics come back with the result
+* `compileDocument(doc: YarnDocument, opts?: CompileDocumentOptions): Program` — *Internal*: the AST-level lowering seam (throws `ParseError`/`LoweringError`); real for tooling and the compiler's own tests, not reachable from the package root (deepening-wave ticket 09)
 
 ### YarnProject loader
 

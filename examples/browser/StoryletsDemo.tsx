@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { parseYarn } from "../../src/parse/parser.js";
-import { compileDocument } from "../../src/compile/compiler.js";
+import { compileSource } from "../../src/compile/compileSource.js";
+import type { Program } from "../../src/compile/program.js";
 import { Dialogue } from "../../src/runtime/dialogue.js";
 import { runUntilComplete } from "../../src/runtime/transcript.js";
 import type { TranscriptLine } from "../../src/runtime/transcript.js";
@@ -71,6 +71,17 @@ Rogue: One last job. The vault under the chapel. Are you in?
 Narrator: The heist went off without a hitch. Trust does that.
 ===`;
 
+// The demo compiles through the public collect-don't-throw seam (the
+// package's throwing AST seam is internal — deepening-wave ticket 09) and
+// asserts the host-side precondition: no error diagnostics, a program.
+function compileDemo(source: string): Program {
+  const { program, diagnostics } = compileSource(source);
+  if (!program || diagnostics.some((d) => d.severity === "error")) {
+    throw new Error(`demo story failed to compile: ${diagnostics.map((d) => d.code).join(", ")}`);
+  }
+  return program;
+}
+
 /**
  * The built-in saliency strategies (upstream `<<set_saliency>>` vocabulary).
  * Each mode resolves to the matching upstream-semantics strategy; the
@@ -119,7 +130,7 @@ export function StoryletsDemo() {
   const [storyVariables, setStoryVariables] = useState<Record<string, unknown>>({});
   const [ended, setEnded] = useState(false);
 
-  const program = useRef(compileDocument(parseYarn(STORYLET_YARN))).current;
+  const program = useRef(compileDemo(STORYLET_YARN)).current;
 
   const getDialogue = useCallback((): Dialogue => {
     if (dialogueRef.current === null) {

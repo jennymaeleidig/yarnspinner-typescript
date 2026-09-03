@@ -31,7 +31,7 @@ import { ok, deepEqual, strictEqual } from "node:assert";
 import React, { act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createRoot } from "react-dom/client";
-import { parseYarn, compileDocument } from "../index.js";
+import { compileOk } from "./compileOk.js";
 import {
   useDialogue,
   type UseDialogueOptions,
@@ -72,7 +72,7 @@ Narrator: Hello {$playerName}!
 `;
 
 test("useDialogue variableStorage: a pre-populated storage restores state (SSR renders it)", () => {
-  const program = compileDocument(parseYarn(DECLARE_YARN));
+  const program = compileOk(DECLARE_YARN);
   const storage = new InMemoryVariableStorage();
   storage.set("playerName", "Persisted");
 
@@ -88,7 +88,7 @@ test("useDialogue variableStorage: a pre-populated storage restores state (SSR r
 });
 
 test("useDialogue variableStorage: without one, the declare default stands (default unchanged)", () => {
-  const program = compileDocument(parseYarn(DECLARE_YARN));
+  const program = compileOk(DECLARE_YARN);
   const hook = captureHook(program, {});
   const view = hook.result;
   ok(view?.type === "text");
@@ -113,7 +113,7 @@ Mae: three
 `;
 
 test("useDialogue lineHints: the flag forwards — entering the next node emits the hints", () => {
-  const program = compileDocument(parseYarn(HINTS_YARN));
+  const program = compileOk(HINTS_YARN);
   const hook = captureHook(program, { lineHints: true });
 
   ok(hook.result?.type === "text", "the opening line reduced");
@@ -135,7 +135,7 @@ test("useDialogue lineHints: the flag forwards — entering the next node emits 
 });
 
 test("useDialogue lineHints: default off — no LineHints event flows", () => {
-  const program = compileDocument(parseYarn(HINTS_YARN));
+  const program = compileOk(HINTS_YARN);
   const hook = captureHook(program, {});
   ok(hook.result?.type === "text");
   const batch = hook.dialogue.continue();
@@ -191,7 +191,7 @@ class RecordingProvider {
 }
 
 test("useDialogue textProvider: lines resolve through the injected provider (SSR)", () => {
-  const program = compileDocument(parseYarn(LOCALISED_YARN));
+  const program = compileOk(LOCALISED_YARN);
   const provider = new RecordingProvider();
   const hook = captureHook(program, { textProvider: provider });
 
@@ -202,7 +202,7 @@ test("useDialogue textProvider: lines resolve through the injected provider (SSR
 });
 
 test("useDialogue textProvider: language switching stays on Dialogue.setLanguage via the escape hatch", () => {
-  const program = compileDocument(parseYarn(LOCALISED_YARN));
+  const program = compileOk(LOCALISED_YARN);
   const provider = new RecordingProvider();
   const hook = captureHook(program, { textProvider: provider });
 
@@ -227,7 +227,7 @@ const OPTIONS_YARN = `title: Start
 `;
 
 test("useDialogue logError: runtime diagnostics reach the host callback", () => {
-  const program = compileDocument(parseYarn(OPTIONS_YARN));
+  const program = compileOk(OPTIONS_YARN);
   const errors: string[] = [];
   const hook = captureHook(program, {}, { logError: (m) => errors.push(m) });
 
@@ -241,7 +241,7 @@ test("useDialogue logError: runtime diagnostics reach the host callback", () => 
 });
 
 test("useDialogue logError: default behaviour unchanged — diagnostics fall to console.error", () => {
-  const program = compileDocument(parseYarn(LOCALISED_YARN));
+  const program = compileOk(LOCALISED_YARN);
   const errors: string[] = [];
   const original = console.error;
   console.error = (message: string) => errors.push(message);
@@ -258,11 +258,11 @@ test("useDialogue logError: default behaviour unchanged — diagnostics fall to 
 });
 
 test("useDialogue logDebug: runtime debug diagnostics reach the host callback", () => {
-  const program = compileDocument(parseYarn(`title: Start
+  const program = compileOk(`title: Start
 ---
 Mae: only
 ===
-`));
+`);
   const debug: string[] = [];
   const hook = captureHook(program, {}, { logDebug: (m) => debug.push(m) });
 
@@ -283,7 +283,7 @@ Mae: only
 // ── <DialogueView> passthrough ────────────────────────────────────────────
 
 test("DialogueView forwards variableStorage and textProvider to the hook", () => {
-  const restored = compileDocument(parseYarn(DECLARE_YARN));
+  const restored = compileOk(DECLARE_YARN);
   const storage = new InMemoryVariableStorage();
   storage.set("playerName", "Persisted");
   const persistedHtml = renderToStaticMarkup(
@@ -294,7 +294,7 @@ test("DialogueView forwards variableStorage and textProvider to the hook", () =>
     "expected DialogueView to pass variableStorage through to the hook",
   );
 
-  const localised = compileDocument(parseYarn(LOCALISED_YARN));
+  const localised = compileOk(LOCALISED_YARN);
   const localisedHtml = renderToStaticMarkup(
     React.createElement(DialogueView, { program: localised, textProvider: makeProvider() }),
   );
@@ -349,7 +349,7 @@ function renderConfigLive(
 
 test("useDialogue config/live: config identity is dialogue identity", async () => {
   setupClientDom();
-  const program = compileDocument(parseYarn(CONFIG_LIVE_YARN));
+  const program = compileOk(CONFIG_LIVE_YARN);
   const root = createRoot(document.getElementById("root")!);
   const config: UseDialogueOptions = { startAt: "Start" };
   try {
@@ -376,7 +376,7 @@ test("useDialogue config/live: config identity is dialogue identity", async () =
 
 test("useDialogue config/live: live callbacks are always current (no rebuild, no freeze)", async () => {
   setupClientDom();
-  const program = compileDocument(parseYarn(CONFIG_LIVE_YARN));
+  const program = compileOk(CONFIG_LIVE_YARN);
   const root = createRoot(document.getElementById("root")!);
   const config: UseDialogueOptions = {}; // stable config — identity is the rule
   const errorsA: string[] = [];

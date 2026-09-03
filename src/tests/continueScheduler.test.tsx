@@ -2,7 +2,7 @@ import { test } from "node:test";
 import { ok } from "node:assert";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
-import { parseYarn, compileDocument } from "../index.js";
+import { compileOk } from "./compileOk.js";
 import { DialogueView } from "../react/DialogueView.js";
 import { setupClientDom, tickClock } from "./clientDomHarness.js";
 
@@ -51,7 +51,7 @@ function clickBox(container: HTMLElement): void {
 test("scheduler: a surfaced command auto-continues after its 50ms flash", async (t) => {
   setupClientDom();
   t.mock.timers.enable({ apis: ["setTimeout"] });
-  const program = compileDocument(parseYarn(COMMAND_THEN_LINE_YARN));
+  const program = compileOk(COMMAND_THEN_LINE_YARN);
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
@@ -89,7 +89,7 @@ test("scheduler: a surfaced command auto-continues after its 50ms flash", async 
 test("scheduler: a zero-pause click continues synchronously within the click", async (t) => {
   setupClientDom();
   t.mock.timers.enable({ apis: ["setTimeout"] });
-  const program = compileDocument(parseYarn(TWO_LINE_YARN));
+  const program = compileOk(TWO_LINE_YARN);
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
@@ -119,7 +119,7 @@ test("scheduler: a zero-pause click continues synchronously within the click", a
 test("scheduler: a paused click defers, and re-clicking replaces the pending timer", async (t) => {
   setupClientDom();
   t.mock.timers.enable({ apis: ["setTimeout"] });
-  const program = compileDocument(parseYarn(TWO_LINE_YARN));
+  const program = compileOk(TWO_LINE_YARN);
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
@@ -163,7 +163,7 @@ test("scheduler: a paused click defers, and re-clicking replaces the pending tim
 test("scheduler: a click supersedes a pending typing-done continue", async (t) => {
   setupClientDom();
   t.mock.timers.enable({ apis: ["setTimeout"] });
-  const program = compileDocument(parseYarn(THREE_LINE_YARN));
+  const program = compileOk(THREE_LINE_YARN);
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);

@@ -11,13 +11,13 @@
 
 import { test } from "node:test";
 import { deepStrictEqual, ok, strictEqual } from "node:assert";
-import { parseYarn, compileDocument } from "../index.js";
+import { compileOk } from "./compileOk.js";
 import { Dialogue } from "../runtime/dialogue.js";
 import type { DialogueOptions } from "../runtime/dialogue.js";
 import { InMemoryVariableStorage, type VariableStorage } from "../runtime/variableStorage.js";
 
 function makeDialogue(source: string, opts?: DialogueOptions): Dialogue {
-  const program = compileDocument(parseYarn(source));
+  const program = compileOk(source);
   return new Dialogue(program, { startAt: "Start", ...opts });
 }
 

@@ -1,11 +1,11 @@
 import { test } from "node:test";
 import { strictEqual, ok } from "node:assert";
-import { parseYarn, compileDocument } from "../index.js";
+import { compileOk } from "./compileOk.js";
 import { Dialogue } from "../runtime/dialogue.js";
 import type { DialogueEvent, OptionsEvent } from "../runtime/dialogue.js";
 
 function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
-  const program = compileDocument(parseYarn(source));
+  const program = compileOk(source);
   return new Dialogue(program, { startAt: "Start", ...opts });
 }
 
@@ -34,8 +34,7 @@ Narrator: Choose one
 ===
 `;
 
-  const doc = parseYarn(script);
-  const ir = compileDocument(doc);
+  const ir = compileOk(script);
   const dialogue = new Dialogue(ir, { startAt: "Start" });
 
   const first = dialogue.continue();
@@ -184,16 +183,15 @@ title: StartFalse
 
 title: StartTrue
 ---
-<<declare $flag = true>>
--> Hidden <<if $flag>>
+<<declare $flag2 = true>>
+-> Hidden <<if $flag2>>
     Narrator: Hidden
 -> Visible
     Narrator: Visible
 ===
 `;
 
-  const doc = parseYarn(script);
-  const ir = compileDocument(doc);
+  const ir = compileOk(script);
 
   const flagsFor = (startNode: string, flag: boolean) => {
     const dialogue = new Dialogue(ir, { startAt: startNode });

@@ -1,11 +1,17 @@
 import { test } from "node:test";
 import { strictEqual, deepStrictEqual, ok } from "node:assert";
-import { parseYarn, compileDocument } from "../index.js";
+import { compileOk } from "./compileOk.js";
 import { Dialogue, Library } from "../runtime/dialogue.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
 
-function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
-  const program = compileDocument(parseYarn(source));
+function makeDialogue(
+  source: string,
+  opts?: ConstructorParameters<typeof Dialogue>[1],
+  compileOpts?: Parameters<typeof compileOk>[1],
+): Dialogue {
+  // The runtime library doubles as the compile-time signature source; the
+  // compile options carry host variable declarations for the type checker.
+  const program = compileOk(source, { library: opts?.library, ...compileOpts });
   return new Dialogue(program, { startAt: "Start", ...opts });
 }
 
@@ -37,8 +43,7 @@ title: Start
 ===
 `;
 
-  const doc = parseYarn(script);
-  const ir = compileDocument(doc);
+  const ir = compileOk(script);
   const dialogue = new Dialogue(ir, { startAt: "Start" });
 
   // `<<set>>` is internal; the branch line arrives in the first batch.
@@ -138,7 +143,9 @@ Narrator: Residual {$residual}
 ===
 `;
 
-  const dialogue = makeDialogue(script, { startAt: "MathHost", variables: { $energy: 37 } });
+  const dialogue = makeDialogue(script, { startAt: "MathHost", variables: { $energy: 37 } }, {
+    declarations: { variables: { energy: { type: "number" }, residual: { type: "number" } } },
+  });
   const lines = drainTexts(dialogue);
 
   strictEqual(lines.includes("Incoming 37"), true, "Should read initial host variable");
@@ -164,10 +171,12 @@ Narrator: Final {$credits}
     variables: { $credits: 15 },
     library: (() => {
       const lib = new Library();
-      lib.registerFunction("add", (a: unknown, b: unknown) => Number(a) + Number(b));
-      lib.registerFunction("subtract", (a: unknown, b: unknown) => Number(a) - Number(b));
+      lib.registerFunction("add", (a: unknown, b: unknown) => Number(a) + Number(b), { params: ["any", "any"], returns: "number" });
+      lib.registerFunction("subtract", (a: unknown, b: unknown) => Number(a) - Number(b), { params: ["any", "any"], returns: "number" });
       return lib;
     })(),
+  }, {
+    declarations: { variables: { credits: { type: "number" } } },
   });
 
   const lines = drainTexts(dialogue);

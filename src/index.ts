@@ -2,7 +2,11 @@ export * from "./model/ast.js";
 export * from "./parse/lexer.js";
 export * from "./parse/parser.js";
 export * from "./compile/program.js";
-export * from "./compile/compiler.js";
+// The AST-level lowering seam (`compileDocument`, `LoweringError`,
+// `CompileDocumentOptions` in ./compile/compiler.js) is INTERNAL — real for
+// tooling and the compiler's own tests, not package surface (deepening-wave
+// ticket 09). The collect-don't-throw seam (`compile`/`compileSource`) is
+// the public compile path; hosts never meet the throwing one.
 export * from "./compile/compileSource.js";
 export * from "./compile/yarnProject.js";
 export * from "./compile/projectLocalisation.js";

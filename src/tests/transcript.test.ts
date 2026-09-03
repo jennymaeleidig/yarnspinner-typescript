@@ -26,13 +26,13 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseYarn, compileDocument } from "../index.js";
+import { compileOk } from "./compileOk.js";
 import { Dialogue, noOptionSelected } from "../index.js";
 import { EMPTY_TRANSCRIPT, runUntilComplete, runUntilStopped } from "../index.js";
 import type { Transcript } from "../index.js";
 
 function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
-  const program = compileDocument(parseYarn(source));
+  const program = compileOk(source);
   return new Dialogue(program, opts);
 }
 
