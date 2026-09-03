@@ -10,8 +10,7 @@
 
 ```tsx
 <DialogueView
-  result={result}
-  onAdvance={advance}
+  program={program}
   scenes={scenes}
   actorTransitionDuration={900}
 />

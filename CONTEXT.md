@@ -96,5 +96,11 @@ Fork-era vocabulary, superseded by the parity API. Kept here so old docs and con
 The two code-level renames above that shipped as part of the parity API —
 `YarnRunner` → `Dialogue` and `useYarnRunner` → `useDialogue` — keep a
 **deprecated alias for one release** (0.2.0 only; removed in the release
-after), so pre-0.2.0 consumers keep compiling while they migrate. Everything
+after), so pre-0.2.0 consumers keep compiling while they migrate. The
+adapter resurfacing (ticket 55) ships the same way: `advance` → `continue`,
+`onStoryEnd` → `onDialogueComplete` (payload `storyEnd: true` →
+`dialogueComplete: true`), and the `DialogueView` typing-flow props
+`autoAdvanceAfterTyping`/`autoAdvanceDelay`/`pauseBeforeAdvance` →
+`autoContinueAfterTyping`/`autoContinueDelay`/`pauseBeforeContinue` — old
+names stay as `@deprecated` aliases for one release. Everything
 else in this list is gone outright.

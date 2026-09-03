@@ -1,13 +1,16 @@
 import { test } from "node:test";
-import { strictEqual } from "node:assert";
+import { strictEqual, ok } from "node:assert";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { parseYarn, compileDocument, Dialogue, YarnRunner } from "../index.js";
+import type { Program } from "../compile/program.js";
 import {
   useDialogue,
   useYarnRunner,
+  type UseDialogueResult,
 } from "../react/useDialogue.js";
 import type {
   UseDialogueOptions,
-  UseDialogueResult,
   UseYarnRunnerOptions,
   UseYarnRunnerResult,
 } from "../react/useDialogue.js";
@@ -50,3 +53,34 @@ const _optionsAliasCheck: UseDialogueOptions = {} as UseYarnRunnerOptions;
 const _resultAliasCheck: UseYarnRunnerResult = {} as UseDialogueResult;
 void _optionsAliasCheck;
 void _resultAliasCheck;
+
+// ── Ticket 55 (adapter resurfacing): advance → continue, onStoryEnd →
+// onDialogueComplete. Same one-release alias contract as ticket 53.
+
+test("useDialogue result: advance is a deprecated exact alias of continue (same function)", () => {
+  const program: Program = compileDocument(
+    parseYarn(`title: Start
+---
+<<set $gold = 1>>
+Mae: one
+Mae: two
+===
+`),
+  );
+
+  // The hook runs during server render (useRef/useCallback/useReducer are
+  // SSR-supported), so a probe component can capture the result object.
+  const capture: { hook: UseDialogueResult | null } = { hook: null };
+  function Probe(props: { program: Program }) {
+    capture.hook = useDialogue(props.program, { startAt: "Start" });
+    return null;
+  }
+  renderToStaticMarkup(React.createElement(Probe, { program }));
+
+  const captured = capture.hook;
+  ok(captured, "the hook did not run");
+  ok(captured!.result?.type === "text", "the opening line reduced");
+  // Exact alias: the same function value under both names.
+  strictEqual(captured!.advance, captured!.continue);
+  ok(typeof captured!.continue === "function");
+});

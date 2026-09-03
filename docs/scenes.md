@@ -47,7 +47,7 @@ import { parseScenes } from "yarn-spinner-ts";
 
 const scenes = parseScenes(sceneYamlText);
 
-<DialogueView result={result} onAdvance={advance} scenes={scenes} />
+<DialogueView program={program} scenes={scenes} />
 ```
 
 ## CSS Classes

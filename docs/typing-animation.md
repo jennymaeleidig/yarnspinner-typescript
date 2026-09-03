@@ -10,8 +10,7 @@ The demo UI ships with a `TypingText` React component that renders dialogue one 
 
 ```tsx
 <DialogueView
-  result={result}
-  onAdvance={advance}
+  program={program}
   enableTypingAnimation={true}
   typingSpeed={45}
 />
@@ -22,16 +21,16 @@ The demo UI ships with a `TypingText` React component that renders dialogue one 
 - `typingSpeed` (ms delay between characters): lower is faster; `0` renders instantly.
 - `showTypingCursor`: toggles the flashing cursor.
 - `cursorCharacter`: replace the default `|` cursor.
-- `autoAdvanceAfterTyping`: auto-continue once typing completes.
-- `autoAdvanceDelay`: wait time (ms) before auto-advancing.
-- `pauseBeforeAdvance`: optional delay (ms) when the player taps to advance after typing finishes.
+- `autoContinueAfterTyping`: auto-continue once typing completes.
+- `autoContinueDelay`: wait time (ms) before auto-continuing.
+- `pauseBeforeContinue`: optional delay (ms) when the player taps to continue after typing finishes.
 
 ### Interaction details
 
-- Clicking while text is mid-animation skips straight to the full line; a second click advances to the next node.
-- The `onComplete` callback fires exactly once when the last character is revealed (or immediately if typing is disabled), making it safe to trigger `autoAdvance`.
-- The "continue" glyph (`yd-continue`) is suppressed whenever typing is active so players are not prompted to advance until the full line appears.
-- When you disable typing in `DialogueExample`, `pauseBeforeAdvance` automatically falls back to `0` so clicks advance instantly.
+- Clicking while text is mid-animation skips straight to the full line; a second click continues to the next view state.
+- The `onComplete` callback fires exactly once when the last character is revealed (or immediately if typing is disabled), making it safe to trigger auto-continue.
+- The "continue" glyph (`yd-continue`) is suppressed whenever typing is active so players are not prompted to continue until the full line appears.
+- When you disable typing in `DialogueExample`, `pauseBeforeContinue` automatically falls back to `0` so clicks continue instantly.
 
 ### Styling
 

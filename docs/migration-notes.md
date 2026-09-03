@@ -102,6 +102,36 @@ Note that the 0.1.x `YarnRunner` class already spoke the pull-based API
 mutate-and-read surface (`advance()`, `currentResult`, `TextResult`) was
 removed earlier in the parity wave; see CONTEXT.md "Retired terms".
 
+## 6. Adapter props: `advance` → `continue`, `onStoryEnd` → `onDialogueComplete`
+
+The React adapter's own names were still fork-era vocabulary; they now
+match the glossary (ticket 55). The old names remain as **deprecated exact
+aliases for one release** — same pattern as §5:
+
+```tsx
+// Before (0.2.0)
+const { result, advance, selectOption } = useDialogue(program, {
+  onStoryEnd: (info) => console.log(info.storyEnd, info.variables),
+});
+<DialogueView program={program} autoAdvanceAfterTyping pauseBeforeAdvance={500} />;
+
+// After
+const { result, continue: continueDialogue, selectOption } = useDialogue(program, {
+  // `continue` is a reserved word — destructure it under a local name.
+  onDialogueComplete: (info) => console.log(info.dialogueComplete, info.variables),
+});
+<DialogueView program={program} autoContinueAfterTyping pauseBeforeContinue={500} />;
+```
+
+- `advance` is the same function as `continue` (identity pinned by the
+  alias tests).
+- `onStoryEnd` fires only when `onDialogueComplete` is absent, and keeps
+  its original payload (`storyEnd: true`); the new callback's payload uses
+  `dialogueComplete: true`.
+- `DialogueView`'s typing-flow props rename with the same verb:
+  `autoAdvanceAfterTyping` → `autoContinueAfterTyping`, `autoAdvanceDelay`
+  → `autoContinueDelay`, `pauseBeforeAdvance` → `pauseBeforeContinue`.
+
 ## Unchanged
 
 - Block-level `<<if>>`/`<<elseif>>`/`<<else>>`/`<<endif>>` and `<<once>>` keep

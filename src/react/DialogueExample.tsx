@@ -112,12 +112,12 @@ export function DialogueExample() {
           showTypingCursor={true}
           typingSpeed={20}
           cursorCharacter="$"
-          autoAdvanceAfterTyping={true}
-          autoAdvanceDelay={2000}
+          autoContinueAfterTyping={true}
+          autoContinueDelay={2000}
           actorTransitionDuration={1000} 
-          pauseBeforeAdvance={enableTypingAnimation ? 1000 : 0}
-          onStoryEnd={(info) => {
-            console.log('Story ended with variables:', info.variables);
+          pauseBeforeContinue={enableTypingAnimation ? 1000 : 0}
+          onDialogueComplete={(info) => {
+            console.log('Dialogue completed with variables:', info.variables);
           }}
           functions={customFunctions}
         />

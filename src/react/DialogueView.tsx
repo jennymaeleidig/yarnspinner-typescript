@@ -18,17 +18,31 @@ export interface DialogueViewProps {
   // Custom functions and callbacks
   functions?: Record<string, (...args: unknown[]) => unknown>;
   variables?: Record<string, unknown>;
+  /** Fired after commit when the dialogue completes (the `DialogueComplete`
+   *  event). Takes precedence over the deprecated `onStoryEnd`. */
+  onDialogueComplete?: (info: { variables: Readonly<Record<string, unknown>>; dialogueComplete: true }) => void;
+  /** @deprecated Renamed to `onDialogueComplete` (ticket 55); removed in the
+   *  release after the one that ships this alias. */
   onStoryEnd?: (info: { variables: Readonly<Record<string, unknown>>; storyEnd: true }) => void;
   // Typing animation options
   enableTypingAnimation?: boolean;
   typingSpeed?: number;
   showTypingCursor?: boolean;
   cursorCharacter?: string;
-  // Auto-advance after typing completes
+  // Auto-continue after typing completes
+  autoContinueAfterTyping?: boolean;
+  autoContinueDelay?: number; // Delay in ms after typing completes before auto-continuing
+  // Pause before continuing
+  pauseBeforeContinue?: number; // Delay in ms before continuing when clicking (0 = no pause)
+  /** @deprecated Renamed to `autoContinueAfterTyping` (ticket 55); removed in
+   *  the release after the one that ships this alias. */
   autoAdvanceAfterTyping?: boolean;
-  autoAdvanceDelay?: number; // Delay in ms after typing completes before auto-advancing
-  // Pause before advance
-  pauseBeforeAdvance?: number; // Delay in ms before advancing when clicking (0 = no pause)
+  /** @deprecated Renamed to `autoContinueDelay` (ticket 55); removed in the
+   *  release after the one that ships this alias. */
+  autoAdvanceDelay?: number;
+  /** @deprecated Renamed to `pauseBeforeContinue` (ticket 55); removed in the
+   *  release after the one that ships this alias. */
+  pauseBeforeAdvance?: number;
 }
 
 export function DialogueView({
@@ -39,19 +53,29 @@ export function DialogueView({
   actorTransitionDuration = 350,
   functions,
   variables,
+  onDialogueComplete,
   onStoryEnd,
   enableTypingAnimation = false,
   typingSpeed = 50, // Characters per second (50 cps = ~20ms per character)
   showTypingCursor = true,
   cursorCharacter = "|",
-  autoAdvanceAfterTyping = false,
-  autoAdvanceDelay = 500,
-  pauseBeforeAdvance = 0,
+  autoContinueAfterTyping,
+  autoContinueDelay,
+  pauseBeforeContinue,
+  autoAdvanceAfterTyping,
+  autoAdvanceDelay,
+  pauseBeforeAdvance,
 }: DialogueViewProps) {
-  const { result, advance, selectOption } = useDialogue(program, {
+  // Deprecated names fold into the new ones (new name wins).
+  const autoContinue = autoContinueAfterTyping ?? autoAdvanceAfterTyping ?? false;
+  const continueDelay = autoContinueDelay ?? autoAdvanceDelay ?? 500;
+  const clickPause = pauseBeforeContinue ?? pauseBeforeAdvance ?? 0;
+
+  const { result, continue: continueDialogue, selectOption } = useDialogue(program, {
     startAt: startNode,
     functions,
     variables,
+    onDialogueComplete,
     onStoryEnd,
   });
 
@@ -70,15 +94,15 @@ export function DialogueView({
   const [typingComplete, setTypingComplete] = useState(false);
   const [currentTextKey, setCurrentTextKey] = useState(0);
   const [skipTyping, setSkipTyping] = useState(false);
-  const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const continueTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!result || result.type !== "command") {
       return;
     }
-    const timer = setTimeout(() => advance(), 50);
+    const timer = setTimeout(() => continueDialogue(), 50);
     return () => clearTimeout(timer);
-  }, [result, advance]);
+  }, [result, continueDialogue]);
 
   // Reset typing completion when text changes
   useEffect(() => {
@@ -87,29 +111,29 @@ export function DialogueView({
       setSkipTyping(false);
       setCurrentTextKey((prev) => prev + 1); // Force re-render of TypingText
     }
-    // Cleanup any pending advance timeouts when text changes
+    // Cleanup any pending continue timeouts when text changes
     return () => {
-      if (advanceTimeoutRef.current) {
-        clearTimeout(advanceTimeoutRef.current);
-        advanceTimeoutRef.current = null;
+      if (continueTimeoutRef.current) {
+        clearTimeout(continueTimeoutRef.current);
+        continueTimeoutRef.current = null;
       }
     };
   }, [result?.type === "text" ? result.text : null]);
 
-  // Handle auto-advance after typing completes
+  // Handle auto-continue after typing completes
   useEffect(() => {
     if (
-      autoAdvanceAfterTyping &&
+      autoContinue &&
       typingComplete &&
       result?.type === "text" &&
       !result.isDialogueEnd
     ) {
       const timer = setTimeout(() => {
-        advance();
-      }, autoAdvanceDelay);
+        continueDialogue();
+      }, continueDelay);
       return () => clearTimeout(timer);
     }
-  }, [autoAdvanceAfterTyping, typingComplete, result, advance, autoAdvanceDelay]);
+  }, [autoContinue, typingComplete, result, continueDialogue, continueDelay]);
 
   if (!result) {
     return (
@@ -126,26 +150,26 @@ export function DialogueView({
     const handleClick = () => {
       if (result.isDialogueEnd) return;
       
-      // If typing is in progress, skip it; otherwise advance
+      // If typing is in progress, skip it; otherwise continue
       if (enableTypingAnimation && !typingComplete) {
         // Skip typing animation
         setSkipTyping(true);
         setTypingComplete(true);
       } else {
         // Clear any pending timeout
-        if (advanceTimeoutRef.current) {
-          clearTimeout(advanceTimeoutRef.current);
-          advanceTimeoutRef.current = null;
+        if (continueTimeoutRef.current) {
+          clearTimeout(continueTimeoutRef.current);
+          continueTimeoutRef.current = null;
         }
 
-        // Apply pause before advance if configured
-        if (pauseBeforeAdvance > 0) {
-          advanceTimeoutRef.current = setTimeout(() => {
-            advance();
-            advanceTimeoutRef.current = null;
-          }, pauseBeforeAdvance);
+        // Apply pause before continuing if configured
+        if (clickPause > 0) {
+          continueTimeoutRef.current = setTimeout(() => {
+            continueDialogue();
+            continueTimeoutRef.current = null;
+          }, clickPause);
         } else {
-          advance();
+          continueDialogue();
         }
       }
     };
@@ -217,7 +241,7 @@ export function DialogueView({
     );
   }
 
-  // Command result - auto-advance
+  // Command result - auto-continue
   if (result.type === "command") {
     return (
       <div className="yd-container">

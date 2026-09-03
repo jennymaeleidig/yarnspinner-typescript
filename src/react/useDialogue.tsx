@@ -22,18 +22,19 @@ export type UseYarnRunnerResult = UseDialogueResult;
  *
  * The `Dialogue` delivers batches of events; this hook reduces them into a
  * single user-facing view state:
- * - `line` events stop the reduction (the view waits for a click to advance).
+ * - `line` events stop the reduction (the view waits for a click to continue).
  * - `options` events stop the reduction (the view waits for `selectOption`).
  * - `command` events stop the reduction too, so the view can flash them
- *   briefly; the next `advance()` resumes from the buffered batch.
- * - `dialogueComplete` clears the view and fires `onStoryEnd` (after commit).
+ *   briefly; the next `continue()` resumes from the buffered batch.
+ * - `dialogueComplete` clears the view and fires `onDialogueComplete` (after
+ *   commit).
  * - `nodeStart`/`nodeComplete`/`lineHints` are lifecycle events and flow
  *   through silently; the current node's `scene:` header is attached to
  *   every view state (the old per-result `scene` field, adapter-side now).
  *
  * The dialogue is created and first reduced synchronously during render (the
  * React "adjust state when props change" pattern) so server-side rendering
- * shows the opening line; `advance`/`selectOption` re-reduce from event
+ * shows the opening line; `continue`/`selectOption` re-reduce from event
  * handlers and bump a counter to re-render.
  */
 
@@ -58,17 +59,42 @@ export type DialogueViewResult =
   | { type: "options"; options: DialogueViewOption[]; scene?: string }
   | { type: "command"; command: string; scene?: string };
 
+/** The `onDialogueComplete` payload: the story variables at completion
+ *  (upstream `DialogueComplete`). */
+export interface DialogueCompleteInfo {
+  variables: Readonly<Record<string, unknown>>;
+  dialogueComplete: true;
+}
+
+/** @deprecated Renamed to `DialogueCompleteInfo` (ticket 55); removed in the
+ *  release after the one that ships this alias. */
+export interface StoryEndInfo {
+  variables: Readonly<Record<string, unknown>>;
+  storyEnd: true;
+}
+
 export interface UseDialogueOptions {
   startAt?: string;
   functions?: Record<string, YarnFunction>;
   /** Initial host variable values, seeded into storage before the first event. */
   variables?: Record<string, unknown>;
-  onStoryEnd?: (info: { variables: Readonly<Record<string, unknown>>; storyEnd: true }) => void;
+  /** Fired after commit when the dialogue completes (the `DialogueComplete`
+   *  event, glossary). Takes precedence over the deprecated `onStoryEnd`. */
+  onDialogueComplete?: (info: DialogueCompleteInfo) => void;
+  /** @deprecated Renamed to `onDialogueComplete` (ticket 55); removed in the
+   *  release after the one that ships this alias. Used only when
+   *  `onDialogueComplete` is absent, with this option's original payload. */
+  onStoryEnd?: (info: StoryEndInfo) => void;
 }
 
 export interface UseDialogueResult {
   result: DialogueViewResult | null;
-  /** Advance past the current line or command (no-op while awaiting a selection). */
+  /** Continue past the current line or command (no-op while awaiting a
+   *  selection) — glossary "Continue", the adapter-side counterpart of
+   *  `Dialogue.continue()`. */
+  continue: () => void;
+  /** @deprecated Renamed to `continue` (ticket 55) — the same function;
+   *  removed in the release after the one that ships this alias. */
   advance: () => void;
   /** Select a delivered option by its index (upstream `Dialogue.SetSelectedOption`). */
   selectOption: (index: number) => void;
@@ -115,8 +141,8 @@ export function useDialogue(
   const dialogueRef = useRef<Dialogue | null>(null);
   const queueRef = useRef<DialogueEvent[]>([]);
   const awaitingSelectionRef = useRef(false);
-  const storyEndFiredRef = useRef(false);
-  const storyEndPendingRef = useRef(false);
+  const dialogueCompleteFiredRef = useRef(false);
+  const dialogueCompletePendingRef = useRef(false);
   const viewRef = useRef<DialogueViewResult | null>(null);
   const programRef = useRef(program);
   const optionsRef = useRef(options);
@@ -164,12 +190,12 @@ export function useDialogue(
             scene: dialogue.currentScene,
           };
         case "command":
-          // Surfaced briefly; the view's auto-advance effect calls advance().
+          // Surfaced briefly; the view's auto-continue effect calls continue().
           return { type: "command", command: event.command, scene: dialogue.currentScene };
         case "dialogueComplete":
-          if (!storyEndFiredRef.current) {
-            storyEndFiredRef.current = true;
-            storyEndPendingRef.current = true; // fired after commit (see effect below)
+          if (!dialogueCompleteFiredRef.current) {
+            dialogueCompleteFiredRef.current = true;
+            dialogueCompletePendingRef.current = true; // fired after commit (see effect below)
           }
           return null;
         case "nodeStart":
@@ -199,24 +225,30 @@ export function useDialogue(
     dialogueRef.current = dialogue;
     queueRef.current = [];
     awaitingSelectionRef.current = false;
-    storyEndFiredRef.current = false;
-    storyEndPendingRef.current = false;
+    dialogueCompleteFiredRef.current = false;
+    dialogueCompletePendingRef.current = false;
     programRef.current = program;
     optionsRef.current = options;
     viewRef.current = reduceView();
   }
 
-  // Fire onStoryEnd after commit, not during render.
+  // Fire onDialogueComplete after commit, not during render. The deprecated
+  // onStoryEnd keeps its original payload shape (exact alias: each name
+  // delivers what its type documents; the new name wins when both are given).
   useEffect(() => {
-    if (!storyEndPendingRef.current) return;
-    storyEndPendingRef.current = false;
-    optionsRef.current.onStoryEnd?.({
-      storyEnd: true,
-      variables: Object.freeze({ ...dialogueRef.current?.getVariables() }),
-    });
+    if (!dialogueCompletePendingRef.current) return;
+    dialogueCompletePendingRef.current = false;
+    const variables = Object.freeze({ ...dialogueRef.current?.getVariables() });
+    if (optionsRef.current.onDialogueComplete) {
+      optionsRef.current.onDialogueComplete({ dialogueComplete: true, variables });
+    } else {
+      optionsRef.current.onStoryEnd?.({ storyEnd: true, variables });
+    }
   });
 
-  const advance = useCallback(() => {
+  // `continue` is a reserved word, so the binding carries the glossary term
+  // with a suffix; the property name is exactly `continue`.
+  const continueDialogue = useCallback(() => {
     if (awaitingSelectionRef.current) return;
     viewRef.current = reduceView();
     bump();
@@ -236,7 +268,8 @@ export function useDialogue(
 
   return {
     result: viewRef.current,
-    advance,
+    continue: continueDialogue,
+    advance: continueDialogue,
     selectOption,
     dialogue: dialogueRef.current as Dialogue,
   };

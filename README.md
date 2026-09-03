@@ -19,7 +19,7 @@ TypeScript parser, compiler, and runtime for Yarn Spinner 3.x with React adapter
 * ✅ Runtime with `Dialogue` class (pull-based event stream)
 * ✅ React hook: `useDialogue()`
 * ✅ React components: `<DialogueView />`, `<DialogueScene />`, `<DialogueExample />`
-* ✅ Typing animation with configurable speeds, cursor styles, and auto-advance controls
+* ✅ Typing animation with configurable speeds, cursor styles, and auto-continue controls
 * ✅ Markup parsing with HTML formatting tags and CSS-ready spans
 * ✅ Expression evaluator for conditions
 * ✅ Command system with built-in handlers (`<<set>>`, `<<declare>>`, etc.)
@@ -142,18 +142,14 @@ function MyDialogue() {
     return parseScenes(sceneYamlText);
   });
 
-  const { result, advance } = useDialogue(program, {
+  const { result, continue: continueDialogue, selectOption } = useDialogue(program, {
     startAt: "Start",
     variables: { score: 10 },
   });
 
-  return (
-    <DialogueView 
-      result={result} 
-      onAdvance={advance}
-      scenes={scenes}
-    />
-  );
+  // `continue` is a reserved word, so destructure it under a local name.
+  // Prefer the ready-to-use component? It takes the program directly:
+  return <DialogueView program={program} scenes={scenes} />;
 }
 ```
 
@@ -288,8 +284,10 @@ Loads upstream-style `.yarnproject` files (format v4, legacy v2 accepted; schema
 ### React Components
 
 * `useDialogue(program: Program, options?: UseDialogueOptions)` — React hook over `Dialogue`
-  * Returns: `{ result: DialogueViewResult | null, advance: () => void, selectOption: (index: number) => void, dialogue: Dialogue }`
-* `<DialogueView result={...} onAdvance={...} onStoryEnd={...} scenes={...} />` — Ready-to-use dialogue component; disables unavailable option buttons and fires `onStoryEnd` once on dialogue completion
+  * Returns: `{ result: DialogueViewResult | null, continue: () => void, selectOption: (index: number) => void, dialogue: Dialogue }` (`continue` is a reserved word — destructure it under a local name)
+  * Options: `startAt`, `functions`, `variables`, `onDialogueComplete` (fired once on dialogue completion, with the story variables; deprecated alias: `onStoryEnd`)
+  * Deprecated aliases: `advance` (same function as `continue`)
+* `<DialogueView program={...} startNode={...} scenes={...} onDialogueComplete={...} />` — Ready-to-use dialogue component; disables unavailable option buttons and fires `onDialogueComplete` once on dialogue completion (deprecated prop aliases: `onStoryEnd`, `autoAdvanceAfterTyping`/`autoAdvanceDelay`/`pauseBeforeAdvance` → `autoContinueAfterTyping`/`autoContinueDelay`/`pauseBeforeContinue`)
 * `<DialogueScene sceneName={...} speaker={...} scenes={...} actorTransitionDuration={...} /> — Scene background, actor display, and portrait transitions` — Scene background and actor display
 * `<DialogueExample />` — Full example with editor
 
