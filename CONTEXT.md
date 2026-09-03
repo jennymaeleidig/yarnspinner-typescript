@@ -60,6 +60,8 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 - **Virtual machine**: the instruction-stack executor inside `Dialogue` that runs the compiled **instruction-stream program** (upstream `VirtualMachine`); its public surface is `Dialogue` — consumers never drive the machine directly.
 - **Dialogue event**: the unit of runtime output — `Line`, `Options`, `Command`, `NodeStart`, `NodeComplete`, `LineHints`, `DialogueComplete`.
 - **Continue**: the pull operation returning the events up to the next stopping point.
+- **Option-selection pending**: a delivered option set awaits selection — `Dialogue.isWaitingForOptionSelection` (Rust `is_waiting_for_option_selection`, same name); `continue()` while pending logs a diagnostic and returns no events (the recorded divergence — upstream throws/errs).
+- **Complete**: `Dialogue.isComplete` — a `DialogueComplete` event has been **delivered** (recorded project extension; upstream completion is push-only). Answers "did the story finish?", not "is it done being used?": `stop()` makes the dialogue inactive without completing it — its complete event still delivers on the next `continue()`; `setNode` resets it for a fresh run.
 - **No-option-selected**: the sentinel option selection that falls through when all options are unavailable.
 - **Variable storage**: pluggable store for all dialogue state — story variables and generated variables alike — with an in-memory default; resettable as a whole, and the persistence seam (a host implementation carries state across sessions).
 - **Generated variable**: internal state (once-state, visit tracking, saliency history) stored in variable storage so it resets with it — never module globals.

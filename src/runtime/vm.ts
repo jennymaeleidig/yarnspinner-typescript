@@ -264,25 +264,15 @@ export class VirtualMachine {
     return !this.completed;
   }
 
-  /**
-   * A delivered option set awaits selection (Rust
-   * `is_waiting_for_option_selection`, whose doc states the use case: "if
-   * this is true, calling `continue_` will error"). `false` before the
-   * first `continue()`; here `continue()` logs and returns no events (the
-   * recorded divergence — upstream throws/errs).
-   */
+  /** A delivered option set awaits selection (Rust
+   *  `is_waiting_for_option_selection`); `continue()` logs and returns no
+   *  events while true (the recorded divergence). */
   get isWaitingForOptionSelection(): boolean {
     return this.pendingOptions !== null;
   }
 
-  /**
-   * A `DialogueComplete` event has been delivered to the consumer (recorded
-   * project extension — upstream completion is push-only). Answers "did the
-   * story finish?", not "is it done being used?": `stop()` completes the
-   * machine but its complete event rides queued until the next `continue()`
-   * delivers it, so `stop()` alone does not set this; `setNode` resets it
-   * for a fresh run.
-   */
+  /** A `DialogueComplete` event has been delivered; the contract lives on
+   *  `Dialogue.isComplete` (the public surface). */
   get isComplete(): boolean {
     return this.completeDelivered;
   }

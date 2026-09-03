@@ -189,8 +189,9 @@ export function useDialogue(
     for (;;) {
       if (queueRef.current.length === 0) {
         // At rest the queue is always empty (the runtime stops each batch at
-        // exactly one user-facing event), so the dialogue's own state answers
-        // "is the surfaced view an awaiting option set".
+        // exactly one stopping point; lifecycle events ride along), so the
+        // dialogue's own state answers "is the surfaced view an awaiting
+        // option set".
         if (dialogue.isWaitingForOptionSelection) return viewRef.current; // needs a selection first
         const batch = dialogue.continue();
         if (batch.length === 0) {
