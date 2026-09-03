@@ -25,7 +25,7 @@ Mae: hi
   strictEqual(decl?.description, "How many times the player has visited the shop");
 });
 
-test("consecutive /// lines join with newlines", () => {
+test("consecutive /// lines join with a space, both ends trimmed (upstream join)", () => {
   const result = compileSource(`
 title: Start
 ---
@@ -35,7 +35,22 @@ title: Start
 ===
 `);
   const decl = result.declarations.find((d) => d.name === "gold");
-  strictEqual(decl?.description, "The player's gold.\nSpent at shops.");
+  strictEqual(decl?.description, "The player's gold. Spent at shops.");
+});
+
+test("a /// at the end of a block attaches to the declare after it (upstream stream-global collection)", () => {
+  const result = compileSource(`
+title: Start
+---
+<<if true>>
+    Mae: inside
+    /// documented across the boundary
+<<endif>>
+<<declare $after = 1>>
+===
+`);
+  const decl = result.declarations.find((d) => d.name === "after");
+  strictEqual(decl?.description, "documented across the boundary");
 });
 
 test("a /// comment above a non-declare statement is dropped, not leaked", () => {

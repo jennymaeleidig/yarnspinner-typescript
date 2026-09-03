@@ -313,8 +313,11 @@ class Parser {
   /**
    * Pending `///` documentation comment lines (spec story 47): collected
    * while skipping comment lines, attached to the next `<<declare>>` the
-   * parser builds (upstream Declaration.Description), dropped elsewhere.
-   * One parser instance parses a whole file, so node boundaries clear it.
+   * parser builds (upstream `Declaration.Description`; upstream's
+   * doc-comment collection is stream-global — the next declaration wins
+   * even across `<<if>>`/line-group boundaries), dropped when no
+   * declaration follows. One parser instance parses a whole file, so node
+   * boundaries clear it.
    */
   private pendingDocComment: string[] = [];
 
@@ -325,9 +328,10 @@ class Parser {
     if (!(this.at("TEXT") && this.peek().text.trimStart().startsWith("//"))) return false;
     const line = this.peek().text.trimStart();
     if (line.startsWith("///")) {
-      // Upstream documentation comment: `///` + optional one space, then the
-      // description text verbatim; consecutive lines join with newlines.
-      this.pendingDocComment.push(line.replace(/^\/\/\/ ?/, "").trimEnd());
+      // Upstream documentation comment: `///` prefix removed, both ends
+      // trimmed (upstream Trim), the text verbatim; consecutive lines join
+      // with a space at take time (upstream joins with " ").
+      this.pendingDocComment.push(line.replace(/^\/\/\/ ?/, "").trim());
     }
     this.i++;
     return true;
@@ -336,7 +340,7 @@ class Parser {
   /** Take the pending documentation comment (if any). */
   private takeDocComment(): string | undefined {
     if (this.pendingDocComment.length === 0) return undefined;
-    const joined = this.pendingDocComment.join("\n");
+    const joined = this.pendingDocComment.join(" ");
     this.pendingDocComment = [];
     return joined;
   }

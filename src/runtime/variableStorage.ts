@@ -8,9 +8,10 @@
  * `entries()` to its store (save) and re-injects a pre-populated storage
  * into a fresh `Dialogue` (load). Declare-default seeding skips names the
  * injected storage already holds, so restored values survive construction
- * (upstream `Dialogue` seeds `Program.InitialValues` into the host's
- * variable storage the same way — the storage, not the runtime, owns
- * persistence).
+ * (upstream's observable contract: its store seeds nothing at construction
+ * and falls back to `Program` initial values at read time — a stored value
+ * wins, absent names get the declare default; our construction-time seeding
+ * is the equivalent contract).
  *
  * Keys are bare variable names (no `$` prefix), matching
  * `Dialogue.getVariable`/`setVariable`; generated keys carry the reserved

@@ -48,6 +48,15 @@ and lint green. Slice-sized PRs welcome — one validation family at a time;
 no batch "make the fixtures fail" passes (coding standards §1: upstream is
 the source of truth for each code and message).
 
+Parity-completeness items (no vendored fixture covers them; found by the
+final review pass, 2026-09-03):
+
+- A bare `<<call>>` (no call expression) compiles with zero diagnostics;
+  upstream's grammar requires a call expression there.
+- A same-line trailing `///` after a declaration (upstream
+  `allowCommentsAfter`, Compiler.cs) is silently dropped here; upstream
+  attaches it to the declaration.
+
 ## Comments
 
 ### 2026-09-03 — multi-stage review
