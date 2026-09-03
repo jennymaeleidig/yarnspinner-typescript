@@ -1,33 +1,39 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useReducer, useRef } from "react";
 import { Dialogue, noOptionSelected } from "yarn-spinner-runner-ts";
-import type { DialogueEvent, DialogueOption, Program } from "yarn-spinner-runner-ts";
+import type { Diagnostic, DialogueEvent, DialogueOption, Program } from "yarn-spinner-runner-ts";
 
 /**
  * The Next.js host's client component (yarn-project-support ticket 04):
  * `Dialogue`'s pull-based continue loop runs natively in a client component.
- * The only prop is the compiled program — the serializable artifact (ADR
- * 0001) the server component handed across the React Server Component
- * boundary. This module imports the package's main entry, which is
- * browser-safe by construction (coding standard §2): no Node APIs in the
- * client path; file access lives entirely in the server component's loader
- * call.
+ * The server component hands over the compiled program — the serializable
+ * artifact (ADR 0001) — plus loader context (project name, resolved sources,
+ * structured diagnostics). This module imports the package's main entry,
+ * which is browser-safe by construction (coding standard §2): no Node APIs
+ * in the client path; file access lives entirely in the server component's
+ * loader call.
  *
  * Variable-storage reset: every variable — story variables, once-state,
  * visit counts — lives in the Dialogue's storage (coding standard §4), so
  * Reset discards the instance and the next dialogue is born fresh: the
  * `<<declare>>` seeds reapply and the story replays from the top.
+ *
+ * Render-time adjustment follows the in-package adapter's house pattern
+ * (useYarnRunner): the dialogue is created and its first batch pulled
+ * synchronously behind an idempotent ref guard — SSR markup is correct, and
+ * StrictMode's double render hits the closed guard on pass two and changes
+ * nothing.
  */
 
 export interface DialogueHostProps {
-  /** The compiled program from the server-side `loadProject()` call. */
+  /** The compiled program from the server-side `loadYarnProject()` call. */
   program: Program;
   projectName?: string;
   /** The source files the loader resolved — surfaced like `listSources()`. */
   sources: string[];
-  /** Loader diagnostics (warnings ride along; errors never reach here). */
-  diagnostics: string[];
+  /** Structured loader diagnostics (warnings ride along; errors never reach here). */
+  diagnostics: Diagnostic[];
 }
 
 interface DeliveredLine {
@@ -43,10 +49,10 @@ interface Transcript {
   ended: boolean;
 }
 
-const EMPTY_TRANSCRIPT: Transcript = { lines: [], options: null, ended: false };
+const EMPTY_TRANSCRIPT: Transcript = Object.freeze({ lines: [], options: null, ended: false });
 
 /** Pull one `continue()` batch from `dialogue` and merge it into `prior`. */
-function pump(dialogue: Dialogue, prior: Transcript): Transcript {
+function pull(dialogue: Dialogue, prior: Transcript): Transcript {
   const batch: DialogueEvent[] = dialogue.continue();
   const lines = [...prior.lines];
   let options = prior.options;
@@ -70,63 +76,69 @@ export default function DialogueHost({
   diagnostics,
 }: DialogueHostProps) {
   const dialogueRef = useRef<Dialogue | null>(null);
+  const transcriptRef = useRef<Transcript>(EMPTY_TRANSCRIPT);
+  const [, bump] = useReducer((n: number) => n + 1, 0);
 
-  // The first pull runs during the initial render — on the server too — so
-  // the opening line is in the SSR output (the ticket-52 demo-harness shape).
-  const [transcript, setTranscript] = useState<Transcript>(() => {
+  // Render-time adjustment (the useYarnRunner house pattern): create the
+  // dialogue and synchronously pull its first batch, so the opening line is
+  // in the initial markup — on the server too. Idempotent per mount.
+  if (dialogueRef.current === null) {
     const d = new Dialogue(program);
     dialogueRef.current = d;
-    return pump(d, EMPTY_TRANSCRIPT);
-  });
-  const [variables, setVariables] = useState<Record<string, unknown>>({});
-
-  const syncVariables = useCallback((d: Dialogue) => {
-    setVariables({ ...d.getVariables() });
-  }, []);
+    transcriptRef.current = pull(d, EMPTY_TRANSCRIPT);
+  }
 
   /** One pull of the loop: deliver the next batch (line, options, or end). */
   const onContinue = useCallback(() => {
     const d = dialogueRef.current;
-    if (!d || transcript.ended || transcript.options !== null) return;
-    setTranscript((t) => pump(d, t));
-    syncVariables(d);
-  }, [transcript.ended, transcript.options, syncVariables]);
+    const t = transcriptRef.current;
+    if (!d || t.ended || t.options !== null) return;
+    transcriptRef.current = pull(d, t);
+    bump();
+  }, []);
 
   /** Resume a delivered option set: select, then pull through its body. */
-  const onOption = useCallback(
-    (index: number) => {
-      const d = dialogueRef.current;
-      if (!d) return;
-      d.selectOption(index);
-      setTranscript((t) => pump(d, { ...t, options: null }));
-      syncVariables(d);
-    },
-    [syncVariables],
-  );
+  const onOption = useCallback((index: number) => {
+    const d = dialogueRef.current;
+    if (!d) return;
+    d.selectOption(index);
+    transcriptRef.current = pull(d, { ...transcriptRef.current, options: null });
+    bump();
+  }, []);
 
   /** Variable-storage reset (coding standards §4): a fresh Dialogue is a
    *  fresh storage — declares reseed, once-state and visit counts clear. */
   const onReset = useCallback(() => {
     const d = new Dialogue(program);
     dialogueRef.current = d;
-    setTranscript(pump(d, EMPTY_TRANSCRIPT));
-    syncVariables(d);
-  }, [program, syncVariables]);
+    transcriptRef.current = pull(d, EMPTY_TRANSCRIPT);
+    bump();
+  }, [program]);
+
+  const transcript = transcriptRef.current;
+  const variables = dialogueRef.current ? { ...dialogueRef.current.getVariables() } : {};
 
   return (
     <main style={{ maxWidth: 760, margin: "0 auto", padding: "32px 20px 60px" }}>
       <header style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, margin: "0 0 6px" }}>
-          {projectName ?? "Yarn project"} <span style={{ color: "#9aa0b5", fontWeight: 400 }}>— Next.js host</span>
+          {projectName ?? "Yarn project"}{" "}
+          <span style={{ color: "#9aa0b5", fontWeight: 400 }}>— Next.js host</span>
         </h1>
         <p style={{ color: "#9aa0b5", fontSize: 13, margin: 0 }}>
-          Loaded server-side via <code style={codeStyle}>loadProject()</code> ({sources.length} source
-          {sources.length === 1 ? "" : "s"}: {sources.join(", ")}); the compiled program crossed the
-          RSC boundary as a plain serializable object.
+          Loaded server-side via <code style={codeStyle}>loadYarnProject()</code> ({sources.length}{" "}
+          source{sources.length === 1 ? "" : "s"}: {sources.join(", ")}); the compiled program
+          crossed the RSC boundary as a plain serializable object.
         </p>
         {diagnostics.length > 0 && (
           <p style={{ color: "#e0b050", fontSize: 13, margin: "6px 0 0" }}>
-            Loader diagnostics: {diagnostics.join(" · ")}
+            Loader diagnostics:{" "}
+            {diagnostics.map((d, i) => (
+              <span key={i}>
+                {i > 0 && " · "}
+                <code style={codeStyle}>{d.code}</code> {d.message}
+              </span>
+            ))}
           </p>
         )}
       </header>

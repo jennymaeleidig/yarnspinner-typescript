@@ -12,7 +12,10 @@
  * `examples/nextjs-host/content/` files are the single source of truth,
  * loaded through the same server-side path the host's page uses. The SSR
  * pattern mirrors the ticket-52 demo harness (renderToStaticMarkup over the
- * first pull).
+ * first pull). Two disclosed §6 trade-offs, both precedent-backed: the test
+ * imports `nodeProjectFs` from its internal path (ticket 02's
+ * yarnProject.test.ts does the same) and asserts bundle-safety on the built
+ * artifacts — client-path purity cannot be asserted behaviorally.
  */
 
 import { test } from "node:test";
@@ -61,10 +64,14 @@ test("the compiled program is serializable across the RSC boundary", () => {
 test("the client bundle's main entry carries no Node builtins (§2)", () => {
   // DialogueHost imports the package's main entry; the loader's Node access
   // lives only under the ./node subpath. The built artifacts prove the
-  // split: the main entry is node-free, the node subpath is where node:fs
-  // lives.
+  // split — both halves asserted: the main entry references no Node
+  // builtins (either specifier style), and the ./node bundle is where
+  // node:fs lives.
   const index = readFileSync(DIST_INDEX, "utf8");
   assert.ok(!index.includes("node:"), "dist/index.js must not reference node: builtins");
+  assert.ok(!/\brequire\(["']fs["']\)/.test(index), "dist/index.js must not require fs");
+  const nodeSubpath = readFileSync(join(HERE, "..", "..", "dist", "compile", "nodeProjectFs.js"), "utf8");
+  assert.ok(nodeSubpath.includes("node:fs"), "the ./node subpath is where node:fs lives");
 });
 
 // ── SSR harness (mirrors the ticket-52 demo pattern over the first pull) ──

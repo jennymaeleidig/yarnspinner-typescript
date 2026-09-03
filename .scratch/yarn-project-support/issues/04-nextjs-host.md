@@ -55,3 +55,19 @@ Type: task
   DialogueComplete with variable assertions, reset replay, walk-on path,
   `noOptionSelected` fall-through. Suite 451/451, lint clean.
 - **Docs**: README Next.js Host section, `examples/nextjs-host/README.md`.
+- **Two-axis code review**: Standards 7 met / 0 missing; Spec 3 partial (CI
+  wiring is ticket 53's — same disclosure as ticket 52's demo:build; the SSR
+  test exercises the first pull through a mirrored harness since tests
+  compile from src only; the node-free assertion now checks both halves and
+  both specifier styles), 0 missing. Resolutions: the client component's
+  render-time adjustment now follows the useYarnRunner house pattern exactly
+  (idempotent ref guard; StrictMode's double render is a no-op) instead of
+  an impure useState initializer; diagnostics cross the RSC boundary
+  structured, not string-flattened; the UI text says `loadYarnProject()`
+  (what the page calls); `pump` renamed `pull` (glossary: Continue is the
+  pull operation); `EMPTY_TRANSCRIPT` frozen; the §6 trade-offs (internal
+  nodeProjectFs import per ticket-02 prior art; built-artifact grep for
+  bundle safety, which has no behavioral seam) disclosed in the test header.
+  Not acted on: lockfile churn (npm pruned stale vitest/chai entries while
+  adding next), the content's two-branch flow (one flow, as asked — branches
+  demonstrate the loop).

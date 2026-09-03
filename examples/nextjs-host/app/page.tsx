@@ -50,7 +50,7 @@ export default function Page() {
       program={result.program}
       projectName={result.project?.projectName}
       sources={result.sources}
-      diagnostics={result.diagnostics.map((d) => `${d.code}: ${d.message}`)}
+      diagnostics={result.diagnostics}
     />
   );
 }
