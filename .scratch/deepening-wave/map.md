@@ -25,17 +25,17 @@ stays as-is and nothing here extends it.
 
 ## Tickets
 
-| Ticket | Status | Blocked by |
-|---|---|---|
-| [01 demo compiles through the public seam](issues/01-demo-public-compile.md) | resolved | — |
-| [02 Dialogue state queries + mirror collapse](issues/02-dialogue-state-queries.md) | resolved | — |
-| [03 event-reduction module (Transcript)](issues/03-event-reduction.md) | resolved | 02 |
-| [04 dead state out, one continue scheduler](issues/04-continue-scheduler.md) | resolved | 03 |
-| [05 useDialogue config/live split](issues/05-hook-config-live-split.md) | resolved | 04 |
-| [06 single-source the view props](issues/06-view-props-extends.md) | resolved | 05 |
-| [07 scene on NodeStartEvent; js-yaml leaves](issues/07-scene-node-start.md) | resolved | 04 |
-| [08 localisation folded into loadProject](issues/08-loader-localisations.md) | open | — |
-| [09 compileDocument demoted to internal](issues/09-compile-document-internal.md) | open | 01 |
+| Ticket                                                                             | Status                                                    | Blocked by |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------------- | ---------- |
+| [01 demo compiles through the public seam](issues/01-demo-public-compile.md)       | resolved                                                  | —          |
+| [02 Dialogue state queries + mirror collapse](issues/02-dialogue-state-queries.md) | resolved                                                  | —          |
+| [03 event-reduction module (Transcript)](issues/03-event-reduction.md)             | resolved                                                  | 02         |
+| [04 dead state out, one continue scheduler](issues/04-continue-scheduler.md)       | resolved                                                  | 03         |
+| [05 useDialogue config/live split](issues/05-hook-config-live-split.md)            | resolved                                                  | 04         |
+| [06 single-source the view props](issues/06-view-props-extends.md)                 | resolved                                                  | 05         |
+| [07 scene on NodeStartEvent; js-yaml leaves](issues/07-scene-node-start.md)        | resolved                                                  | 04         |
+| [08 localisation folded into loadProject](issues/08-loader-localisations.md)       | open                                                      | —          |
+| [09 compileDocument demoted to internal](issues/09-compile-document-internal.md)   | open — issue file deleted in the working tree (see Notes) | 01         |
 
 ## Decisions so far
 
@@ -124,7 +124,7 @@ From the grilling session (2026-09-03), binding on every ticket:
   the scene name travels one channel — `NodeStartEvent.scene?` →
   `Transcript.scene` (carried forward across scene-less nodes) → the hook's
   `sceneName`; per-result stamping and the view-result `scene` fields
-gone; `Dialogue.currentScene`/`VM.currentScene`/`RuntimeDriver.currentScene`
+  gone; `Dialogue.currentScene`/`VM.currentScene`/`RuntimeDriver.currentScene`
   deleted as the second channel (hard break); the mismatch seam is host-side
   at node start (two transcript pins); `parseScenes` moved verbatim to
   `examples/browser/scenes.ts` (the demo owns its YAML and parse failures),
@@ -159,6 +159,13 @@ recorded here so future explorers don't re-derive or re-suggest it:
   resolutions (stories 39/4/7/47) — listed here only to close the loop;
   see `docs/compatibility.md` and the ys32-parity-impl tracker map entry
   for the wave.
+- **Ticket 09's issue file is deleted, uncommitted**: a concurrent session
+  removed `issues/09-compile-document-internal.md` from the working tree
+  (alongside in-progress `future-work.md` cleanup) but has not landed any
+  resolution — no Answer, no commit. The row above stays `open` and the
+  file's content is recoverable from git history until that session lands
+  its intent; do not re-claim, re-create, or resolve 09 from here —
+  reconcile this row when their work lands.
 - **`tmp-react-vars.mjs`** (repo root, tracked in git): pre-parity scratch
   already importing retired API (`dist/runtime/runner.js`,
   `currentResult`, `advance()`, `res.isDialogueEnd`) — cannot run against
