@@ -1,10 +1,16 @@
 /**
+ * The browser demo's scene configuration parser (deepening-wave ticket 07):
+ * moved verbatim out of the package, where `parseScenes` was the library's
+ * only js-yaml consumer and its only throwing + console.error-ing parser
+ * (violating coding standards §2/§3). The parsed `SceneCollection` is host
+ * input; the demo host owns the YAML and its parse failures.
+ *
  * Scene configuration parser using js-yaml
  * Supports YAML string or plain object
  */
 
 import yaml from "js-yaml";
-import type { SceneCollection, SceneConfig, ActorConfig } from "./types.js";
+import type { SceneCollection, SceneConfig, ActorConfig } from "../../src/scene/types.js";
 
 /**
  * Parse scene configuration from YAML string or object
@@ -27,7 +33,7 @@ export function parseScenes(input: string | Record<string, unknown>): SceneColle
 
 function parseScenesFromObject(obj: Record<string, unknown>): SceneCollection {
   const scenes: Record<string, SceneConfig> = {};
-  
+
   // Extract global actors if defined separately
   const globalActors: Record<string, ActorConfig> = {};
   if (typeof obj.actors === "object" && obj.actors !== null) {

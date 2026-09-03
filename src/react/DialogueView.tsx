@@ -92,9 +92,9 @@ export function DialogueView(props: DialogueViewProps) {
     }),
     [startAt, functions, variables, variableStorage, contentSaliencyStrategy, textProvider, lineHints],
   );
-  const { result, continue: continueDialogue, selectOption } = useDialogue(program, config, props);
+  const { result, sceneName: sceneNameFromHook, continue: continueDialogue, selectOption } = useDialogue(program, config, props);
 
-  const sceneName = result?.type === "text" || result?.type === "options" ? result.scene : undefined;
+  const sceneName = sceneNameFromHook;
   const speaker = result?.type === "text" ? result.speaker : undefined;
   const sceneCollection = scenes || { scenes: {} };
   const sceneElement = (

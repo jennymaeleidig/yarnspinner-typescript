@@ -2,8 +2,23 @@ import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { DialogueExample } from "../../src/react/DialogueExample.js";
 import { StoryletsDemo } from "./StoryletsDemo.js";
+import { parseScenes } from "./scenes.js";
 // Import CSS for dialogue system
 import "../../src/react/dialogue.css";
+
+// The demo host owns its scene YAML and the parser (deepening-wave ticket
+// 07 — the package ships no YAML scene parser); the parsed collection is
+// host input to `<DialogueExample />`.
+const DEFAULT_SCENES = `
+scenes:
+    scene1: https://i.pinimg.com/1200x/73/f6/86/73f686e3c62e5982055ce34ed5c331b9.jpg
+
+actors:
+    user: https://i.pinimg.com/1200x/d3/ed/cd/d3edcd8574301cf78f5e93ecca57e18b.jpg
+    Narrator: https://i.pinimg.com/1200x/ad/8d/f4/ad8df4186827c20ba5bdb98883e12262.jpg
+    npc: https://i.pinimg.com/1200x/81/12/1c/81121c69ef3e5bf657a7bacd9ff9d08e.jpg
+`;
+const DEMO_SCENES = parseScenes(DEFAULT_SCENES);
 
 const TABS = [
   { id: "dialogue", label: "Dialogue", blurb: "The visual-novel dialogue view on the pull-based runtime." },
@@ -50,7 +65,7 @@ function DemoShell() {
           ))}
         </nav>
         <p style={{ color: "#9aa0b5", fontSize: 13, margin: "0 0 16px" }}>{active?.blurb}</p>
-        {tab === "dialogue" ? <DialogueExample /> : <StoryletsDemo />}
+        {tab === "dialogue" ? <DialogueExample scenes={DEMO_SCENES} /> : <StoryletsDemo />}
       </div>
     </div>
   );

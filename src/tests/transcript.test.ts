@@ -327,3 +327,51 @@ Narrator: Hello
   assert.deepEqual(fromExplicit.transcript, fromDefault.transcript);
   assert.deepEqual(EMPTY_TRANSCRIPT, { lines: [], options: null, commands: [] } satisfies Transcript);
 });
+
+// ── scene on NodeStartEvent (deepening-wave ticket 07) ────────────────────
+
+test("a node's scene header lands on the transcript from its NodeStartEvent", () => {
+  const source = `
+title: Start
+scene: street
+---
+Narrator: Line one
+===
+`;
+  const result = runUntilStopped(makeDialogue(source));
+  assert.equal(result.transcript.scene, "street");
+});
+
+test("a scene-less node keeps the carried scene; a new header replaces it", () => {
+  const source = `
+title: Start
+scene: street
+---
+Narrator: Line one
+<<jump Next>>
+===
+
+title: Next
+---
+Narrator: Line two
+<<jump Last>>
+===
+
+title: Last
+scene: interior
+---
+Narrator: Line three
+===
+`;
+  const dialogue = makeDialogue(source);
+  const first = runUntilStopped(dialogue);
+  assert.equal(first.transcript.scene, "street");
+  const second = runUntilStopped(dialogue, first.transcript);
+  assert.equal(
+    second.transcript.scene,
+    "street",
+    "a scene-less node keeps the carried scene (the view keeps its last background)",
+  );
+  const third = runUntilStopped(dialogue, second.transcript);
+  assert.equal(third.transcript.scene, "interior", "a new header replaces the carried scene");
+});

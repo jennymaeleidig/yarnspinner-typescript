@@ -90,11 +90,6 @@ export class Dialogue {
     return this.engine.currentNode;
   }
 
-  /** The `scene:` header of the current node, if any (adapter-side concern). */
-  get currentScene(): string | undefined {
-    return this.engine.currentScene;
-  }
-
   /** Whether the dialogue is running a node (not yet completed). */
   get isActive(): boolean {
     return this.engine.isActive;

@@ -69,6 +69,10 @@ export interface CommandEvent {
 export interface NodeStartEvent {
   type: "nodeStart";
   nodeName: string;
+  /** The node's `scene:` header, when it declares one — the scene name's
+   *  one delivery channel (deepening-wave ticket 07; adapter-side, the
+   *  scene system is non-upstream). Absent when the node has no header. */
+  scene?: string;
 }
 
 export interface NodeCompleteEvent {
@@ -139,7 +143,6 @@ export interface DialogueOptions {
  */
 export interface RuntimeDriver {
   readonly currentNode: string | null;
-  readonly currentScene: string | undefined;
   readonly isActive: boolean;
   /** A delivered option set awaits selection (Rust `is_waiting_for_option_selection`). */
   readonly isWaitingForOptionSelection: boolean;

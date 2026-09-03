@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from "react";
 import { compileSource } from "../compile/compileSource.js";
 import { DialogueView } from "./DialogueView.js";
-import { parseScenes } from "../scene/parser.js";
 import type { SceneCollection } from "../scene/types.js";
+
+const EMPTY_SCENES: SceneCollection = { scenes: {} };
 
 const DEFAULT_YARN = `title: Start
 scene: scene1
@@ -33,16 +34,6 @@ Narrator: • Commands and functions
 Narrator: This is the end of the demo. Refresh to start again!
 ===`;
 
-const DEFAULT_SCENES = `
-scenes:
-    scene1: https://i.pinimg.com/1200x/73/f6/86/73f686e3c62e5982055ce34ed5c331b9.jpg
-  
-actors:
-    user: https://i.pinimg.com/1200x/d3/ed/cd/d3edcd8574301cf78f5e93ecca57e18b.jpg
-    Narrator: https://i.pinimg.com/1200x/ad/8d/f4/ad8df4186827c20ba5bdb98883e12262.jpg
-    npc: https://i.pinimg.com/1200x/81/12/1c/81121c69ef3e5bf657a7bacd9ff9d08e.jpg
-`;
-
 // The demo's host-provided variables, declared once: type feeds the
 // compile-time `declarations.variables`, value seeds the runtime `variables`
 // prop. One source so the two can't drift (YS0029 if a declaration is
@@ -52,18 +43,20 @@ const DEMO_VARIABLES = {
   reputation: { type: "number", value: 3 },
 } as const;
 
-export function DialogueExample() {
+/**
+ * The browser demo's dialogue tab. The scene YAML and its parser live with
+ * the demo host (`examples/browser`) — the package ships no YAML scene
+ * parser (deepening-wave ticket 07); the parsed `SceneCollection` is host
+ * input, like any other prop.
+ */
+export function DialogueExample({
+  scenes = EMPTY_SCENES,
+}: {
+  /** Pre-parsed scene/actor images; the demo host parses its own YAML. */
+  scenes?: SceneCollection;
+}) {
   const [yarnText] = useState(DEFAULT_YARN);
   const enableTypingAnimation = false;
-  
-  const scenes: SceneCollection = useMemo(() => {
-    try {
-      return parseScenes(DEFAULT_SCENES);
-    } catch (e) {
-      console.warn("Failed to parse scenes:", e);
-      return { scenes: {} };
-    }
-  }, []);
 
   // The compile seam (coding standards §3): problems come back as
   // diagnostics with the result, not as throws. The variables seeded at

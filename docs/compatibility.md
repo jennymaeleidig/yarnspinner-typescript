@@ -51,6 +51,13 @@ Parity here means the observable contract upstream's own test suite pins:
     upstream's own batch behaviour, re-delivered and pinned by
     `src/tests/transcript.test.ts` against the upstream semantics cited
     there (.NET `Dialogue.cs` handlers; Rust `Dialogue::continue_`).
+  - `NodeStartEvent.scene?` and `Transcript.scene` are recorded project
+    extensions: upstream's node-start event carries the node name only, and
+    upstream has no transcript. The `scene:` header is an ordinary
+    upstream-compatible header; its images and actors are this project's
+    scene system (non-upstream, CONTEXT.md glossary), so the name rides the
+    node-start event to the one seam where hosts cross-check it against
+    their scene collection.
   - The `.yarnproject` loader and the React adapter are this project's own
     surface (non-upstream).
 

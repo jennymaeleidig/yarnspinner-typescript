@@ -129,7 +129,6 @@ Narrator: Current street cred: {$reputation}, score: {$score}
 
 ```tsx
 import { parseYarn, compileDocument, useDialogue, DialogueView } from "yarn-spinner-runner-ts";
-import { parseScenes } from "yarn-spinner-runner-ts";
 import type { SceneCollection } from "yarn-spinner-runner-ts";
 
 function MyDialogue() {
@@ -138,9 +137,17 @@ function MyDialogue() {
     return compileDocument(ast);
   });
 
-  const [scenes] = useState<SceneCollection>(() => {
-    return parseScenes(sceneYamlText);
-  });
+  // The scene collection is host input — plain data, no library parser
+  // (the package ships no YAML scene parser; the browser demo keeps one in
+  // examples/browser/scenes.ts if you want a starting point).
+  const scenes: SceneCollection = {
+    scenes: {
+      street: {
+        background: "/images/street.jpg",
+        actors: { Narrator: { image: "/images/narrator.png" } },
+      },
+    },
+  };
 
   const { result, continue: continueDialogue, selectOption } = useDialogue(program, {
     startAt: "Start",
@@ -272,9 +279,9 @@ Loads upstream-style `.yarnproject` files (format v4, legacy v2 accepted; schema
   * `setNode(title: string): void` / `stop(): void` — Jump to a node / end the dialogue
   * `getVariable(name: string): unknown` / `setVariable(name: string, value: unknown): void` / `getVariables(): Readonly<Record<string, unknown>>`
   * `tryGetSmartVariable(name: string)` — Read a smart variable's current value
-  * `currentNode: string | null` / `currentScene: string | undefined` — Current node title and `scene:` header
+  * `currentNode: string | null` — Current node title (the `scene:` header travels on the `NodeStartEvent`, not a getter)
   * Options: `startAt` (default `"Start"`), `library`, `variables`, `variableStorage` (pluggable store for story and generated variables; the persistence seam — inject a pre-populated `VariableStorage` to restore state, see [docs/logic-and-variables.md](docs/logic-and-variables.md)), `lineHints` (opt-in `LineHintsEvent`), `textProvider` (line-ID → text resolver for localisation; lines a provider lacks fall back to the program's text), `logError` (default `console.error`), `logDebug` (default silent)
-  * Events (all camelCased): `LineEvent`, `OptionsEvent` (full option set with advisory `isAvailable` flags), `CommandEvent` (state commands like `<<set>>` never surface), `NodeStartEvent`, `NodeCompleteEvent`, `LineHintsEvent`, `DialogueCompleteEvent`
+  * Events (all camelCased): `LineEvent`, `OptionsEvent` (full option set with advisory `isAvailable` flags), `CommandEvent` (state commands like `<<set>>` never surface), `NodeStartEvent` (carries the node's `scene:` header as `scene?` when it declares one — adapter-side, the scene system is non-upstream), `NodeCompleteEvent`, `LineHintsEvent`, `DialogueCompleteEvent`
 * `VariableStorage` / `InMemoryVariableStorage` — The storage contract the runtime drives (`has`/`get`/`set`/`entries`) and its in-memory default; exported from `dialogue.ts` and the package root. Generated variables (once-state, visit tracking) live in the same storage and appear in `entries()` but not `getVariables()` snapshots
 * `Library` — Registry of host functions and command handlers (replaces the old `functions` map and `handleCommand` option)
   * `registerFunction(name, fn)` — Throws on duplicate; `getFunction(name)` returns undefined when missing
@@ -284,18 +291,17 @@ Loads upstream-style `.yarnproject` files (format v4, legacy v2 accepted; schema
 ### React Components
 
 * `useDialogue(program: Program, config: UseDialogueOptions, live?: UseDialogueLive)` — React hook over `Dialogue`
-  * Returns: `{ result: DialogueViewResult | null, continue: () => void, selectOption: (index: number) => void, dialogue: Dialogue }` (`continue` is a reserved word — destructure it under a local name; `dialogue` is the escape hatch for variable reads and `setLanguage`)
+  * Returns: `{ result: DialogueViewResult | null, continue: () => void, selectOption: (index: number) => void, sceneName?: string, dialogue: Dialogue }` (`continue` is a reserved word — destructure it under a local name; `dialogue` is the escape hatch for variable reads and `setLanguage`; `sceneName` is the `scene:` header of the most recently started node, derived from the transcript's `NodeStartEvent` and carried forward across scene-less nodes — cross-check it against your `SceneCollection` here, the one seam where the name and the image collection meet)
   * `config` holds construction-only inputs, reference-compared as a whole — one rule: **config identity = dialogue identity** (a new config object means a new dialogue, even with identical values): `startAt`, `functions`, `variables` (they seed state — different values means a new dialogue), `variableStorage` (the persistence seam — inject a pre-populated storage to restore state), `textProvider` (line-ID → text for the current language; switch languages via `dialogue.setLanguage` on the hook result, no rebuild), `lineHints` (opt-in `LineHintsEvent`; the hook consumes hints silently, so observe them via the provider's `acceptLineHints` or the `dialogue` escape hatch)
   * `live` holds per-call inputs, read through a ref — identity is ignored and the latest object is always in effect (a fresh literal every render is fine): `onDialogueComplete` (fired once on dialogue completion, with the story variables; deprecated alias: `onStoryEnd`), `logError`/`logDebug` (runtime diagnostics; defaults `console.error`/silent)
   * Deprecated aliases: `advance` (same function as `continue`)
-* `<DialogueView program={...} startAt={...} scenes={...} onDialogueComplete={...} />` — Ready-to-use dialogue component; its props extend the hook's `UseDialogueOptions` + `UseDialogueLive`, so every runtime option is accepted here under the same rules as the hook (deprecated prop aliases: `onStoryEnd`, `autoAdvanceAfterTyping`/`autoAdvanceDelay`/`pauseBeforeAdvance` → `autoContinueAfterTyping`/`autoContinueDelay`/`pauseBeforeContinue`)
+* `<DialogueView program={...} startAt={...} scenes={...} onDialogueComplete={...} />` — Ready-to-use dialogue component; its props extend the hook's `UseDialogueOptions` + `UseDialogueLive`, so every runtime option is accepted here under the same rules as the hook (deprecated prop aliases: `onStoryEnd`, `autoAdvanceAfterTyping`/`autoAdvanceDelay`/`pauseBeforeAdvance` → `autoContinueAfterTyping`/`autoContinueDelay`/`pauseBeforeContinue`); the scene background follows the hook's `sceneName` automatically
 * `<DialogueScene sceneName={...} speaker={...} scenes={...} actorTransitionDuration={...} /> — Scene background, actor display, and portrait transitions` — Scene background and actor display
-* `<DialogueExample />` — Full example with editor
+* `<DialogueExample scenes={...} />` — Full example with editor (the scene collection is host input; the browser demo parses its own YAML in `examples/browser/scenes.ts`)
 
 ### Scene System
 
-* `parseScenes(input: string | Record<string, unknown>): SceneCollection` — Parse YAML scene configuration
-* `SceneCollection` — Type for scene configuration
+* `SceneCollection` — Type for scene configuration (host input — the parsed collection is passed to the view; the package ships no YAML parser, the browser demo keeps one in `examples/browser/scenes.ts`)
 * `SceneConfig` — Type for individual scene config
 * `ActorConfig` — Type for actor configuration
 

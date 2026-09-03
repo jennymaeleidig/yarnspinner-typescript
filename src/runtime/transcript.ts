@@ -42,6 +42,15 @@ export interface Transcript {
   options: DialogueOption[] | null;
   /** Surfaced `<<command>>` texts, in delivery order (state statements never surface). */
   commands: string[];
+  /**
+   * The `scene:` header of the most recently started node (from its
+   * `NodeStartEvent`, deepening-wave ticket 07) — the scene name's one
+   * delivery channel, carried forward across scene-less nodes the way the
+   * view keeps its last background. Hosts cross-check it against their
+   * `SceneCollection` right here, at node start — the one seam where the
+   * name and the image collection meet.
+   */
+  scene?: string;
 }
 
 /** The transcript before the first pull — the merge identity. */
@@ -113,6 +122,7 @@ function mergeBatch(prior: Transcript, batch: DialogueEvent[]): Transcript {
   let lines: TranscriptLine[] | null = null;
   let options: DialogueOption[] | null = null;
   let commands: string[] | null = null;
+  let scene = prior.scene;
   for (const event of batch) {
     if (event.type === "line") {
       // TranscriptLine is derived from LineEvent (Omit "type"), so a new
@@ -128,13 +138,20 @@ function mergeBatch(prior: Transcript, batch: DialogueEvent[]): Transcript {
       options = event.options;
     } else if (event.type === "command") {
       (commands ??= [...prior.commands]).push(event.command);
+    } else if (event.type === "nodeStart") {
+      // A scene-less node keeps the prior scene (the view keeps its last
+      // background); a header starts a new one.
+      scene = event.scene ?? scene;
     }
   }
-  if (lines === null && options === null && commands === null) return prior;
+  if (lines === null && options === null && commands === null && scene === prior.scene) {
+    return prior;
+  }
   return {
     lines: lines ?? prior.lines,
     options: options ?? prior.options,
     commands: commands ?? prior.commands,
+    scene,
   };
 }
 

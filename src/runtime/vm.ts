@@ -254,11 +254,6 @@ export class VirtualMachine {
     return this.nodeTitle;
   }
 
-  /** The `scene:` header of the current node, if any (adapter-side concern). */
-  get currentScene(): string | undefined {
-    return this.currentMember()?.scene;
-  }
-
   /** Whether the dialogue is running a node (not yet completed). */
   get isActive(): boolean {
     return !this.completed;
@@ -830,7 +825,7 @@ export class VirtualMachine {
     if (this.lineHintsEnabled) {
       sink.push({ type: "lineHints", lineIds });
     }
-    sink.push({ type: "nodeStart", nodeName: title });
+    sink.push({ type: "nodeStart", nodeName: title, scene: resolved.node.scene });
     return true;
   }
 

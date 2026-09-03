@@ -39,16 +39,30 @@ User: Let's begin!
 
 ## Integration
 
-Pass scene configuration to `DialogueView`:
+The scene collection is host input — plain data passed to `DialogueView`:
 
 ```tsx
 import { DialogueView } from "yarn-spinner-ts";
-import { parseScenes } from "yarn-spinner-ts";
+import type { SceneCollection } from "yarn-spinner-ts";
 
-const scenes = parseScenes(sceneYamlText);
+const scenes: SceneCollection = {
+  scenes: {
+    scene1: {
+      background: "/images/street.jpg",
+      actors: { Narrator: { image: "/images/narrator.png" } },
+    },
+  },
+};
 
 <DialogueView program={program} scenes={scenes} />
 ```
+
+The package ships no YAML scene parser — if you author scenes in YAML, parse
+them host-side (the browser demo keeps a reference parser in
+`examples/browser/scenes.ts`). The scene name reaches you on the
+`NodeStartEvent`'s `scene` field (and the hook's `sceneName`), so you can
+cross-check your collection at that seam: a name with no collection entry
+silently keeps the previous background.
 
 ## CSS Classes
 

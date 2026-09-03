@@ -34,8 +34,9 @@ export type UseYarnRunnerResult = UseDialogueResult;
  *   auto-continue effect calls `continue` to skip past it).
  * - a `complete` stop clears the view and fires `onDialogueComplete` (after
  *   commit).
- * The current node's `scene:` header is attached to every view state (the
- * old per-result `scene` field, adapter-side now).
+ * The scene name travels on its one channel — the `NodeStartEvent` — and
+ * the hook derives `sceneName` from the transcript (deepening-wave ticket
+ * 07); the old per-view-result `scene` field is gone.
  *
  * The dialogue is created and first pulled synchronously during render (the
  * React "adjust state when props change" pattern) so server-side rendering
@@ -64,10 +65,9 @@ export type DialogueViewResult =
       speaker?: string;
       tags?: string[];
       markup?: MarkupParseResult;
-      scene?: string;
     }
-  | { type: "options"; options: DialogueViewOption[]; scene?: string }
-  | { type: "command"; command: string; scene?: string };
+  | { type: "options"; options: DialogueViewOption[] }
+  | { type: "command"; command: string };
 
 /** The `onDialogueComplete` payload: the story variables at completion
  *  (upstream `DialogueComplete`). */
@@ -134,6 +134,11 @@ export interface UseDialogueResult {
   advance: () => void;
   /** Select a delivered option by its index (upstream `Dialogue.SetSelectedOption`). */
   selectOption: (index: number) => void;
+  /** The `scene:` header of the most recently started node, derived from the
+   *  transcript's `NodeStartEvent` and carried forward across scene-less
+   *  nodes. Cross-check it against your `SceneCollection` here — the one
+   *  seam where the name and the image collection meet. */
+  sceneName?: string;
   /** The underlying `Dialogue`, for escape hatches (variable reads, etc.). */
   dialogue: Dialogue;
 }
@@ -150,11 +155,12 @@ function buildLibrary(functions?: Record<string, YarnFunction>): Library {
  * Reshape one pull's transcript into the view state (the thin adapter over
  * the transcript-reduction module). The transcript holds exactly the
  * stopping point's events: its tail line / live option set / last command.
+ * The scene name is not part of the view state — it travels on the
+ * `NodeStartEvent` and the hook surfaces it separately (`sceneName`).
  */
 function reshapeView(
   transcript: Transcript,
   stopped: StoppingPoint,
-  scene?: string,
 ): DialogueViewResult | null {
   switch (stopped) {
     case "line": {
@@ -166,7 +172,6 @@ function reshapeView(
         speaker: line.speaker,
         tags: line.tags,
         markup: line.markup,
-        scene,
       };
     }
     case "options": {
@@ -180,14 +185,13 @@ function reshapeView(
           markup: o.markup,
           isAvailable: o.isAvailable,
         })),
-        scene,
       };
     }
     case "command": {
       const command = transcript.commands[transcript.commands.length - 1];
       if (command === undefined) return null;
       // Surfaced briefly; the view's auto-continue effect calls continue().
-      return { type: "command", command, scene };
+      return { type: "command", command };
     }
     case "complete":
       return null;
@@ -203,6 +207,7 @@ export function useDialogue(
   const dialogueCompleteFiredRef = useRef(false);
   const dialogueCompletePendingRef = useRef(false);
   const viewRef = useRef<DialogueViewResult | null>(null);
+  const sceneNameRef = useRef<string | undefined>(undefined);
   const programRef = useRef(program);
   const configRef = useRef(config);
   const liveRef = useRef(live);
@@ -216,12 +221,16 @@ export function useDialogue(
   });
 
   /** Pull to the next stopping point and reshape the transcript into the
-   *  view state; flags the completion callback for post-commit delivery. */
+   *  view state; flags the completion callback for post-commit delivery.
+   *  The scene name rides on the transcript's `NodeStartEvent`; the hook
+   *  carries it forward across pulls (the hook pulls from the empty
+   *  transcript each time — only the tail events matter for the view). */
   const applyPull = useCallback((): void => {
     const dialogue = dialogueRef.current;
     if (!dialogue) return;
     const { transcript, stopped } = runUntilStopped(dialogue, EMPTY_TRANSCRIPT);
-    viewRef.current = reshapeView(transcript, stopped, dialogue.currentScene);
+    if (transcript.scene !== undefined) sceneNameRef.current = transcript.scene;
+    viewRef.current = reshapeView(transcript, stopped);
     if (stopped === "complete" && !dialogueCompleteFiredRef.current) {
       dialogueCompleteFiredRef.current = true;
       dialogueCompletePendingRef.current = true; // fired after commit (see effect below)
@@ -258,6 +267,7 @@ export function useDialogue(
     dialogueRef.current = dialogue;
     dialogueCompleteFiredRef.current = false;
     dialogueCompletePendingRef.current = false;
+    sceneNameRef.current = undefined;
     programRef.current = program;
     configRef.current = config;
     applyPull();
@@ -303,6 +313,7 @@ export function useDialogue(
     continue: continueDialogue,
     advance: continueDialogue,
     selectOption,
+    sceneName: sceneNameRef.current,
     dialogue: dialogueRef.current as Dialogue,
   };
 }
