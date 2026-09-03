@@ -43,7 +43,7 @@ The scene collection is host input — plain data passed to `DialogueRunner` (or
 
 ```tsx
 import { DialogueRunner } from "yarn-spinner-runner-ts";
-import type { SceneCollection } from "yarn-spinner-ts";
+import type { SceneCollection } from "yarn-spinner-runner-ts";
 
 const scenes: SceneCollection = {
   scenes: {

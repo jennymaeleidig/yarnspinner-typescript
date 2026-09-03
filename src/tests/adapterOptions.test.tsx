@@ -329,14 +329,25 @@ void _runtimeOptionsFlowToRunner;
 const _presentationSingleSourced: Omit<DialogueViewProps, "result"> =
   {} as DialogueRunnerProps;
 void _presentationSingleSourced;
+// The presentational view has no `program` prop; passing one must not compile.
 function _noProgramOnView(props: { program: Program }) {
   void props;
   return (
-    // @ts-expect-error — the presentational view renders a result, it has
-    // no `program` prop; passing one must not compile.
+    // @ts-expect-error
     <DialogueView program={{}} result={{} as UseDialogueResult} />
   );
 }
+void _noProgramOnView;
+
+// The ticket-55 deprecated prop aliases live on the wired container
+// (DialogueRunner), not on the clean view; passing them here must not compile.
+function _noAliasesOnView() {
+  return (
+    // @ts-expect-error
+    <DialogueView result={{} as UseDialogueResult} autoAdvanceAfterTyping autoAdvanceDelay={5} pauseBeforeAdvance={50} />
+  );
+}
+void _noAliasesOnView;
 void _noProgramOnView;
 
 const CONFIG_LIVE_YARN = `title: Start
