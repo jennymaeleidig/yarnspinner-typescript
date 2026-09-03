@@ -45,10 +45,23 @@ the spec and the implementation tickets.
 | [53 rename + docs + 0.2.0](issues/53-rename-docs-release.md) | resolved | 52 |
 | [54 ParseFailures validation wave](issues/54-parse-failure-validations.md) | open | — |
 | [55 adapter resurfacing](issues/55-adapter-resurfacing.md) | resolved | 53 |
-| [56 adapter options passthrough](issues/56-adapter-options-passthrough.md) | open | 55 |
+| [56 adapter options passthrough](issues/56-adapter-options-passthrough.md) | resolved | 55 |
 | [30–33 phase buckets](issues/30-phase1-compiler-language-core.md) | superseded | — |
 
 ## Decisions so far
+
+- Ticket 56 (adapter options passthrough): the four newer DialogueOptions
+  groups pass through `useDialogue` and `<DialogueView>` — passthrough
+  only, no new abstractions. Change behaviour: storage/provider identity
+  rebuild (reference compare, stateful objects); `lineHints` flip rebuilds
+  (truthiness compare); `logError`/`logDebug` construction-time, changing
+  them ignored (defaults unchanged). Language switching keeps
+  `Dialogue.setLanguage`, reached through the hook result's `dialogue`
+  escape hatch — no hook language API, no rebuild on switch. SSR hook
+  probes pin the minimum (persistence restore, lineHints forwarding) plus
+  provider/setLanguage, diagnostics, and DialogueView wiring; a captured
+  hook's `result` is a render-time snapshot, so post-SSR assertions use
+  spies and the escape hatch (harness note recorded in the test file).
 
 - Ticket 55 (adapter resurfacing, the slice ticket 53 deferred):
   `advance` → `continue`, `onStoryEnd` → `onDialogueComplete` (payload
