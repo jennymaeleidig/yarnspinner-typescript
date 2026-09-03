@@ -29,23 +29,12 @@ import { listTestCases, listParseFailures, readFixture } from "./upstream/fixtur
  * implementation currently accepts. Each entry: fixture name → tracked gap.
  * Populated against the v3.2.2 corpus; entries must be removed as the
  * compiler gains the missing validation (spec stories 15, 21, 29, 51…).
+ *
+ * Empty since ticket 54 (the ParseFailures validation wave): every vendored
+ * must-fail fixture fails with its upstream code. The per-family unit tests
+ * live in src/tests/parseFailureValidations.test.ts.
  */
-const MUST_FAIL_ALLOWLIST: Record<string, string> = {
-  "Commands-NewlinesNotPermittedInCommands.yarn": "no newlines-in-command validation (phase 1 diagnostics)",
-  "Declarations-MustHaveValues.yarn": "no <<declare>> value validation (phase 1 diagnostics)",
-  "IncorrectIndentation-IndentedLinesFollowingOptionsMustHaveContent.yarn": "no indentation validation (phase 1 diagnostics)",
-  "Inference-FunctionsAndVarsCannotBeSolelyImplicit.yarn": "no type inference validation (phase 1 diagnostics)",
-  "Inference-FunctionsCannotChangeType.yarn": "no function return-type inference validation (phase 1 diagnostics)",
-  "Inference-FunctionsMustHaveSameNumberOfParams.yarn": "no function arity inference validation (phase 1 diagnostics)",
-  "Jumps-ExpressionsMustBeStrings.yarn": "no jump-target type check (phase 1 diagnostics)",
-  "Notes-WhenHeadersMustHaveExpressions.yarn": "no when: header validation (phase 1 diagnostics)",
-  "Operators-AdditionsRequireNumbersOrStrings.yarn": "no operator typing (phase 1 diagnostics)",
-  "SetStatements-MustHaveValues.yarn": "no <<set>> value validation (phase 1 diagnostics)",
-  "Variables-CannotBeAssignedConflictingTypes.yarn": "no variable type checking (phase 1 diagnostics)",
-  "Variables-MustBeAbleToInferDefinition.yarn": "no type inference validation (phase 1 diagnostics)",
-  // DuplicateLineTags.yarn self-cleaned with ticket 49: the string-table
-  // registration pass emits YS0018 for duplicate explicit #line: tags.
-};
+const MUST_FAIL_ALLOWLIST: Record<string, string> = {};
 
 /**
  * Fixtures that must compile clean but currently fail. Each entry cites the

@@ -1,4 +1,9 @@
 import { lex, Token } from "./lexer.js";
+import { ParseError } from "./parseError.js";
+
+// Historical home of ParseError (now in ./parseError.js so the lexer can
+// raise it without an import cycle).
+export { ParseError };
 import type {
   YarnDocument,
   YarnNode,
@@ -15,15 +20,6 @@ import type {
   EnumBlock,
   EnumCaseDef,
 } from "../model/ast";
-
-export class ParseError extends Error {
-  /** 0-based source range of the offending token, when known. */
-  range?: { startLine: number; startCol: number; endLine: number; endCol: number };
-  constructor(message: string, range?: ParseError["range"]) {
-    super(message);
-    this.range = range;
-  }
-}
 
 export function parseYarn(text: string): YarnDocument {
   const tokens = lex(text);
@@ -268,8 +264,17 @@ class Parser {
         nodeTags = raw.split(/\s+/).filter(Boolean);
       }
       if (keyTok.text === "when") {
-        // Each when: header adds one condition (can have multiple when: headers)
+        // Each when: header adds one condition (can have multiple when: headers).
+        // The grammar's header_when_expression requires an expression (or
+        // "always"/"once") — an empty when: header is the upstream
+        // ParseFailures case (YS0005 via the compile seam, ticket 54).
         const raw = valTok.text.trim();
+        if (!raw) {
+          throw new ParseError(
+            'Expected an expression after "when:" — a when: header must have a saliency expression (write "when: true" for an always-true condition)',
+            this.rangeAt(keyTok),
+          );
+        }
         whenConditions.push(raw);
       }
       // Removed fork extension (ticket 40): header-carried &css{} styles are
@@ -395,7 +400,14 @@ class Parser {
     if (!t) throw new ParseError("Unexpected EOF");
 
     if (t.type === "COMMAND") {
-      const cmd = this.take("COMMAND").text;
+      const cmdTok = this.take("COMMAND");
+      const cmd = cmdTok.text;
+      // A `///` comment on the same line after a declaration overrides the
+      // preceding doc lines (upstream Compiler.GetDocumentComments'
+      // allowCommentsAfter — ticket 54's parity-completeness item).
+      const trailingDoc = cmdTok.trailingComment?.startsWith("///")
+        ? cmdTok.trailingComment.replace(/^\/\/\/ ?/, "").trim() || undefined
+        : undefined;
       if (cmd.startsWith("jump ")) return { type: "Jump", target: cmd.slice(5).trim() } as Jump;
       if (cmd.startsWith("detour ")) return { type: "Detour", target: cmd.slice(7).trim() } as Detour;
       if (cmd.startsWith("if ")) return this.parseIfCommandBlock(cmd);
@@ -413,10 +425,45 @@ class Parser {
           this.rangeAt(t),
         );
       }
+      // State commands must have a value (ticket 54): the grammar's
+      // set/declare statements require `= expression`. Upstream's error
+      // listener reports the failure shapes differently — a command
+      // truncated right after the variable (or any non-`=` clause) is
+      // YS0006 UnclosedCommand; a truncated expression after the operator
+      // is YS0005. Shapes verified against the upstream v3.2.2 compiler.
+      const unclosed = () => new ParseError("Unclosed command: missing >>", this.rangeAt(t), "YS0006");
+      const badExpr = () => new ParseError('Unexpected ">>" while reading an expression', this.rangeAt(t));
+      if (cmd === "set" || cmd === "declare") throw unclosed();
+      const declareCmd = cmd.match(/^declare\s+\$[A-Za-z_]\w*\s*([\s\S]*)$/);
+      if (declareCmd) {
+        const value = declareCmd[1].match(/^=\s*([\s\S]*)$/);
+        if (!value) throw unclosed();
+        if (!value[1].trim()) throw badExpr();
+      }
+      const setCmd = cmd.match(/^set\s+\$[A-Za-z_]\w*\s*([\s\S]*)$/);
+      if (setCmd) {
+        const value = setCmd[1].match(/^(?:=|to|\+=|-=|\*=|\/=|%=)\s*([\s\S]*)$/);
+        if (!value) throw unclosed();
+        if (!value[1].trim()) throw badExpr();
+      }
+      // The grammar's call_statement requires a function_call: a bare
+      // <<call>> with no expression is invalid, and <<call name>> without
+      // the argument list reports upstream's unclosed-command code (both
+      // verified against the upstream compiler; ticket 54).
+      if (cmd === "call") {
+        throw new ParseError(
+          "<<call>> requires a function call expression, e.g. <<call myFunction()>>",
+          this.rangeAt(t),
+        );
+      }
+      const callBareName = cmd.match(/^call\s+[A-Za-z_][A-Za-z0-9_]*$/);
+      if (callBareName) throw unclosed();
       return {
         type: "Command",
         content: cmd,
-        ...(stateCmd?.[1] === "declare" && docComment ? { docComment } : {}),
+        ...(stateCmd?.[1] === "declare" && (trailingDoc ?? docComment)
+          ? { docComment: trailingDoc ?? docComment }
+          : {}),
       } as Command;
     }
     if (t.type === "TEXT") {

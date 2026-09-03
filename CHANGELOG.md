@@ -37,6 +37,16 @@ covers these renames — and CONTEXT.md "Retired terms".
 - Enums, smart variables, markup-at-runtime, multi-file `compile()`,
   implicit/explicit line IDs + the upstream 8-column strings CSV, saliency
   machinery, and the `.yarnproject` loader all landed per the parity spec.
+- The ParseFailures validation wave (ticket 54): every vendored upstream
+  must-fail fixture now fails compilation with its exact upstream YS-code
+  (verified against the upstream v3.2.2 compiler) — newline-in-command and
+  missing `<<declare>>`/`<<set>>` values (YS0006/YS0005), indented
+  whitespace-only lines after options (YS0005), expression-less `when:`
+  headers (YS0005), jump-target string typing, `+`-operand and assignment
+  type conflicts (YS0050), and function/variable type inference
+  (YS0029/YS0014). `MUST_FAIL_ALLOWLIST` is gone. Implicit functions infer
+  return type and arity from their first typed use (upstream's solver);
+  concrete operands pin unknown variables through operators.
 
 ### React adapter
 

@@ -52,14 +52,6 @@ is gone; per-feature documentation lives in the language docs under
   variable is left unset. Upstream has no ternary; this should be a compile
   error and is tracked for the next release (`.scratch/future-work.md`).
   Branch with `<<if>>` instead.
-- 12 of the vendored ParseFailures fixtures still compile where upstream
-  requires them to fail (the self-cleaning `MUST_FAIL_ALLOWLIST` in
-  `src/tests/upstream-conformance.test.ts` tracks each by name). The
-  missing validations: newline-in-command, `<<declare>>`/`<<set>>` value
-  checks, indentation checks, `when:` header expression checks, jump-target
-  string typing, operator/assignment typing, and function/variable type
-  inference. Tracked for the next release (tracker ticket 54,
-  `.scratch/future-work.md`).
 - Conformance-harness note: the vendored testplan hashtags are parsed but
   not asserted — upstream's own assertion on them is dead code, and one
   upstream fixture's plan has a hashtag its own compiler cannot parse

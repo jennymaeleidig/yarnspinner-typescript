@@ -145,10 +145,18 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
       docs.push({ name: file.name, doc });
     } catch (e) {
       if (!(e instanceof ParseError)) throw e;
-      const diagnostic = makeDiagnostic("YS0005", `Syntax error: ${e.message}`, {
-        file: file.name,
-        range: e.range as YarnRange | undefined,
-      });
+      // Raiseable parse problems carry their registry code (ticket 54):
+      // upstream's error listener reports unclosed commands as YS0006, not
+      // YS0005. Codeless errors are plain syntax errors (YS0005, whose
+      // registry template is "Syntax error: {0}").
+      const diagnostic = makeDiagnostic(
+        e.code ?? "YS0005",
+        e.code ? e.message : `Syntax error: ${e.message}`,
+        {
+          file: file.name,
+          range: e.range as YarnRange | undefined,
+        },
+      );
       diagnostics.push(diagnostic);
     }
   }

@@ -25,7 +25,7 @@
  * unchecked (syntax problems belong to YS0005's parser, not this pass).
  */
 
-import type { YarnDocument, Statement } from "../model/ast.js";
+import type { YarnDocument, Statement, Line } from "../model/ast.js";
 import { EnumTypeBuilder, buildEnumTypes, collectEnumBlocks } from "./enums.js";
 import type { EnumRawValue, EnumType } from "./enums.js";
 import { makeDiagnostic } from "./diagnostics.js";
@@ -87,17 +87,28 @@ export interface TypeCheckResult {
   enumTypes: Map<string, EnumType>;
 }
 
-/** Upstream type display names (Types.Number/Types.String/Types.Boolean). */
-const PRIM_NAME: Record<string, string> = { number: "Number", string: "String", bool: "Boolean" };
+/** Upstream type display names as they appear in diagnostic messages
+ *  (upstream `Types.Number`/`Types.String`/`Types.Boolean`; the Boolean type
+ *  renders "Bool" — verified against the upstream v3.2.2 compiler). */
+const PRIM_NAME: Record<string, string> = { number: "Number", string: "String", bool: "Bool" };
 
 type ExprBase = "number" | "string" | "bool" | "unknown";
 
 interface ExprType {
   base: ExprBase;
   enumName?: string;
+  /**
+   * True when the type is unknown because validation already failed
+   * (unresolvable member access, wrong arity, unparseable expression).
+   * Upstream marks such contexts with the Error type, which suppresses
+   * the solver's downstream YS0029 cascades — so does this flag.
+   */
+  error?: boolean;
 }
 
 const UNKNOWN_TYPE: ExprType = { base: "unknown" };
+/** The Error type: validation already failed here; suppress cascades. */
+const ERROR_TYPE: ExprType = { base: "unknown", error: true };
 
 interface Rewrite {
   start: number;
@@ -118,6 +129,28 @@ interface CheckContext {
   externalVariables: Set<string>;
   /** Source file of the node being walked (diagnostic attribution). */
   currentFile?: string;
+  /**
+   * Implicit function inferences (ticket 54's Inference-* fixtures): the
+   * first call to an unknown function in a typed context pins its return
+   * type and arity; later calls must agree (upstream TypeCheckerListener
+   * creates an implicit Declaration with type variables on first call and
+   * constrains them through usage).
+   */
+  inferredFunctions: Map<string, { returns: ExprType; arity: number }>;
+  /**
+   * Variables referenced by inline `{expr}` expressions in line, option,
+   * and command text (ticket 54's Variables-MustBeAbleToInferDefinition).
+   * Resolved after the walk: a variable nothing can type is YS0029.
+   */
+  inlineVarUses: Set<string>;
+  /**
+   * Set/declare statements whose value expression (and possibly target)
+   * were undetermined at walk time. Upstream's solver resolves these
+   * globally — a variable pinned anywhere (later statement, another
+   * operand) resolves every site — so emission is deferred to the post-walk
+   * resolution pass, which reports YS0029 only for the still-untyped.
+   */
+  undeterminedSites: Array<{ text: string; target: string }>;
 }
 
 // --- Expression mini-parser -------------------------------------------------
@@ -439,7 +472,7 @@ function checkNode(node: ExprNode, ctx: CheckContext, expectedEnum?: string): Ex
     case "bin":
       return checkBinary(node, ctx, expectedEnum);
     case "bad":
-      return UNKNOWN_TYPE;
+      return ERROR_TYPE;
   }
 }
 
@@ -452,11 +485,11 @@ function checkMember(
     const enumType = ctx.enumTypes.get(node.typeName!);
     if (!enumType) {
       ctx.emit("YS0050", `No type called ${node.typeName} could be found`);
-      return UNKNOWN_TYPE;
+      return ERROR_TYPE;
     }
     if (!enumType.cases.some((c) => c.name === node.member)) {
       ctx.emit("YS0038", `${node.typeName} doesn't have a member named ${node.member}`);
-      return UNKNOWN_TYPE;
+      return ERROR_TYPE;
     }
     return { base: "unknown", enumName: enumType.name };
   }
@@ -466,7 +499,7 @@ function checkMember(
     const enumType = ctx.enumTypes.get(expectedEnum)!;
     if (!enumType.cases.some((c) => c.name === node.member)) {
       ctx.emit("YS0050", `Type ${expectedEnum} does not have a member named ${node.member}`);
-      return UNKNOWN_TYPE;
+      return ERROR_TYPE;
     }
     ctx.rewrites.push({ start: node.start, end: node.end, text: `${expectedEnum}.${node.member}` });
     return { base: "unknown", enumName: expectedEnum };
@@ -478,13 +511,13 @@ function checkMember(
   }
   if (matches.length === 0) {
     ctx.emit("YS0050", `No type containing a member named ${node.member} could be found`);
-    return UNKNOWN_TYPE;
+    return ERROR_TYPE;
   }
   ctx.emit(
     "YS0028",
     `.${node.member} is ambiguous (it could be ${matches.map((m) => `${m.name}.${node.member}`).join(" or ")})`,
   );
-  return UNKNOWN_TYPE;
+  return ERROR_TYPE;
 }
 
 /**
@@ -502,11 +535,15 @@ function checkArgsAgainstSignature(
   const expected = signature.params.length;
   const variadic = signature.variadic === true;
   if (args.length !== expected && !variadic) {
-    ctx.emit("YS0014", `${fnName} expects ${expected} ${expected === 1 ? "parameter" : "parameters"}, not ${args.length}`);
+    // YS0014's registry template is "Invalid function call: {0}".
+    ctx.emit(
+      "YS0014",
+      `Invalid function call: ${fnName} expects ${expected} ${expected === 1 ? "parameter" : "parameters"}, not ${args.length}`,
+    );
     return;
   }
   if (variadic && args.length < Math.max(expected - 1, 0)) {
-    ctx.emit("YS0014", `${fnName} expects at least ${Math.max(expected - 1, 0)} parameters`);
+    ctx.emit("YS0014", `Invalid function call: ${fnName} expects at least ${Math.max(expected - 1, 0)} parameters`);
     return;
   }
   args.forEach((arg, i) => {
@@ -538,8 +575,21 @@ function checkCall(node: Extract<ExprNode, { kind: "call" }>, ctx: CheckContext,
 
   const signature = ctx.functionSignatures.get(node.name);
   if (!signature) {
-    // Unknown function: upstream infers its type implicitly from usage
-    // (the Inference-* fixtures own that gap); nothing to check here.
+    // Unknown function: its return type is inferred implicitly from usage
+    // (upstream's implicit function declarations). A later call must agree
+    // with the inferred return type and arity.
+    const inferred = ctx.inferredFunctions.get(node.name);
+    if (inferred) {
+      if (node.args.length !== inferred.arity) {
+        const plural = (n: number) => (n === 1 ? "parameter" : "parameters");
+        ctx.emit(
+          "YS0014",
+          `Invalid function call: ${node.name} was called elsewhere with ${inferred.arity} ${plural(inferred.arity)}, but is called with ${node.args.length} ${plural(node.args.length)} here`,
+        );
+        return ERROR_TYPE;
+      }
+      return inferred.returns;
+    }
     return UNKNOWN_TYPE;
   }
   checkArgsAgainstSignature(node.name, args, signature, ctx);
@@ -552,10 +602,18 @@ function checkBinary(node: Extract<ExprNode, { kind: "bin" }>, ctx: CheckContext
   const left = checkNode(node.left, ctx, expectedEnum);
   const right = checkNode(node.right, ctx, expectedEnum);
 
+  /** Upstream's solver pins an unknown variable operand to its concrete
+   *  co-operand's type (equality constraints); mirror that so uses like
+   *  `<<declare $a = $a + 1>>` resolve instead of reporting YS0029. */
+  const pinFrom = (operand: ExprNode, type: ExprType, fallback: string | undefined) => {
+    if (operand.kind !== "var") return;
+    const resolved = type.enumName ?? (type.base !== "unknown" && !type.error ? type.base : fallback);
+    if (resolved && !ctx.variableTypes.has(operand.name)) ctx.variableTypes.set(operand.name, resolved);
+  };
+
   if (node.op === "==" || node.op === "!=") {
-    const describe = (t: ExprType) => t.enumName ?? (t.base === "unknown" ? undefined : PRIM_NAME[t.base]);
-    const leftName = describe(left);
-    const rightName = describe(right);
+    const leftName = describeUpstream(left);
+    const rightName = describeUpstream(right);
     // Same-enum restriction (upstream: enum types are only equal to
     // themselves; a value of enum type never equals a primitive).
     if (leftName && rightName && leftName !== rightName) {
@@ -564,16 +622,67 @@ function checkBinary(node: Extract<ExprNode, { kind: "bin" }>, ctx: CheckContext
         `Operation '${node.op}'s values must both be the same type, not ${leftName} and ${rightName}`,
       );
     }
+    // Equality constrains the operands to the same type.
+    if (leftName) pinFrom(node.right, left, undefined);
+    if (rightName) pinFrom(node.left, right, undefined);
     return { base: "bool" };
   }
-  if (["<", ">", "<=", ">="].includes(node.op)) return { base: "bool" };
-  if (node.op === "&&" || node.op === "||" || node.op === "^") return { base: "bool" };
+  if (["<", ">", "<=", ">="].includes(node.op)) {
+    // Comparisons require identical operand types — but unlike the
+    // arithmetic operators, upstream imposes no base type, so two unknown
+    // operands stay unresolved (no Number fallback).
+    pinFrom(node.right, left, undefined);
+    pinFrom(node.left, right, undefined);
+    return { base: "bool" };
+  }
+  if (node.op === "&&" || node.op === "||" || node.op === "^") {
+    // Logical operands are constrained to Boolean.
+    pinFrom(node.left, UNKNOWN_TYPE, "bool");
+    pinFrom(node.right, UNKNOWN_TYPE, "bool");
+    return { base: "bool" };
+  }
+  // Operator typing (ticket 54, upstream ExitExpAddSub/ExitExpMultDivMod):
+  // '+' requires numbers or strings; the other arithmetic operators require
+  // numbers. A concrete operand outside the permitted set is YS0050.
+  const arithmeticOp = node.op === "+" || ["-", "*", "/", "%"].includes(node.op);
+  if (arithmeticOp) {
+    const permitted = node.op === "+" ? ["number", "string"] : ["number"];
+    const offenders = [left, right].filter(
+      (t) => t.base !== "unknown" && !t.enumName && !permitted.includes(t.base),
+    );
+    if (offenders.length > 0) {
+      ctx.emit(
+        "YS0050",
+        `Operation '${node.op}' can't be used with a value of type ${PRIM_NAME[offenders[0].base]}`,
+      );
+      // Upstream resolves a failed operand constraint's type to the error
+      // type, which suppresses downstream cascades. Pin the result to the
+      // arithmetic result type (the evaluator's JS `+`/`-` coercion) for
+      // the same effect.
+      return { base: "number" };
+    }
+  }
   if (node.op === "+") {
-    if (left.base === "string" || right.base === "string") return { base: "string" };
-    if (left.base === "number" && right.base === "number") return { base: "number" };
+    // The operands are equal to the result, which is a Number or String:
+    // a concrete operand pins unknown variable co-operands.
+    if (left.base === "string" || right.base === "string") {
+      pinFrom(node.left, left, "string");
+      pinFrom(node.right, right, "string");
+      return { base: "string" };
+    }
+    if (left.base === "number" || right.base === "number") {
+      pinFrom(node.left, left, "number");
+      pinFrom(node.right, right, "number");
+      return { base: "number" };
+    }
     return UNKNOWN_TYPE;
   }
-  if (["-", "*", "/", "%"].includes(node.op)) return { base: "number" };
+  if (["-", "*", "/", "%"].includes(node.op)) {
+    // All arithmetic operands are Numbers.
+    pinFrom(node.left, left, "number");
+    pinFrom(node.right, right, "number");
+    return { base: "number" };
+  }
   return UNKNOWN_TYPE;
 }
 
@@ -589,7 +698,7 @@ function checkExpression(
   ctx.rewrites.length = 0;
   const toks = tokenize(expr);
   const parsed = new ExprParser(toks, expr).parse();
-  if (!parsed) return { type: UNKNOWN_TYPE, rewritten: expr };
+  if (!parsed) return { type: ERROR_TYPE, rewritten: expr };
   const type = checkNode(parsed, ctx, expectedEnum);
   let rewritten = expr;
   if (ctx.rewrites.length > 0) {
@@ -623,6 +732,99 @@ function primOrDefault(expr: string, enumTypes: Map<string, EnumType>): Variable
   return undefined;
 }
 
+/** Display name for an expression's type as upstream renders it in
+ *  messages; undefined when the type is undetermined. */
+function describeUpstream(type: ExprType): string | undefined {
+  return type.enumName ?? (type.base === "unknown" ? undefined : PRIM_NAME[type.base]);
+}
+
+/** YS0029 (upstream ExpressionTypeUndetermined): the type of this expression
+ *  could not be determined. `text` is the expression's source text. */
+function emitUndetermined(text: string, ctx: CheckContext): void {
+  ctx.emit("YS0029", `Can't determine the type of the expression ${text}.`);
+}
+
+/**
+ * Pin an implicit function's return type from the context that first uses
+ * it (upstream: the first call creates an implicit Declaration whose type
+ * variables the solver resolves through usage). Records the return type and
+ * the called arity; returns true when this call was a recordable first use.
+ */
+function pinImplicitFunction(expr: string, returns: ExprType, ctx: CheckContext): boolean {
+  const parsed = new ExprParser(tokenize(expr), expr).parse();
+  if (!parsed || parsed.kind !== "call") return false;
+  if (ctx.functionSignatures.has(parsed.name) || ctx.inferredFunctions.has(parsed.name)) return false;
+  ctx.inferredFunctions.set(parsed.name, { returns, arity: parsed.args.length });
+  return true;
+}
+
+/**
+ * Record an unknown expression used as a condition: upstream constrains
+ * condition expressions to Boolean, so an unknown variable or implicit
+ * function call resolves to bool rather than reporting YS0029.
+ */
+function constrainCondition(type: ExprType, expr: string, ctx: CheckContext): void {
+  if (type.base !== "unknown" || type.enumName || type.error) return;
+  const parsed = new ExprParser(tokenize(expr), expr).parse();
+  if (!parsed) return;
+  if (parsed.kind === "var" && !ctx.variableTypes.has(parsed.name)) {
+    ctx.variableTypes.set(parsed.name, "bool");
+  } else if (parsed.kind === "call") {
+    pinImplicitFunction(expr, { base: "bool" }, ctx);
+  }
+}
+
+/** Type-check a condition expression: check, resolve `.Case` shorthand, and
+ *  bool-constrain unknown operands (the shared shape of every condition
+ *  site: if-branches, once blocks, options, and line conditions). */
+function checkCondition(expr: string, ctx: CheckContext): { type: ExprType; rewritten: string } {
+  const checked = checkExpression(expr, ctx);
+  constrainCondition(checked.type, checked.rewritten, ctx);
+  return checked;
+}
+
+/** Collect variable references from a text's inline `{expr}` substitutions
+ *  (skipping the runtime-owned `\{` / `\}` escapes). */
+function collectInlineExpressionVars(text: string, ctx: CheckContext): void {
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === "\\") {
+      i += 2;
+      continue;
+    }
+    if (ch === "{") {
+      const close = text.indexOf("}", i + 1);
+      if (close === -1) break;
+      const exprSrc = text.slice(i + 1, close);
+      const parsed = new ExprParser(tokenize(exprSrc), exprSrc).parse();
+      const collect = (node: ExprNode): void => {
+        switch (node.kind) {
+          case "var":
+            ctx.inlineVarUses.add(node.name);
+            break;
+          case "un":
+            collect(node.operand);
+            break;
+          case "bin":
+            collect(node.left);
+            collect(node.right);
+            break;
+          case "call":
+            node.args.forEach(collect);
+            break;
+          default:
+            break;
+        }
+      };
+      if (parsed) collect(parsed);
+      i = close + 1;
+      continue;
+    }
+    i++;
+  }
+}
+
 function walkStatements(stmts: Statement[], ctx: CheckContext): void {
   for (const s of stmts) {
     switch (s.type) {
@@ -636,8 +838,27 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           const declaredType = asMatch?.[1];
           const expr = (asMatch ? rest.slice(0, asMatch.index) : rest).trim();
           const expectedEnum = declaredType && ctx.enumTypes.has(declaredType) ? declaredType : undefined;
-          const { type, rewritten } = checkExpression(expr, ctx, expectedEnum);
+          let { type, rewritten } = checkExpression(expr, ctx, expectedEnum);
           if (rewritten !== expr) s.content = `declare $${name} = ${rewritten}${asMatch ? ` as ${declaredType}` : ""}`;
+          if (type.base === "unknown" && !type.enumName && !type.error) {
+            // The initializer's type is undetermined (ticket 54's Inference-*
+            // fixtures). An explicit `as` type pins it (also pinning an
+            // implicit function's return); otherwise neither the expression
+            // nor the variable can ever be typed — YS0029 for both, as
+            // upstream's solver leaves both unresolved.
+            const declared: ExprType | undefined = declaredType
+              ? ctx.enumTypes.has(declaredType)
+                ? { base: "unknown", enumName: declaredType }
+                : ["number", "string", "bool"].includes(declaredType)
+                  ? { base: declaredType as ExprBase }
+                  : undefined
+              : undefined;
+            if (declared) {
+              if (pinImplicitFunction(expr, declared, ctx)) type = declared;
+            } else if (!declaredType) {
+              ctx.undeterminedSites.push({ text: expr, target: name });
+            }
+          }
           // Smart-variable classification (ticket 42): an initializer that is
           // not a plain literal declares a smart variable (upstream
           // ResolveInitialValues → Declaration.IsInlineExpansion).
@@ -689,21 +910,45 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           emitReadOnlyIfSmart(name, ctx);
           const varType = ctx.variableTypes.get(name);
           const expectedEnum = varType && ctx.enumTypes.has(varType) ? varType : undefined;
-          const { type, rewritten } = checkExpression(rest.trim(), ctx, expectedEnum);
+          let { type, rewritten } = checkExpression(rest.trim(), ctx, expectedEnum);
           if (rewritten !== rest.trim()) s.content = `set $${name} ${op} ${rewritten}`;
-          const describe = (t: ExprType) => t.enumName ?? (t.base === "unknown" ? undefined : PRIM_NAME[t.base]);
+          if (type.base === "unknown" && !type.enumName && !type.error) {
+            if (varType) {
+              // The value's type is undetermined, but the target's is known:
+              // upstream's solver resolves the value through the target
+              // (pinning an implicit function's return type — the
+              // Inference-* fixtures). No diagnostic.
+              const target: ExprType = ctx.enumTypes.has(varType)
+                ? { base: "unknown", enumName: varType }
+                : ["number", "string", "bool"].includes(varType)
+                  ? { base: varType as ExprBase }
+                  : UNKNOWN_TYPE;
+              if (target.base !== "unknown" || target.enumName) {
+                if (pinImplicitFunction(rest.trim(), target, ctx)) type = target;
+              }
+            } else {
+              // Neither side can be typed yet (e.g. `<<set $a = somefunc()>>`).
+              // Resolution is deferred to the post-walk pass: a later
+              // statement may pin the variable (upstream's solver is global).
+              ctx.undeterminedSites.push({ text: rest.trim(), target: name });
+              break;
+            }
+          }
+          const typeName = describeUpstream(type);
           if (varType) {
-            const varIsEnum = ctx.enumTypes.has(varType);
-            const typeName = describe(type);
-            if (typeName && typeName !== varType && (varIsEnum || type.enumName)) {
-              ctx.emit(
-                "YS0050",
-                `Operation '${op}'s values must both be the same type, not ${varType} and ${typeName}`,
-              );
+            const varDisplay = ctx.enumTypes.has(varType) ? varType : PRIM_NAME[varType];
+            if (typeName && varDisplay && typeName !== varDisplay) {
+              // Upstream ExitSet_statement: convertible-to-target constraint
+              // failure.
+              ctx.emit("YS0050", `$${name} (${varDisplay}) cannot be assigned a ${typeName}`);
             }
           } else if (type.enumName) {
             // Upstream infers a variable's type from an enum-typed assignment.
             ctx.variableTypes.set(name, type.enumName);
+          } else if (type.base !== "unknown") {
+            // Implicit declaration from the assignment (upstream: a variable
+            // first seen in a <<set>> carries the value's type).
+            ctx.variableTypes.set(name, type.base);
           }
           break;
         }
@@ -722,26 +967,83 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
       case "If":
         for (const b of s.branches) {
           if (b.condition !== null) {
-            const { rewritten } = checkExpression(b.condition, ctx);
+            const { rewritten } = checkCondition(b.condition, ctx);
             if (rewritten !== b.condition) b.condition = rewritten;
           }
           walkStatements(b.body, ctx);
         }
         break;
       case "Once":
+        if (s.condition) {
+          const { rewritten } = checkCondition(s.condition, ctx);
+          if (rewritten !== s.condition) s.condition = rewritten;
+        }
         walkStatements(s.body, ctx);
+        if (s.elseBody) walkStatements(s.elseBody, ctx);
         break;
       case "OptionGroup":
         for (const o of s.options) {
           if (o.condition) {
-            const { rewritten } = checkExpression(o.condition, ctx);
+            const { rewritten } = checkCondition(o.condition, ctx);
             if (rewritten !== o.condition) o.condition = rewritten;
           }
+          if (o.once?.condition) {
+            const { rewritten } = checkCondition(o.once.condition, ctx);
+            if (rewritten !== o.once.condition) o.once.condition = rewritten;
+          }
+          collectInlineExpressionVars(o.text, ctx);
           walkStatements(o.body, ctx);
         }
         break;
+      case "Line":
+        checkLineStatement(s, ctx);
+        break;
+      case "LineGroup":
+        for (const item of s.items) checkLineStatement(item, ctx);
+        break;
+      case "Jump": {
+        // Jump-target expressions must resolve to strings (ticket 54;
+        // upstream ExitJumpToExpression's convertible-to-String constraint).
+        const targetExpr = s.target.match(/^\{([\s\S]*)\}$/);
+        if (targetExpr) {
+          const { type } = checkExpression(targetExpr[1], ctx);
+          if (type.base === "unknown" && !type.enumName && !type.error) {
+            // Upstream's constraint resolves an unknown target to String —
+            // record that so later uses of it don't report YS0029.
+            pinImplicitFunction(targetExpr[1], { base: "string" }, ctx);
+            const bare = new ExprParser(tokenize(targetExpr[1]), targetExpr[1]).parse();
+            if (bare?.kind === "var") ctx.variableTypes.set(bare.name, "string");
+          } else {
+            const convertible =
+              type.base === "string" ||
+              (type.enumName !== undefined && ctx.enumTypes.get(type.enumName)?.rawValueType === "string");
+            const display = describeUpstream(type);
+            if (!convertible && display) {
+              ctx.emit(
+                "YS0050",
+                `jump statement's expression must be convertible to String, but ${display} is not`,
+              );
+            }
+          }
+        }
+        break;
+      }
       default:
         break;
+    }
+  }
+}
+
+/** Collect inline-expression uses and bool-constrain a line's conditions
+ *  (lines and line-group items share the shape). */
+function checkLineStatement(line: Line, ctx: CheckContext): void {
+  collectInlineExpressionVars(line.text, ctx);
+  for (const condition of [line.condition, line.once?.condition]) {
+    if (!condition) continue;
+    const { rewritten } = checkCondition(condition, ctx);
+    if (rewritten !== condition) {
+      if (line.condition === condition) line.condition = rewritten;
+      else if (line.once) line.once.condition = rewritten;
     }
   }
 }
@@ -903,11 +1205,34 @@ export function typeCheck(
     declarations,
     declaredVariables: new Map(),
     externalVariables,
+    inferredFunctions: new Map(),
+    inlineVarUses: new Set(),
+    undeterminedSites: [],
   };
 
   for (const node of doc.nodes) {
     ctx.currentFile = node.sourceFile;
     walkStatements(node.body, ctx);
+  }
+
+  // Undetermined set/declare sites (ticket 54's Inference-* fixtures):
+  // upstream's solver resolves these globally, so a site only reports
+  // YS0029 when — after the whole walk — neither its expression's function
+  // nor its target variable got a type. Both the expression and the target
+  // are reported, as upstream.
+  for (const site of ctx.undeterminedSites) {
+    if (ctx.variableTypes.has(site.target)) continue;
+    emitUndetermined(site.text, ctx);
+    emitUndetermined(`$${site.target}`, ctx);
+  }
+
+  // Inline-expression uses (ticket 54): a variable referenced from line,
+  // option, or command text that nothing could type has no implicit
+  // declaration upstream can resolve — YS0029 for each such use site.
+  for (const name of ctx.inlineVarUses) {
+    if (!ctx.variableTypes.has(name) && !ctx.declaredVariables.has(name)) {
+      emitUndetermined(`$${name}`, ctx);
+    }
   }
 
   // Smart-variable validation (ticket 42): reference loops across the

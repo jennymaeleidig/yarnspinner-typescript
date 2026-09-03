@@ -54,6 +54,7 @@ export const DIAGNOSTIC_REGISTRY: Record<string, DiagnosticDescriptor> = {
   YS0021: { name: "StrayCommandEnd", defaultSeverity: "warning" },
   YS0027: { name: "InvalidNodeName", defaultSeverity: "error" },
   YS0028: { name: "TypeInferenceFailure", defaultSeverity: "error" },
+  YS0029: { name: "ExpressionTypeUndetermined", defaultSeverity: "error" },
   YS0030: { name: "SmartVariableReadOnly", defaultSeverity: "error" },
   YS0031: { name: "NodeGroupMissingWhen", defaultSeverity: "error" },
   YS0032: { name: "DuplicateSubtitle", defaultSeverity: "error" },
