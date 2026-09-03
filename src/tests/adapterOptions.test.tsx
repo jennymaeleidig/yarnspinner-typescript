@@ -3,8 +3,13 @@
  * `variableStorage` (spec story 39, the persistence seam), `textProvider`
  * (ticket 51, localisation), the opt-in `lineHints` flag, and the
  * `logError`/`logDebug` diagnostics — reach React consumers through
- * `useDialogue` (and `<DialogueView>`), with the same rebuild-on-change
- * discipline the existing options use.
+ * `useDialogue` (and `<DialogueView>`).
+ *
+ * The hook takes `(program, config, live)` with one comparison rule —
+ * **config identity = dialogue identity** — pinned below alongside the
+ * passthrough behaviour: a new config object rebuilds even with identical
+ * values; a new `live` object never does, and its callbacks/logging are
+ * always current (read through a ref, not frozen at construction).
  *
  * Harness: SSR hook probes per ticket 55 (`renderToStaticMarkup` — the
  * hook runs during server render, and the captured result object keeps
@@ -23,24 +28,31 @@
 
 import { test } from "node:test";
 import { ok, deepEqual, strictEqual } from "node:assert";
-import React from "react";
+import React, { act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { createRoot } from "react-dom/client";
 import { parseYarn, compileDocument } from "../index.js";
 import {
   useDialogue,
   type UseDialogueOptions,
+  type UseDialogueLive,
   type UseDialogueResult,
 } from "../react/useDialogue.js";
 import { DialogueView } from "../react/DialogueView.js";
+import { setupClientDom } from "./clientDomHarness.js";
 import { InMemoryVariableStorage } from "../runtime/variableStorage.js";
 import { StringTableTextProvider } from "../runtime/textProvider.js";
 import type { Program } from "../compile/program.js";
 
 /** Ticket 55's SSR harness: render a probe, hand back the captured hook. */
-function captureHook(program: Program, options: UseDialogueOptions): UseDialogueResult {
+function captureHook(
+  program: Program,
+  config: UseDialogueOptions = {},
+  live: UseDialogueLive = {},
+): UseDialogueResult {
   const capture: { hook: UseDialogueResult | null } = { hook: null };
   function Probe() {
-    capture.hook = useDialogue(program, options);
+    capture.hook = useDialogue(program, config, live);
     return null;
   }
   renderToStaticMarkup(React.createElement(Probe));
@@ -215,7 +227,7 @@ const OPTIONS_YARN = `title: Start
 test("useDialogue logError: runtime diagnostics reach the host callback", () => {
   const program = compileDocument(parseYarn(OPTIONS_YARN));
   const errors: string[] = [];
-  const hook = captureHook(program, { logError: (m) => errors.push(m) });
+  const hook = captureHook(program, {}, { logError: (m) => errors.push(m) });
 
   ok(hook.result?.type === "options", "the option set delivered");
   hook.selectOption(99); // out of range → the VM reports through logError
@@ -250,7 +262,7 @@ Mae: only
 ===
 `));
   const debug: string[] = [];
-  const hook = captureHook(program, { logDebug: (m) => debug.push(m) });
+  const hook = captureHook(program, {}, { logDebug: (m) => debug.push(m) });
 
   ok(hook.result?.type === "text");
   hook.continue(); // completes the one-line story
@@ -288,4 +300,93 @@ test("DialogueView forwards variableStorage and textProvider to the hook", () =>
     localisedHtml.includes("Hello from provider"),
     "expected DialogueView to pass textProvider through to the hook",
   );
+});
+
+// ── config/live split (deepening-wave ticket 05): the one rule ────────────
+
+const CONFIG_LIVE_YARN = `title: Start
+---
+Mae: only
+===
+`;
+
+/** Shared probe: the SAME component type across renders, so the hook's
+ *  state persists and rebuild-vs-ref-read is observable. */
+const capture: { hook: UseDialogueResult | null } = { hook: null };
+function ConfigLiveProbe(props: {
+  program: Program;
+  config: UseDialogueOptions;
+  live: UseDialogueLive;
+}) {
+  capture.hook = useDialogue(props.program, props.config, props.live);
+  return null;
+}
+
+function renderConfigLive(
+  root: ReturnType<typeof createRoot>,
+  program: Program,
+  config: UseDialogueOptions,
+  live: UseDialogueLive,
+): Promise<void> {
+  return act(async () => {
+    root.render(React.createElement(ConfigLiveProbe, { program, config, live }));
+  });
+}
+
+test("useDialogue config/live: config identity is dialogue identity", async () => {
+  setupClientDom();
+  const program = compileDocument(parseYarn(CONFIG_LIVE_YARN));
+  const root = createRoot(document.getElementById("root")!);
+  const config: UseDialogueOptions = { startAt: "Start" };
+  try {
+    await renderConfigLive(root, program, config, {});
+    const first = capture.hook!.dialogue;
+
+    // The SAME config object (and a fresh live literal): no rebuild.
+    await renderConfigLive(root, program, config, {});
+    strictEqual(capture.hook!.dialogue, first, "the same config object must not rebuild");
+
+    // A new config object with identical values: a new dialogue — identity
+    // is the whole rule, no per-field compare survives.
+    await renderConfigLive(root, program, { ...config }, {});
+    ok(
+      capture.hook!.dialogue !== first,
+      "a new config object means a new dialogue, even with identical values",
+    );
+  } finally {
+    await act(async () => {
+      root.unmount();
+    });
+  }
+});
+
+test("useDialogue config/live: live callbacks are always current (no rebuild, no freeze)", async () => {
+  setupClientDom();
+  const program = compileDocument(parseYarn(CONFIG_LIVE_YARN));
+  const root = createRoot(document.getElementById("root")!);
+  const config: UseDialogueOptions = {}; // stable config — identity is the rule
+  const errorsA: string[] = [];
+  const errorsB: string[] = [];
+  try {
+    await renderConfigLive(root, program, config, { logError: (m) => errorsA.push(m) });
+    const first = capture.hook!.dialogue;
+
+    // Swap the logger (a new live object): no rebuild, and the NEW callback
+    // receives diagnostics — the old construction-time freeze is gone.
+    await renderConfigLive(root, program, config, { logError: (m) => errorsB.push(m) });
+    strictEqual(capture.hook!.dialogue, first, "a new live object must not rebuild");
+
+    // Trigger a diagnostic through the documented escape hatch: setLanguage
+    // without a provider reports through logError.
+    capture.hook!.dialogue.setLanguage("fr");
+    deepEqual(errorsA, [], "the pre-swap live callback must be detached");
+    ok(
+      errorsB.some((m) => m.includes("setLanguage was called")),
+      `expected the current live logger to receive the diagnostic, got: ${JSON.stringify(errorsB)}`,
+    );
+  } finally {
+    await act(async () => {
+      root.unmount();
+    });
+  }
 });

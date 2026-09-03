@@ -43,6 +43,12 @@ export type UseYarnRunnerResult = UseDialogueResult;
  * React "adjust state when props change" pattern) so server-side rendering
  * shows the opening line; `continue`/`selectOption` re-pull from event
  * handlers and bump a counter to re-render.
+ *
+ * The hook takes `(program, config, live)`: construction-only inputs go in
+ * `config` — one rule, config identity = dialogue identity — and per-call
+ * callbacks and logging go in `live`, read through a ref so the latest
+ * object is always in effect (identity ignored; a fresh literal every
+ * render is the intended shape).
  */
 
 export interface DialogueViewOption {
@@ -79,40 +85,54 @@ export interface StoryEndInfo {
   storyEnd: true;
 }
 
+/**
+ * Construction-only inputs to `useDialogue` (the `config` parameter).
+ * Reference-compared as a whole — one rule: **config identity = dialogue
+ * identity**. A new config object means a new dialogue, even if every value
+ * inside is identical; per-call inputs (callbacks, logging) belong in
+ * `UseDialogueLive`.
+ */
 export interface UseDialogueOptions {
   startAt?: string;
   functions?: Record<string, YarnFunction>;
-  /** Initial host variable values, seeded into storage before the first event. */
+  /** Initial host variable values, seeded into storage before the first event.
+   *  Variables seed state: different values means a new dialogue, not live
+   *  re-seeding. */
   variables?: Record<string, unknown>;
   /**
    * Host-provided variable storage (glossary "variable storage", spec
    * story 39): the persistence seam. Injecting a pre-populated storage
    * restores state — declare-default seeding skips the names it already
-   * holds. Changing its identity rebuilds the dialogue (reference compare:
-   * a storage is stateful, so only a new storage means a new dialogue).
+   * holds.
    */
   variableStorage?: VariableStorage;
   /**
    * Host-provided text provider (ticket 51): resolves line IDs to text for
    * the current language; lines it lacks fall back to the program's own
-   * text. Changing its identity rebuilds the dialogue (reference compare).
-   * Language switching needs no rebuild — call `setLanguage` on the result's
-   * `dialogue` (the ticket-51 surface; the hook adds no language API).
+   * text. Language switching needs no rebuild — call `setLanguage` on the
+   * result's `dialogue` (the ticket-51 surface; the hook adds no language
+   * API).
    */
   textProvider?: TextProvider;
   /**
    * Opt-in `LineHints` events (upstream `PrepareForLines`). The hook
    * consumes them silently — they never surface in the view — so hosts
-   * observe hints through the provider's `acceptLineHints` or the `dialogue`
-   * escape hatch. Changing the flag rebuilds the dialogue (value compare,
-   * like `startAt`).
+   * observe hints through the provider's `acceptLineHints` or the
+   * `dialogue` escape hatch.
    */
   lineHints?: boolean;
-  /** Runtime error diagnostics. Defaults to `console.error`. Construction-time:
-   *  changing it after the dialogue exists is ignored — pass a stable callback. */
+}
+
+/**
+ * Per-call inputs to `useDialogue` (the `live` parameter): callbacks and
+ * logging. Read through a ref — identity is ignored and the latest object is
+ * always in effect, so passing a fresh literal every render is fine and
+ * swapping callbacks after construction works.
+ */
+export interface UseDialogueLive {
+  /** Runtime error diagnostics. Defaults to `console.error`. */
   logError?: (message: string) => void;
-  /** Runtime debug diagnostics. Defaults to silent. Construction-time: changing
-   *  it after the dialogue exists is ignored — pass a stable callback. */
+  /** Runtime debug diagnostics. Defaults to silent. */
   logDebug?: (message: string) => void;
   /** Fired after commit when the dialogue completes (the `DialogueComplete`
    *  event, glossary). Takes precedence over the deprecated `onStoryEnd`. */
@@ -136,30 +156,6 @@ export interface UseDialogueResult {
   selectOption: (index: number) => void;
   /** The underlying `Dialogue`, for escape hatches (variable reads, etc.). */
   dialogue: Dialogue;
-}
-
-function haveFunctionsChanged(
-  prev: UseDialogueOptions["functions"],
-  next: UseDialogueOptions["functions"],
-): boolean {
-  const prevFns = prev ?? {};
-  const nextFns = next ?? {};
-  const prevKeys = Object.keys(prevFns);
-  const nextKeys = Object.keys(nextFns);
-  if (prevKeys.length !== nextKeys.length) return true;
-  for (const key of prevKeys) {
-    if (!Object.prototype.hasOwnProperty.call(nextFns, key) || prevFns[key] !== nextFns[key]) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function haveVariablesChanged(
-  prev: UseDialogueOptions["variables"],
-  next: UseDialogueOptions["variables"],
-): boolean {
-  return JSON.stringify(prev ?? {}) !== JSON.stringify(next ?? {});
 }
 
 function buildLibrary(functions?: Record<string, YarnFunction>): Library {
@@ -220,15 +216,24 @@ function reshapeView(
 
 export function useDialogue(
   program: Program,
-  options: UseDialogueOptions,
+  config: UseDialogueOptions,
+  live: UseDialogueLive = {},
 ): UseDialogueResult {
   const dialogueRef = useRef<Dialogue | null>(null);
   const dialogueCompleteFiredRef = useRef(false);
   const dialogueCompletePendingRef = useRef(false);
   const viewRef = useRef<DialogueViewResult | null>(null);
   const programRef = useRef(program);
-  const optionsRef = useRef(options);
+  const configRef = useRef(config);
+  const liveRef = useRef(live);
   const [, bump] = useReducer((n: number) => n + 1, 0);
+
+  // `live` is per-call: identity is ignored, the latest object is always in
+  // effect. Synced after every commit, and declared ahead of the completion
+  // effect below so a same-commit completion reads fresh callbacks.
+  useEffect(() => {
+    liveRef.current = live;
+  });
 
   /** Pull to the next stopping point and reshape the transcript into the
    *  view state; flags the completion callback for post-commit delivery. */
@@ -243,35 +248,41 @@ export function useDialogue(
     }
   }, []);
 
-  // Adjust during render: (re)create the dialogue when inputs changed, then
-  // synchronously pull the first view state (keeps SSR markup correct).
+  // Adjust during render: create the dialogue when the program or the config
+  // identity changed, then synchronously pull the first view state (keeps SSR
+  // markup correct). One comparison rule — config identity = dialogue
+  // identity; a fresh object with identical values still rebuilds.
   if (
     !dialogueRef.current ||
     programRef.current !== program ||
-    haveFunctionsChanged(optionsRef.current?.functions, options.functions) ||
-    optionsRef.current?.startAt !== options.startAt ||
-    haveVariablesChanged(optionsRef.current?.variables, options.variables) ||
-    optionsRef.current?.variableStorage !== options.variableStorage ||
-    optionsRef.current?.textProvider !== options.textProvider ||
-    !!optionsRef.current?.lineHints !== !!options.lineHints
+    configRef.current !== config
   ) {
     const dialogue = new Dialogue(program, {
-      startAt: options.startAt ?? "Start",
-      library: buildLibrary(options.functions),
-      variableStorage: options.variableStorage,
-      textProvider: options.textProvider,
-      lineHints: options.lineHints,
-      logError: options.logError,
-      logDebug: options.logDebug,
+      startAt: config.startAt ?? "Start",
+      library: buildLibrary(config.functions),
+      variableStorage: config.variableStorage,
+      textProvider: config.textProvider,
+      lineHints: config.lineHints,
+      // Trampolines, not the callbacks themselves: diagnostics route to the
+      // live object's current logging, so hosts can swap loggers after
+      // construction (the old construction-time freeze is gone).
+      logError: (message) => {
+        const onError = liveRef.current.logError;
+        if (onError) onError(message);
+        else console.error(message);
+      },
+      logDebug: (message) => {
+        liveRef.current.logDebug?.(message);
+      },
     });
-    for (const [name, value] of Object.entries(options.variables ?? {})) {
+    for (const [name, value] of Object.entries(config.variables ?? {})) {
       dialogue.setVariable(name, value);
     }
     dialogueRef.current = dialogue;
     dialogueCompleteFiredRef.current = false;
     dialogueCompletePendingRef.current = false;
     programRef.current = program;
-    optionsRef.current = options;
+    configRef.current = config;
     applyPull();
   }
 
@@ -282,10 +293,10 @@ export function useDialogue(
     if (!dialogueCompletePendingRef.current) return;
     dialogueCompletePendingRef.current = false;
     const variables = Object.freeze({ ...dialogueRef.current?.getVariables() });
-    if (optionsRef.current.onDialogueComplete) {
-      optionsRef.current.onDialogueComplete({ dialogueComplete: true, variables });
+    if (liveRef.current.onDialogueComplete) {
+      liveRef.current.onDialogueComplete({ dialogueComplete: true, variables });
     } else {
-      optionsRef.current.onStoryEnd?.({ storyEnd: true, variables });
+      liveRef.current.onStoryEnd?.({ storyEnd: true, variables });
     }
   });
 

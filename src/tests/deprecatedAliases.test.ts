@@ -104,6 +104,11 @@ Mae: only
 ===
 `;
 
+// Config identity = dialogue identity: the config must be a stable object
+// across re-renders (an inline literal would rebuild — and discard pending
+// state — on every render). `live` may stay inline: the hook ref-reads it.
+const EMPTY_CONFIG: UseDialogueOptions = {};
+
 const TWO_LINE_YARN = `title: Start
 ---
 Mae: one
@@ -117,7 +122,7 @@ test("onStoryEnd (deprecated): fires only when onDialogueComplete is absent, wit
   const storyEnds: StoryEndInfo[] = [];
   const capture: { hook: UseDialogueResult | null } = { hook: null };
   function Probe() {
-    capture.hook = useDialogue(program, { onStoryEnd: (info) => storyEnds.push(info) });
+    capture.hook = useDialogue(program, EMPTY_CONFIG, { onStoryEnd: (info) => storyEnds.push(info) });
     return null;
   }
   const root = createRoot(document.getElementById("root")!);
@@ -147,7 +152,7 @@ test("onStoryEnd (deprecated): onDialogueComplete wins when both are given", asy
   const completes: { variables: Readonly<Record<string, unknown>>; dialogueComplete: boolean }[] = [];
   const capture: { hook: UseDialogueResult | null } = { hook: null };
   function Probe() {
-    capture.hook = useDialogue(program, {
+    capture.hook = useDialogue(program, EMPTY_CONFIG, {
       onDialogueComplete: (info) => completes.push(info),
       onStoryEnd: (info) => storyEnds.push(info),
     });

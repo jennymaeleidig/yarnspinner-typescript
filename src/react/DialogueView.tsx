@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { DialogueScene } from "./DialogueScene.js";
 import type { SceneCollection } from "../scene/types.js";
 import { TypingText } from "./TypingText.js";
@@ -39,9 +39,10 @@ export interface DialogueViewProps {
   textProvider?: TextProvider;
   /** Opt-in `LineHints` events (consumed silently by the hook); flipping rebuilds. */
   lineHints?: boolean;
-  /** Runtime error diagnostics (default `console.error`); changing it is ignored. */
+  /** Runtime error diagnostics (default `console.error`); read live — the
+   *  hook's latest live object is always in effect. */
   logError?: (message: string) => void;
-  /** Runtime debug diagnostics (default silent); changing it is ignored. */
+  /** Runtime debug diagnostics (default silent); read live. */
   logDebug?: (message: string) => void;
   /** Fired after commit when the dialogue completes (the `DialogueComplete`
    *  event). Takes precedence over the deprecated `onStoryEnd`. */
@@ -101,13 +102,22 @@ export function DialogueView({
   const continueDelay = autoContinueDelay ?? autoAdvanceDelay ?? 500;
   const clickPause = pauseBeforeContinue ?? pauseBeforeAdvance ?? 0;
 
-  const { result, continue: continueDialogue, selectOption } = useDialogue(program, {
-    startAt: startNode,
-    functions,
-    variables,
-    variableStorage,
-    textProvider,
-    lineHints,
+  // Construction-only inputs go in the config (one rule: config identity =
+  // dialogue identity — so it is memoized); callbacks and logging go in
+  // `live`, which the hook reads through a ref — a fresh literal every
+  // render is exactly the intended shape.
+  const config = useMemo(
+    () => ({
+      startAt: startNode,
+      functions,
+      variables,
+      variableStorage,
+      textProvider,
+      lineHints,
+    }),
+    [startNode, functions, variables, variableStorage, textProvider, lineHints],
+  );
+  const { result, continue: continueDialogue, selectOption } = useDialogue(program, config, {
     logError,
     logDebug,
     onDialogueComplete,
