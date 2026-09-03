@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { parseYarn } from "../../src/parse/parser.js";
 import { compileDocument } from "../../src/compile/compiler.js";
 import { Dialogue } from "../../src/runtime/dialogue.js";
@@ -142,15 +142,18 @@ export function StoryletsDemo() {
     setEnded(!dialogue.hasSalientContent("Storylets"));
   }, []);
 
-  // First paint: show the saliency panel before any draw.
-  if (saliencyOptions.length === 0 && dialogueRef.current === null) {
+  // Initial panel fill happens after commit (never setState during render);
+  // it also re-fills whenever the strategy changes, since getDialogue's
+  // identity tracks it.
+  useEffect(() => {
     refreshPanel(getDialogue());
-  }
+  }, [getDialogue, refreshPanel]);
 
   const drawStorylet = useCallback(() => {
     const dialogue = getDialogue();
     dialogue.setNode("Storylets");
     const lines: DrawnLine[] = [];
+    let completed = false;
     for (;;) {
       const batch = dialogue.continue();
       if (batch.length === 0) break;
@@ -159,9 +162,9 @@ export function StoryletsDemo() {
           const line = event as LineEvent;
           lines.push({ speaker: line.speaker, text: line.text });
         }
-        if (event.type === "dialogueComplete") break;
+        if (event.type === "dialogueComplete") completed = true;
       }
-      if (!dialogue.isActive) break;
+      if (completed || !dialogue.isActive) break;
     }
     if (lines.length > 0) {
       setDraw({ lines, label: lines[0].text });

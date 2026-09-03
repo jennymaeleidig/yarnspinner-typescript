@@ -52,3 +52,22 @@
   was stale — no editor exists).
 - **Not done (by design)**: no adapter feature work; scene/actor system
   untouched; docs overhaul is ticket 53.
+
+### Code review (two-axis) resolutions
+
+- **Standards §5 (fixed)**: "storylet" is demo-layer vocabulary for a
+  **node-group member** — reconciled with a glossary bullet under CONTEXT.md's
+  Adapter-side section rather than left as an invented synonym.
+- **Spec/render-hygiene (fixed)**: the demo's initial saliency panel filled
+  via render-phase setState; now an after-commit `useEffect` keyed to the
+  strategy. The draw loop's `dialogueComplete` exit is now an explicit flag
+  breaking the outer loop (was an inner-only break relying on `isActive`).
+- **Duplicated STORYLET_YARN/draw loop (kept, deliberate)**: the mirror
+  cannot be a shared module — tests compile from `src/` only (`rootDir:
+  src`), and moving demo content into the package would add surface the
+  migration-only ticket forbids. Both copies cross-reference; drift degrades
+  to a documentation mismatch, not a correctness break.
+- **"Demo green" verification (accepted as-is)**: `demo:build` + `vite
+  preview` + dev-server transforms were verified in-session (assets 200,
+  storylet bundle present); CI-level vite builds remain for ticket 53. The
+  package-level executable harness is the SSR tests.

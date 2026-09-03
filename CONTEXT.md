@@ -74,6 +74,7 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 ### Adapter-side (non-upstream)
 
 - **Scene system**: YAML scene/actor definitions and portrait handling reached via the `scene:` header (which itself is an ordinary upstream-compatible header). Exists only in the React adapter layer; not part of language parity.
+- **Storylet**: the browser demo's presentation name for a node-group member drawn by saliency (`examples/browser/StoryletsDemo.tsx`); demo-layer vocabulary, not upstream's — the glossary term for the thing being drawn is **node-group member**.
 
 ## Retired terms
 
