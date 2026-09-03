@@ -208,6 +208,31 @@ relative to `process.cwd()`. The SSR render test (the ticket-52 demo-harness
 pattern over the host's first pull) lives in
 `src/tests/nextjsHost.test.tsx`.
 
+### SvelteKit host
+
+The same story again, with zero React anywhere — the strongest proof the
+runtime is framework-agnostic (`examples/sveltekit-host/`). The loader runs
+in `+page.server.ts` — `loadYarnProject()` over the app's own authored
+content (`content/project.yarnproject` + `content/night_market.yarn`) — and
+the compiled program crosses the SvelteKit load boundary as a plain
+serializable object. `Dialogue`'s pull-based continue loop runs natively in
+a Svelte 5 runes component (`src/lib/DialogueHost.svelte`); the page is
+prerendered (adapter-static), so the server-rendered dialogue output is
+baked into the build. **Reset** demonstrates variable-storage reset, as in
+the Next.js host.
+
+```bash
+npm run sveltekit:build   # builds the library, then `vite build` the host
+npm run sveltekit:dev     # dev server for the host
+```
+
+The npm targets `cd` into the host directory — the standard SvelteKit
+workflow — and the server load resolves the content directory relative to
+it. Framework support is demonstrated across both hosts — Next.js (React)
+and SvelteKit (Svelte) — on the same `Dialogue`/loader surface. The SSR
+harness (`src/tests/sveltekitHost.test.ts`) compiles the real component
+with `svelte/compiler` and renders it with `svelte/server`.
+
 ### Editing the Yarn scripts
 
 The repo root contains `yarn-spinner-runner-ts.yarnproject`, so the
@@ -397,6 +422,8 @@ yarn-spinner/
 ├── examples/
 │   ├── yarn/           # Example Yarn scripts
 │   ├── browser/        # Browser demo (Vite)
+│   ├── nextjs-host/    # Next.js host example (React client)
+│   ├── sveltekit-host/ # SvelteKit host example (Svelte client)
 │   └── scenes/         # Scene configuration examples
 ├── docs/               # Documentation
 └── dist/               # Compiled output
@@ -411,6 +438,8 @@ npm run lint      # Run ESLint
 npm test          # Run tests
 npm run demo      # Start browser demo
 npm run demo:build # Build browser demo
+npm run host:build # Build library + Next.js host
+npm run sveltekit:build # Build library + SvelteKit host
 ```
 
 ## Testing

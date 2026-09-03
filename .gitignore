@@ -45,6 +45,11 @@ coverage/
 examples/nextjs-host/.next/
 examples/nextjs-host/tsconfig.tsbuildinfo
 
+# SvelteKit host
+examples/sveltekit-host/.svelte-kit/
+examples/sveltekit-host/build/
+examples/sveltekit-host/tsconfig.tsbuildinfo
+
 # Temporary files
 *.tmp
 *.temp

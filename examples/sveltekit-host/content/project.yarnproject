@@ -1,0 +1,6 @@
+{
+  "projectFileVersion": 4,
+  "projectName": "Night Market",
+  "sourceFiles": ["**/*.yarn"],
+  "baseLanguage": "en"
+}

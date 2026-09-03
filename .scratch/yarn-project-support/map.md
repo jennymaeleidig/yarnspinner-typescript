@@ -21,7 +21,7 @@ Spec'd from `future-work.md` item 1 before ticket 53 started.
 | [02 YarnProject loader core](issues/02-yarnproject-loader.md) | resolved | — |
 | [03 localisation wiring](issues/03-localisation-wiring.md) | resolved | 02 |
 | [04 Next.js host](issues/04-nextjs-host.md) | resolved | 02 |
-| [05 SvelteKit host](issues/05-sveltekit-host.md) | ready-for-agent | 02 |
+| [05 SvelteKit host](issues/05-sveltekit-host.md) | resolved | 02 |
 
 ## Decisions so far
 
@@ -56,3 +56,11 @@ Spec'd from `future-work.md` item 1 before ticket 53 started.
   (03) are separate slices; each host is its own ticket (04, 05), all gated
   by 02 only — the locale-switch story is proven by 03, the hosts demo
   variable-storage reset.
+- Ticket 05: the SvelteKit host reuses the ticket-04 package-name/exports
+  self-reference (now proven under Vite too) and mirrors its structure
+  (svelte stack at the root devDeps, vite-plugin-svelte pinned to the v4
+  line for the repo's vite 5); unlike `next build <dir>`, SvelteKit runs
+  from the app dir, so the `sveltekit:*` npm targets `cd` into the host and
+  its server load resolves `content/` from there — hosts are self-contained
+  (no inter-host edge: Night Market content authored fresh). CI wiring for
+  both host builds stays ticket 53.
