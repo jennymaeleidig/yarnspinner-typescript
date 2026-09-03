@@ -66,7 +66,10 @@ C#/C++ engines.
 14. As a consumer with dialogue state, I want the hosts to demonstrate
     variable-storage reset, so the runtime surface beyond `continue()` is
     shown per framework.
-15. As a maintainer, I want this effort independent of the 0.2.0 release
+15. As a localizer, I want the project's `localisation` asset directories
+    surfaced to my host as configured paths, so asset resolution stays
+    host-side and the library never loads assets itself.
+16. As a maintainer, I want this effort independent of the 0.2.0 release
     wave, so it lands or slips without holding the rename hostage.
 
 ## Implementation Decisions

@@ -11,6 +11,8 @@ surface.
 
 **Blocked by:** 02 (loader core)
 
+Type: task
+
 **Status:** ready-for-agent
 
 - [ ] Server-side project load via the loader; client `Dialogue` loop with no

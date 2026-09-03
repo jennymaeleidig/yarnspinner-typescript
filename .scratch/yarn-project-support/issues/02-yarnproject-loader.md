@@ -18,6 +18,8 @@ the tests. `definitions` (.ysls.json) is explicitly deferred.
 
 **Blocked by:** None (can start immediately)
 
+Type: task
+
 **Status:** ready-for-agent
 
 - [ ] Parse + validate v4 (and legacy v2) project files with diagnostics; v3 rejected

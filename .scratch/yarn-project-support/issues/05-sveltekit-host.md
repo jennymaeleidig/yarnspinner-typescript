@@ -9,6 +9,8 @@ app rather than package surface.
 
 **Blocked by:** 02 (loader core)
 
+Type: task
+
 **Status:** ready-for-agent
 
 - [ ] Project load via the loader; native Svelte rendering of the continue

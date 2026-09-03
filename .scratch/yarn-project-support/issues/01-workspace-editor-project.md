@@ -15,6 +15,8 @@ schema: <https://schemas.yarnspinner.dev/yarnproject.schema.json>.
 
 **Blocked by:** — (spun out of `future-work.md` ahead of ticket 53)
 
+Type: task
+
 **Status:** resolved
 
 - [x] Root `.yarnproject`, v4 fields validated against the upstream schema

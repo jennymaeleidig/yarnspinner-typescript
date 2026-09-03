@@ -13,6 +13,8 @@ provider glue.
 
 **Blocked by:** 02 (loader core — the validated `localisation` map)
 
+Type: task
+
 **Status:** ready-for-agent
 
 - [ ] `localisation` map → per-locale CSV string tables via the existing
