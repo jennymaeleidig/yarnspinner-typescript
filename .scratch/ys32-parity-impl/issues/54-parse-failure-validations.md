@@ -111,3 +111,11 @@ Implementation notes:
   unchecked branch).
 
 Landed in this branch's ticket-54 commit.
+
+### 2026-09-03 — final review wave
+
+Ticket-54's commit (d396c2c) only emptied `MUST_FAIL_ALLOWLIST`; the actual
+deletion of the allowlist and its dead self-clean assertion machinery landed
+in the final-review wave, 6452978 (module docblock corrected — no
+must-fail allowlist promised; ParseFailures codes now point to
+`parseFailureValidations.test.ts`). "Empty and deleted" is true at HEAD.

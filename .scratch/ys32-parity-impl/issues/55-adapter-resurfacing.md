@@ -56,3 +56,18 @@ real component API (§7: those props never existed). Suite 476/476, lint
 clean, demo/host/sveltekit builds green. Out-of-scope note stands:
 DialogueOptions passthrough (variableStorage/textProvider/lineHints/
 logError) needs its own ticket if wanted.
+
+### 2026-09-03 — final review wave
+
+The acceptance's "identity + behaviour" pin is now complete: ee13b19 only
+pinned the `advance === continue` identity; the behaviour half landed in
+6452978 — four jsdom client-render tests in `deprecatedAliases.test.ts`:
+onStoryEnd fires only when onDialogueComplete is absent (original payload
+`{storyEnd: true, variables}`), onDialogueComplete wins when both are
+given, autoAdvanceAfterTyping + autoAdvanceDelay drive the auto-continue
+(5ms alias delay proven against the 500ms default), and pauseBeforeAdvance
+defers a click. Harness fact: the SSR renderToStaticMarkup probe can't fire
+post-commit effects, so behaviour pins use a jsdom client render (jsdom +
+@types/jsdom added as devDependencies). Reviewer follow-up ac7e2e3 widened
+the pauseBeforeAdvance margin (50ms pause / 10ms probe) so a stalled event
+loop can't reorder the probe past the deferred continue.

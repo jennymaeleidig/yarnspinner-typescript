@@ -43,12 +43,20 @@ the spec and the implementation tickets.
 | [51 CSV + tagLines + setLanguage](issues/51-csv-taglines-setlanguage.md) | resolved | 50 |
 | [52 React adapter + demo](issues/52-react-adapter-demo.md) | resolved | 47, 48 |
 | [53 rename + docs + 0.2.0](issues/53-rename-docs-release.md) | resolved | 52 |
-| [54 ParseFailures validation wave](issues/54-parse-failure-validations.md) | open | — |
+| [54 ParseFailures validation wave](issues/54-parse-failure-validations.md) | resolved | — |
 | [55 adapter resurfacing](issues/55-adapter-resurfacing.md) | resolved | 53 |
 | [56 adapter options passthrough](issues/56-adapter-options-passthrough.md) | resolved | 55 |
 | [30–33 phase buckets](issues/30-phase1-compiler-language-core.md) | superseded | — |
 
 ## Decisions so far
+
+- Final two-axis review wave (2026-09-03, `6452978`): the emptied
+  MUST_FAIL_ALLOWLIST deleted outright — no allowlist remains for must-fail
+  fixtures, codes pinned by `parseFailureValidations.test.ts` (ticket 54).
+  Ticket 55's alias behaviour pins introduced the jsdom client-render
+  harness as the adapter's client-side test seam (SSR renderToStaticMarkup
+  never fires post-commit effects). Reviewer follow-up `ac7e2e3` widened
+  the pauseBeforeAdvance test margin. Suite 521/521.
 
 - Ticket 56 (adapter options passthrough): the four newer DialogueOptions
   groups pass through `useDialogue` and `<DialogueView>` — passthrough
