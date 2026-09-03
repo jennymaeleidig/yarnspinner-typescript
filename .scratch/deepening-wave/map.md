@@ -33,7 +33,7 @@ stays as-is and nothing here extends it.
 | [04 dead state out, one continue scheduler](issues/04-continue-scheduler.md) | resolved | 03 |
 | [05 useDialogue config/live split](issues/05-hook-config-live-split.md) | resolved | 04 |
 | [06 single-source the view props](issues/06-view-props-extends.md) | resolved | 05 |
-| [07 scene on NodeStartEvent; js-yaml leaves](issues/07-scene-node-start.md) | open | 04 |
+| [07 scene on NodeStartEvent; js-yaml leaves](issues/07-scene-node-start.md) | resolved | 04 |
 | [08 localisation folded into loadProject](issues/08-loader-localisations.md) | open | — |
 | [09 compileDocument demoted to internal](issues/09-compile-document-internal.md) | open | 01 |
 
@@ -120,6 +120,17 @@ From the grilling session (2026-09-03), binding on every ticket:
   VM constructor seeds — `$`-prefixed keys now normalize); view prop
   `startNode` renamed to the inherited `startAt` (hard break); headless
   split deferred to `future-work.md` per the binding.
+- [07 scene on NodeStartEvent; js-yaml leaves](issues/07-scene-node-start.md):
+  the scene name travels one channel — `NodeStartEvent.scene?` →
+  `Transcript.scene` (carried forward across scene-less nodes) → the hook's
+  `sceneName`; per-result stamping and the view-result `scene` fields
+gone; `Dialogue.currentScene`/`VM.currentScene`/`RuntimeDriver.currentScene`
+  deleted as the second channel (hard break); the mismatch seam is host-side
+  at node start (two transcript pins); `parseScenes` moved verbatim to
+  `examples/browser/scenes.ts` (the demo owns its YAML and parse failures),
+  `DialogueExample` takes `scenes?` as host input, `js-yaml` demoted to
+  `devDependencies` — `dependencies` ends empty; divergence entry recorded
+  in compatibility.md.
 
 ## Notes
 

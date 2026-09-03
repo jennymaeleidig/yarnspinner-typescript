@@ -37,12 +37,62 @@ the adapter wave settles them)
 
 Type: task
 
-**Status:** open
+**Status:** resolved
 
-- [ ] `NodeStartEvent.scene?` shipped; the per-event stamping and the
+- [x] `NodeStartEvent.scene?` shipped; the per-event stamping and the
       view-result `scene` fields gone
-- [ ] Scene/image mismatch is checkable at one seam (host-side, at
+- [x] Scene/image mismatch is checkable at one seam (host-side, at
       node start)
-- [ ] `parseScenes` + `js-yaml` out of the package; demo builds green;
+- [x] `parseScenes` + `js-yaml` out of the package; demo builds green;
       `dependencies` empty
-- [ ] CONTEXT.md scene-system entry updated; suite green, lint clean
+- [x] CONTEXT.md scene-system entry updated; suite green, lint clean
+
+## Answer
+
+Landed, both breaks together (0.2.0 unpublished). The scene name travels
+one channel now: `NodeStartEvent.scene?` (stamped by `enterNode` off the
+resolved member node, so node groups resolve the same way `currentScene`
+did) → `Transcript.scene` (the reduction module merges it, carried forward
+across scene-less nodes — the same stickiness the view's "last background"
+behavior already had) → the hook's `sceneName` return. The per-event
+stamping in `reshapeView` and the `scene?` field on all three
+`DialogueViewResult` variants are gone; `DialogueScene`'s transition
+behavior is unchanged (the command-view scene pin — "keeps scene visible
+during command results" — passes untouched, and is now *more* correct: the
+hook's sticky `sceneName` reaches command views too, where the old
+per-result stamp silently delivered `undefined`).
+
+**The second channel died.** `Dialogue.currentScene`, `VM.currentScene`,
+and `RuntimeDriver.currentScene` are deleted — with the event as the
+natural home, a synchronous getter re-deriving the same header from VM
+internals is exactly the split-brain the ticket names. Hard break, README
+updated.
+
+**The mismatch seam.** Scene name and image collection meet at node start:
+a host reads `Transcript.scene` (component state, per the Q12 decision) or
+the hook's `sceneName` and cross-checks its `SceneCollection` — pinned by
+two new transcript tests (header lands on the transcript; scene-less node
+keeps the carried scene; a new header replaces it). The library stays
+silent on mismatch (no new diagnostic surface was bound); it's now
+diagnosable host-side instead of structurally impossible.
+
+**`parseScenes` moved to the demo**, verbatim
+(`examples/browser/scenes.ts`, the demo host owning its YAML and parse
+failures — the package's only `console.error`-then-throw parser is gone
+with it). `DialogueExample` takes `scenes?: SceneCollection` as host input;
+`main.tsx` parses the demo YAML and passes it; the package-root export is
+deleted (scene *types* stay exported, the binding's exception);
+`js-yaml` moved to `devDependencies` — `dependencies` ends empty. The
+demo-side choice (not the loader-diagnostics re-home) is recorded here as
+the binding's alternative branch requires: nothing blocked it.
+
+CONTEXT.md's scene entry rewritten (one channel, demo-side parser,
+no scene dependency); `docs/scenes.md`'s `parseScenes` integration example
+rewritten to host-data; compatibility.md gained the divergence entry
+(`NodeStartEvent.scene?` / `Transcript.scene` are project extensions —
+upstream's node-start event carries the name only and has no transcript).
+
+Verification: suite 546/546 (544 + the two scene pins), lint clean,
+ts-check clean, browser demo build green (the moved parser bundles with
+the demo), Next.js and SvelteKit hosts green. Staged-adjacent: none —
+`future-work.md`'s concurrent-session hunks remain untouched.
