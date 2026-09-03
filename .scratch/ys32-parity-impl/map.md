@@ -40,7 +40,7 @@ the spec and the implementation tickets.
 | [48 markup runtime module](issues/48-markup-runtime-module.md) | open | 43 |
 | [49 multi-file compile](issues/49-multi-file-compile.md) | open | 41, 46 |
 | [50 line IDs + string table](issues/50-line-ids-string-table.md) | open | 49 |
-| [51 CSV + tagLines + setLanguage](issues/51-csv-taglines-setlanguage.md) | open | 50 |
+| [51 CSV + tagLines + setLanguage](issues/51-csv-taglines-setlanguage.md) | resolved | 50 |
 | [52 React adapter + demo](issues/52-react-adapter-demo.md) | open | 47, 48 |
 | [53 rename + docs + 0.2.0](issues/53-rename-docs-release.md) | open | 52 |
 | [30–33 phase buckets](issues/30-phase1-compiler-language-core.md) | superseded | — |
