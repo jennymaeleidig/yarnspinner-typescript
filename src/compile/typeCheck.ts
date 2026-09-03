@@ -744,6 +744,19 @@ function emitUndetermined(text: string, ctx: CheckContext): void {
   ctx.emit("YS0029", `Can't determine the type of the expression ${text}.`);
 }
 
+/** Parse an expression's source with the checker's mini-parser, or null when
+ *  it doesn't parse (syntax problems belong to YS0005's parser, not here). */
+function parseExpression(expr: string): ExprNode | null {
+  return new ExprParser(tokenize(expr), expr).parse();
+}
+
+/** Resolve a type name — a primitive (`number`/`string`/`bool`) or an enum —
+ *  to an ExprType; undefined when the name names no known type. */
+function typeFromName(name: string, ctx: CheckContext): ExprType | undefined {
+  if (ctx.enumTypes.has(name)) return { base: "unknown", enumName: name };
+  return ["number", "string", "bool"].includes(name) ? { base: name as ExprBase } : undefined;
+}
+
 /**
  * Pin an implicit function's return type from the context that first uses
  * it (upstream: the first call creates an implicit Declaration whose type
@@ -751,7 +764,7 @@ function emitUndetermined(text: string, ctx: CheckContext): void {
  * the called arity; returns true when this call was a recordable first use.
  */
 function pinImplicitFunction(expr: string, returns: ExprType, ctx: CheckContext): boolean {
-  const parsed = new ExprParser(tokenize(expr), expr).parse();
+  const parsed = parseExpression(expr);
   if (!parsed || parsed.kind !== "call") return false;
   if (ctx.functionSignatures.has(parsed.name) || ctx.inferredFunctions.has(parsed.name)) return false;
   ctx.inferredFunctions.set(parsed.name, { returns, arity: parsed.args.length });
@@ -765,7 +778,7 @@ function pinImplicitFunction(expr: string, returns: ExprType, ctx: CheckContext)
  */
 function constrainCondition(type: ExprType, expr: string, ctx: CheckContext): void {
   if (type.base !== "unknown" || type.enumName || type.error) return;
-  const parsed = new ExprParser(tokenize(expr), expr).parse();
+  const parsed = parseExpression(expr);
   if (!parsed) return;
   if (parsed.kind === "var" && !ctx.variableTypes.has(parsed.name)) {
     ctx.variableTypes.set(parsed.name, "bool");
@@ -797,7 +810,7 @@ function collectInlineExpressionVars(text: string, ctx: CheckContext): void {
       const close = text.indexOf("}", i + 1);
       if (close === -1) break;
       const exprSrc = text.slice(i + 1, close);
-      const parsed = new ExprParser(tokenize(exprSrc), exprSrc).parse();
+      const parsed = parseExpression(exprSrc);
       const collect = (node: ExprNode): void => {
         switch (node.kind) {
           case "var":
@@ -846,13 +859,7 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
             // implicit function's return); otherwise neither the expression
             // nor the variable can ever be typed — YS0029 for both, as
             // upstream's solver leaves both unresolved.
-            const declared: ExprType | undefined = declaredType
-              ? ctx.enumTypes.has(declaredType)
-                ? { base: "unknown", enumName: declaredType }
-                : ["number", "string", "bool"].includes(declaredType)
-                  ? { base: declaredType as ExprBase }
-                  : undefined
-              : undefined;
+            const declared: ExprType | undefined = declaredType ? typeFromName(declaredType, ctx) : undefined;
             if (declared) {
               if (pinImplicitFunction(expr, declared, ctx)) type = declared;
             } else if (!declaredType) {
@@ -918,11 +925,7 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
               // upstream's solver resolves the value through the target
               // (pinning an implicit function's return type — the
               // Inference-* fixtures). No diagnostic.
-              const target: ExprType = ctx.enumTypes.has(varType)
-                ? { base: "unknown", enumName: varType }
-                : ["number", "string", "bool"].includes(varType)
-                  ? { base: varType as ExprBase }
-                  : UNKNOWN_TYPE;
+              const target: ExprType = typeFromName(varType, ctx) ?? UNKNOWN_TYPE;
               if (target.base !== "unknown" || target.enumName) {
                 if (pinImplicitFunction(rest.trim(), target, ctx)) type = target;
               }
@@ -1011,7 +1014,7 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
             // Upstream's constraint resolves an unknown target to String —
             // record that so later uses of it don't report YS0029.
             pinImplicitFunction(targetExpr[1], { base: "string" }, ctx);
-            const bare = new ExprParser(tokenize(targetExpr[1]), targetExpr[1]).parse();
+            const bare = parseExpression(targetExpr[1]);
             if (bare?.kind === "var") ctx.variableTypes.set(bare.name, "string");
           } else {
             const convertible =
@@ -1116,11 +1119,9 @@ function detectSmartVariableLoops(ctx: CheckContext): void {
     }
   };
 
-  const parse = (expr: string): ExprNode | null => new ExprParser(tokenize(expr), expr).parse();
-
   for (const [startName, startDecl] of ctx.declaredVariables) {
     if (!startDecl.isSmart) continue;
-    const start = parse(startDecl.expression);
+    const start = parseExpression(startDecl.expression);
     if (!start) continue;
 
     const seenLevels = new Map<string, Set<number>>([[startName, new Set([0])]]);
@@ -1143,7 +1144,7 @@ function detectSmartVariableLoops(ctx: CheckContext): void {
         } else {
           levels.add(level);
         }
-        const dependencyExpr = parse(dependency.expression);
+        const dependencyExpr = parseExpression(dependency.expression);
         if (dependencyExpr) stack.push({ node: dependencyExpr, level: level + 1 });
         continue;
       }

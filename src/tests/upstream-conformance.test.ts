@@ -6,7 +6,8 @@
  *
  * - `TestCases/ParseFailures/*.yarn` (33 files) + `DuplicateLineTags.yarn`:
  *   no `.testplan` ⇒ the fixture MUST fail to compile (upstream asserts
- *   "has errors"; exact YS-codes arrive with the diagnostics channel).
+ *   "has errors"; per-fixture codes are pinned in
+ *   src/tests/parseFailureValidations.test.ts).
  * - `TestCases/*.yarn` with a sibling `.testplan`: must compile clean, and
  *   the plan's strict step-locked event stream must match.
  *
@@ -25,21 +26,14 @@ import { runTestPlan, PlanFailure } from "./upstream/testBase.js";
 import { listTestCases, listParseFailures, readFixture } from "./upstream/fixtures.js";
 
 /**
- * Fixtures that upstream requires to FAIL compilation but that this
- * implementation currently accepts. Each entry: fixture name → tracked gap.
- * Populated against the v3.2.2 corpus; entries must be removed as the
- * compiler gains the missing validation (spec stories 15, 21, 29, 51…).
- *
- * Empty since ticket 54 (the ParseFailures validation wave): every vendored
- * must-fail fixture fails with its upstream code. The per-family unit tests
- * live in src/tests/parseFailureValidations.test.ts.
- */
-const MUST_FAIL_ALLOWLIST: Record<string, string> = {};
-
-/**
  * Fixtures that must compile clean but currently fail. Each entry cites the
  * missing language feature. Must shrink to empty by phase-1 exit ("all 32
  * fixture .yarn files compile with expected diagnostics").
+ *
+ * (The must-fail side of this harness needs no allowlist any more: since
+ * ticket 54 every vendored must-fail fixture fails with its upstream code —
+ * the MUST_FAIL_ALLOWLIST is deleted, and the per-family unit tests live in
+ * src/tests/parseFailureValidations.test.ts.)
  */
 const COMPILE_CLEAN_ALLOWLIST: Record<string, string> = {};
 
@@ -87,33 +81,13 @@ test("upstream ParseFailures fixtures must fail to compile", async (t) => {
   for (const name of failures) {
     await t.test(name, () => {
       const result = attemptCompile(readFixture(`TestCases/ParseFailures/${name}`));
-      if (result.ok) {
-        const reason = MUST_FAIL_ALLOWLIST[name];
-        assert.ok(
-          reason,
-          `fixture compiles but is not in MUST_FAIL_ALLOWLIST — it must fail per upstream; ` +
-            `if this is a real gap, add an entry citing it`,
-        );
-      } else {
-        assert.ok(
-          !(name in MUST_FAIL_ALLOWLIST),
-          `stale MUST_FAIL_ALLOWLIST entry for ${name}: fixture now fails as upstream requires — remove the entry`,
-        );
-      }
+      assert.ok(!result.ok, "fixture compiles clean but upstream requires it to fail");
     });
   }
 
   await t.test("DuplicateLineTags.yarn", () => {
     const result = attemptCompile(readFixture("TestCases/DuplicateLineTags.yarn"));
-    if (result.ok) {
-      const reason = MUST_FAIL_ALLOWLIST["DuplicateLineTags.yarn"];
-      assert.ok(reason, "compiles but is not in MUST_FAIL_ALLOWLIST");
-    } else {
-      assert.ok(
-        !("DuplicateLineTags.yarn" in MUST_FAIL_ALLOWLIST),
-        "stale MUST_FAIL_ALLOWLIST entry: fixture now fails as upstream requires — remove the entry",
-      );
-    }
+    assert.ok(!result.ok, "fixture compiles clean but upstream requires it to fail");
   });
 });
 

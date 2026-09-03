@@ -434,18 +434,17 @@ class Parser {
       const unclosed = () => new ParseError("Unclosed command: missing >>", this.rangeAt(t), "YS0006");
       const badExpr = () => new ParseError('Unexpected ">>" while reading an expression', this.rangeAt(t));
       if (cmd === "set" || cmd === "declare") throw unclosed();
+      // Shared shape: a clause after the variable that is not `op expression`
+      // is an unclosed command; an operator with no expression is YS0005.
+      const requireValue = (rest: string, opRe: RegExp): void => {
+        const value = rest.match(opRe);
+        if (!value) throw unclosed();
+        if (!value[1].trim()) throw badExpr();
+      };
       const declareCmd = cmd.match(/^declare\s+\$[A-Za-z_]\w*\s*([\s\S]*)$/);
-      if (declareCmd) {
-        const value = declareCmd[1].match(/^=\s*([\s\S]*)$/);
-        if (!value) throw unclosed();
-        if (!value[1].trim()) throw badExpr();
-      }
+      if (declareCmd) requireValue(declareCmd[1], /^=\s*([\s\S]*)$/);
       const setCmd = cmd.match(/^set\s+\$[A-Za-z_]\w*\s*([\s\S]*)$/);
-      if (setCmd) {
-        const value = setCmd[1].match(/^(?:=|to|\+=|-=|\*=|\/=|%=)\s*([\s\S]*)$/);
-        if (!value) throw unclosed();
-        if (!value[1].trim()) throw badExpr();
-      }
+      if (setCmd) requireValue(setCmd[1], /^(?:=|to|\+=|-=|\*=|\/=|%=)\s*([\s\S]*)$/);
       // The grammar's call_statement requires a function_call: a bare
       // <<call>> with no expression is invalid, and <<call name>> without
       // the argument list reports upstream's unclosed-command code (both
