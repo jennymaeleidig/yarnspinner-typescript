@@ -510,3 +510,99 @@ title: Start
   assert.deepEqual(dialogue.tryGetSmartVariable("double"), { ok: true, value: 30 });
   assert.equal(dialogue.tryGetSmartVariable("money").ok, false);
 });
+
+test("state queries track option selection and completion (deepening-wave ticket 02)", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+Narrator: Pick one
+-> First
+    Narrator: First chosen
+-> Second
+    Narrator: Second chosen
+===
+`);
+  // Before the first continue(): nothing pending, nothing complete.
+  assert.equal(dialogue.isWaitingForOptionSelection, false);
+  assert.equal(dialogue.isComplete, false);
+
+  const lineBatch = dialogue.continue();
+  assert.deepEqual(typesOf(lineBatch), ["nodeStart", "line"]);
+  assert.equal(dialogue.isWaitingForOptionSelection, false);
+  assert.equal(dialogue.isComplete, false);
+
+  const optionsBatch = dialogue.continue();
+  assert.equal(optionsBatch[optionsBatch.length - 1].type, "options");
+  assert.equal(dialogue.isWaitingForOptionSelection, true);
+  assert.equal(dialogue.isComplete, false);
+
+  dialogue.selectOption(0);
+  assert.equal(dialogue.isWaitingForOptionSelection, false);
+
+  drain(dialogue);
+  // A DialogueComplete event has been delivered (the isComplete contract).
+  assert.equal(dialogue.isComplete, true);
+  assert.equal(dialogue.isWaitingForOptionSelection, false);
+});
+
+test("stop() makes the dialogue inactive but not complete; the queued complete event still delivers", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+Narrator: Line one
+Narrator: Line two
+===
+`);
+  dialogue.continue(); // nodeStart + line one
+  dialogue.stop();
+  assert.equal(dialogue.isActive, false);
+  assert.equal(dialogue.isComplete, false); // complete is queued, not delivered
+
+  const batch = dialogue.continue();
+  assert.deepEqual(typesOf(batch), ["dialogueComplete"]);
+  assert.equal(dialogue.isComplete, true);
+});
+
+test("continue() while an option set is pending returns no events (the recorded divergence)", () => {
+  const logErrors: string[] = [];
+  const dialogue = makeDialogue(
+    `
+title: Start
+---
+Narrator: Pick one
+-> First
+    Narrator: First chosen
+-> Second
+    Narrator: Second chosen
+===
+`,
+    { logError: (message) => logErrors.push(message) },
+  );
+  dialogue.continue(); // line
+  dialogue.continue(); // options
+  assert.deepEqual(dialogue.continue(), []);
+  assert.equal(dialogue.isWaitingForOptionSelection, true);
+  assert.ok(logErrors.length > 0, "the divergence logs a diagnostic");
+
+  dialogue.selectOption(0);
+  assert.equal(dialogue.isWaitingForOptionSelection, false);
+});
+
+test("setNode resets the state queries for a fresh run", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+Narrator: one
+===
+title: Other
+---
+Narrator: other
+===
+`);
+  drain(dialogue);
+  assert.equal(dialogue.isComplete, true);
+
+  dialogue.setNode("Other");
+  assert.equal(dialogue.isComplete, false);
+  assert.equal(dialogue.isWaitingForOptionSelection, false);
+});

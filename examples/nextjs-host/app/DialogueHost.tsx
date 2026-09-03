@@ -44,29 +44,25 @@ interface DeliveredLine {
 /** The transcript: one pull of the continue loop merged into the last. */
 interface Transcript {
   lines: DeliveredLine[];
-  /** The pending option set, when the last stopping point was an option set. */
+  /** The delivered option set, when the last stopping point was an option set. */
   options: DialogueOption[] | null;
-  ended: boolean;
 }
 
-const EMPTY_TRANSCRIPT: Transcript = Object.freeze({ lines: [], options: null, ended: false });
+const EMPTY_TRANSCRIPT: Transcript = Object.freeze({ lines: [], options: null });
 
 /** Pull one `continue()` batch from `dialogue` and merge it into `prior`. */
 function pull(dialogue: Dialogue, prior: Transcript): Transcript {
   const batch: DialogueEvent[] = dialogue.continue();
   const lines = [...prior.lines];
   let options = prior.options;
-  let ended = prior.ended;
   for (const event of batch) {
     if (event.type === "line") {
       lines.push({ speaker: event.speaker, text: event.text });
     } else if (event.type === "options") {
       options = event.options;
-    } else if (event.type === "dialogueComplete") {
-      ended = true;
     }
   }
-  return { lines, options, ended };
+  return { lines, options };
 }
 
 export default function DialogueHost({
@@ -91,9 +87,8 @@ export default function DialogueHost({
   /** One pull of the loop: deliver the next batch (line, options, or end). */
   const onContinue = useCallback(() => {
     const d = dialogueRef.current;
-    const t = transcriptRef.current;
-    if (!d || t.ended || t.options !== null) return;
-    transcriptRef.current = pull(d, t);
+    if (!d || d.isComplete || d.isWaitingForOptionSelection) return;
+    transcriptRef.current = pull(d, transcriptRef.current);
     bump();
   }, []);
 
@@ -116,7 +111,10 @@ export default function DialogueHost({
   }, [program]);
 
   const transcript = transcriptRef.current;
-  const variables = dialogueRef.current ? { ...dialogueRef.current.getVariables() } : {};
+  const dialogue = dialogueRef.current;
+  const ended = dialogue?.isComplete ?? false;
+  const awaitingSelection = dialogue?.isWaitingForOptionSelection ?? false;
+  const variables = dialogue ? { ...dialogue.getVariables() } : {};
 
   return (
     <main style={{ maxWidth: 760, margin: "0 auto", padding: "32px 20px 60px" }}>
@@ -179,7 +177,7 @@ export default function DialogueHost({
         <button
           type="button"
           onClick={onContinue}
-          disabled={transcript.ended || transcript.options !== null}
+          disabled={ended || awaitingSelection}
           style={{ ...buttonStyle, backgroundColor: "#2e7d4f", borderColor: "#2e7d4f", padding: "10px 18px" }}
         >
           Continue
@@ -188,7 +186,7 @@ export default function DialogueHost({
           Reset (variable-storage reset)
         </button>
         <span style={{ color: "#9aa0b5", fontSize: 13 }} aria-live="polite">
-          {transcript.ended ? "Dialogue complete — Reset replays from the top." : ""}
+          {ended ? "Dialogue complete — Reset replays from the top." : ""}
         </span>
       </div>
 

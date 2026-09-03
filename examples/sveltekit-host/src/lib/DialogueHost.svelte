@@ -31,30 +31,26 @@
 	/** The transcript: one pull of the continue loop merged into the last. */
 	interface Transcript {
 		lines: { speaker?: string; text: string }[];
-		/** The pending option set, when the last stopping point was an option set. */
+		/** The delivered option set, when the last stopping point was an option set. */
 		options: DialogueOption[] | null;
-		ended: boolean;
 	}
 
-	const EMPTY_TRANSCRIPT: Transcript = { lines: [], options: null, ended: false };
+	const EMPTY_TRANSCRIPT: Transcript = { lines: [], options: null };
 
 	/** Pull one `continue()` batch from `dialogue` and merge it into `prior`
 	 *  — Continue is the pull operation (glossary). */
 	function pull(dialogue: Dialogue, prior: Transcript): Transcript {
 		const lines = [...prior.lines];
 		let options = prior.options;
-		let ended = prior.ended;
 		const batch: DialogueEvent[] = dialogue.continue();
 		for (const event of batch) {
 			if (event.type === "line") {
 				lines.push({ speaker: event.speaker, text: event.text });
 			} else if (event.type === "options") {
 				options = event.options;
-			} else if (event.type === "dialogueComplete") {
-				ended = true;
 			}
 		}
-		return { lines, options, ended };
+		return { lines, options };
 	}
 
 	/** A fresh Dialogue is a fresh variable storage. The first pull runs
@@ -85,7 +81,7 @@
 
 	/** One pull of the loop: deliver the next batch (line, options, or end). */
 	function onContinue() {
-		if (host.transcript.ended || host.transcript.options !== null) return;
+		if (host.dialogue.isComplete || host.dialogue.isWaitingForOptionSelection) return;
 		deliver(host.dialogue, pull(host.dialogue, host.transcript));
 	}
 
@@ -154,12 +150,12 @@
 		<button
 			type="button"
 			onclick={onContinue}
-			disabled={host.transcript.ended || host.transcript.options !== null}
+			disabled={host.dialogue.isComplete || host.dialogue.isWaitingForOptionSelection}
 		>
 			Continue
 		</button>
 		<button type="button" onclick={onReset}>Reset (variable-storage reset)</button>
-		{#if host.transcript.ended}
+		{#if host.dialogue.isComplete}
 			<span aria-live="polite">Dialogue complete — Reset replays from the top.</span>
 		{/if}
 	</div>

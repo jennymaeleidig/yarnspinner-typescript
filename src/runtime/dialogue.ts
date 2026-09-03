@@ -100,6 +100,28 @@ export class Dialogue {
     return this.engine.isActive;
   }
 
+  /**
+   * A delivered option set awaits selection (Rust
+   * `is_waiting_for_option_selection`): `continue()` would log and return no
+   * events until `selectOption` resolves it. `false` before the first
+   * `continue()`.
+   */
+  get isWaitingForOptionSelection(): boolean {
+    return this.engine.isWaitingForOptionSelection;
+  }
+
+  /**
+   * A `DialogueComplete` event has been delivered (recorded project
+   * extension — upstream completion is push-only, no `IsComplete`/`is_complete`
+   * in .NET 3.x or the Rust runtime). Answers "did the story finish?", not
+   * "is it done being used?": `stop()` makes the dialogue inactive without
+   * completing it — its complete event rides queued until the next
+   * `continue()` delivers it; `setNode` resets this for a fresh run.
+   */
+  get isComplete(): boolean {
+    return this.engine.isComplete;
+  }
+
   /** The registry of host functions and command handlers (including built-ins). */
   getLibrary(): Library {
     return this.engine.getLibrary();

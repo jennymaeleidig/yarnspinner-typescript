@@ -28,6 +28,20 @@ Parity here means the observable contract upstream's own test suite pins:
   - `tagLines` aborts are data, not throws (upstream `TagLines` throws on
     abort), and upstream's 500 ms stopwatch becomes an attempt cap — no
     clocks in the library (ticket 51 notes, coding standards §2/§3).
+  - `continue()` while an option set is pending logs a diagnostic and
+    returns an empty batch; upstream fails loudly (.NET throws
+    `DialogueException`, `VirtualMachine.cs:537–540`; Rust returns
+    `Err(ContinueOnOptionSelectionError)`, `virtual_machine.rs:214–224`) —
+    no throw crosses the seam (coding standards §3; the tagLines/line-ID
+    precedents). `Dialogue.isWaitingForOptionSelection` (Rust
+    `is_waiting_for_option_selection`, same name) lets hosts avoid the
+    call.
+  - `Dialogue.isComplete` is a recorded project extension: upstream
+    completion is push-only (the `DialogueComplete` handler/delegate; no
+    `IsComplete`/`is_complete` exists in .NET 3.x `Dialogue.cs` or the Rust
+    runtime crate). It answers "did the story finish?", not "is it done
+    being used?" — `stop()` makes the dialogue inactive without completing
+    it, and its complete event still delivers on the next `continue()`.
   - The `.yarnproject` loader and the React adapter are this project's own
     surface (non-upstream).
 

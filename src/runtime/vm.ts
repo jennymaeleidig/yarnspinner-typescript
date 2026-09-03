@@ -159,6 +159,10 @@ export class VirtualMachine {
   /** The active saliency strategy (default: Random BLRV — upstream's default). */
   private saliencyStrategy: ContentSaliencyStrategy;
   private completed = false;
+  /** A `DialogueComplete` event has been delivered (the `isComplete` getter) —
+   *  distinct from `completed`: `stop()` completes the machine immediately but
+   *  its complete event only delivers on the next `continue()`. */
+  private completeDelivered = false;
 
   constructor(program: Program, opts: DialogueOptions = {}) {
     this.program = program;
@@ -260,6 +264,29 @@ export class VirtualMachine {
     return !this.completed;
   }
 
+  /**
+   * A delivered option set awaits selection (Rust
+   * `is_waiting_for_option_selection`, whose doc states the use case: "if
+   * this is true, calling `continue_` will error"). `false` before the
+   * first `continue()`; here `continue()` logs and returns no events (the
+   * recorded divergence — upstream throws/errs).
+   */
+  get isWaitingForOptionSelection(): boolean {
+    return this.pendingOptions !== null;
+  }
+
+  /**
+   * A `DialogueComplete` event has been delivered to the consumer (recorded
+   * project extension — upstream completion is push-only). Answers "did the
+   * story finish?", not "is it done being used?": `stop()` completes the
+   * machine but its complete event rides queued until the next `continue()`
+   * delivers it, so `stop()` alone does not set this; `setNode` resets it
+   * for a fresh run.
+   */
+  get isComplete(): boolean {
+    return this.completeDelivered;
+  }
+
   /** The registry of host functions and command handlers (including built-ins). */
   getLibrary(): Library {
     return this.library;
@@ -284,13 +311,17 @@ export class VirtualMachine {
       // dialogue-complete event) are still delivered; nothing else runs.
       const drained = this.queuedEvents;
       this.queuedEvents = [];
-      if (drained.length > 0) return drained;
+      if (drained.length > 0) {
+        this.noteCompleteDelivery(drained);
+        return drained;
+      }
       this.logDebug("continue() called on an inactive dialogue; no events returned");
       return [];
     }
     const batch = this.queuedEvents;
     this.queuedEvents = [];
     this.run(batch);
+    this.noteCompleteDelivery(batch);
     return batch;
   }
 
@@ -340,6 +371,7 @@ export class VirtualMachine {
     this.returnStack.length = 0;
     this.pendingOptions = null;
     this.completed = false;
+    this.completeDelivered = false;
     this.nodeTitle = null;
     this.queuedEvents = [];
     this.enterNode(title, this.queuedEvents);
@@ -1106,6 +1138,14 @@ export class VirtualMachine {
     this.completed = true;
     this.nodeTitle = null;
     sink.push({ type: "dialogueComplete" });
+  }
+
+  /** Mark completion when a delivered batch carried the complete event —
+   *  `isComplete` answers "delivered", not "queued" (the `stop()` edge). */
+  private noteCompleteDelivery(batch: DialogueEvent[]): void {
+    if (!this.completeDelivered && batch.some((event) => event.type === "dialogueComplete")) {
+      this.completeDelivered = true;
+    }
   }
 
   // ── Operand stack ───────────────────────────────────────────────────

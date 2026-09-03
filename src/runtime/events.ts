@@ -141,6 +141,10 @@ export interface RuntimeDriver {
   readonly currentNode: string | null;
   readonly currentScene: string | undefined;
   readonly isActive: boolean;
+  /** A delivered option set awaits selection (Rust `is_waiting_for_option_selection`). */
+  readonly isWaitingForOptionSelection: boolean;
+  /** A `DialogueComplete` event has been delivered (recorded project extension). */
+  readonly isComplete: boolean;
   getLibrary(): Library;
   continue(): DialogueEvent[];
   selectOption(selectedOption: number | typeof noOptionSelected): void;

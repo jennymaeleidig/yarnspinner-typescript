@@ -172,7 +172,6 @@ export function useDialogue(
 ): UseDialogueResult {
   const dialogueRef = useRef<Dialogue | null>(null);
   const queueRef = useRef<DialogueEvent[]>([]);
-  const awaitingSelectionRef = useRef(false);
   const dialogueCompleteFiredRef = useRef(false);
   const dialogueCompletePendingRef = useRef(false);
   const viewRef = useRef<DialogueViewResult | null>(null);
@@ -189,7 +188,10 @@ export function useDialogue(
     if (!dialogue) return null;
     for (;;) {
       if (queueRef.current.length === 0) {
-        if (awaitingSelectionRef.current) return viewRef.current; // needs a selection first
+        // At rest the queue is always empty (the runtime stops each batch at
+        // exactly one user-facing event), so the dialogue's own state answers
+        // "is the surfaced view an awaiting option set".
+        if (dialogue.isWaitingForOptionSelection) return viewRef.current; // needs a selection first
         const batch = dialogue.continue();
         if (batch.length === 0) {
           return null; // stalled or ended without a complete event
@@ -209,7 +211,6 @@ export function useDialogue(
             isDialogueEnd: false,
           };
         case "options":
-          awaitingSelectionRef.current = true;
           return {
             type: "options",
             options: event.options.map((o) => ({
@@ -264,7 +265,6 @@ export function useDialogue(
     }
     dialogueRef.current = dialogue;
     queueRef.current = [];
-    awaitingSelectionRef.current = false;
     dialogueCompleteFiredRef.current = false;
     dialogueCompletePendingRef.current = false;
     programRef.current = program;
@@ -289,7 +289,7 @@ export function useDialogue(
   // `continue` is a reserved word, so the binding carries the glossary term
   // with a suffix; the property name is exactly `continue`.
   const continueDialogue = useCallback(() => {
-    if (awaitingSelectionRef.current) return;
+    if (dialogueRef.current?.isWaitingForOptionSelection) return;
     viewRef.current = reduceView();
     bump();
   }, [reduceView]);
@@ -297,8 +297,7 @@ export function useDialogue(
   const selectOption = useCallback(
     (index: number) => {
       const dialogue = dialogueRef.current;
-      if (!dialogue || !awaitingSelectionRef.current) return;
-      awaitingSelectionRef.current = false;
+      if (!dialogue || !dialogue.isWaitingForOptionSelection) return;
       dialogue.selectOption(index);
       viewRef.current = reduceView();
       bump();
