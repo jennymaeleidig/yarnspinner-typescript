@@ -71,6 +71,12 @@ export interface Line {
 export interface Command {
   type: "Command";
   content: string; // inside << >>
+  /**
+   * `///` documentation comment lines immediately above the command, one
+   * per line joined with `\n` (spec story 47). Upstream attaches them to
+   * `<<declare>>`s — they surface as the declaration's `description`.
+   */
+  docComment?: string;
 }
 
 export interface Jump {

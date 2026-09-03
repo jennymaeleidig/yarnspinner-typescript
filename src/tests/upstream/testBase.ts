@@ -31,11 +31,11 @@
  *
  * Documented remaining gaps (each a recorded parity gap, not a new decision
  * — see `.scratch/ys32-parity/spec.md`):
- * - `<<call>>` statements are silent internal commands whose bodies do not
- *   invoke host functions yet, so `assert()`-in-call coverage is vacuous
- *   until the `<<call>>` statement story lands (spec story 4).
  * - Upstream's `assert` throws and aborts the run; here `assert` records
  *   failures and the runner fails the test with them.
+ *
+ * `<<call>>` invokes its host function and discards the result (spec
+ * story 4), so the fixtures' `assert(...)`-in-call coverage is real.
  */
 
 import { Dialogue, Library, noOptionSelected } from "../../runtime/dialogue.js";

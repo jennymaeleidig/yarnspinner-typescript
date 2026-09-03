@@ -3,6 +3,8 @@
  * Supports variables, functions, comparisons, and logical operators.
  */
 
+import { InMemoryVariableStorage, type VariableStorage } from "./variableStorage.js";
+
 /**
  * Render a value for string concatenation and composed text, the way upstream
  * does (C# value.ToString()): booleans as "True"/"False". This is the
@@ -67,7 +69,7 @@ export class ExpressionEvaluator {
   private smartVariables: Record<string, () => unknown> = {}; // variable name -> read
   
   constructor(
-    private variables: Record<string, unknown> = {},
+    private variables: VariableStorage = new InMemoryVariableStorage(),
     /** Function lookup — reads through the runtime's Library (ticket 43). */
     private functions: { get(name: string): ((...args: unknown[]) => unknown) | undefined } = { get: () => undefined },
     /** Enum registry: enum name → case name → raw value (ticket 41). */
@@ -455,8 +457,8 @@ export class ExpressionEvaluator {
     // same name — upstream VariableKind.Stored wins over VariableKind.Smart).
     const key = expr.startsWith("$") ? expr.slice(1) : expr;
 
-    if (Object.prototype.hasOwnProperty.call(this.variables, key)) {
-      return this.variables[key];
+    if (this.variables.has(key)) {
+      return this.variables.get(key);
     }
 
     // Smart variable: re-evaluate on every access (ticket 42).
@@ -480,7 +482,7 @@ export class ExpressionEvaluator {
     }
 
     // Default: treat as variable (may be undefined)
-    return this.variables[key];
+    return this.variables.get(key);
   }
   
   private deepEquals(a: unknown, b: unknown): boolean {
@@ -495,7 +497,7 @@ export class ExpressionEvaluator {
    * error (YS0030), so only host writes can shadow.
    */
   setVariable(name: string, value: unknown): void {
-    this.variables[name] = value;
+    this.variables.set(name, value);
   }
   
   /**
@@ -523,8 +525,8 @@ export class ExpressionEvaluator {
    */
   tryGetSmartVariable(name: string): { ok: true; value: unknown } | { ok: false } {
     if (!this.isSmartVariable(name)) return { ok: false };
-    if (Object.prototype.hasOwnProperty.call(this.variables, name)) {
-      return { ok: true, value: this.variables[name] };
+    if (this.variables.has(name)) {
+      return { ok: true, value: this.variables.get(name) };
     }
     return { ok: true, value: this.smartVariables[name]() };
   }
@@ -534,10 +536,10 @@ export class ExpressionEvaluator {
    * variable recomputes; a stored value wins when shadowed).
    */
   getVariable(name: string): unknown {
-    if (this.isSmartVariable(name) && !Object.prototype.hasOwnProperty.call(this.variables, name)) {
+    if (this.isSmartVariable(name) && !this.variables.has(name)) {
       return this.smartVariables[name]();
     }
-    return this.variables[name];
+    return this.variables.get(name);
   }
 }
 

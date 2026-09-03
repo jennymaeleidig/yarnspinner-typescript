@@ -64,6 +64,8 @@ export {
   type OptionsEvent,
 } from "./events.js";
 export { Library } from "./library.js";
+export { InMemoryVariableStorage } from "./variableStorage.js";
+export type { VariableStorage } from "./variableStorage.js";
 export type { YarnFunction, CommandHandler } from "./library.js";
 
 /**

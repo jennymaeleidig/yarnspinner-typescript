@@ -6,6 +6,7 @@
 
 import type { ExpressionEvaluator } from "./evaluator.js";
 import { stringifyOperand } from "./evaluator.js";
+import type { VariableStorage } from "./variableStorage.js";
 
 export interface ParsedCommand {
   name: string;
@@ -84,7 +85,7 @@ export function parseCommand(content: string): ParsedCommand {
 /** What a state-statement executor needs from its driver: the storage, an evaluator over it, and the error sink. */
 export interface StateStatementHost {
   /** The variable storage (generated keys included). */
-  variables: Record<string, unknown>;
+  variables: VariableStorage;
   evaluator: ExpressionEvaluator;
   logError(message: string): void;
 }
@@ -117,7 +118,7 @@ export function stripQuotes(value: string): string {
 export function executeStateStatement(host: StateStatementHost, content: string, parsed?: ParsedCommand): void {
   const { variables, evaluator, logError } = host;
   const setVariable = (name: string, value: unknown): void => {
-    variables[name] = value;
+    variables.set(name, value);
     evaluator.setVariable(name, value);
   };
   try {
@@ -135,7 +136,7 @@ export function executeStateStatement(host: StateStatementHost, content: string,
       const compoundOp = exprParts[0];
       if (compoundOp === "+=" || compoundOp === "-=" || compoundOp === "*=" || compoundOp === "/=" || compoundOp === "%=") {
         const rhs = evaluator.evaluateExpression(exprParts.slice(1).join(" "));
-        const current = variables[key];
+        const current = variables.get(key);
         let value: unknown;
         if (compoundOp === "+=" && (typeof current === "string" || typeof rhs === "string")) {
           // String concat renders operands the upstream way (C# ToString:
@@ -188,7 +189,7 @@ export function executeStateStatement(host: StateStatementHost, content: string,
       // clobber storage that already
       // holds a value (host writes win — upstream VariableKind.Stored
       // precedence).
-      if (key in variables) return;
+      if (variables.has(key)) return;
 
       // Regular variable - evaluate once and store. Enum member access
       // (Enum.Case, or compile-time-resolved shorthand) evaluates to the

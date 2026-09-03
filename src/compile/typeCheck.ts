@@ -46,6 +46,12 @@ export interface VariableDeclaration {
   /** The static initial value when the initializer is a constant. */
   defaultValue?: EnumRawValue | boolean;
   /**
+   * The `///` documentation comment above the declaration (spec story 47;
+   * upstream `Declaration.Description` — the variable's purpose, shown in
+   * editor hovers).
+   */
+  description?: string;
+  /**
    * True when the declaration is a smart variable (ticket 42; upstream
    * `Declaration.IsInlineExpansion`): the initializer is not a plain literal,
    * the variable is read-only (YS0030), and its value is recomputed on every
@@ -662,6 +668,7 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
             name,
             type: declaredType ?? type.enumName ?? (type.base !== "unknown" ? type.base : "unknown"),
             defaultValue: isSmart ? undefined : primOrDefault(rewritten, ctx.enumTypes),
+            ...(s.docComment ? { description: s.docComment } : {}),
             ...(isSmart ? { isSmartVariable: true } : {}),
           });
           break;

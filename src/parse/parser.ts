@@ -287,6 +287,10 @@ class Parser {
     while (this.at("EMPTY")) this.i++;
 
     const body: Statement[] = this.parseStatementsUntil("NODE_END");
+    // `///` comments never leak across node boundaries: a trailing doc
+    // comment with no following declaration is dropped (upstream attaches
+    // them to declarations only).
+    this.pendingDocComment = [];
     this.take("NODE_END", "Expected node end '==='");
     return { 
       type: "Node", 
@@ -305,6 +309,37 @@ class Parser {
    * the terminating token (used to detect option-group separation).
    */
   private trailingBlankBeforeEnd = false;
+
+  /**
+   * Pending `///` documentation comment lines (spec story 47): collected
+   * while skipping comment lines, attached to the next `<<declare>>` the
+   * parser builds (upstream Declaration.Description), dropped elsewhere.
+   * One parser instance parses a whole file, so node boundaries clear it.
+   */
+  private pendingDocComment: string[] = [];
+
+  /** Consume one full-line comment at the cursor: `///` lines are collected
+   *  as documentation, `//` lines are skipped; both are non-statements.
+   *  Returns false when the cursor is not on a comment line. */
+  private consumeCommentLine(): boolean {
+    if (!(this.at("TEXT") && this.peek().text.trimStart().startsWith("//"))) return false;
+    const line = this.peek().text.trimStart();
+    if (line.startsWith("///")) {
+      // Upstream documentation comment: `///` + optional one space, then the
+      // description text verbatim; consecutive lines join with newlines.
+      this.pendingDocComment.push(line.replace(/^\/\/\/ ?/, "").trimEnd());
+    }
+    this.i++;
+    return true;
+  }
+
+  /** Take the pending documentation comment (if any). */
+  private takeDocComment(): string | undefined {
+    if (this.pendingDocComment.length === 0) return undefined;
+    const joined = this.pendingDocComment.join("\n");
+    this.pendingDocComment = [];
+    return joined;
+  }
 
   private parseStatementsUntil(endType: Token["type"]): Statement[] {
     const out: Statement[] = [];
@@ -329,9 +364,11 @@ class Parser {
         continue;
       }
 
-      // Full-line // comments are not dialogue content (upstream lexer skips them)
+      // Full-line // comments are not dialogue content (upstream lexer skips
+      // them); /// lines are documentation comments collected for the next
+      // <<declare>> (spec story 47).
       if (this.at("TEXT") && this.peek().text.trimStart().startsWith("//")) {
-        this.i++;
+        this.consumeCommentLine();
         continue;
       }
 
@@ -346,6 +383,10 @@ class Parser {
   }
 
   private parseStatement(): Statement {
+    // `///` documentation comments attach to the next `<<declare>>` only
+    // (spec story 47); take them off the pending buffer no matter what
+    // statement follows.
+    const docComment = this.takeDocComment();
     const t = this.peek();
     if (!t) throw new ParseError("Unexpected EOF");
 
@@ -368,7 +409,11 @@ class Parser {
           this.rangeAt(t),
         );
       }
-      return { type: "Command", content: cmd } as Command;
+      return {
+        type: "Command",
+        content: cmd,
+        ...(stateCmd?.[1] === "declare" && docComment ? { docComment } : {}),
+      } as Command;
     }
     if (t.type === "TEXT") {
       return this.parseLineFromText(this.take("TEXT").text, t);
@@ -403,7 +448,7 @@ class Parser {
         continue;
       }
       if (this.at("TEXT") && this.peek().text.trimStart().startsWith("//")) {
-        this.i++;
+        this.consumeCommentLine();
         continue;
       }
       break;
@@ -546,9 +591,11 @@ class Parser {
         out.push(this.parseLineGroup());
         continue;
       }
-      // Full-line // comments are not dialogue content (upstream lexer skips them)
+      // Full-line // comments are not dialogue content (upstream lexer skips
+      // them); /// lines are documentation comments collected for the next
+      // <<declare>> (spec story 47).
       if (this.at("TEXT") && this.peek().text.trimStart().startsWith("//")) {
-        this.i++;
+        this.consumeCommentLine();
         continue;
       }
       // Indentation tokens are transparent here (see skipIndentTransparency):

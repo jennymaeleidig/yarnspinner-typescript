@@ -43,9 +43,20 @@ the spec and the implementation tickets.
 | [51 CSV + tagLines + setLanguage](issues/51-csv-taglines-setlanguage.md) | resolved | 50 |
 | [52 React adapter + demo](issues/52-react-adapter-demo.md) | resolved | 47, 48 |
 | [53 rename + docs + 0.2.0](issues/53-rename-docs-release.md) | resolved | 52 |
+| [54 ParseFailures validation wave](issues/54-parse-failure-validations.md) | open | — |
 | [30–33 phase buckets](issues/30-phase1-compiler-language-core.md) | superseded | — |
 
 ## Decisions so far
+
+- Multi-stage spec-vs-impl review (2026-09-03) close-out: four spec gaps
+  landed as review resolutions — pluggable variable storage (story 39),
+  `<<call>>` host-function invocation (story 4, conformance assert() calls
+  now real), built-in `<<wait>>` consumer-timed command pinned + documented
+  (story 7), and `///` declaration comments surfacing as
+  `VariableDeclaration.description` (story 47, upstream
+  `Declaration.Description`). Recorded deliberate divergences (YS0041
+  retry cap, tagLines abort demotions) added to compatibility.md; the 12
+  remaining ParseFailures validations ticketed as 54.
 
 - Ticket 53 (the 0.2.0 closing wave): `YarnRunner`/`useYarnRunner` renamed
   to `Dialogue`/`useDialogue` with deprecated exact aliases shipped for this

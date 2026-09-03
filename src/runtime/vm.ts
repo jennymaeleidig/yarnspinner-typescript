@@ -78,6 +78,7 @@ import {
   type SaliencyState,
 } from "./saliency.js";
 import type { TextProvider } from "./textProvider.js";
+import { InMemoryVariableStorage, type VariableStorage } from "./variableStorage.js";
 import type { ProgramNodeGroup } from "../compile/program.js";
 
 /** Outcome of executing one command instruction. */
@@ -129,7 +130,7 @@ const STACK_PRODUCERS: ReadonlySet<Instruction["op"]> = new Set(
 export class VirtualMachine {
   private readonly program: Program;
   /** The variable storage: story variables plus generated variables (coding standards §4). */
-  private readonly storage: Record<string, unknown> = {};
+  private readonly storage: VariableStorage;
   /** The runtime's library: built-ins + imported host entries. */
   private readonly library: Library;
   private readonly evaluator: ExpressionEvaluator;
@@ -161,14 +162,18 @@ export class VirtualMachine {
 
   constructor(program: Program, opts: DialogueOptions = {}) {
     this.program = program;
+    // Pluggable variable storage (spec story 39): the host's implementation
+    // when injected, the in-memory default otherwise. All story state —
+    // story variables and generated variables alike — lives here.
+    this.storage = opts.variableStorage ?? new InMemoryVariableStorage();
     this.library = new Library();
     // The saliency history lives in variable storage under generated keys
     // (coding standards §4); the default strategy is Random BLRV.
     this.saliencyState = {
-      getViewCount: (contentId) => Number(this.storage[contentViewCountVariableKey(contentId)]) || 0,
+      getViewCount: (contentId) => Number(this.storage.get(contentViewCountVariableKey(contentId))) || 0,
       recordView: (contentId) => {
         const key = contentViewCountVariableKey(contentId);
-        this.storage[key] = (Number(this.storage[key]) || 0) + 1;
+        this.storage.set(key, (Number(this.storage.get(key)) || 0) + 1);
       },
     };
     this.saliencyStrategy = opts.contentSaliencyStrategy ?? defaultSaliencyStrategy(this.saliencyState);
@@ -208,8 +213,13 @@ export class VirtualMachine {
     // runs. Host-provided variables are applied afterwards and override
     // declared defaults.
     for (const [name, code] of Object.entries(this.program.initialValues)) {
+      // Pluggable storage (spec story 39): a name the injected storage
+      // already holds is restored host state — declare defaults never
+      // clobber it. The in-memory default starts empty, so every declared
+      // variable is seeded on a fresh dialogue exactly as before.
+      if (this.storage.has(name)) continue;
       try {
-        this.storage[name] = this.evaluateInitializer(code, name);
+        this.storage.set(name, this.evaluateInitializer(code, name));
       } catch (e) {
         this.logError(
           `Failed to initialize variable "${name}": ${e instanceof Error ? e.message : String(e)}`,
@@ -219,7 +229,7 @@ export class VirtualMachine {
     if (opts.variables) {
       for (const [key, value] of Object.entries(opts.variables)) {
         const normalizedKey = key.startsWith("$") ? key.slice(1) : key;
-        this.storage[normalizedKey] = value;
+        this.storage.set(normalizedKey, value);
         this.evaluator.setVariable(normalizedKey, value);
       }
     }
@@ -350,7 +360,7 @@ export class VirtualMachine {
   /** Snapshot of the story variables (the variable storage minus generated variables). */
   getVariables(): Readonly<Record<string, unknown>> {
     const visible: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(this.storage)) {
+    for (const [key, value] of this.storage.entries()) {
       if (!key.startsWith(generatedVariablePrefix)) visible[key] = value;
     }
     return visible;
@@ -363,7 +373,7 @@ export class VirtualMachine {
 
   /** Set a variable's value in storage. */
   setVariable(name: string, value: unknown): void {
-    this.storage[name] = value;
+    this.storage.set(name, value);
     this.evaluator.setVariable(name, value);
   }
 
@@ -645,7 +655,7 @@ export class VirtualMachine {
         this.push(this.evaluator.getVariable(ins.name));
         return;
       case "popVariable":
-        this.storage[ins.name] = this.pop();
+        this.storage.set(ins.name, this.pop());
         return;
       case "callFunction": {
         const args = this.stack.splice(this.stack.length - ins.argc, ins.argc);
@@ -835,7 +845,7 @@ export class VirtualMachine {
     for (const raw of member.when ?? []) {
       const parsed = parseSaliencyCondition(raw);
       if (parsed.kind === "once" || parsed.kind === "once-if") {
-        this.storage[onceVariableKey(selected.contentId)] = true;
+        this.storage.set(onceVariableKey(selected.contentId), true);
       }
     }
     return { ok: true, node: member, nodeIndex };
@@ -882,9 +892,9 @@ export class VirtualMachine {
       case "always":
         return true;
       case "once":
-        return this.storage[onceVariableKey(contentId)] !== true;
+        return this.storage.get(onceVariableKey(contentId)) !== true;
       case "once-if":
-        return this.storage[onceVariableKey(contentId)] !== true && this.evaluateConditionExpression(parsed.expression);
+        return this.storage.get(onceVariableKey(contentId)) !== true && this.evaluateConditionExpression(parsed.expression);
       case "expression":
         return this.evaluateConditionExpression(parsed.expression);
     }
@@ -1012,10 +1022,19 @@ export class VirtualMachine {
     if (name === "set" || name === "declare" || name === "call") {
       // State statements are internal (spec, ticket 03 conformance): they
       // execute their effect and never surface as Command events.
-      // `<<call>>` bodies do not invoke host functions yet (the `<<call>>`
-      // statement story); the compiler validates call targets.
       if (name === "call") {
-        this.logDebug(`<<call>> statements do not execute host functions yet: ${content}`);
+        // `<<call>>` invokes the host function and discards the result
+        // (spec story 4, upstream CallStatement — the compiler validated
+        // the target). Side effects are the point: the conformance
+        // fixtures call `assert(...)` through it. An unknown function or
+        // failing evaluation is a runtime diagnostic, not a crash
+        // (coding standards §3).
+        const expression = content.replace(/^call\b/, "").trim();
+        try {
+          this.evaluator.evaluateExpression(expression);
+        } catch (e) {
+          this.logError(`<<call>> failed: ${e instanceof Error ? e.message : String(e)}`);
+        }
       } else {
         executeStateStatement(
           { variables: this.storage, evaluator: this.evaluator, logError: this.logError },
@@ -1112,10 +1131,10 @@ export class VirtualMachine {
     const member = this.memberFor(title, nodeIndex);
     if (member?.tracking === "never") return;
     const key = visitCountVariableKey(title);
-    this.storage[key] = (Number(this.storage[key]) || 0) + 1;
+    this.storage.set(key, (Number(this.storage.get(key)) || 0) + 1);
     if (member?.subtitle) {
       const subKey = visitCountVariableKey(`${title}.${member.subtitle}`);
-      this.storage[subKey] = (Number(this.storage[subKey]) || 0) + 1;
+      this.storage.set(subKey, (Number(this.storage.get(subKey)) || 0) + 1);
     }
   }
 

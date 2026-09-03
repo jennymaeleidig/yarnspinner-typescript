@@ -12,6 +12,7 @@
 import type { MarkupParseResult } from "../markup/types.js";
 import type { LineParser } from "../markup/lineParser.js";
 import type { Library } from "./library.js";
+import type { VariableStorage } from "./variableStorage.js";
 import type { TextProvider } from "./textProvider.js";
 import type { ContentSaliencyOption, ContentSaliencyStrategy } from "./saliency.js";
 
@@ -101,6 +102,15 @@ export interface DialogueOptions {
   library?: Library;
   /** Host-provided initial variables (`$` prefix optional), applied after `<<declare>>` seeding. */
   variables?: Record<string, unknown>;
+  /**
+   * Host-provided variable storage (spec story 39, glossary "variable
+   * storage"): the pluggable store for story variables and generated
+   * variables alike. Defaults to an in-memory storage. Injecting a
+   * pre-populated storage is the persistence seam — declare-default seeding
+   * skips names the storage already holds, so restored values survive
+   * construction; `variables` (above) still overrides after seeding.
+   */
+  variableStorage?: VariableStorage;
   /** Opt-in `LineHints` events (upstream `PrepareForLinesHandler`). */
   lineHints?: boolean;
   /**

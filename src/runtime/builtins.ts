@@ -12,13 +12,14 @@
 
 import type { Library } from "./library.js";
 import { visitCountVariableKey } from "./generatedVariables.js";
+import type { VariableStorage } from "./variableStorage.js";
 import { stringifyOperand } from "./evaluator.js";
 
 /** Register the built-in functions into `library`. */
 export function registerBuiltinFunctions(
   library: Library,
   /** Live read access to the variable storage (generated keys included). */
-  getVariables: () => Record<string, unknown>,
+  getVariables: () => VariableStorage,
 ): void {
   const builtins: Record<string, (...args: unknown[]) => unknown> = {
     // Default conversion helpers
@@ -27,11 +28,11 @@ export function registerBuiltinFunctions(
     bool: (v: unknown) => Boolean(v),
     visited: (nodeName: unknown) => {
       const name = String(nodeName ?? "");
-      return (Number(getVariables()[visitCountVariableKey(name)]) || 0) > 0;
+      return (Number(getVariables().get(visitCountVariableKey(name))) || 0) > 0;
     },
     visited_count: (nodeName: unknown) => {
       const name = String(nodeName ?? "");
-      return Number(getVariables()[visitCountVariableKey(name)]) || 0;
+      return Number(getVariables().get(visitCountVariableKey(name))) || 0;
     },
     format_invariant: (n: unknown) => {
       const num = Number(n);

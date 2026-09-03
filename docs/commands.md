@@ -24,7 +24,15 @@ Exact command names and parameters are defined by your game integration.
   substitutions at delivery).
 - `<<set>>`, `<<declare>>`, and `<<call>>` are state statements: they
   execute internally and never surface as `command` events (upstream
-  behavior).
+  behavior). `<<call f(args)>>` (upstream `CallStatement`) invokes the
+  registered host function and discards its return value; an unknown
+  function is a runtime diagnostic through `logError`, not a throw.
+- `<<wait duration>>` is the built-in **consumer-timed command** (upstream
+  engines implement the pause game-side — e.g. the vendored Space project's
+  `<<wait 1>>`): it is delivered as an ordinary `command` event and ends
+  that `continue()` batch; the host pauses for the duration and calls
+  `continue()` again. The library ships no clock (coding standards §2) —
+  the timing is entirely the consumer's.
 - `<<set_saliency <mode>>>` (upstream Try Yarn Spinner's strategy-switch
   command) switches the active [saliency strategy](saliency.md); it is
   internal and never surfaces as an event either.

@@ -22,6 +22,12 @@ Parity here means the observable contract upstream's own test suite pins:
     Rust port's shape, not upstream .NET's push handlers (ADR 0002).
   - On error diagnostics upstream nulls the program; this fork keeps it
     observable (ticket 49 notes).
+  - Line-ID collision handling: upstream throws after 1000 suffix attempts;
+    this fork emits YS0041 and keeps retrying past that cap — no throw
+    crosses the seam (ticket 50 notes, coding standards §3).
+  - `tagLines` aborts are data, not throws (upstream `TagLines` throws on
+    abort), and upstream's 500 ms stopwatch becomes an attempt cap — no
+    clocks in the library (ticket 51 notes, coding standards §2/§3).
   - The `.yarnproject` loader and the React adapter are this project's own
     surface (non-upstream).
 
@@ -46,3 +52,15 @@ is gone; per-feature documentation lives in the language docs under
   variable is left unset. Upstream has no ternary; this should be a compile
   error and is tracked for the next release (`.scratch/future-work.md`).
   Branch with `<<if>>` instead.
+- 12 of the vendored ParseFailures fixtures still compile where upstream
+  requires them to fail (the self-cleaning `MUST_FAIL_ALLOWLIST` in
+  `src/tests/upstream-conformance.test.ts` tracks each by name). The
+  missing validations: newline-in-command, `<<declare>>`/`<<set>>` value
+  checks, indentation checks, `when:` header expression checks, jump-target
+  string typing, operator/assignment typing, and function/variable type
+  inference. Tracked for the next release (tracker ticket 54,
+  `.scratch/future-work.md`).
+- Conformance-harness note: the vendored testplan hashtags are parsed but
+  not asserted — upstream's own assertion on them is dead code, and one
+  upstream fixture's plan has a hashtag its own compiler cannot parse
+  (ticket 46 notes).
