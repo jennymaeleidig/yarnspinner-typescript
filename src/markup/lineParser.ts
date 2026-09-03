@@ -41,7 +41,6 @@ import {
   type MarkupParseResult,
   type MarkupValue,
   type AttributeMarkerProcessor,
-  type ReplacementMarkerResult,
   floatMarkupValue,
   integerMarkupValue,
   stringMarkupValue,
@@ -514,7 +513,6 @@ export class LineParser {
     original: string,
   ): { tree: MarkupTreeNode; diagnostics: MarkupDiagnostic[] } {
     return buildMarkupTreeFromTokens(tokens, original, {
-      internalIDproperty: this.internalIDproperty.bind(this),
       cleanUpUnmatchedCloses: this.cleanUpUnmatchedCloses.bind(this),
     });
   }
@@ -733,7 +731,6 @@ function buildMarkupTreeFromTokens(
   tokens: LexerToken[],
   original: string,
   helpers: {
-    internalIDproperty: () => MarkupProperty;
     cleanUpUnmatchedCloses: (
       openNodes: MarkupTreeNode[],
       unmatchedCloseNames: string[],
@@ -741,7 +738,7 @@ function buildMarkupTreeFromTokens(
     ) => void;
   },
 ): { tree: MarkupTreeNode; diagnostics: MarkupDiagnostic[] } {
-  const { internalIDproperty, cleanUpUnmatchedCloses } = helpers;
+  const { cleanUpUnmatchedCloses } = helpers;
   const tree = elementNode(null);
   const diagnostics: MarkupDiagnostic[] = [];
 
@@ -1022,7 +1019,6 @@ function buildMarkupTreeFromTokens(
           });
         } else {
           const peeked = stream.peek();
-          const ahead = stream.lookAhead(2);
           diagnostics.push({
             message: `Expected to find a property and it's value, but instead found "${id} ${og.slice(peeked.start, peeked.end + 1)} ${og.slice(stream.lookAhead(2).start, stream.lookAhead(2).end + 1)}".`,
             column: peeked.start,

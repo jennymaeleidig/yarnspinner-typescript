@@ -179,7 +179,11 @@ Run the interactive browser demo:
 npm run demo
 ```
 
-This starts a Vite dev server with a live Yarn script editor and dialogue system.
+This starts a Vite dev server with two demos: the **Dialogue** tab (the
+visual-novel view over the pull-based runtime) and a **Storylets** tab — a
+node-group/saliency demo with switchable saliency strategies
+(`examples/browser/StoryletsDemo.tsx`). See
+[examples/browser/README.md](./examples/browser/README.md).
 
 ## API Reference
 

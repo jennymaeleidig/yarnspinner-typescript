@@ -167,8 +167,6 @@ export class LineComposer {
   }
 }
 
-import { BuiltInMarkupReplacer as BuiltInMarkupReplacer_t } from "../markup/builtInReplacer.js";
-
 /**
  * Upstream `LineParser.ExpandSubstitutions`, index-based: replaces `{0}`,
  * `{1}`, … with the evaluated substitutions (the runtime's expression

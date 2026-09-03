@@ -5,6 +5,12 @@ import path from "path";
 export default defineConfig({
   plugins: [react()],
   root: "examples/browser",
+  css: {
+    // No PostCSS config exists for this demo; pinning an empty one stops
+    // PostCSS from searching up the directory tree (which breaks in
+    // sandboxes that deny reads above the repo root).
+    postcss: { plugins: [] },
+  },
   resolve: {
     alias: {
       "yarn-spinner-ts": path.resolve(__dirname, "../src"),
