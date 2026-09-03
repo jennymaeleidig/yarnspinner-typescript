@@ -1,6 +1,6 @@
 ## Markup (Yarn Spinner)
 
-Source: [docs.yarnspinner.dev � Markup](https://docs.yarnspinner.dev/write-yarn-scripts/advanced-scripting/markup)
+Source: [docs.yarnspinner.dev — Markup](https://docs.yarnspinner.dev/write-yarn-scripts/advanced-scripting/markup)
 
 ### Supported formatting
 
@@ -28,6 +28,7 @@ Plain <b>bold</b> <span class="yd-markup-wave" data-markup-speed="2">custom</spa
 ### Integration notes
 
 - Markup data is available on `LineEvent.markup` and on each option entry (`OptionsEvent.options[i].markup`).
+- In the React adapter, view states expose the same shape (`DialogueViewResult`'s `markup` on text results and option entries).
 - `TypingText` respects markup while animating, so formatting stays intact during the typewriter effect.
 - When a markup tag is not recognised, it remains in the output (as a span) rather than being stripped, so you can add custom CSS in your host application.
 

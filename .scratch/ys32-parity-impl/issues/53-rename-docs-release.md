@@ -51,4 +51,25 @@ Landed in: (this commit — the 0.2.0 release wave)
 
 ### Code review (two-axis) resolutions
 
-- see commit message / review notes appended below.
+- **@deprecated tags (fixed, both axes)**: the three type aliases
+  (`YarnRunner`, `YarnRunnerOptions`, `UseYarnRunnerOptions`,
+  `UseYarnRunnerResult`) now carry `@deprecated` JSDoc, so editor tooling
+  strikes them — prose alone wouldn't.
+- **Ternary mis-parse (fixed, standards §1/§7)**: recorded as a Known issues
+  entry in `docs/compatibility.md` (not as a "deliberate divergence" — it's
+  a tracked bug), pointing at the `<<if>>` branch pattern and
+  `.scratch/future-work.md`.
+- **markup.md mojibake (fixed)**: the U+FFFD in the source-citation line is
+  an em dash again; added the adapter-side `DialogueViewResult` note while
+  in the file.
+- **Adapter `advance`/`onStoryEnd` names (kept, deliberate)**: these live in
+  the React adapter's hook-result/component props — surface shipped by
+  tickets 43/52 ("no adapter feature work"), not part of ticket 53's rename
+  scope (`YarnRunner`→`Dialogue`, `useYarnRunner`→`useDialogue` only).
+  Renaming adapter props needs its own adapter-resurfacing ticket with a
+  glossary pass.
+- **Alias-pattern duplication (kept, judgement call)**: the alias blocks
+  are three one-liner pairs; extracting a shared "deprecated alias" helper
+  would add machinery that dies next release anyway.
+- **future-work ternary entry (kept)**: accepted scope note — recorded
+  discovery, not behavior change.

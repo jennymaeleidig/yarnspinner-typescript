@@ -263,6 +263,8 @@ export class Dialogue {
  * @deprecated Renamed to `Dialogue` in 0.2.0.
  */
 export const YarnRunner: typeof Dialogue = Dialogue;
+/** @deprecated Renamed to `Dialogue` in 0.2.0. */
 // eslint-disable-next-line no-redeclare -- deliberate TS value+type merge: the deprecated alias keeps both the class value and its instance type
 export type YarnRunner = Dialogue;
+/** @deprecated Renamed to `DialogueOptions` in 0.2.0. */
 export type YarnRunnerOptions = DialogueOptions;

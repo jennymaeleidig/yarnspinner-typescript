@@ -12,7 +12,9 @@ import type { Program } from "../compile/program.js";
 
 /** @deprecated Renamed to `useDialogue` in 0.2.0. */
 export const useYarnRunner: typeof useDialogue = useDialogue;
+/** @deprecated Renamed to `UseDialogueOptions` in 0.2.0. */
 export type UseYarnRunnerOptions = UseDialogueOptions;
+/** @deprecated Renamed to `UseDialogueResult` in 0.2.0. */
 export type UseYarnRunnerResult = UseDialogueResult;
 
 /**

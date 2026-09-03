@@ -38,3 +38,11 @@ The old compatibility checklist this file replaces described long-fixed gaps
 (`{if}` blocks, missing substitution, missing `<<declare>>`) as current and
 is gone; per-feature documentation lives in the language docs under
 [`docs/`](.), each citing its upstream source URL.
+
+## Known issues
+
+- A ternary expression (`a ? b : c`) in `<<declare>>`/`<<set>>` currently
+  parses without a diagnostic but silently evaluates to nothing — the
+  variable is left unset. Upstream has no ternary; this should be a compile
+  error and is tracked for the next release (`.scratch/future-work.md`).
+  Branch with `<<if>>` instead.
