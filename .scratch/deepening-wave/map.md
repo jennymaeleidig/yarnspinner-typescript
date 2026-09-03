@@ -35,7 +35,7 @@ stays as-is and nothing here extends it.
 | [06 single-source the view props](issues/06-view-props-extends.md)                 | resolved                                                  | 05         |
 | [07 scene on NodeStartEvent; js-yaml leaves](issues/07-scene-node-start.md)        | resolved                                                  | 04         |
 | [08 localisation folded into loadProject](issues/08-loader-localisations.md)       | open                                                      | —          |
-| [09 compileDocument demoted to internal](issues/09-compile-document-internal.md)   | open — issue file deleted in the working tree (see Notes) | 01         |
+| [09 compileDocument demoted to internal](issues/09-compile-document-internal.md)   | resolved                                                 | 01         |
 
 ## Decisions so far
 
@@ -131,6 +131,18 @@ From the grilling session (2026-09-03), binding on every ticket:
   `DialogueExample` takes `scenes?` as host input, `js-yaml` demoted to
   `devDependencies` — `dependencies` ends empty; divergence entry recorded
   in compatibility.md.
+- [09 compileDocument demoted to internal](issues/09-compile-document-internal.md):
+  the AST-level lowering seam (`compileDocument`/`LoweringError`/
+  `CompileDocumentOptions`) is internal — the package root exports it no
+  longer, pinned by a runtime exports test; all 17 test files (51 call
+  sites) migrated to `compileSource` through the shared `compileOk` helper
+  (assert no error diagnostics, non-null program); the migration surfaced
+  what the split was hiding — the type-check pass now runs everywhere, so
+  host-seeded variables need external declarations, host functions need
+  compile-time signatures (the runtime library doubles as signature
+  source), and a genuinely re-declaring test yarn was fixed (YS0039);
+  library behaviour unchanged, as bound. The wave is complete — every
+  ticket resolved.
 
 ## Notes
 
@@ -159,13 +171,6 @@ recorded here so future explorers don't re-derive or re-suggest it:
   resolutions (stories 39/4/7/47) — listed here only to close the loop;
   see `docs/compatibility.md` and the ys32-parity-impl tracker map entry
   for the wave.
-- **Ticket 09's issue file is deleted, uncommitted**: a concurrent session
-  removed `issues/09-compile-document-internal.md` from the working tree
-  (alongside in-progress `future-work.md` cleanup) but has not landed any
-  resolution — no Answer, no commit. The row above stays `open` and the
-  file's content is recoverable from git history until that session lands
-  its intent; do not re-claim, re-create, or resolve 09 from here —
-  reconcile this row when their work lands.
 - **`tmp-react-vars.mjs`** (repo root, tracked in git): pre-parity scratch
   already importing retired API (`dist/runtime/runner.js`,
   `currentResult`, `advance()`, `res.isDialogueEnd`) — cannot run against
