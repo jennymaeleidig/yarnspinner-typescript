@@ -29,7 +29,7 @@ Narrator: We are in the next scene.
   on node return).
 - The `tracking: never` node header suppresses visit recording for that node
   (spec story 22 / issue 13).
-- The runner API exposes `setNode(title)` for host-initiated jumps (upstream
+- The runtime API exposes `setNode(title)` for host-initiated jumps (upstream
   `Dialogue.SetNode`).
 
 

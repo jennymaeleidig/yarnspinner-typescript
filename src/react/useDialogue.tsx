@@ -5,6 +5,17 @@ import type { MarkupParseResult } from "../markup/types.js";
 import type { Program } from "../compile/program.js";
 
 /**
+ * Deprecated 0.1.x names, kept as exact aliases for one release (removed in
+ * the release after 0.2.0). New code uses `useDialogue` and the
+ * `UseDialogue*` types.
+ */
+
+/** @deprecated Renamed to `useDialogue` in 0.2.0. */
+export const useYarnRunner: typeof useDialogue = useDialogue;
+export type UseYarnRunnerOptions = UseDialogueOptions;
+export type UseYarnRunnerResult = UseDialogueResult;
+
+/**
  * React adapter over the pull-based event-stream runtime (ticket 43).
  *
  * The `Dialogue` delivers batches of events; this hook reduces them into a
@@ -45,7 +56,7 @@ export type DialogueViewResult =
   | { type: "options"; options: DialogueViewOption[]; scene?: string }
   | { type: "command"; command: string; scene?: string };
 
-export interface UseYarnRunnerOptions {
+export interface UseDialogueOptions {
   startAt?: string;
   functions?: Record<string, YarnFunction>;
   /** Initial host variable values, seeded into storage before the first event. */
@@ -53,7 +64,7 @@ export interface UseYarnRunnerOptions {
   onStoryEnd?: (info: { variables: Readonly<Record<string, unknown>>; storyEnd: true }) => void;
 }
 
-export interface UseYarnRunnerResult {
+export interface UseDialogueResult {
   result: DialogueViewResult | null;
   /** Advance past the current line or command (no-op while awaiting a selection). */
   advance: () => void;
@@ -64,8 +75,8 @@ export interface UseYarnRunnerResult {
 }
 
 function haveFunctionsChanged(
-  prev: UseYarnRunnerOptions["functions"],
-  next: UseYarnRunnerOptions["functions"],
+  prev: UseDialogueOptions["functions"],
+  next: UseDialogueOptions["functions"],
 ): boolean {
   const prevFns = prev ?? {};
   const nextFns = next ?? {};
@@ -81,8 +92,8 @@ function haveFunctionsChanged(
 }
 
 function haveVariablesChanged(
-  prev: UseYarnRunnerOptions["variables"],
-  next: UseYarnRunnerOptions["variables"],
+  prev: UseDialogueOptions["variables"],
+  next: UseDialogueOptions["variables"],
 ): boolean {
   return JSON.stringify(prev ?? {}) !== JSON.stringify(next ?? {});
 }
@@ -95,10 +106,10 @@ function buildLibrary(functions?: Record<string, YarnFunction>): Library {
   return library;
 }
 
-export function useYarnRunner(
+export function useDialogue(
   program: Program,
-  options: UseYarnRunnerOptions,
-): UseYarnRunnerResult {
+  options: UseDialogueOptions,
+): UseDialogueResult {
   const dialogueRef = useRef<Dialogue | null>(null);
   const queueRef = useRef<DialogueEvent[]>([]);
   const awaitingSelectionRef = useRef(false);

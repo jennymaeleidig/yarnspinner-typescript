@@ -6,7 +6,7 @@
  *
  * Ported as an invariant check: the culture-sensitive APIs are patched to
  * throw, then numeric stories are driven through the public seam
- * (parseYarn → compile → YarnRunner). If the library ever touches a
+ * (parseYarn → compile → Dialogue). If the library ever touches a
  * culture-sensitive formatter, the run fails — no matter what locale the
  * host machine uses.
  */

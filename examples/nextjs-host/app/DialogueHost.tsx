@@ -20,7 +20,7 @@ import type { Diagnostic, DialogueEvent, DialogueOption, Program } from "yarn-sp
  * `<<declare>>` seeds reapply and the story replays from the top.
  *
  * Render-time adjustment follows the in-package adapter's house pattern
- * (useYarnRunner): the dialogue is created and its first batch pulled
+ * (useDialogue): the dialogue is created and its first batch pulled
  * synchronously behind an idempotent ref guard — SSR markup is correct, and
  * StrictMode's double render hits the closed guard on pass two and changes
  * nothing.
@@ -79,7 +79,7 @@ export default function DialogueHost({
   const transcriptRef = useRef<Transcript>(EMPTY_TRANSCRIPT);
   const [, bump] = useReducer((n: number) => n + 1, 0);
 
-  // Render-time adjustment (the useYarnRunner house pattern): create the
+  // Render-time adjustment (the useDialogue house pattern): create the
   // dialogue and synchronously pull its first batch, so the opening line is
   // in the initial markup — on the server too. Idempotent per mount.
   if (dialogueRef.current === null) {

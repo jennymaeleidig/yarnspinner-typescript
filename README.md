@@ -15,9 +15,9 @@ TypeScript parser, compiler, and runtime for Yarn Spinner 3.x with React adapter
 
 * ✅ Full Yarn Spinner 3.x syntax support
 * ✅ Parser for `.yarn` files → AST
-* ✅ Compiler: AST → Intermediate Representation (IR)
+* ✅ Compiler: AST → instruction-stream program (versioned JSON bytecode, ADR 0001)
 * ✅ Runtime with `Dialogue` class (pull-based event stream)
-* ✅ React hook: `useYarnRunner()`
+* ✅ React hook: `useDialogue()`
 * ✅ React components: `<DialogueView />`, `<DialogueScene />`, `<DialogueExample />`
 * ✅ Typing animation with configurable speeds, cursor styles, and auto-advance controls
 * ✅ Markup parsing with HTML formatting tags and CSS-ready spans
@@ -128,7 +128,7 @@ Narrator: Current street cred: {$reputation}, score: {$score}
 ### React Usage
 
 ```tsx
-import { parseYarn, compileDocument, useYarnRunner, DialogueView } from "yarn-spinner-runner-ts";
+import { parseYarn, compileDocument, useDialogue, DialogueView } from "yarn-spinner-runner-ts";
 import { parseScenes } from "yarn-spinner-runner-ts";
 import type { SceneCollection } from "yarn-spinner-runner-ts";
 
@@ -142,7 +142,7 @@ function MyDialogue() {
     return parseScenes(sceneYamlText);
   });
 
-  const { result, advance } = useYarnRunner(program, {
+  const { result, advance } = useDialogue(program, {
     startAt: "Start",
     variables: { score: 10 },
   });
@@ -269,7 +269,7 @@ Loads upstream-style `.yarnproject` files (format v4, legacy v2 accepted; schema
 
 ### Runtime
 
-* `new Dialogue(program: IRProgram, options?: DialogueOptions)` — Pull-based dialogue runner
+* `new Dialogue(program: Program, options?: DialogueOptions)` — Pull-based dialogue runner
   * `continue(): DialogueEvent[]` — Return events up to the next stopping point (line, command, option set, or dialogue end)
   * `selectOption(index: number): void` — Resume after an Options event; `noOptionSelected` (-1) falls through past the options block
   * `setLanguage(language: string | null): void` — Switch the injected text provider's language (`null` = the base language, the program's own text)
@@ -286,7 +286,7 @@ Loads upstream-style `.yarnproject` files (format v4, legacy v2 accepted; schema
 
 ### React Components
 
-* `useYarnRunner(program: IRProgram, options?: UseYarnRunnerOptions)` — React hook over `Dialogue`
+* `useDialogue(program: Program, options?: UseDialogueOptions)` — React hook over `Dialogue`
   * Returns: `{ result: DialogueViewResult | null, advance: () => void, selectOption: (index: number) => void, dialogue: Dialogue }`
 * `<DialogueView result={...} onAdvance={...} onStoryEnd={...} scenes={...} />` — Ready-to-use dialogue component; disables unavailable option buttons and fires `onStoryEnd` once on dialogue completion
 * `<DialogueScene sceneName={...} speaker={...} scenes={...} actorTransitionDuration={...} /> — Scene background, actor display, and portrait transitions` — Scene background and actor display
@@ -340,14 +340,18 @@ title: Start
 tags: #introduction #tutorial
 ---
 Narrator: Welcome!
-<<set score = 10>>
-<<if score >= 10>>
+<<set $score to 10>>
+<<if $score >= 10>>
     Narrator: High score!
 <<else>>
     Narrator: Low score.
 <<endif>>
 
-<<declare $randomName = random_range(1, 3) == 1 ? "Alice" : "Bob">>
+// Upstream Yarn Spinner has no ternary operator — branch with `<<if>>`:
+<<declare $randomName = "Bob">>
+<<if random_range(1, 3) == 1>>
+    <<set $randomName = "Alice">>
+<<endif>>
 Narrator: Your name is {$randomName}.
 
 -> Ask about features
@@ -477,9 +481,14 @@ Additional documentation is available in the `docs/` folder:
 * [Functions](./docs/functions.md)
 * [Node Groups](./docs/node-groups.md)
 * [Tags and Metadata](./docs/tags-metadata.md)
-* [CSS Attribute](./docs/css-attribute.md)
-* [Typing Animation (React)](./docs/typing-animation.md)
+* [Line Groups](./docs/line-groups.md)
+* [Saliency](./docs/saliency.md)
+* [Shadow Lines](./docs/shadow-lines.md)
 * [Markup (Yarn Spinner)](./docs/markup.md)
+* [Migration Notes (0.2.0 breaking changes)](./docs/migration-notes.md)
+* [Compatibility](./docs/compatibility.md)
+* [Changelog](./CHANGELOG.md)
+* [Typing Animation (React)](./docs/typing-animation.md)
 * [Actor Image Transitions](./docs/actor-transition.md)
 * [Scene and Actor Setup](./docs/scenes-actors-setup.md)
 

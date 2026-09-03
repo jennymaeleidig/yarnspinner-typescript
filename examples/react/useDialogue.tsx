@@ -1,2 +1,1 @@
-export { useYarnRunner } from "../../src/react/useYarnRunner.js";
-
+export { useDialogue, useYarnRunner } from "../../src/react/useDialogue.js";

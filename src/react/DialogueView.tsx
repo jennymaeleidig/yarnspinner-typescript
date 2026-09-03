@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import { DialogueScene } from "./DialogueScene.js";
 import type { SceneCollection } from "../scene/types.js";
 import { TypingText } from "./TypingText.js";
-import { useYarnRunner } from "./useYarnRunner.js";
+import { useDialogue } from "./useDialogue.js";
 import { MarkupRenderer } from "./MarkupRenderer.js";
 // Note: CSS is imported in the browser demo entry point (examples/browser/main.tsx)
 // This prevents Node.js from trying to resolve CSS imports during tests
@@ -48,7 +48,7 @@ export function DialogueView({
   autoAdvanceDelay = 500,
   pauseBeforeAdvance = 0,
 }: DialogueViewProps) {
-  const { result, advance, selectOption } = useYarnRunner(program, {
+  const { result, advance, selectOption } = useDialogue(program, {
     startAt: startNode,
     functions,
     variables,

@@ -24,7 +24,7 @@ export * from "./runtime/dialogue.js";
 export * from "./types.js";
 export * from "./scene/types.js";
 export * from "./scene/parser.js";
-export * from "./react/useYarnRunner.js";
+export * from "./react/useDialogue.js";
 export * from "./react/DialogueView.js";
 export * from "./react/DialogueExample.js";
 export * from "./react/DialogueScene.js";

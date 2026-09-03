@@ -42,10 +42,18 @@ the spec and the implementation tickets.
 | [50 line IDs + string table](issues/50-line-ids-string-table.md) | resolved | 49 |
 | [51 CSV + tagLines + setLanguage](issues/51-csv-taglines-setlanguage.md) | resolved | 50 |
 | [52 React adapter + demo](issues/52-react-adapter-demo.md) | resolved | 47, 48 |
-| [53 rename + docs + 0.2.0](issues/53-rename-docs-release.md) | open | 52 |
+| [53 rename + docs + 0.2.0](issues/53-rename-docs-release.md) | resolved | 52 |
 | [30–33 phase buckets](issues/30-phase1-compiler-language-core.md) | superseded | — |
 
 ## Decisions so far
+
+- Ticket 53 (the 0.2.0 closing wave): `YarnRunner`/`useYarnRunner` renamed
+  to `Dialogue`/`useDialogue` with deprecated exact aliases shipped for this
+  release only (pinned by `deprecatedAliases.test.ts`); stale compatibility
+  checklist replaced by `docs/compatibility.md`; the README ternary example
+  deleted (a ternary parses but silently evaluates to nothing — upstream has
+  none); upstream re-checked at release time — v3.2.2 still newest tag,
+  recorded in the new CHANGELOG.md. Suite 461/461.
 
 - Diagnostics channel landed (`src/compile/compileSource.ts` seam): collect by
   default, strict opt-in, vendored per-code registry. Node-structure validations

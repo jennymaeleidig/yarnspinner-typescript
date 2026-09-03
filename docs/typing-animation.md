@@ -1,6 +1,6 @@
 ## Typing Animation (React)
 
-The demo UI ships with a `TypingText` React component that renders dialogue one character at a time. `DialogueView` stitches this into the runner so you can opt into typewriter-style delivery without touching lower-level runtime code.
+The demo UI ships with a `TypingText` React component that renders dialogue one character at a time. `DialogueView` stitches this into `Dialogue` so you can opt into typewriter-style delivery without touching lower-level runtime code.
 
 ### Enabling the effect
 

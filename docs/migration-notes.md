@@ -80,6 +80,28 @@ the mismatch now surfaces as a `YS0005` diagnostic at compile time.
 <<declare $hasKey = true>>
 ```
 
+## 5. `YarnRunner` → `Dialogue`, `useYarnRunner` → `useDialogue`
+
+The glossary concept is upstream's `Dialogue` — "runner" is retired
+vocabulary (CONTEXT.md). The runtime class and the React hook ship under the
+new names; the old ones remain as **deprecated, exact aliases for this
+release only** and are removed in the release after 0.2.0:
+
+```typescript
+// Before (0.1.x)
+import { YarnRunner, useYarnRunner } from "yarn-spinner-runner-ts";
+const runner = new YarnRunner(program);
+
+// After (0.2.0)
+import { Dialogue, useDialogue } from "yarn-spinner-runner-ts";
+const dialogue = new Dialogue(program);
+```
+
+Note that the 0.1.x `YarnRunner` class already spoke the pull-based API
+(`continue()`/`selectOption()`) — only the name changed. The retired
+mutate-and-read surface (`advance()`, `currentResult`, `TextResult`) was
+removed earlier in the parity wave; see CONTEXT.md "Retired terms".
+
 ## Unchanged
 
 - Block-level `<<if>>`/`<<elseif>>`/`<<else>>`/`<<endif>>` and `<<once>>` keep

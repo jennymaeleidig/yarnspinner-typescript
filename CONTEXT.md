@@ -7,7 +7,7 @@ TypeScript parser, compiler, and runtime for Yarn Spinner 3.x, in language-and-b
 - Parser for `.yarn` files → AST
 - Compiler: AST → instruction-stream program, with string table, declarations, and diagnostics
 - Runtime (`Dialogue`): pull-based event stream over a stack VM
-- React integration: `useYarnRunner()` hook and dialogue components (adapter-side, non-upstream)
+- React integration: `useDialogue()` hook and dialogue components (adapter-side, non-upstream)
 
 Reference documentation for the Yarn Spinner 3.x language lives in `docs/` (one file per language feature, each citing its source URL). Coding standards for agents and humans: `docs/coding-standards.md`. Architecture decisions: `docs/adr/`.
 
@@ -91,4 +91,10 @@ Fork-era vocabulary, superseded by the parity API. Kept here so old docs and con
 - **`[if expr]` option conditions** → `<<if expr>>` on the option line (dropped outright)
 - **`{if}{else}{endif}` inline text blocks** → line-level `<<if>>` conditions (dropped)
 - **`&css{...}`** → removed; styling is consumer-side via markup properties
-- **`docs/compatibility-checklist.md`** → superseded by the 3.2 parity spec (`.scratch/ys32-parity/spec.md`)
+- **`docs/compatibility-checklist.md`** → superseded by the 3.2 parity spec (`.scratch/ys32-parity/spec.md`); replaced by [docs/compatibility.md](docs/compatibility.md)
+
+The two code-level renames above that shipped as part of the parity API —
+`YarnRunner` → `Dialogue` and `useYarnRunner` → `useDialogue` — keep a
+**deprecated alias for one release** (0.2.0 only; removed in the release
+after), so pre-0.2.0 consumers keep compiling while they migrate. Everything
+else in this list is gone outright.

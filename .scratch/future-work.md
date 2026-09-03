@@ -8,3 +8,5 @@ parity with upstream as it gets updated / future upgrade pipeline - reads to me 
 
 enforce / adopt prettier
 
+
+ternary operator: silently mis-compiles instead of diagnosing — `<<declare $x = true ? "A" : "B">>` parses clean (no YS0005) but evaluates to nothing (variable unset). Found during ticket 53's docs pass; behavior changes are out of scope for a release-prep ticket. Fix = parser rejection with a YS0005 pointing at the `<<if>>` branch pattern (docs already corrected; upstream has no ternary).
