@@ -42,6 +42,15 @@ Parity here means the observable contract upstream's own test suite pins:
     runtime crate). It answers "did the story finish?", not "is it done
     being used?" — `stop()` makes the dialogue inactive without completing
     it, and its complete event still delivers on the next `continue()`.
+  - The transcript-reduction module (`runUntilStopped`/`Transcript`) is
+    exported non-upstream orchestration over the pull API — same standing
+    as the loader and the React adapter. Upstream has no transcript
+    accumulator; the stopping-point contract it packages (line stops,
+    options stop and await selection, commands surface-then-skip, node
+    lifecycle and line-hint events ride through, completion terminates) is
+    upstream's own batch behaviour, re-delivered and pinned by
+    `src/tests/transcript.test.ts` against the upstream semantics cited
+    there (.NET `Dialogue.cs` handlers; Rust `Dialogue::continue_`).
   - The `.yarnproject` loader and the React adapter are this project's own
     surface (non-upstream).
 
@@ -64,8 +73,8 @@ is gone; per-feature documentation lives in the language docs under
 - A ternary expression (`a ? b : c`) in `<<declare>>`/`<<set>>` currently
   parses without a diagnostic but silently evaluates to nothing — the
   variable is left unset. Upstream has no ternary; this should be a compile
-  error and is tracked for the next release (`.scratch/future-work.md`).
-  Branch with `<<if>>` instead.
+  error and is tracked for the next release (fix prescription in the
+  deepening-wave tracker map). Branch with `<<if>>` instead.
 - Conformance-harness note: the vendored testplan hashtags are parsed but
   not asserted — upstream's own assertion on them is dead code, and one
   upstream fixture's plan has a hashtag its own compiler cannot parse

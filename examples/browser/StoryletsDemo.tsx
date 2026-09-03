@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { parseYarn } from "../../src/parse/parser.js";
 import { compileDocument } from "../../src/compile/compiler.js";
 import { Dialogue } from "../../src/runtime/dialogue.js";
+import { runUntilStopped } from "../../src/runtime/transcript.js";
+import type { TranscriptLine } from "../../src/runtime/transcript.js";
 import type { ContentSaliencyOption } from "../../src/runtime/saliency.js";
-import type { LineEvent } from "../../src/runtime/events.js";
 
 /**
  * The storylet demo (ticket 52): a node group whose members gate on `when:`
@@ -103,13 +104,8 @@ const STRATEGIES: { mode: string; label: string; blurb: string }[] = [
   },
 ];
 
-interface DrawnLine {
-  speaker?: string;
-  text: string;
-}
-
 interface DrawView {
-  lines: DrawnLine[];
+  lines: TranscriptLine[];
   /** First line of the draw, for the history strip. */
   label: string;
 }
@@ -152,20 +148,15 @@ export function StoryletsDemo() {
   const drawStorylet = useCallback(() => {
     const dialogue = getDialogue();
     dialogue.setNode("Storylets");
-    const lines: DrawnLine[] = [];
-    let completed = false;
-    for (;;) {
-      const batch = dialogue.continue();
-      if (batch.length === 0) break;
-      for (const event of batch) {
-        if (event.type === "line") {
-          const line = event as LineEvent;
-          lines.push({ speaker: line.speaker, text: line.text });
-        }
-        if (event.type === "dialogueComplete") completed = true;
-      }
-      if (completed || !dialogue.isActive) break;
+    // Drain the draw through every stopping point (storylets deliver lines
+    // only): auto-continue across line/command stops, stop at completion.
+    // The module owns the stopping contract — an awaiting option set or a
+    // completed dialogue can never be mistaken for an over-drain here.
+    let result = runUntilStopped(dialogue);
+    while (result.stopped === "line" || result.stopped === "command") {
+      result = runUntilStopped(dialogue, result.transcript);
     }
+    const lines = result.transcript.lines;
     if (lines.length > 0) {
       setDraw({ lines, label: lines[0].text });
       setHistory((prev) => [...prev.slice(-7), lines[0].text]);

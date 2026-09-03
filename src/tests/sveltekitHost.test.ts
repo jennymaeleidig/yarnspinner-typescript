@@ -8,16 +8,16 @@
  * pull-based continue loop natively in Svelte runes.
  *
  * Tests run from src only (no package surface for a one-app example, the
- * ticket-52 precedent), so the client component's initial-pull logic is
- * mirrored here — but unlike the Next host's JSX mirror, the SSR harness
- * compiles the REAL `DialogueHost.svelte` (svelte/compiler, both generations
- * clean) and renders it with `svelte/server`: the component file is the
- * single source of truth for the server-rendered output, and the harness
- * itself is the no-React proof — only Svelte and the package's main entry
- * are loaded. The interactive handlers are asserted through `Dialogue` in
- * the flow tests (they cannot execute inside a server render); the content
- * files are loaded through the same server-side path the host's
- * +page.server.ts uses.
+ * ticket-52 precedent). The pull loop the client component runs is the
+ * package's own transcript-reduction module (`runUntilStopped`) — the same
+ * shipped logic, imported, not mirrored. The SSR harness compiles the REAL
+ * `DialogueHost.svelte` (svelte/compiler, both generations clean) and
+ * renders it with `svelte/server`: the component file is the single source
+ * of truth for the server-rendered output, and the harness itself is the
+ * no-React proof — only Svelte and the package's main entry are loaded. The
+ * interactive handlers are asserted through `Dialogue` in the flow tests
+ * (they cannot execute inside a server render); the content files are
+ * loaded through the same server-side path the host's +page.server.ts uses.
  *
  * The `npm run sveltekit:build` target (adapter-static) prerenders the page,
  * so the loader call and this same SSR output run at build time; CI wiring
@@ -33,9 +33,9 @@ import { compile } from "svelte/compiler";
 import type { Component } from "svelte";
 import { render } from "svelte/server";
 
-import { Dialogue, noOptionSelected } from "../index.js";
+import { Dialogue, noOptionSelected, runUntilStopped } from "../index.js";
 import { loadYarnProject } from "../compile/nodeProjectFs.js";
-import type { DialogueEvent, Diagnostic, Program } from "../index.js";
+import type { Diagnostic, Program, StoppingPoint, Transcript } from "../index.js";
 
 /** Directory of the compiled test file (dist/tests/). */
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -120,17 +120,16 @@ after(() => {
 	rmSync(join(HERE, "..", ".svelte-ssr-harness"), { recursive: true, force: true });
 });
 
-/** Drain `continue()` until the dialogue completes or stops delivering. */
-function runUntilComplete(dialogue: Dialogue): DialogueEvent[] {
-	const events: DialogueEvent[] = [];
-	for (;;) {
-		const batch = dialogue.continue();
-		if (batch.length === 0) break;
-		events.push(...batch);
-		if (events.some((e) => e.type === "dialogueComplete")) break;
-		if (!dialogue.isActive && !batch.some((e) => e.type === "line" || e.type === "options")) break;
+/** Drain the dialogue through every stopping point to the end — a thin
+ *  adapter over the shipped transcript-reduction module. */
+function runUntilComplete(
+	dialogue: Dialogue,
+): { transcript: Transcript; stopped: StoppingPoint } {
+	let result = runUntilStopped(dialogue);
+	while (result.stopped === "line" || result.stopped === "command") {
+		result = runUntilStopped(dialogue, result.transcript);
 	}
-	return events;
+	return result;
 }
 
 // ── Server-side load path (+page.server.ts, minus the markup) ─────────────
@@ -224,15 +223,15 @@ test("the host's dialogue flow: buy the lantern, arrive, complete — then reset
 	// The option set; buy the lantern → the price comes off, the jump fires.
 	void dialogue.continue(); // the options event
 	dialogue.selectOption(0);
-	const events = runUntilComplete(dialogue);
+	const { transcript, stopped } = runUntilComplete(dialogue);
 	assert.equal(dialogue.getVariable("coins"), 4, "the lantern cost 3 coins");
 	assert.equal(dialogue.getVariable("hasLantern"), true);
-	assert.ok(events.some((e) => e.type === "line" && e.text.includes("lantern will hold till dawn")));
+	assert.ok(transcript.lines.some((l) => l.text.includes("lantern will hold till dawn")));
 	assert.ok(
-		events.some((e) => e.type === "line" && e.text.includes("4 coins")),
+		transcript.lines.some((l) => l.text.includes("4 coins")),
 		"the arrival line's {expr} substitution renders live",
 	);
-	assert.ok(events.some((e) => e.type === "dialogueComplete"), "the flow runs to completion");
+	assert.equal(stopped, "complete", "the flow runs to completion");
 
 	// Variable-storage reset (§4): a fresh Dialogue is a fresh storage — the
 	// declares reseed, generated state clears, and the story replays from the top.
@@ -252,8 +251,8 @@ test("the walk-on path completes without the lantern", () => {
 	void dialogue.continue(); // opening line
 	void dialogue.continue(); // options
 	dialogue.selectOption(1); // Keep walking
-	const events = runUntilComplete(dialogue);
-	assert.ok(events.some((e) => e.type === "line" && e.text.includes("keep their secrets")));
+	const { transcript } = runUntilComplete(dialogue);
+	assert.ok(transcript.lines.some((l) => l.text.includes("keep their secrets")));
 	assert.equal(dialogue.getVariable("hasLantern"), false);
 });
 
@@ -263,9 +262,10 @@ test("noOptionSelected falls through the host's option set", () => {
 	void dialogue.continue(); // opening line
 	void dialogue.continue(); // options
 	dialogue.selectOption(noOptionSelected);
-	const events = dialogue.continue();
-	assert.ok(
-		events.some((e) => e.type === "dialogueComplete"),
+	const { stopped } = runUntilStopped(dialogue);
+	assert.equal(
+		stopped,
+		"complete",
 		"falling through the options ends the Start node — and with it, the dialogue",
 	);
 });

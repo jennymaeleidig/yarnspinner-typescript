@@ -7,15 +7,17 @@
  * pull-based continue loop with variable-storage reset.
  *
  * Tests run from src only (no package surface for a one-app example, the
- * ticket-52 precedent), so the client component's initial-pull logic is
- * mirrored here — the content itself is NOT mirrored: the real
- * `examples/nextjs-host/content/` files are the single source of truth,
- * loaded through the same server-side path the host's page uses. The SSR
- * pattern mirrors the ticket-52 demo harness (renderToStaticMarkup over the
- * first pull). Two disclosed §6 trade-offs, both precedent-backed: the test
- * imports `nodeProjectFs` from its internal path (ticket 02's
- * yarnProject.test.ts does the same) and asserts bundle-safety on the built
- * artifacts — client-path purity cannot be asserted behaviorally.
+ * ticket-52 precedent). The pull loop the client component runs is the
+ * package's own transcript-reduction module (`runUntilStopped`) — the same
+ * shipped logic, imported, not mirrored. The content itself is NOT
+ * mirrored either: the real `examples/nextjs-host/content/` files are the
+ * single source of truth, loaded through the same server-side path the
+ * host's page uses. The SSR pattern mirrors the ticket-52 demo harness
+ * (renderToStaticMarkup over the first pull). Two disclosed §6 trade-offs,
+ * both precedent-backed: the test imports `nodeProjectFs` from its internal
+ * path (ticket 02's yarnProject.test.ts does the same) and asserts
+ * bundle-safety on the built artifacts — client-path purity cannot be
+ * asserted behaviorally.
  */
 
 import { test } from "node:test";
@@ -26,9 +28,9 @@ import { join, dirname } from "node:path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { Dialogue, noOptionSelected } from "../index.js";
+import { Dialogue, noOptionSelected, runUntilStopped } from "../index.js";
 import { loadYarnProject } from "../compile/nodeProjectFs.js";
-import type { DialogueEvent, Program } from "../index.js";
+import type { Program, StoppingPoint, Transcript } from "../index.js";
 
 /** Directory of the compiled test file (dist/tests/). */
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -76,16 +78,24 @@ test("the client bundle's main entry carries no Node builtins (§2)", () => {
 
 // ── SSR harness (mirrors the ticket-52 demo pattern over the first pull) ──
 
+/** Drain the dialogue through every stopping point to the end — a thin
+ *  adapter over the shipped transcript-reduction module. */
+function runUntilComplete(
+  dialogue: Dialogue,
+): { transcript: Transcript; stopped: StoppingPoint } {
+  let result = runUntilStopped(dialogue);
+  while (result.stopped === "line" || result.stopped === "command") {
+    result = runUntilStopped(dialogue, result.transcript);
+  }
+  return result;
+}
+
 /** The mirrored client component's initial pull: a fresh Dialogue and its
- *  first continue() batch — exactly what DialogueHost's useState
- *  initializer runs, server-side included. */
+ *  first transcript — exactly what DialogueHost's render-time adjustment
+ *  runs, server-side included. */
 function initialTranscript(program: Program) {
   const dialogue = new Dialogue(program);
-  const lines: { speaker?: string; text: string }[] = [];
-  for (const event of dialogue.continue() as DialogueEvent[]) {
-    if (event.type === "line") lines.push({ speaker: event.speaker, text: event.text });
-  }
-  return lines;
+  return runUntilStopped(dialogue).transcript.lines;
 }
 
 function MirroredHost({ program }: { program: Program }) {
@@ -135,19 +145,12 @@ test("the host's dialogue flow: buy the map, arrive, complete — then reset rep
   // The option set; buy the map → the price comes off, the jump fires.
   void dialogue.continue(); // the options event
   dialogue.selectOption(0);
-  const events: DialogueEvent[] = [];
-  for (;;) {
-    const batch = dialogue.continue();
-    if (batch.length === 0) break;
-    events.push(...batch);
-    if (events.some((e) => e.type === "dialogueComplete")) break;
-    if (!dialogue.isActive && !batch.some((e) => e.type === "line" || e.type === "options")) break;
-  }
+  const { transcript, stopped } = runUntilComplete(dialogue);
   assert.equal(dialogue.getVariable("gold"), 3, "the map cost 2 gold");
   assert.equal(dialogue.getVariable("hasMap"), true);
-  assert.ok(events.some((e) => e.type === "line" && e.text.includes("chapel path is due north")));
-  assert.ok(events.some((e) => e.type === "line" && e.text.includes("glints on the altar")));
-  assert.ok(events.some((e) => e.type === "dialogueComplete"), "the flow runs to completion");
+  assert.ok(transcript.lines.some((l) => l.text.includes("chapel path is due north")));
+  assert.ok(transcript.lines.some((l) => l.text.includes("glints on the altar")));
+  assert.equal(stopped, "complete", "the flow runs to completion");
 
   // Variable-storage reset (§4): a fresh Dialogue is a fresh storage — the
   // declares reseed, once-state clears, and the story replays from the top.
@@ -167,14 +170,8 @@ test("the walk-on path completes without the map", () => {
   void dialogue.continue(); // opening line
   void dialogue.continue(); // options
   dialogue.selectOption(1); // Walk on
-  const events: DialogueEvent[] = [];
-  for (;;) {
-    const batch = dialogue.continue();
-    if (batch.length === 0) break;
-    events.push(...batch);
-    if (events.some((e) => e.type === "dialogueComplete")) break;
-  }
-  assert.ok(events.some((e) => e.type === "line" && e.text.includes("leave the Rogue")));
+  const { transcript } = runUntilComplete(dialogue);
+  assert.ok(transcript.lines.some((l) => l.text.includes("leave the Rogue")));
   assert.equal(dialogue.getVariable("hasMap"), false);
 });
 
@@ -184,9 +181,10 @@ test("noOptionSelected falls through the host's option set", () => {
   void dialogue.continue(); // opening line
   void dialogue.continue(); // options
   dialogue.selectOption(noOptionSelected);
-  const events = dialogue.continue();
-  assert.ok(
-    events.some((e) => e.type === "dialogueComplete"),
+  const { stopped } = runUntilStopped(dialogue);
+  assert.equal(
+    stopped,
+    "complete",
     "falling through the options ends the Start node — and with it, the dialogue",
   );
 });

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Dialogue, noOptionSelected } from "yarn-spinner-runner-ts";
-	import type { Diagnostic, DialogueEvent, DialogueOption, Program } from "yarn-spinner-runner-ts";
+	import { Dialogue, noOptionSelected, runUntilStopped } from "yarn-spinner-runner-ts";
+	import type { Diagnostic, Program, Transcript } from "yarn-spinner-runner-ts";
 
 	/**
 	 * The SvelteKit host's dialogue component (yarn-project-support ticket
@@ -28,39 +28,18 @@
 
 	let { program, projectName = null, sources, diagnostics }: Props = $props();
 
-	/** The transcript: one pull of the continue loop merged into the last. */
-	interface Transcript {
-		lines: { speaker?: string; text: string }[];
-		/** The delivered option set, when the last stopping point was an option set. */
-		options: DialogueOption[] | null;
-	}
-
-	const EMPTY_TRANSCRIPT: Transcript = { lines: [], options: null };
-
-	/** Pull one `continue()` batch from `dialogue` and merge it into `prior`
-	 *  — Continue is the pull operation (glossary). */
-	function pull(dialogue: Dialogue, prior: Transcript): Transcript {
-		const lines = [...prior.lines];
-		let options = prior.options;
-		const batch: DialogueEvent[] = dialogue.continue();
-		for (const event of batch) {
-			if (event.type === "line") {
-				lines.push({ speaker: event.speaker, text: event.text });
-			} else if (event.type === "options") {
-				options = event.options;
-			}
-		}
-		return { lines, options };
-	}
+	/** The transcript (CONTEXT.md) is the component state: lines accumulate,
+	 *  the live option set renders when present, commands accumulate. */
 
 	/** A fresh Dialogue is a fresh variable storage. The first pull runs
-	 *  during the initial render — on the server too — so the opening line is
-	 *  in the SSR output. */
+	 *  during the initial render — the shared runUntilStopped module, run
+	 *  during render — on the server too, so the opening line is in the SSR
+	 *  output. */
 	function freshHost() {
 		const dialogue = new Dialogue(program);
 		return {
 			dialogue,
-			transcript: pull(dialogue, EMPTY_TRANSCRIPT),
+			transcript: runUntilStopped(dialogue).transcript,
 			variables: { ...dialogue.getVariables() },
 		};
 	}
@@ -79,19 +58,18 @@
 		};
 	}
 
-	/** One pull of the loop: deliver the next batch (line, options, or end). */
+	/** One pull of the loop: deliver the next stopping point's events. The
+	 *  module's at-rest guards (pending selection, complete) make this a
+	 *  no-op when the dialogue has nothing to deliver. */
 	function onContinue() {
-		if (host.dialogue.isComplete || host.dialogue.isWaitingForOptionSelection) return;
-		deliver(host.dialogue, pull(host.dialogue, host.transcript));
+		deliver(host.dialogue, runUntilStopped(host.dialogue, host.transcript).transcript);
 	}
 
-	/** Resume a delivered option set: select, then pull through its body. */
+	/** Resume a delivered option set: select, then pull through its body —
+	 *  the resolved set leaves the transcript (module contract). */
 	function onOption(selected: number) {
 		host.dialogue.selectOption(selected);
-		deliver(
-			host.dialogue,
-			pull(host.dialogue, { ...host.transcript, options: null }),
-		);
+		deliver(host.dialogue, runUntilStopped(host.dialogue, host.transcript).transcript);
 	}
 
 	/** Variable-storage reset (coding standard §4): discard the Dialogue; the

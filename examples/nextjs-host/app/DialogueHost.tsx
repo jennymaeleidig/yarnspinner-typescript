@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useReducer, useRef } from "react";
-import { Dialogue, noOptionSelected } from "yarn-spinner-runner-ts";
-import type { Diagnostic, DialogueEvent, DialogueOption, Program } from "yarn-spinner-runner-ts";
+import { Dialogue, EMPTY_TRANSCRIPT, noOptionSelected, runUntilStopped } from "yarn-spinner-runner-ts";
+import type { Diagnostic, Program, Transcript } from "yarn-spinner-runner-ts";
 
 /**
  * The Next.js host's client component (yarn-project-support ticket 04):
@@ -36,34 +36,8 @@ export interface DialogueHostProps {
   diagnostics: Diagnostic[];
 }
 
-interface DeliveredLine {
-  speaker?: string;
-  text: string;
-}
-
-/** The transcript: one pull of the continue loop merged into the last. */
-interface Transcript {
-  lines: DeliveredLine[];
-  /** The delivered option set, when the last stopping point was an option set. */
-  options: DialogueOption[] | null;
-}
-
-const EMPTY_TRANSCRIPT: Transcript = Object.freeze({ lines: [], options: null });
-
-/** Pull one `continue()` batch from `dialogue` and merge it into `prior`. */
-function pull(dialogue: Dialogue, prior: Transcript): Transcript {
-  const batch: DialogueEvent[] = dialogue.continue();
-  const lines = [...prior.lines];
-  let options = prior.options;
-  for (const event of batch) {
-    if (event.type === "line") {
-      lines.push({ speaker: event.speaker, text: event.text });
-    } else if (event.type === "options") {
-      options = event.options;
-    }
-  }
-  return { lines, options };
-}
+/** The transcript (CONTEXT.md) is the component state: lines accumulate,
+ *  the live option set renders when present, commands accumulate. */
 
 export default function DialogueHost({
   program,
@@ -76,28 +50,32 @@ export default function DialogueHost({
   const [, bump] = useReducer((n: number) => n + 1, 0);
 
   // Render-time adjustment (the useDialogue house pattern): create the
-  // dialogue and synchronously pull its first batch, so the opening line is
-  // in the initial markup — on the server too. Idempotent per mount.
+  // dialogue and synchronously pull its first transcript — the shared
+  // runUntilStopped module, run during render — so the opening line is in
+  // the initial markup, on the server too. Idempotent per mount.
   if (dialogueRef.current === null) {
     const d = new Dialogue(program);
     dialogueRef.current = d;
-    transcriptRef.current = pull(d, EMPTY_TRANSCRIPT);
+    transcriptRef.current = runUntilStopped(d).transcript;
   }
 
-  /** One pull of the loop: deliver the next batch (line, options, or end). */
+  /** One pull of the loop: deliver the next stopping point's events. The
+   *  module's at-rest guards (pending selection, complete) make this a
+   *  no-op when the dialogue has nothing to deliver. */
   const onContinue = useCallback(() => {
     const d = dialogueRef.current;
-    if (!d || d.isComplete || d.isWaitingForOptionSelection) return;
-    transcriptRef.current = pull(d, transcriptRef.current);
+    if (!d) return;
+    transcriptRef.current = runUntilStopped(d, transcriptRef.current).transcript;
     bump();
   }, []);
 
-  /** Resume a delivered option set: select, then pull through its body. */
+  /** Resume a delivered option set: select, then pull through its body —
+   *  the resolved set leaves the transcript (module contract). */
   const onOption = useCallback((index: number) => {
     const d = dialogueRef.current;
     if (!d) return;
     d.selectOption(index);
-    transcriptRef.current = pull(d, { ...transcriptRef.current, options: null });
+    transcriptRef.current = runUntilStopped(d, transcriptRef.current).transcript;
     bump();
   }, []);
 
@@ -106,7 +84,7 @@ export default function DialogueHost({
   const onReset = useCallback(() => {
     const d = new Dialogue(program);
     dialogueRef.current = d;
-    transcriptRef.current = pull(d, EMPTY_TRANSCRIPT);
+    transcriptRef.current = runUntilStopped(d).transcript;
     bump();
   }, [program]);
 

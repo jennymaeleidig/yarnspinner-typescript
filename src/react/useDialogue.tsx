@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { Dialogue, Library } from "../runtime/dialogue.js";
-import type { DialogueEvent, YarnFunction } from "../runtime/dialogue.js";
+import type { YarnFunction } from "../runtime/dialogue.js";
+import { EMPTY_TRANSCRIPT, runUntilStopped } from "../runtime/transcript.js";
+import type { StoppingPoint, Transcript } from "../runtime/transcript.js";
 import type { TextProvider } from "../runtime/textProvider.js";
 import type { VariableStorage } from "../runtime/variableStorage.js";
 import type { MarkupParseResult } from "../markup/types.js";
@@ -22,21 +24,24 @@ export type UseYarnRunnerResult = UseDialogueResult;
 /**
  * React adapter over the pull-based event-stream runtime (ticket 43).
  *
- * The `Dialogue` delivers batches of events; this hook reduces them into a
- * single user-facing view state:
- * - `line` events stop the reduction (the view waits for a click to continue).
- * - `options` events stop the reduction (the view waits for `selectOption`).
- * - `command` events stop the reduction too, so the view can flash them
- *   briefly; the next `continue()` resumes from the buffered batch.
- * - `dialogueComplete` clears the view and fires `onDialogueComplete` (after
+ * The stopping-point contract — line stops; options stop and await
+ * selection; commands surface-then-skip; lifecycle events ride through;
+ * completion terminates — lives in one place: the transcript-reduction
+ * module (`runUntilStopped`, CONTEXT.md "Transcript"). This hook is a thin
+ * reshaper over it: each pull's transcript is reshaped into the single
+ * user-facing view state:
+ * - a `line` stop becomes the text view (the view waits for a click).
+ * - an `options` stop becomes the options view (awaits `selectOption`).
+ * - a `command` stop becomes the command view (flashed briefly; the view's
+ *   auto-continue effect calls `continue` to skip past it).
+ * - a `complete` stop clears the view and fires `onDialogueComplete` (after
  *   commit).
- * - `nodeStart`/`nodeComplete`/`lineHints` are lifecycle events and flow
- *   through silently; the current node's `scene:` header is attached to
- *   every view state (the old per-result `scene` field, adapter-side now).
+ * The current node's `scene:` header is attached to every view state (the
+ * old per-result `scene` field, adapter-side now).
  *
- * The dialogue is created and first reduced synchronously during render (the
+ * The dialogue is created and first pulled synchronously during render (the
  * React "adjust state when props change" pattern) so server-side rendering
- * shows the opening line; `continue`/`selectOption` re-reduce from event
+ * shows the opening line; `continue`/`selectOption` re-pull from event
  * handlers and bump a counter to re-render.
  */
 
@@ -166,12 +171,60 @@ function buildLibrary(functions?: Record<string, YarnFunction>): Library {
   return library;
 }
 
+/**
+ * Reshape one pull's transcript into the view state (the thin adapter over
+ * the transcript-reduction module). The transcript holds exactly the
+ * stopping point's events: its tail line / live option set / last command.
+ */
+function reshapeView(
+  transcript: Transcript,
+  stopped: StoppingPoint,
+  scene?: string,
+): DialogueViewResult | null {
+  switch (stopped) {
+    case "line": {
+      const line = transcript.lines[transcript.lines.length - 1];
+      if (!line) return null;
+      return {
+        type: "text",
+        text: line.text,
+        speaker: line.speaker,
+        tags: line.tags,
+        markup: line.markup,
+        scene,
+        isDialogueEnd: false,
+      };
+    }
+    case "options": {
+      if (!transcript.options) return null;
+      return {
+        type: "options",
+        options: transcript.options.map((o) => ({
+          index: o.index,
+          text: o.text,
+          tags: o.tags,
+          markup: o.markup,
+          isAvailable: o.isAvailable,
+        })),
+        scene,
+      };
+    }
+    case "command": {
+      const command = transcript.commands[transcript.commands.length - 1];
+      if (command === undefined) return null;
+      // Surfaced briefly; the view's auto-continue effect calls continue().
+      return { type: "command", command, scene };
+    }
+    case "complete":
+      return null;
+  }
+}
+
 export function useDialogue(
   program: Program,
   options: UseDialogueOptions,
 ): UseDialogueResult {
   const dialogueRef = useRef<Dialogue | null>(null);
-  const queueRef = useRef<DialogueEvent[]>([]);
   const dialogueCompleteFiredRef = useRef(false);
   const dialogueCompletePendingRef = useRef(false);
   const viewRef = useRef<DialogueViewResult | null>(null);
@@ -179,64 +232,16 @@ export function useDialogue(
   const optionsRef = useRef(options);
   const [, bump] = useReducer((n: number) => n + 1, 0);
 
-  /**
-   * Reduce buffered/pulled events until the next user-facing stopping point
-   * and return the resulting view state.
-   */
-  const reduceView = useCallback((): DialogueViewResult | null => {
+  /** Pull to the next stopping point and reshape the transcript into the
+   *  view state; flags the completion callback for post-commit delivery. */
+  const applyPull = useCallback((): void => {
     const dialogue = dialogueRef.current;
-    if (!dialogue) return null;
-    for (;;) {
-      if (queueRef.current.length === 0) {
-        // At rest the queue is always empty (the runtime stops each batch at
-        // exactly one stopping point; lifecycle events ride along), so the
-        // dialogue's own state answers "is the surfaced view an awaiting
-        // option set".
-        if (dialogue.isWaitingForOptionSelection) return viewRef.current; // needs a selection first
-        const batch = dialogue.continue();
-        if (batch.length === 0) {
-          return null; // stalled or ended without a complete event
-        }
-        queueRef.current = batch;
-      }
-      const event = queueRef.current.shift()!;
-      switch (event.type) {
-        case "line":
-          return {
-            type: "text",
-            text: event.text,
-            speaker: event.speaker,
-            tags: event.tags,
-            markup: event.markup,
-            scene: dialogue.currentScene,
-            isDialogueEnd: false,
-          };
-        case "options":
-          return {
-            type: "options",
-            options: event.options.map((o) => ({
-              index: o.index,
-              text: o.text,
-              tags: o.tags,
-              markup: o.markup,
-              isAvailable: o.isAvailable,
-            })),
-            scene: dialogue.currentScene,
-          };
-        case "command":
-          // Surfaced briefly; the view's auto-continue effect calls continue().
-          return { type: "command", command: event.command, scene: dialogue.currentScene };
-        case "dialogueComplete":
-          if (!dialogueCompleteFiredRef.current) {
-            dialogueCompleteFiredRef.current = true;
-            dialogueCompletePendingRef.current = true; // fired after commit (see effect below)
-          }
-          return null;
-        case "nodeStart":
-        case "nodeComplete":
-        case "lineHints":
-          continue; // lifecycle events flow through silently
-      }
+    if (!dialogue) return;
+    const { transcript, stopped } = runUntilStopped(dialogue, EMPTY_TRANSCRIPT);
+    viewRef.current = reshapeView(transcript, stopped, dialogue.currentScene);
+    if (stopped === "complete" && !dialogueCompleteFiredRef.current) {
+      dialogueCompleteFiredRef.current = true;
+      dialogueCompletePendingRef.current = true; // fired after commit (see effect below)
     }
   }, []);
 
@@ -265,12 +270,11 @@ export function useDialogue(
       dialogue.setVariable(name, value);
     }
     dialogueRef.current = dialogue;
-    queueRef.current = [];
     dialogueCompleteFiredRef.current = false;
     dialogueCompletePendingRef.current = false;
     programRef.current = program;
     optionsRef.current = options;
-    viewRef.current = reduceView();
+    applyPull();
   }
 
   // Fire onDialogueComplete after commit, not during render. The deprecated
@@ -290,20 +294,22 @@ export function useDialogue(
   // `continue` is a reserved word, so the binding carries the glossary term
   // with a suffix; the property name is exactly `continue`.
   const continueDialogue = useCallback(() => {
+    // UI-level idempotence: a click while a selection is pending is a no-op
+    // (the module guards the same state; the view just stays as it is).
     if (dialogueRef.current?.isWaitingForOptionSelection) return;
-    viewRef.current = reduceView();
+    applyPull();
     bump();
-  }, [reduceView]);
+  }, [applyPull]);
 
   const selectOption = useCallback(
     (index: number) => {
       const dialogue = dialogueRef.current;
       if (!dialogue || !dialogue.isWaitingForOptionSelection) return;
       dialogue.selectOption(index);
-      viewRef.current = reduceView();
+      applyPull();
       bump();
     },
-    [reduceView],
+    [applyPull],
   );
 
   return {

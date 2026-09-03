@@ -254,7 +254,11 @@ Mae: only
 
   ok(hook.result?.type === "text");
   hook.continue(); // completes the one-line story
-  hook.continue(); // inactive dialogue → the VM's debug diagnostic
+  // The hook's own pulls never hit an inactive dialogue (the transcript
+  // module's at-rest guards return before continue()), so the diagnostic is
+  // triggered through the documented escape hatch to prove the logDebug
+  // option reaches the Dialogue.
+  hook.dialogue.continue(); // inactive dialogue → the VM's debug diagnostic
 
   ok(
     debug.some((m) => m.includes("inactive")),
