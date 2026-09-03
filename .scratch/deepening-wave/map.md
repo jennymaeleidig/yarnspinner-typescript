@@ -29,7 +29,7 @@ stays as-is and nothing here extends it.
 |---|---|---|
 | [01 demo compiles through the public seam](issues/01-demo-public-compile.md) | resolved | — |
 | [02 Dialogue state queries + mirror collapse](issues/02-dialogue-state-queries.md) | resolved | — |
-| [03 event-reduction module (Transcript)](issues/03-event-reduction.md) | open | 02 |
+| [03 event-reduction module (Transcript)](issues/03-event-reduction.md) | resolved | 02 |
 | [04 dead state out, one continue scheduler](issues/04-continue-scheduler.md) | open | 03 |
 | [05 useDialogue config/live split](issues/05-hook-config-live-split.md) | open | 04 |
 | [06 single-source the view props](issues/06-view-props-extends.md) | open | 05 |
@@ -82,6 +82,14 @@ From the grilling session (2026-09-03), binding on every ticket:
   not complete) and resets on `setNode`; hook's `awaitingSelectionRef` and
   both hosts' `ended`-scans deleted for getter reads; both
   compatibility.md entries recorded.
+- [03 event-reduction module (Transcript)](issues/03-event-reduction.md):
+  `runUntilStopped(dialogue, prior)` → `{ transcript, stopped }` landed in
+  `src/runtime/transcript.ts` — one home for the stopping-point contract;
+  hook/hosts/demo/test-helpers are thin adapters (the StoryletsDemo
+  empty-batch-≠-over bug died with its copy); new edge recorded: a resolved
+  option set leaves the transcript on the next pull; module recorded in
+  compatibility.md as non-upstream orchestration; glossary gained
+  Transcript + stopping point.
 
 ## Notes
 
