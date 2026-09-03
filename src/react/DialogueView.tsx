@@ -1,8 +1,9 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import { DialogueScene } from "./DialogueScene.js";
 import type { SceneCollection } from "../scene/types.js";
 import { TypingText } from "./TypingText.js";
 import { useDialogue } from "./useDialogue.js";
+import type { DialogueViewResult } from "./useDialogue.js";
 import { MarkupRenderer } from "./MarkupRenderer.js";
 // Note: CSS is imported in the browser demo entry point (examples/browser/main.tsx)
 // This prevents Node.js from trying to resolve CSS imports during tests
@@ -10,6 +11,16 @@ import { MarkupRenderer } from "./MarkupRenderer.js";
 import type { Program } from "../compile/program.js";
 import type { TextProvider } from "../runtime/textProvider.js";
 import type { VariableStorage } from "../runtime/variableStorage.js";
+
+/** Why the continue scheduler is deferring a continue; each cause maps to
+ *  its delay: a command flashes for `COMMAND_CONTINUE_DELAY_MS`, a finished
+ *  typing animation waits for `continueDelay`, a click waits for
+ *  `clickPause`. */
+type ContinueCause = "command" | "typing-done" | "click";
+
+/** How long a surfaced command stays on screen before the scheduler skips
+ *  past it (not configurable — commands are never the point of the story). */
+const COMMAND_CONTINUE_DELAY_MS = 50;
 
 export interface DialogueViewProps {
   program: Program;
@@ -115,49 +126,72 @@ export function DialogueView({
     />
   );
 
-  const [typingComplete, setTypingComplete] = useState(false);
+  const [typingDoneFor, setTypingDoneFor] = useState<DialogueViewResult | null>(
+    null,
+  );
   const [currentTextKey, setCurrentTextKey] = useState(0);
   const [skipTyping, setSkipTyping] = useState(false);
-  const continueTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const continueTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    if (!result || result.type !== "command") {
-      return;
+  /** Cancel the scheduled continue, if one is pending — the scheduler owns
+   *  exactly one timer, so cancelling is clearing that one slot. */
+  const cancelScheduledContinue = useCallback(() => {
+    if (continueTimerRef.current !== null) {
+      clearTimeout(continueTimerRef.current);
+      continueTimerRef.current = null;
     }
-    const timer = setTimeout(() => continueDialogue(), 50);
-    return () => clearTimeout(timer);
-  }, [result, continueDialogue]);
+  }, []);
 
-  // Reset typing completion when text changes
+  /** The continue scheduler: one timer for every deferred continue, fed by
+   *  named causes. Scheduling replaces any pending timer — there is never
+   *  more than one. */
+  const scheduleContinue = useCallback(
+    (cause: ContinueCause) => {
+      cancelScheduledContinue();
+      const delay =
+        cause === "command"
+          ? COMMAND_CONTINUE_DELAY_MS
+          : cause === "typing-done"
+            ? continueDelay
+            : clickPause;
+      continueTimerRef.current = setTimeout(() => {
+        continueTimerRef.current = null;
+        continueDialogue();
+      }, delay);
+    },
+    [cancelScheduledContinue, continueDialogue, continueDelay, clickPause],
+  );
+
+  // The one invalidation site: a scheduled continue belongs to the view
+  // state that scheduled it, so a new view state (or unmount) cancels it.
+  // React runs cleanups before setups in a commit, so the previous state's
+  // timer is always gone before the next state's effects schedule anew.
+  useEffect(() => cancelScheduledContinue, [cancelScheduledContinue, result]);
+
+  // A surfaced command auto-continues after its brief flash.
+  useEffect(() => {
+    if (result?.type === "command") {
+      scheduleContinue("command");
+    }
+  }, [result, scheduleContinue]);
+
+  // Reset typing state when the text changes (TypingText remounts per line).
   useEffect(() => {
     if (result?.type === "text") {
-      setTypingComplete(false);
+      setTypingDoneFor(null);
       setSkipTyping(false);
       setCurrentTextKey((prev) => prev + 1); // Force re-render of TypingText
     }
-    // Cleanup any pending continue timeouts when text changes
-    return () => {
-      if (continueTimeoutRef.current) {
-        clearTimeout(continueTimeoutRef.current);
-        continueTimeoutRef.current = null;
-      }
-    };
   }, [result?.type === "text" ? result.text : null]);
 
-  // Handle auto-continue after typing completes
+  // Auto-continue after the typing animation completes (if enabled). The
+  // guard is the result identity the typing finished for, so a stale
+  // completion can never schedule a continue for newer text.
   useEffect(() => {
-    if (
-      autoContinue &&
-      typingComplete &&
-      result?.type === "text" &&
-      !result.isDialogueEnd
-    ) {
-      const timer = setTimeout(() => {
-        continueDialogue();
-      }, continueDelay);
-      return () => clearTimeout(timer);
+    if (autoContinue && result?.type === "text" && typingDoneFor === result) {
+      scheduleContinue("typing-done");
     }
-  }, [autoContinue, typingComplete, result, continueDialogue, continueDelay]);
+  }, [autoContinue, typingDoneFor, result, scheduleContinue]);
 
   if (!result) {
     return (
@@ -169,32 +203,23 @@ export function DialogueView({
 
   if (result.type === "text") {
     const displayText = result.text || "\u00A0";
-    const shouldShowContinue = !result.isDialogueEnd && !enableTypingAnimation;
 
     const handleClick = () => {
-      if (result.isDialogueEnd) return;
-      
-      // If typing is in progress, skip it; otherwise continue
-      if (enableTypingAnimation && !typingComplete) {
-        // Skip typing animation
+      // If typing is in progress, skip it; the scheduler's typing-done cause
+      // takes over from there.
+      if (enableTypingAnimation && typingDoneFor !== result) {
         setSkipTyping(true);
-        setTypingComplete(true);
+        setTypingDoneFor(result);
+        return;
+      }
+      // A click supersedes any scheduled continue (a pending typing-done,
+      // say), then continues now or after the configured pause — a zero
+      // pause stays synchronous, continuing within the click.
+      cancelScheduledContinue();
+      if (clickPause > 0) {
+        scheduleContinue("click");
       } else {
-        // Clear any pending timeout
-        if (continueTimeoutRef.current) {
-          clearTimeout(continueTimeoutRef.current);
-          continueTimeoutRef.current = null;
-        }
-
-        // Apply pause before continuing if configured
-        if (clickPause > 0) {
-          continueTimeoutRef.current = setTimeout(() => {
-            continueDialogue();
-            continueTimeoutRef.current = null;
-          }, clickPause);
-        } else {
-          continueDialogue();
-        }
+        continueDialogue();
       }
     };
 
@@ -202,7 +227,7 @@ export function DialogueView({
       <div className="yd-container">
         {sceneElement}
         <div
-          className={`yd-dialogue-box ${result.isDialogueEnd ? "yd-text-box-end" : ""} ${className || ""}`}
+          className={`yd-dialogue-box ${className || ""}`}
           onClick={handleClick}
         >
           <div className="yd-text-box">
@@ -221,13 +246,13 @@ export function DialogueView({
                   showCursor={showTypingCursor}
                   cursorCharacter={cursorCharacter}
                   disabled={skipTyping}
-                  onComplete={() => setTypingComplete(true)}
+                  onComplete={() => setTypingDoneFor(result)}
                 />
               ) : (
                 <MarkupRenderer text={displayText} markup={result.markup} />
               )}
             </p>
-            {shouldShowContinue && (
+            {!enableTypingAnimation && (
               <div className="yd-continue">
                 ▼
               </div>

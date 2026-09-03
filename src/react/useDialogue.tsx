@@ -61,7 +61,6 @@ export type DialogueViewResult =
       tags?: string[];
       markup?: MarkupParseResult;
       scene?: string;
-      isDialogueEnd: boolean;
     }
   | { type: "options"; options: DialogueViewOption[]; scene?: string }
   | { type: "command"; command: string; scene?: string };
@@ -192,7 +191,6 @@ function reshapeView(
         tags: line.tags,
         markup: line.markup,
         scene,
-        isDialogueEnd: false,
       };
     }
     case "options": {
