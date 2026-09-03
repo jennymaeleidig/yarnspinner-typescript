@@ -260,23 +260,25 @@ test("DialogueView typing-flow aliases: pauseBeforeAdvance pauses a click before
   const root = createRoot(container);
   try {
     await act(async () => {
-      root.render(React.createElement(DialogueView, { program, pauseBeforeAdvance: 25 }));
+      root.render(React.createElement(DialogueView, { program, pauseBeforeAdvance: 50 }));
     });
     ok(container.textContent?.includes("one"), "the first line rendered");
 
-    // A click defers the continue by the alias's pause (25ms): shortly after
-    // the click the view still shows line one...
+    // A click defers the continue by the alias's pause (50ms): shortly after
+    // the click the view still shows line one. Timer order makes this safe
+    // short of a >40ms stall — the 10ms probe is scheduled well ahead of the
+    // 50ms continue.
     const box = container.querySelector(".yd-dialogue-box");
     ok(box, "the clickable dialogue box rendered");
     await act(async () => {
       box!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      await sleep(5);
+      await sleep(10);
     });
     ok(!container.textContent?.includes("two"), "the click must not advance synchronously");
 
     // ...and after the pause it has advanced.
     await act(async () => {
-      await sleep(60);
+      await sleep(120);
     });
     ok(
       container.textContent?.includes("two"),
