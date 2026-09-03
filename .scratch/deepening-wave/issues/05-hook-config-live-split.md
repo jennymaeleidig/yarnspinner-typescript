@@ -31,12 +31,69 @@ ignored after construction).
 
 Type: task
 
-**Status:** open
+**Status:** resolved
 
-- [ ] `useDialogue(program, config, live)`; one comparison rule; the matrix
+- [x] `useDialogue(program, config, live)`; one comparison rule; the matrix
       helpers deleted
-- [ ] The frozen-`logError` trap is gone (live logging works after
+- [x] The frozen-`logError` trap is gone (live logging works after
       construction)
-- [ ] Tests pin: config identity = dialogue identity; `live` is always
+- [x] Tests pin: config identity = dialogue identity; `live` is always
       current
-- [ ] README/useDialogue JSDoc updated; suite green, lint clean
+- [x] README/useDialogue JSDoc updated; suite green, lint clean
+
+## Answer
+
+Landed. `useDialogue(program, config, live)` — one comparison rule: **config
+identity = dialogue identity** (`!dialogue || programRef !== program ||
+configRef !== config`); `haveFunctionsChanged` (key-wise deep compare) and
+`haveVariablesChanged` (double `JSON.stringify` per render) are deleted,
+not hidden. `UseDialogueOptions` is the config type (construction-only:
+`startAt`, `functions`, `variables`, `variableStorage`, `textProvider`,
+`lineHints`) and the new `UseDialogueLive` holds the per-call inputs
+(`onDialogueComplete`, `logError`, `logDebug`, deprecated `onStoryEnd`).
+Naming note: the ticket's sketch implies `UseDialogueConfig`; keeping
+`UseDialogueOptions` as the config type leaves the ticket-55/56 alias
+machinery (`UseYarnRunnerOptions = UseDialogueOptions`, `useYarnRunner: typeof
+useDialogue`, `UseYarnRunnerResult`) byte-for-byte untouched — the aliases
+are exact by construction and this break adds no new deprecation cycle
+(binding).
+
+**`live` is read through a ref** synced in an effect declared ahead of the
+completion effect (same-commit completions read fresh callbacks); identity
+is ignored, so `DialogueView` passes a fresh literal every render while
+memoizing only its config. **The frozen-`logError` trap is gone via
+trampolines**: the Dialogue is constructed with closures that forward to
+`liveRef.current`'s logging (defaulting to `console.error`/silent), so
+hosts can swap loggers after construction — previously `logError`/`logDebug`
+were frozen at construction and `onDialogueComplete` was read through an
+`optionsRef` that was only updated inside the rebuild branch (stale unless
+a rebuild happened; the rewrite fixes that class of bug wholesale).
+`variables` stays in config — seeding, not live re-seeding (binding).
+
+**Consumer discipline the rule imposes** (pinned by the tests): config must
+be a stable object across renders — an inline literal rebuilds on every
+render. `DialogueView` `useMemo`s its config for this. The old code hid the
+difference (per-field compares tolerated inline literals), which is exactly
+the ambiguity the ticket kills.
+
+**Tests:** two new client-harness pins in `adapterOptions.test.tsx` (the
+probe re-renders the same component type so hook state persists): config
+identity is dialogue identity (same object → same dialogue; fresh object
+with identical values → new dialogue) and live is always current (swapped
+`logError` receives post-construction diagnostics, no rebuild, old callback
+detached). The onStoryEnd/alias and logError/logDebug call sites moved the
+callbacks to the live param with a shared stable `EMPTY_CONFIG`. Header
+comment rewritten from the rebuild matrix to the one rule.
+
+**Docs:** README hook entry now documents the `(program, config, live)`
+signature, the config list under the one rule, and the live list as
+ref-read/always-current; `DialogueView`'s entry updated likewise;
+`logError`/`logDebug` prop docs dropped the "changing it is ignored"
+claims; the hook's module doc states the config/live contract.
+
+Verification: suite 544/544, lint clean, ts-check clean, browser demo
+build, Next.js host build, SvelteKit host build green. Public surface:
+hook signature gains the `live` param (optional, so 2-arg calls still
+typecheck); `logError`/`logDebug`/`onDialogueComplete`/`onStoryEnd` move
+from `UseDialogueOptions` to `UseDialogueLive` — hard break, no alias
+(0.2.0 unpublished; binding). The existing alias machinery is untouched.

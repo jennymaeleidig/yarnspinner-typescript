@@ -31,7 +31,7 @@ stays as-is and nothing here extends it.
 | [02 Dialogue state queries + mirror collapse](issues/02-dialogue-state-queries.md) | resolved | — |
 | [03 event-reduction module (Transcript)](issues/03-event-reduction.md) | resolved | 02 |
 | [04 dead state out, one continue scheduler](issues/04-continue-scheduler.md) | resolved | 03 |
-| [05 useDialogue config/live split](issues/05-hook-config-live-split.md) | open | 04 |
+| [05 useDialogue config/live split](issues/05-hook-config-live-split.md) | resolved | 04 |
 | [06 single-source the view props](issues/06-view-props-extends.md) | open | 05 |
 | [07 scene on NodeStartEvent; js-yaml leaves](issues/07-scene-node-start.md) | open | 04 |
 | [08 localisation folded into loadProject](issues/08-loader-localisations.md) | open | — |
@@ -100,6 +100,16 @@ From the grilling session (2026-09-03), binding on every ticket:
   stale-completion spurious skip the old per-effect cleanups had absorbed;
   timing tests rewritten on a fake clock (`t.mock.timers` + shared
   `clientDomHarness.ts`) — all widened margins gone.
+- [05 useDialogue config/live split](issues/05-hook-config-live-split.md):
+  `useDialogue(program, config, live)` — one rule, config identity =
+  dialogue identity; the rebuild matrix (incl. `haveFunctionsChanged`'s
+  deep compare and `haveVariablesChanged`'s double stringify) deleted;
+  new `UseDialogueLive` holds callbacks/logging, read through a ref with
+  construction-time trampolines (the frozen-`logError` trap — and the
+  stale-`optionsRef` callback read — gone); `DialogueView` memoizes its
+  config and passes a fresh live literal; alias machinery untouched by
+  keeping `UseDialogueOptions` as the config type; new pins: config
+  identity rebuilds (identical values included), live is always current.
 
 ## Notes
 
