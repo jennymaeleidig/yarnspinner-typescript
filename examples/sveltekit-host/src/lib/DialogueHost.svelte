@@ -17,7 +17,7 @@
 	 * `<<declare>>` seeds reapply and the story replays from the top.
 	 */
 	interface Props {
-		/** The compiled program from the server-side `loadProject()` call. */
+		/** The compiled program from the server-side `loadYarnProject()` call. */
 		program: Program;
 		projectName?: string | null;
 		/** The source files the loader resolved — surfaced like `listSources()`. */

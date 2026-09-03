@@ -48,3 +48,9 @@ Type: task
   reopened — `.yarnproject` picked up automatically, error checking scopes to
   `examples/yarn/` as designed. (Ticket 01's acceptance was verified by use,
   not just config review.)
+
+- **2026-09-03, spec-vs-impl review resolution**: the recommendation now
+  actually ships — `.vscode/extensions.json` was untracked because
+  `.gitignore` excluded `.vscode/` wholesale, so the acceptance above rested
+  on a local-only artifact. `.gitignore` narrowed to `.vscode/*` with
+  `!.vscode/extensions.json`, and the file is committed.
