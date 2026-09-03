@@ -39,6 +39,7 @@
 import type { Program } from "../compile/program.js";
 import { Library } from "./library.js";
 import type { ContentSaliencyOption, ContentSaliencyStrategy } from "./saliency.js";
+import type { TextProvider } from "./textProvider.js";
 import {
   noOptionSelected,
   type DialogueEvent,
@@ -72,9 +73,14 @@ export type { YarnFunction, CommandHandler } from "./library.js";
  */
 export class Dialogue {
   private readonly engine: RuntimeDriver;
+  /** The host's text provider (ticket 51), when one was injected. */
+  private readonly textProvider: TextProvider | null;
+  private readonly logError: (message: string) => void;
 
   constructor(program: Program, opts: DialogueOptions = {}) {
     this.engine = new VirtualMachine(program, opts);
+    this.textProvider = opts.textProvider ?? null;
+    this.logError = opts.logError ?? ((message) => console.error(message));
   }
 
   /** The node currently executing, or `null` when the dialogue is not active. */
@@ -226,5 +232,25 @@ export class Dialogue {
    */
   getLineParser(): LineParser {
     return this.engine.getLineParser();
+  }
+
+  // ── Localisation (ticket 51) ────────────────────────────────────────
+
+  /**
+   * Switch the active language (BCP-47; `null` selects the base language —
+   * the program's own text). Forwards to the injected text provider
+   * (Rust `TextProvider.set_language`): the next delivered lines and
+   * options resolve their text through the provider, substitutions and
+   * markup still composing at delivery. Reports a diagnostic when no text
+   * provider was provided.
+   */
+  setLanguage(language: string | null): void {
+    if (this.textProvider === null) {
+      this.logError(
+        "setLanguage was called, but no text provider was provided to this Dialogue",
+      );
+      return;
+    }
+    this.textProvider.setLanguage(language);
   }
 }

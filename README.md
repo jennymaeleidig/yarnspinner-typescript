@@ -198,11 +198,12 @@ This starts a Vite dev server with a live Yarn script editor and dialogue system
 * `new Dialogue(program: IRProgram, options?: DialogueOptions)` — Pull-based dialogue runner
   * `continue(): DialogueEvent[]` — Return events up to the next stopping point (line, command, option set, or dialogue end)
   * `selectOption(index: number): void` — Resume after an Options event; `noOptionSelected` (-1) falls through past the options block
+  * `setLanguage(language: string | null): void` — Switch the injected text provider's language (`null` = the base language, the program's own text)
   * `setNode(title: string): void` / `stop(): void` — Jump to a node / end the dialogue
   * `getVariable(name: string): unknown` / `setVariable(name: string, value: unknown): void` / `getVariables(): Readonly<Record<string, unknown>>`
   * `tryGetSmartVariable(name: string)` — Read a smart variable's current value
   * `currentNode: string | null` / `currentScene: string | undefined` — Current node title and `scene:` header
-  * Options: `startAt` (default `"Start"`), `library`, `variables`, `lineHints` (opt-in `LineHintsEvent`), `logError` (default `console.error`), `logDebug` (default silent)
+  * Options: `startAt` (default `"Start"`), `library`, `variables`, `lineHints` (opt-in `LineHintsEvent`), `textProvider` (line-ID → text resolver for localisation; lines a provider lacks fall back to the program's text), `logError` (default `console.error`), `logDebug` (default silent)
   * Events (all camelCased): `LineEvent`, `OptionsEvent` (full option set with advisory `isAvailable` flags), `CommandEvent` (state commands like `<<set>>` never surface), `NodeStartEvent`, `NodeCompleteEvent`, `LineHintsEvent`, `DialogueCompleteEvent`
 * `Library` — Registry of host functions and command handlers (replaces the old `functions` map and `handleCommand` option)
   * `registerFunction(name, fn)` — Throws on duplicate; `getFunction(name)` returns undefined when missing

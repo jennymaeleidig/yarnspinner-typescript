@@ -77,6 +77,7 @@ import {
   type ContentSaliencyStrategy,
   type SaliencyState,
 } from "./saliency.js";
+import type { TextProvider } from "./textProvider.js";
 import type { ProgramNodeGroup } from "../compile/program.js";
 
 /** Outcome of executing one command instruction. */
@@ -135,6 +136,8 @@ export class VirtualMachine {
   private readonly lineHintsEnabled: boolean;
   private readonly logError: (message: string) => void;
   private readonly logDebug: (message: string) => void;
+  /** The host's text provider (ticket 51); null — the program's text is the base language. */
+  private readonly textProvider: TextProvider | null;
 
   private readonly stack: unknown[] = [];
   /** Events queued outside a `continue()` batch (by `setNode`/`stop`). */
@@ -183,6 +186,7 @@ export class VirtualMachine {
     this.lineHintsEnabled = opts.lineHints ?? false;
     this.logError = opts.logError ?? ((message) => console.error(message));
     this.logDebug = opts.logDebug ?? (() => {});
+    this.textProvider = opts.textProvider ?? null;
     this.evaluator = new ExpressionEvaluator(
       this.storage,
       {
@@ -459,10 +463,15 @@ export class VirtualMachine {
       try {
         switch (ins.op) {
           case "runLine": {
-            const composed = this.compose(ins.text);
+            // Text resolution (ticket 51): the provider's text for the line's
+            // canonical ID wins; without a provider — or a line it lacks —
+            // the program's own text is the base language. Composition
+            // (substitutions + markup) runs on whatever text resolved.
+            const lineId = lineIdFromTags(ins.tags);
+            const composed = this.compose(this.resolveLineText(ins.tags, ins.text));
             batch.push({
               type: "line",
-              lineId: lineIdFromTags(ins.tags),
+              lineId,
               speaker: composed.speaker,
               text: composed.text,
               tags: ins.tags,
@@ -782,8 +791,12 @@ export class VirtualMachine {
     this.ip = 0;
     this.currentNodeIndex = resolved.nodeIndex;
     this.accumulatedOptions = [];
+    const lineIds = this.lineIdsForNode(resolved.node);
+    // The provider's lookahead runs whether or not the opt-in LineHints
+    // event is enabled (Rust `accept_line_hints` feeds availability).
+    this.textProvider?.acceptLineHints?.(lineIds);
     if (this.lineHintsEnabled) {
-      sink.push({ type: "lineHints", lineIds: this.lineIdsForNode(resolved.node) });
+      sink.push({ type: "lineHints", lineIds });
     }
     sink.push({ type: "nodeStart", nodeName: title });
     return true;
@@ -1048,10 +1061,15 @@ export class VirtualMachine {
     const accumulated = this.accumulatedOptions;
     this.accumulatedOptions = [];
     const delivered = accumulated.map((option, index) => {
-      // Options compose like lines (substitutions + markup, implicit
-      // character attribute enabled — upstream GetComposedTextForLine) but
-      // deliver the full text with the speaker prefix intact.
-      const composed = this.getOrCreateComposer().composeOption(option.text);
+      // Options resolve text through the provider like lines (ticket 51) —
+      // at delivery, so a setLanguage between accumulation and delivery
+      // still applies — and compose like lines (substitutions + markup,
+      // implicit character attribute enabled — upstream
+      // GetComposedTextForLine) but deliver the full text with the speaker
+      // prefix intact.
+      const composed = this.getOrCreateComposer().composeOption(
+        this.resolveLineText(option.tags, option.text),
+      );
       return {
         index,
         isAvailable: option.isAvailable,
@@ -1103,16 +1121,15 @@ export class VirtualMachine {
 
   /**
    * The line IDs the given node may deliver: every line's and option's
-   * `line:` hashtag in the node's stream — option bodies are inline
-   * instructions, so a flat walk covers them all.
+   * canonical `line:`-prefixed ID in the node's stream — option bodies are
+   * inline instructions, so a flat walk covers them all.
    */
   private lineIdsForNode(node: ProgramNode): string[] {
     const ids = new Set<string>();
     for (const ins of node.instructions) {
       if (ins.op === "runLine" || ins.op === "addOption") {
-        for (const tag of ins.tags ?? []) {
-          if (tag.startsWith("line:")) ids.add(tag.slice("line:".length));
-        }
+        const id = lineIdFromTags(ins.tags);
+        if (id !== undefined) ids.add(id);
       }
     }
     return [...ids];
@@ -1145,6 +1162,22 @@ export class VirtualMachine {
       this.stack.length = 0;
       this.stack.push(...saved);
     }
+  }
+
+  // ── Text resolution (ticket 51) ───────────────────────────────────
+
+  /**
+   * The provider's text for the canonical line ID in `tags`, or `fallback`
+   * — the program's own text, the base language — when there is no
+   * provider or the provider has no text for the line.
+   */
+  private resolveLineText(tags: string[] | undefined, fallback: string): string {
+    const lineId = lineIdFromTags(tags);
+    if (lineId !== undefined && this.textProvider !== null) {
+      const resolved = this.textProvider.getText(lineId);
+      if (resolved !== undefined) return resolved;
+    }
+    return fallback;
   }
 
   // ── Line composition (substitutions + markup, ticket 48) ────────────

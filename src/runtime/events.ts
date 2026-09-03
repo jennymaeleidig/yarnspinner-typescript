@@ -12,6 +12,7 @@
 import type { MarkupParseResult } from "../markup/types.js";
 import type { LineParser } from "../markup/lineParser.js";
 import type { Library } from "./library.js";
+import type { TextProvider } from "./textProvider.js";
 import type { ContentSaliencyOption, ContentSaliencyStrategy } from "./saliency.js";
 
 /**
@@ -25,7 +26,11 @@ export const defaultStartNodeName = "Start";
 
 export interface LineEvent {
   type: "line";
-  /** The line's ID (from its `line:` hashtag; values become stable with the line-ID/string-table work). */
+  /**
+   * The line's canonical ID — the `line:`-prefixed string-table key (the
+   * same string as the CSV strings file's `id` column and the text
+   * provider's key, upstream `Line.ID`).
+   */
   lineId?: string;
   speaker?: string;
   /** Composed text: `{expr}` substitutions expanded. */
@@ -104,6 +109,13 @@ export interface DialogueOptions {
    * Best-Least-Recently-Viewed over the variable storage.
    */
   contentSaliencyStrategy?: ContentSaliencyStrategy;
+  /**
+   * Host-provided text provider (ticket 51): the injectable resolver from
+   * line ID to text for the current language. When absent — or when the
+   * provider has no text for a line — the program's own text is the base
+   * language. `Dialogue.setLanguage` switches the provider's language.
+   */
+  textProvider?: TextProvider;
   /** Runtime error diagnostics. Defaults to `console.error`. */
   logError?: (message: string) => void;
   /** Runtime debug diagnostics. Defaults to silent. */
@@ -147,8 +159,11 @@ export interface RuntimeDriver {
   getLineParser(): LineParser;
 }
 
-/** The line's ID from its `line:` hashtag, if present (shared by both drivers for `LineEvent.lineId`). */
+/**
+ * The line's canonical ID from its `line:` hashtag — the full tag text,
+ * including the `line:` prefix (upstream `Line.ID`; the string-table key
+ * and the CSV strings file's `id` value).
+ */
 export function lineIdFromTags(tags: string[] | undefined): string | undefined {
-  const tag = tags?.find((t) => t.startsWith("line:"));
-  return tag ? tag.slice("line:".length) : undefined;
+  return tags?.find((t) => t.startsWith("line:"));
 }

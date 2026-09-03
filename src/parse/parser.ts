@@ -250,10 +250,12 @@ class Parser {
     let titleHeaderCount = 0;
     let nodeTags: string[] | undefined;
     let whenConditions: string[] = [];
+    let startLine: number | undefined;
 
     // headers
     while (!this.at("NODE_START")) {
       const keyTok = this.take("HEADER_KEY", "Expected node header before '---'");
+      startLine ??= keyTok.line;
       const valTok = this.take("HEADER_VALUE", "Expected header value");
       if (keyTok.text === "title") {
         // Upstream recovers from a repeated title: header, keeping the FIRST
@@ -293,6 +295,7 @@ class Parser {
       nodeTags, 
       when: whenConditions.length > 0 ? whenConditions : undefined,
       duplicateTitleHeaders: titleHeaderCount > 0 ? titleHeaderCount : undefined,
+      startLine,
       body 
     };
   }

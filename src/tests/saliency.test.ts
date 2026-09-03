@@ -494,7 +494,7 @@ test("line groups: speaker prefixes, line IDs, and comments work on => lines", (
   assert.ok(line && line.type === "line");
   assert.equal(line.speaker, "Baker");
   assert.equal(line.text, "Hello");
-  assert.equal(line.lineId, "hello");
+  assert.equal(line.lineId, "line:hello");
 });
 
 test("line groups: no salient candidate skips the whole group", () => {

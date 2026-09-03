@@ -20,8 +20,32 @@ references:
       - https://github.com/YarnSpinnerTool/YarnSpinner
     notes: >-
       src/compile/crc32.ts adapts YarnSpinner/CRC32.cs (standard CRC-32,
-      little-endian hex formatting for implicit line IDs). Other compiler
-      and runtime behavior is a parity-driven reimplementation of the
-      documented upstream algorithms (string table, shadow-line validation,
-      diagnostics registry), not a code borrow.
-      Accessed 2026-09-02.
+      little-endian hex formatting for implicit line IDs).
+      src/compile/tagLines.ts ports YarnSpinner.Compiler/Utility.cs
+      (Utility.TagLines) and the LineTaggers/ generators (ILineTagGenerator,
+      RandomLineTagGenerator, DescriptiveLineTagGenerator) at v3.2.2 —
+      including the Descriptive insertion/generation algorithm and message
+      texts (the fork keeps the preceeding-dialogue typo verbatim). Other
+      compiler and runtime behavior is a parity-driven reimplementation of
+      the documented upstream algorithms (string table, shadow-line
+      validation, diagnostics registry), not a code borrow.
+      Accessed 2026-09-02 (crc32.ts) and 2026-09-03 (tagLines.ts).
+  - type: software
+    title: YarnSpinner-Unity
+    authors:
+      - name: Yarn Spinner Pty. Ltd.
+      - name: Yarn Spinner contributors
+    version: main
+    date-released: "2026-09-03"
+    license: MIT
+    urls:
+      - https://github.com/YarnSpinnerTool/YarnSpinner-Unity
+    notes: >-
+      src/compile/stringsFile.ts ports the 8-column CSV strings-file
+      contract: Runtime/YarnProject/StringTableEntry.cs
+      (ParseFromCSV/CreateCSV record shape and column order),
+      Editor/Importers/YarnProjectImporter.cs (entry building from the
+      string table — shadow-line exclusion, GenerateCommentWithLineMetadata's
+      "Line metadata: " comment), and Editor/Importers/YarnImporter.cs
+      GetHashString (the first-8-hex SHA-256 lock).
+      Accessed 2026-09-03.

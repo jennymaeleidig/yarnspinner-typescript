@@ -36,6 +36,12 @@ export interface YarnNode {
    * entries can attribute nodes to their file.
    */
   sourceFile?: string;
+  /**
+   * 1-based source line of the node's first header (upstream
+   * `nodeContext.Start.Line`) — the descriptive line-tag generator's
+   * unique-title checksum seed for subtitle-less node-group members.
+   */
+  startLine?: number;
 }
 
 export type Statement =
