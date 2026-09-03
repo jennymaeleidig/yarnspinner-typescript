@@ -45,6 +45,7 @@ the spec and the implementation tickets.
 | [53 rename + docs + 0.2.0](issues/53-rename-docs-release.md) | resolved | 52 |
 | [54 ParseFailures validation wave](issues/54-parse-failure-validations.md) | open | — |
 | [55 adapter resurfacing](issues/55-adapter-resurfacing.md) | resolved | 53 |
+| [56 adapter options passthrough](issues/56-adapter-options-passthrough.md) | open | 55 |
 | [30–33 phase buckets](issues/30-phase1-compiler-language-core.md) | superseded | — |
 
 ## Decisions so far
