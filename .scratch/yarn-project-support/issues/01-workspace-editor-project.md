@@ -39,3 +39,10 @@ schema: <https://schemas.yarnspinner.dev/yarnproject.schema.json>.
   what the project file scopes, why fixtures are excluded, where the
   extension comes from.
 - No code touched, no runtime surface changed; suite not run (config-only).
+
+## Comments
+
+- **User-verified in the field**: Yarn Spinner extension installed, workspace
+  reopened — `.yarnproject` picked up automatically, error checking scopes to
+  `examples/yarn/` as designed. (Ticket 01's acceptance was verified by use,
+  not just config review.)

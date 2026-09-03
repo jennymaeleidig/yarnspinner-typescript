@@ -28,3 +28,10 @@ plumb into the CSV text-provider surface from ticket 51 (`strings` CSV paths,
 - [ ] Resolved files feed `compile()`; `compilerOptions` mapped or diagnosed
 - [ ] `localisation` map wires into the CSV text provider path
 - [ ] `listSources()` helper + suite green
+- [ ] Acceptance: loads the vendored upstream fixture
+  `test/fixtures/upstream/YarnSpinner/Tests/Projects/Space/Space.yarnproject`
+  (the only upstream-style project in the corpus) — `sourceFiles` resolve to
+  `Sally.yarn` + `Ship.yarn` and the project compiles; its `localisation`
+  references `../German.csv`, which was not vendored, so the loader must
+  diagnose the missing strings file rather than fail silently — that
+  diagnostic is part of the acceptance.

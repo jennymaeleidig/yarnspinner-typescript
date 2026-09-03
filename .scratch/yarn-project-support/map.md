@@ -23,6 +23,12 @@ Spec'd from `future-work.md` item 1 before ticket 53 started.
 
 ## Decisions so far
 
+- **TypeScript-only scope (user decision)**: this library targets TS/JS hosts
+  (React, Next.js, SvelteKit, plain Node) — full stop. Upstream-engine
+  interoperability (Unity/Godot/Unreal program export, protobuf parity) is
+  **permanently out of scope**, not deferred. Sources and localisation flow in
+  from upstream-style projects; compiled Programs stay ours (ADR 0001) and
+  never need to flow back out to C#/C++ engines.
 - Ticket 01: workspace project scopes `sourceFiles` to authored content only;
   vendored conformance fixtures are excluded so editor tooling can never
   flag or auto-fix byte-exact upstream fixtures.
