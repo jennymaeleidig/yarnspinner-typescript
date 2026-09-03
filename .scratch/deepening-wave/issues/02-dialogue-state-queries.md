@@ -105,10 +105,17 @@ consistent with its "execution state is reset" contract. Neither host uses
 
 **Mirror collapse:** the hook's `awaitingSelectionRef` is deleted; the hook
 reads `dialogue.isWaitingForOptionSelection` (guard in `continue`, guard +
-clear in `selectOption`, queue-empty branch in the reducer). Equivalence
-holds because the runtime stops each batch at exactly one user-facing
-event, so at rest the hook's queue is always empty and VM-pending is
-exactly "the options view is surfaced". Both hosts deleted the
+clear in `selectOption`, queue-empty branch in the reducer). At rest the
+equivalence is exact — the runtime stops each batch at exactly one
+stopping point (lifecycle events ride along), so the hook's queue is
+always empty between pulls and VM-pending is exactly "the options view is
+surfaced". **One behavior change at the failure edge, deliberate and
+recorded here:** after `stop()` while an option set is pending, the old
+ref kept the hook blocked forever (and `selectOption` would only have hit
+the VM's not-pending diagnostic); the getter reads false (stop clears
+`pendingOptions`), so the hook resumes and drains the queued complete
+event on the next continue — the new behavior is the more correct one.
+Both hosts deleted the
 transcript-scan `ended` derivation (and the `ended` field): completion
 reads `dialogue.isComplete`; the `options !== null` *queries* read
 `isWaitingForOptionSelection` while the transcript keeps the delivered
