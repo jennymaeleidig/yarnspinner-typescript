@@ -31,15 +31,11 @@ import type { EnumRawValue, EnumType } from "./enums.js";
 import { makeDiagnostic } from "./diagnostics.js";
 import type { Diagnostic } from "./diagnostics.js";
 import { isSmartVariableInitializer } from "./smartVariables.js";
+import type { DeclaredValueType, FunctionSignature } from "../runtime/library.js";
 
-/** Declared parameter/return types for compile-time function signatures. */
-export type DeclaredValueType = "number" | "string" | "bool" | "any";
-
-export interface FunctionSignature {
-  params: DeclaredValueType[];
-  variadic?: boolean;
-  returns: DeclaredValueType;
-}
+// Re-exported so the declarations surface keeps its historical home in the
+// public API (the runtime Library owns the definition).
+export type { DeclaredValueType, FunctionSignature };
 
 /** A `<<declare>>`d variable, as surfaced in the compile result. */
 export interface VariableDeclaration {
@@ -58,12 +54,26 @@ export interface VariableDeclaration {
   isSmartVariable?: boolean;
 }
 
+/**
+ * A host-provided external variable declaration (upstream a `Declaration`
+ * for a variable in `CompilationJob.Declarations`): known to the compiler
+ * without appearing in `.yarn`.
+ */
+export interface ExternalVariableDeclaration {
+  /** "number" / "string" / "bool", or a registered enum type name. */
+  type: DeclaredValueType | string;
+  /** The variable's initial value (upstream `Declaration.DefaultValue`). */
+  defaultValue?: EnumRawValue | boolean;
+}
+
 /** Host-provided external declarations feeding the type checker (ticket 41). */
 export interface ExternalDeclarations {
   /** Host-defined enum types (built EnumTypeBuilder outputs or plain EnumTypes). */
   enums?: Array<EnumType | EnumTypeBuilder>;
   /** Function signatures for compile-time argument checking (upstream Library declarations). */
   functions?: Record<string, FunctionSignature>;
+  /** External variables (upstream variable `Declaration`s); conflicts with in-script `<<declare>>`s produce YS0039. */
+  variables?: Record<string, ExternalVariableDeclaration>;
 }
 
 export interface TypeCheckResult {
@@ -93,11 +103,15 @@ interface CheckContext {
   enumTypes: Map<string, EnumType>;
   variableTypes: Map<string, string>;
   functionSignatures: Map<string, FunctionSignature>;
-  emit: (code: string, message: string) => void;
+  emit: (code: string, message: string, file?: string) => void;
   rewrites: Rewrite[];
   declarations: VariableDeclaration[];
   /** Every `<<declare>>`d variable: smart flag + initializer expression (first declaration wins). */
-  declaredVariables: Map<string, { isSmart: boolean; expression: string }>;
+  declaredVariables: Map<string, { isSmart: boolean; expression: string; file?: string }>;
+  /** Variables declared externally by the host (YS0039 on in-script redeclaration). */
+  externalVariables: Set<string>;
+  /** Source file of the node being walked (diagnostic attribution). */
+  currentFile?: string;
 }
 
 // --- Expression mini-parser -------------------------------------------------
@@ -622,8 +636,20 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           // not a plain literal declares a smart variable (upstream
           // ResolveInitialValues → Declaration.IsInlineExpansion).
           const isSmart = isSmartVariableInitializer(rewritten);
-          if (!ctx.declaredVariables.has(name)) {
-            ctx.declaredVariables.set(name, { isSmart, expression: rewritten });
+          // YS0039 (upstream ExitDeclare_statement): a variable can only have
+          // one declaration — an in-script `<<declare>>` conflicts with the
+          // host's external declarations and with any earlier in-script
+          // declaration. Upstream reports both occurrences — this one and
+          // the original declaration's source.
+          const originalDeclaration = ctx.declaredVariables.get(name);
+          if (ctx.externalVariables.has(name) || originalDeclaration) {
+            ctx.emit("YS0039", `Redeclaration of existing variable $${name}`, ctx.currentFile);
+            if (originalDeclaration?.file !== undefined) {
+              ctx.emit("YS0039", `Redeclaration of existing variable $${name}`, originalDeclaration.file);
+            }
+          }
+          if (!originalDeclaration) {
+            ctx.declaredVariables.set(name, { isSmart, expression: rewritten, file: ctx.currentFile });
           }
           if (declaredType) {
             ctx.variableTypes.set(name, declaredType);
@@ -851,17 +877,31 @@ export function typeCheck(
   const functionSignatures = new Map(Object.entries(opts.declarations?.functions ?? {}));
   const variableTypes = new Map<string, string>();
   const declarations: VariableDeclaration[] = [];
+  const externalVariables = new Set<string>();
+  for (const [name, decl] of Object.entries(opts.declarations?.variables ?? {})) {
+    externalVariables.add(name);
+    variableTypes.set(name, decl.type);
+    declarations.push({
+      name,
+      type: decl.type,
+      ...(decl.defaultValue !== undefined ? { defaultValue: decl.defaultValue } : {}),
+    });
+  }
   const ctx: CheckContext = {
     enumTypes,
     variableTypes,
     functionSignatures,
-    emit: (code, message) => emitDiagnostic(makeDiagnostic(code, message)),
+    emit: (code, message, file) => emitDiagnostic(makeDiagnostic(code, message, { file })),
     rewrites: [],
     declarations,
     declaredVariables: new Map(),
+    externalVariables,
   };
 
-  for (const node of doc.nodes) walkStatements(node.body, ctx);
+  for (const node of doc.nodes) {
+    ctx.currentFile = node.sourceFile;
+    walkStatements(node.body, ctx);
+  }
 
   // Smart-variable validation (ticket 42): reference loops across the
   // declared smart variables (YS0045).

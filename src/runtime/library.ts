@@ -20,6 +20,21 @@
 /** A host function callable from Yarn expressions and `<<call>>`. */
 export type YarnFunction = (...args: unknown[]) => unknown;
 
+/** Declared parameter/return types for compile-time function signatures. */
+export type DeclaredValueType = "number" | "string" | "bool" | "any";
+
+/**
+ * A function's compile-time signature (upstream `FunctionType`, derived
+ * there from the delegate's .NET parameter types). Registered alongside the
+ * callable (or supplied through the external declarations), it feeds the
+ * type checker's arity and argument checks — the runtime itself only calls.
+ */
+export interface FunctionSignature {
+  params: DeclaredValueType[];
+  variadic?: boolean;
+  returns: DeclaredValueType;
+}
+
 /**
  * A host handler invoked when a delivered command carries the registered
  * name. Receives the command's parsed parameters. The `Command` event is
@@ -31,21 +46,38 @@ export type CommandHandler = (parameters: string[]) => void;
 
 export class Library {
   private functions = new Map<string, YarnFunction>();
+  private signatures = new Map<string, FunctionSignature>();
   private commandHandlers = new Map<string, CommandHandler>();
 
   /**
-   * Register a function callable from Yarn. Throws on duplicate
-   * registration (host programming error, as upstream).
+   * Register a function callable from Yarn, with its optional compile-time
+   * signature (upstream: the compiler derives declarations from the
+   * library's delegates via reflection; here the host supplies the types).
+   * The signature feeds the compile seam's arity/argument checking when the
+   * library is passed to `compile()`. Throws on duplicate registration
+   * (host programming error, as upstream).
    */
-  registerFunction(name: string, fn: YarnFunction): void {
+  registerFunction(name: string, fn: YarnFunction, signature?: FunctionSignature): void {
     if (this.functions.has(name)) {
       throw new Error(`A function named "${name}" is already registered in the library`);
     }
     this.functions.set(name, fn);
+    if (signature) this.signatures.set(name, signature);
+  }
+
+  /** The compile-time signature registered for `name`, if any. */
+  getSignature(name: string): FunctionSignature | undefined {
+    return this.signatures.get(name);
+  }
+
+  /** All registered compile-time signatures (the compile seam merges them with explicit declarations). */
+  getSignatures(): Record<string, FunctionSignature> {
+    return Object.fromEntries(this.signatures);
   }
 
   deregisterFunction(name: string): void {
     this.functions.delete(name);
+    this.signatures.delete(name);
   }
 
   hasFunction(name: string): boolean {
@@ -90,6 +122,9 @@ export class Library {
     if (!other) return;
     for (const [name, fn] of other.functions) {
       this.functions.set(name, fn);
+    }
+    for (const [name, signature] of other.signatures) {
+      this.signatures.set(name, signature);
     }
     for (const [name, handler] of other.commandHandlers) {
       this.commandHandlers.set(name, handler);

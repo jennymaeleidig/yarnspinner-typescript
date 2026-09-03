@@ -285,7 +285,7 @@ test("3.2 syntax: option-line <<if expr>> condition compiles and filters at runt
 
 title: StartTrue
 ---
-<<declare $flag = true>>
+<<set $flag to true>>
 -> Hidden <<if $flag>>
     Narrator: Hidden
 -> Visible

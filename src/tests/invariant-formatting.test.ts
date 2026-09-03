@@ -14,7 +14,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseYarn } from "../parse/parser.js";
-import { compile } from "../compile/compiler.js";
+import { compileDocument } from "../compile/compiler.js";
 import { Dialogue } from "../runtime/dialogue.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
 
@@ -45,7 +45,7 @@ function withCultureSensitiveApisBlocked<T>(fn: () => T): T {
 }
 
 function runStory(source: string): string[] {
-  const program = compile(parseYarn(source));
+  const program = compileDocument(parseYarn(source));
   const dialogue = new Dialogue(program, { startAt: "Start" });
   const out: string[] = [];
   let guard = 0;

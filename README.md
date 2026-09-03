@@ -52,7 +52,7 @@ npm run build
 ### Basic Usage
 
 ```typescript
-import { parseYarn, compile, Dialogue, Library } from "yarn-spinner-runner-ts";
+import { parseYarn, compileDocument, Dialogue, Library } from "yarn-spinner-runner-ts";
 
 const yarnText = `
 title: Start
@@ -66,7 +66,7 @@ Narrator: Hello!
 `;
 
 const ast = parseYarn(yarnText);
-const program = compile(ast);
+const program = compileDocument(ast);
 const library = new Library();
 library.registerFunction("add", (a: number, b: number) => a + b);
 library.registerCommandHandler("flash", (params) => {
@@ -128,14 +128,14 @@ Narrator: Current street cred: {$reputation}, score: {$score}
 ### React Usage
 
 ```tsx
-import { parseYarn, compile, useYarnRunner, DialogueView } from "yarn-spinner-runner-ts";
+import { parseYarn, compileDocument, useYarnRunner, DialogueView } from "yarn-spinner-runner-ts";
 import { parseScenes } from "yarn-spinner-runner-ts";
 import type { SceneCollection } from "yarn-spinner-runner-ts";
 
 function MyDialogue() {
   const [program] = useState(() => {
     const ast = parseYarn(yarnText);
-    return compile(ast);
+    return compileDocument(ast);
   });
 
   const [scenes] = useState<SceneCollection>(() => {
@@ -189,7 +189,9 @@ This starts a Vite dev server with a live Yarn script editor and dialogue system
 
 ### Compiler
 
-* `compile(doc: YarnDocument, opts?: CompileOptions): IRProgram` — Compile AST to IR
+* `compileDocument(doc: YarnDocument, opts?: CompileDocumentOptions): Program` — Compile an AST to the instruction-stream program
+* `compile(files: CompileFile[], opts?: CompileOptions): CompileResult` — Compile `{ name, source }` files (multi-file; four modes, string table, external declarations, diagnostics)
+* `compileSource(source: string, opts?: CompileSourceOptions): CompileResult` — Single-file convenience wrapper
 
 ### Runtime
 

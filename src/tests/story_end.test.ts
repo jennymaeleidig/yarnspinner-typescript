@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import { ok, strictEqual } from "node:assert";
-import { parseYarn, compile } from "../index.js";
+import { parseYarn, compileDocument } from "../index.js";
 import { Dialogue } from "../runtime/dialogue.js";
 
 test("dialogue completion and the variables snapshot", () => {
@@ -13,7 +13,7 @@ Narrator: Done
 ===
 `;
   const doc = parseYarn(script);
-  const ir = compile(doc);
+  const ir = compileDocument(doc);
   const dialogue = new Dialogue(ir, { startAt: "Start" });
 
   const first = dialogue.continue();

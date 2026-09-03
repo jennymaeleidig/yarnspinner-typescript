@@ -4,6 +4,7 @@ export * from "./parse/parser.js";
 export * from "./compile/program.js";
 export * from "./compile/compiler.js";
 export * from "./compile/compileSource.js";
+export * from "./compile/stringTable.js";
 export * from "./compile/diagnostics.js";
 export * from "./compile/enums.js";
 export * from "./compile/typeCheck.js";

@@ -34,12 +34,18 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 ### Compiler
 
 - **Program**: the compiled, serializable artifact of a set of `.yarn` sources; consumed by the runtime. This project's program format is its own versioned JSON (not upstream's protobuf).
-- **Compilation result**: what `compileSource()` returns — program,
-  declarations, diagnostics, user-defined types. Since ticket 46 the
-  program is the instruction-stream artifact (the versioned-JSON bytecode
-  of the "Program" entry, ADR 0001/0003); the tree-IR program is retired
-  and the VM executes this artifact behind the public runtime API.
-- **Compilation mode**: full, strings-only, declarations-only, or type-check-only.
+- **Compilation result**: what `compile()` returns — program,
+  string table, declarations, diagnostics, file tags,
+  containsImplicitStringTags, user-defined types (upstream camelCased
+  shape). `compile()` takes `{name, source}` files (story 31); since ticket
+  46 the program is the instruction-stream artifact (the versioned-JSON
+  bytecode of the "Program" entry, ADR 0001/0003); the tree-IR program is
+  retired and the VM executes this artifact behind the public runtime API.
+  A program is only lowered in `full` mode; upstream nulls it on error
+  diagnostics while this fork keeps it observable (ticket 49 notes).
+- **Compilation mode**: full, strings-only, declarations-only, or
+  type-check-only (which also emits the string table); declarations-only is
+  the obsolete upstream alias of type-check-only.
 - **External declaration**: a variable, function, or enum provided by the host, known to the compiler without appearing in `.yarn`.
 - **Diagnostic**: a problem report with a stable code, severity, message, file, and range; collected by default, thrown in strict mode.
 - **YS-code**: the stable diagnostic identifier shared with upstream's registry (the upstream per-code registry is authoritative, not the docs errors page).
@@ -56,7 +62,8 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 - **No-option-selected**: the sentinel option selection that falls through when all options are unavailable.
 - **Variable storage**: pluggable store for dialogue variables (bool/number/string) with an in-memory default; resettable as a whole.
 - **Generated variable**: internal state (once-state, visit tracking, saliency history) stored in variable storage so it resets with it — never module globals.
-- **Library**: registry of host functions (variadic supported) and command handlers.
+- **Library**: registry of host functions (variadic supported) and command handlers; functions may carry compile-time signatures used by the compile seam for signature checking (upstream `CompilationJob.Library`).
+- **File tags**: file-level hashtags (`#tag` lines preceding a file's first node), surfaced per file in the compile result's `fileTags`.
 - **Visit tracking**: per-node view counts recorded on node return; `tracking: never` suppresses, `tracking: always` equals default; node-group visits aggregate under the shared title.
 - **Saliency strategy**: the pluggable selection policy for node groups and line groups; four built-ins with Random Best-Least-Recently-Viewed as default.
 - **Line parser**: the runtime stage that expands `{expr}` substitutions, then parses markup into structured attributes; composed text flows from here.

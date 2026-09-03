@@ -1,113 +1,264 @@
 /**
- * The compile seam (spec ticket 23): parse → validate → type-check →
+ * The compile seam (spec tickets 23/41/49): parse → validate → type-check →
  * compile, returning the program together with its diagnostics instead of
  * throwing.
+ *
+ * Multi-file surface (ticket 49, upstream `CompilationJob`): `compile()`
+ * accepts `{ name, source }` entries — no globs or filesystem I/O in the
+ * library (coding standards §2). External declarations (variables,
+ * functions, enums; conflicts produce YS diagnostics — YS0039/YS0040), a
+ * compile-time `Library` for signature checking, and the four compilation
+ * modes:
+ *
+ * - `full` — program, string table, declarations, file tags, everything;
+ * - `stringsOnly` — stops right after string-table registration: string
+ *   table + `containsImplicitStringTags` + diagnostics; no program, no
+ *   declarations (upstream `Type.StringsOnly`);
+ * - `typeCheckOnly` — declarations, user-defined types, file tags, and the
+ *   string table (upstream 3.2.1+ behavior); no program. `declarationsOnly`
+ *   is the obsolete upstream name, accepted as an alias;
+ * - `full` with errors still returns the program (upstream nulls it; this
+ *   fork keeps the lowering result observable — collect-don't-throw, §3 —
+ *   recorded as a deliberate divergence in ticket 49's notes).
+ *
+ * The string table (ticket 49's slice of upstream `StringInfo`) is assigned
+ * in one pass over all files in the compiler's lowering order, so a full
+ * compile's program and its table agree on every line's ID. Line IDs use
+ * the fork's per-compile counter until ticket 50 lands upstream's CRC32
+ * scheme and the `#shadow:` validation suite.
  *
  * Collect by default (coding standards §3): syntax errors and validation
  * failures come back as diagnostics; `strict: true` throws on the first
  * error. Codes and severities come from the vendored 3.2.2 registry via
  * ./diagnostics.js.
- *
- * Since ticket 46 the program is the instruction-stream artifact (ADR
- * 0001/0003) — the tree IR is retired and the VM executes this artifact
- * behind the public runtime API. The validations here are the ones that
- * fall out of the front-end (node structure, group membership, jump
- * targets); the language-level YS-code validations live in the type
- * checking pass.
  */
 
 import { parseYarn, ParseError } from "../parse/parser.js";
 import type { YarnDocument, YarnNode, Statement } from "../model/ast.js";
-import { compile, LoweringError } from "./compiler.js";
+import { compileDocument, LoweringError } from "./compiler.js";
 import type { Program } from "./program.js";
 import { makeDiagnostic, hasErrors } from "./diagnostics.js";
 import type { Diagnostic, YarnRange } from "./diagnostics.js";
 import { typeCheck } from "./typeCheck.js";
 import type { ExternalDeclarations, VariableDeclaration } from "./typeCheck.js";
 import type { EnumType } from "./enums.js";
+import { assignLineIds, StringTableManager } from "./stringTable.js";
+import type { StringTable } from "./stringTable.js";
+import type { Library } from "../runtime/library.js";
 
-export interface CompileSourceOptions {
-  /** Source file name recorded on diagnostics (multi-file surface: ticket 49). */
-  file?: string;
-  /** Throw on the first error diagnostic instead of collecting. */
-  strict?: boolean;
-  generateOnceIds?: (ctx: { node: string; index: number }) => string;
-  /**
-   * Host-provided external declarations feeding the type checker (ticket 41):
-   * enum types (EnumTypeBuilder outputs) and function signatures for
-   * compile-time argument checking.
-   */
-  declarations?: ExternalDeclarations;
+/** One input of a compilation (upstream `CompilationJob.File`). */
+export interface CompileFile {
+  /** The file's name — diagnostic attribution and string-table `fileName`. */
+  name: string;
+  source: string;
 }
 
-export interface CompileSourceResult {
+/**
+ * The compilation mode (upstream `CompilationJob.Type`): `full`,
+ * `stringsOnly`, or `typeCheckOnly` — `declarationsOnly` is the obsolete
+ * upstream name for `typeCheckOnly`, accepted as an alias.
+ */
+export type CompilationMode = "full" | "stringsOnly" | "typeCheckOnly" | "declarationsOnly";
+
+export interface CompileOptions {
+  /**
+   * The compilation mode (default `full`). See the module docstring for
+   * what each mode returns.
+   */
+  mode?: CompilationMode;
+  /** Throw on the first error diagnostic instead of collecting. */
+  strict?: boolean;
+  /**
+   * Host-provided external declarations (ticket 41): enum types
+   * (EnumTypeBuilder outputs), function signatures, and variables for
+   * compile-time checking. Conflicts with in-script declarations produce
+   * YS0039 (variables) / YS0040 (types).
+   */
+  declarations?: ExternalDeclarations;
+  /**
+   * A compile-time Library (ticket 49): registered functions' signatures
+   * feed signature checking (upstream `CompilationJob.Library`). Explicit
+   * `declarations.functions` entries take precedence. The runtime keeps its
+   * own Library instance.
+   */
+  library?: Library;
+  generateOnceIds?: (ctx: { node: string; index: number }) => string;
+}
+
+/**
+ * The result of a compilation — the upstream `CompilationResult` shape,
+ * camelCased (spec story 31/33): program, string table, declarations,
+ * diagnostics, file tags, implicit-string-tag flag, user-defined types.
+ */
+export interface CompileResult {
   /**
    * The compiled, serializable program (the glossary's Program): the
    * instruction-stream artifact (ADR 0001/0003) the runtime executes.
-   * `null` when parsing failed.
+   * `null` when parsing failed or the mode stops before lowering
+   * (stringsOnly / typeCheckOnly).
    */
   program: Program | null;
-  diagnostics: Diagnostic[];
-  /** `<<declare>>`d variables (upstream CompilationResult.Declarations). */
+  /** The string table (upstream `CompilationResult.StringTable`). */
+  stringTable: StringTable | null;
+  /** `<<declare>>`d + external variable declarations (upstream `Declarations`). */
   declarations: VariableDeclaration[];
+  diagnostics: Diagnostic[];
+  /** Per-file file-level hashtags (`#tag` lines before the first node). */
+  fileTags: Record<string, string[]>;
+  /** Whether the compiler created line IDs for lines lacking `#line:` tags. */
+  containsImplicitStringTags: boolean;
   /** Enum types defined by the script or the host (upstream user-defined types). */
   userDefinedTypes: EnumType[];
 }
 
-export function compileSource(source: string, opts: CompileSourceOptions = {}): CompileSourceResult {
+/** Single-file convenience kept from ticket 23; delegates to `compile()`. */
+export function compileSource(source: string, opts: CompileSourceOptions = {}): CompileResult {
+  return compile([{ name: opts.file ?? "input", source }], opts);
+}
+
+// `compileSource`'s historical `file` option (ticket 23) names the single
+// input; it rides the same CompileOptions as `compile()`.
+export interface CompileSourceOptions extends CompileOptions {
+  file?: string;
+}
+export type CompileSourceResult = CompileResult;
+
+/**
+ * Compile a collection of files (spec story 31): parse every file, assign
+ * line IDs and register the string table, validate node structure, then
+ * continue per the compilation mode.
+ */
+export function compile(files: CompileFile[], opts: CompileOptions = {}): CompileResult {
+  const mode = opts.mode ?? "full";
   const diagnostics: Diagnostic[] = [];
 
-  let doc: YarnDocument;
-  try {
-    doc = parseYarn(source);
-  } catch (e) {
-    if (!(e instanceof ParseError)) throw e;
-    const diagnostic = makeDiagnostic("YS0005", `Syntax error: ${e.message}`, {
-      file: opts.file,
-      range: e.range as YarnRange | undefined,
-    });
-    if (opts.strict) throw new Error(`${diagnostic.code}: ${diagnostic.message}`);
-    return { program: null, diagnostics: [diagnostic], declarations: [], userDefinedTypes: [] };
+  // First pass: parse every file. A file that fails to parse contributes
+  // its diagnostic and no nodes; the other files still compile (upstream
+  // compiles each file's parse result independently).
+  const docs: Array<{ name: string; doc: YarnDocument }> = [];
+  for (const file of files) {
+    try {
+      const doc = parseYarn(file.source);
+      for (const node of doc.nodes) node.sourceFile = file.name;
+      docs.push({ name: file.name, doc });
+    } catch (e) {
+      if (!(e instanceof ParseError)) throw e;
+      const diagnostic = makeDiagnostic("YS0005", `Syntax error: ${e.message}`, {
+        file: file.name,
+        range: e.range as YarnRange | undefined,
+      });
+      diagnostics.push(diagnostic);
+    }
   }
 
-  validate(doc, diagnostics, opts.file);
+  const empty: CompileResult = {
+    program: null,
+    stringTable: null,
+    declarations: [],
+    diagnostics,
+    fileTags: {},
+    containsImplicitStringTags: false,
+    userDefinedTypes: [],
+  };
+  if (docs.length === 0) {
+    if (opts.strict) throwOnFirstError(diagnostics);
+    return empty;
+  }
+
+  // Compile-time Library (ticket 49): registered signatures feed signature
+  // checking; explicit declarations.functions entries take precedence.
+  const declarations: ExternalDeclarations = { ...opts.declarations };
+  if (opts.library) {
+    declarations.functions = { ...opts.library.getSignatures(), ...declarations.functions };
+  }
+
+  // Line IDs + string table (every mode — upstream registers strings before
+  // the StringsOnly stop, and TypeCheck has carried the table since 3.2.1).
+  const manager = new StringTableManager();
+  assignLineIds(docs, manager, (d) => diagnostics.push(d));
+
+  // Node-structure + jump-target validation runs in every mode (upstream
+  // validates node names and jump targets before the StringsOnly stop).
+  const combined: YarnDocument = {
+    type: "Document",
+    enums: docs.flatMap(({ doc }) => doc.enums ?? []),
+    nodes: docs.flatMap(({ doc }) => doc.nodes),
+  };
+  validate(combined, diagnostics);
+  validateJumps(combined, diagnostics);
+
+  // File-level hashtags are collected per file (unparseable files carry no
+  // file tags — their content was never parsed). Upstream surfaces them
+  // from the type-checking pass, so StringsOnly results carry none.
+  const fileTags: Record<string, string[]> = {};
+  if (mode !== "stringsOnly") {
+    for (const file of files) fileTags[file.name] = [];
+    for (const { name, doc } of docs) {
+      fileTags[name] = doc.fileTags ?? [];
+    }
+  }
+
+  if (mode === "stringsOnly") {
+    if (opts.strict) throwOnFirstError(diagnostics);
+    return {
+      ...empty,
+      stringTable: manager.stringTable,
+      containsImplicitStringTags: manager.containsImplicitStringTags,
+    };
+  }
 
   // Enum-aware type checking (ticket 41): validates enum declarations and
   // member access, enforces the same-enum comparison restriction, resolves
   // `.Case` shorthand in place, and collects declarations.
-  const checked = typeCheck(doc, { declarations: opts.declarations }, (d) => diagnostics.push(d));
+  const checked = typeCheck(combined, { declarations }, (d) => diagnostics.push(d));
 
-  // The instruction-stream artifact (ADR 0001/0003). A LoweringError guards
-  // a lowering invariant that is unbreakable by construction (every label
-  // reference is created alongside its label in the same node's lowering),
-  // so catching one here means a compiler bug, not user content — reported
-  // as a diagnostic, with no program (coding standards §3).
+  if (mode === "typeCheckOnly" || mode === "declarationsOnly") {
+    if (opts.strict) throwOnFirstError(diagnostics);
+    return {
+      ...empty,
+      stringTable: manager.stringTable,
+      declarations: checked.declarations,
+      fileTags,
+      userDefinedTypes: [...checked.enumTypes.values()],
+    };
+  }
+
+  // Full compilation: lower to the instruction-stream artifact (ADR
+  // 0001/0003). A LoweringError guards a lowering invariant that is
+  // unbreakable by construction (every label reference is created alongside
+  // its label in the same node's lowering), so catching one here means a
+  // compiler bug, not user content — reported as a diagnostic, with no
+  // program (coding standards §3).
   let program: Program | null = null;
   try {
-    program = compile(doc, { generateOnceIds: opts.generateOnceIds, enumTypes: checked.enumTypes });
+    program = compileDocument(combined, {
+      generateOnceIds: opts.generateOnceIds,
+      enumTypes: checked.enumTypes,
+    });
   } catch (e) {
     if (!(e instanceof LoweringError)) throw e;
-    diagnostics.push(makeDiagnostic("YS0005", `Internal lowering failure: ${e.message}`, { file: opts.file }));
+    diagnostics.push(makeDiagnostic("YS0005", `Internal lowering failure: ${e.message}`));
   }
 
-  if (program) {
-    validateJumps(program, doc, diagnostics, opts.file);
-  }
-
-  if (opts.strict) {
-    const firstError = diagnostics.find((d) => d.severity === "error");
-    if (firstError) throw new Error(`${firstError.code}: ${firstError.message}`);
-  }
+  if (opts.strict) throwOnFirstError(diagnostics);
   return {
     program,
-    diagnostics,
+    stringTable: manager.stringTable,
     declarations: checked.declarations,
+    diagnostics,
+    fileTags,
+    containsImplicitStringTags: manager.containsImplicitStringTags,
     userDefinedTypes: [...checked.enumTypes.values()],
   };
 }
 
-/** Node-structure validations derivable from the parsed document. */
-function validate(doc: YarnDocument, diagnostics: Diagnostic[], file?: string): void {
+function throwOnFirstError(diagnostics: Diagnostic[]): void {
+  const firstError = diagnostics.find((d) => d.severity === "error");
+  if (firstError) throw new Error(`${firstError.code}: ${firstError.message}`);
+}
+
+/** Node-structure validations derivable from the parsed documents. */
+function validate(doc: YarnDocument, diagnostics: Diagnostic[]): void {
   const byTitle = new Map<string, YarnNode[]>();
   for (const node of doc.nodes) {
     const list = byTitle.get(node.title) ?? [];
@@ -121,12 +272,12 @@ function validate(doc: YarnDocument, diagnostics: Diagnostic[], file?: string): 
         makeDiagnostic(
           "YS0052",
           `Node ${JSON.stringify(node.title)} has more than one title header; keeping the first`,
-          { file },
+          { file: node.sourceFile },
         ),
       );
     }
     if (node.body.length === 0) {
-      diagnostics.push(makeDiagnostic("YS0033", `Node "${node.title}" is empty`, { file }));
+      diagnostics.push(makeDiagnostic("YS0033", `Node "${node.title}" is empty`, { file: node.sourceFile }));
     }
   }
 
@@ -138,10 +289,12 @@ function validate(doc: YarnDocument, diagnostics: Diagnostic[], file?: string): 
       // unique within the group (YS0032).
       const membersWithoutWhen = nodes.filter((n) => !n.when || n.when.length === 0);
       if (membersWithoutWhen.length > 0) {
-        diagnostics.push(makeDiagnostic("YS0011", `Duplicate node title: '${title}'`, { file }));
+        diagnostics.push(makeDiagnostic("YS0011", `Duplicate node title: '${title}'`, { file: nodes[0].sourceFile }));
         membersWithoutWhen.forEach(() => {
           diagnostics.push(
-            makeDiagnostic("YS0031", `Node '${title}' is part of a node group but has no when: clause`, { file }),
+            makeDiagnostic("YS0031", `Node '${title}' is part of a node group but has no when: clause`, {
+              file: nodes[0].sourceFile,
+            }),
           );
         });
       }
@@ -154,7 +307,9 @@ function validate(doc: YarnDocument, diagnostics: Diagnostic[], file?: string): 
       for (const [subtitle, count] of subtitles) {
         if (count > 1) {
           diagnostics.push(
-            makeDiagnostic("YS0032", `Node group ${title} has subtitle ${subtitle} ${count} times`, { file }),
+            makeDiagnostic("YS0032", `Node group ${title} has subtitle ${subtitle} ${count} times`, {
+              file: nodes[0].sourceFile,
+            }),
           );
         }
       }
@@ -185,18 +340,18 @@ function collectTargets(stmts: Statement[], into: string[]): void {
 }
 
 /** Jump/detour targets must resolve to a node (upstream YS0012, warning). */
-function validateJumps(
-  program: Program,
-  doc: YarnDocument,
-  diagnostics: Diagnostic[],
-  file?: string,
-): void {
-  const targets: string[] = [];
-  for (const node of doc.nodes) collectTargets(node.body, targets);
-  for (const target of targets) {
-    // Braced targets ({expr}) resolve at runtime — nothing to check statically.
-    if (target.startsWith("{") || program.nodes[target] !== undefined) continue;
-    diagnostics.push(makeDiagnostic("YS0012", `Jump to undefined node '${target}'`, { file }));
+function validateJumps(doc: YarnDocument, diagnostics: Diagnostic[]): void {
+  const titles = new Set(doc.nodes.map((n) => n.title));
+  for (const node of doc.nodes) {
+    const targets: string[] = [];
+    collectTargets(node.body, targets);
+    for (const target of targets) {
+      // Braced targets ({expr}) resolve at runtime — nothing to check statically.
+      if (target.startsWith("{") || titles.has(target)) continue;
+      diagnostics.push(
+        makeDiagnostic("YS0012", `Jump to undefined node '${target}'`, { file: node.sourceFile }),
+      );
+    }
   }
 }
 

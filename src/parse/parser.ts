@@ -206,6 +206,17 @@ class Parser {
   parseDocument(): YarnDocument {
     const enums: EnumBlock[] = [];
     const nodes: YarnNode[] = [];
+    // File-level hashtags (upstream file_hashtag): `#tag` lines preceding
+    // the first node. Surfaced in the compile result's per-file `fileTags`.
+    const fileTags: string[] = [];
+    while (this.at("TEXT") && this.peek().text.trimStart().startsWith("#")) {
+      const tagLine = this.take("TEXT").text.trim();
+      for (const tag of tagLine.split(/^#+|\s#+/).filter(Boolean)) {
+        const name = tag.trim();
+        if (name) fileTags.push(name);
+      }
+      while (this.at("EMPTY")) this.i++;
+    }
     while (!this.at("EOF")) {
       // Skip empties
       while (this.at("EMPTY")) this.i++;
@@ -225,7 +236,12 @@ class Parser {
       
       nodes.push(this.parseNode());
     }
-    return { type: "Document", enums, nodes };
+    return {
+      type: "Document",
+      enums,
+      nodes,
+      ...(fileTags.length > 0 ? { fileTags } : {}),
+    };
   }
 
   private parseNode(): YarnNode {
@@ -411,6 +427,7 @@ class Parser {
       type: "Line",
       text: unescapeMainGrammar(textWithoutTags),
       tags,
+      lineNumber: token.line,
     };
     if (modifier?.kind === "if") line.condition = modifier.condition;
     if (modifier?.kind === "once") line.once = modifier.condition ? { condition: modifier.condition } : {};
@@ -450,6 +467,7 @@ class Parser {
         text: unescapeMainGrammar(textWithAttrs),
         body,
         tags,
+        lineNumber: optTok.line,
       };
       if (modifier?.kind === "if") option.condition = modifier.condition;
       if (modifier?.kind === "once") option.once = modifier.condition ? { condition: modifier.condition } : {};

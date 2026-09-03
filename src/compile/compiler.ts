@@ -60,7 +60,6 @@
  */
 
 import type { YarnDocument, YarnNode, Statement, Line, LineGroup, OnceBlock } from "../model/ast";import type { Instruction, Program, ProgramNode } from "./program.js";
-import type { MarkupParseResult } from "../markup/types.js";
 import { programLanguageVersion } from "./program.js";
 import { compileExpression, ExpressionCodegenError } from "./expressionCodegen.js";
 import { onceVariableKey } from "../runtime/generatedVariables.js";
@@ -68,6 +67,7 @@ import { booleanOperatorCount } from "../runtime/saliency.js";
 import { parseCommand, type ParsedCommand } from "../runtime/commands.js";
 import { isSmartVariableInitializer, parseDeclareCommand } from "./smartVariables.js";
 import { buildEnumTypes, collectEnumBlocks } from "./enums.js";
+import { groupNodesByTitle } from "./stringTable.js";
 import type { EnumType } from "./enums.js";
 
 /** Extract the tracking: header (visit-tracking mode) from node headers. */
@@ -87,7 +87,7 @@ function subtitleHeader(headers: Record<string, string>): string | undefined {
   return subtitle ? subtitle : undefined;
 }
 
-export interface CompileOptions {
+export interface CompileDocumentOptions {
   generateOnceIds?: (ctx: { node: string; index: number }) => string;
   /**
    * Pre-validated enum types (from the type-checking pass). When omitted,
@@ -106,7 +106,7 @@ export interface CompileOptions {
  */
 export class LoweringError extends Error {}
 
-export function compile(doc: YarnDocument, opts: CompileOptions = {}): Program {
+export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions = {}): Program {
   // Enum registry: enum name → case name → raw value. The type checker
   // (compileSource) passes validated types; standalone compile() resolves
   // the document's <<enum>> blocks without diagnostics.
@@ -131,12 +131,10 @@ export function compile(doc: YarnDocument, opts: CompileOptions = {}): Program {
   const initialValues: Program["initialValues"] = {};
   const smartVariables: Program["smartVariables"] = {};
 
-  // Group nodes by title to handle node groups.
-  const nodesByTitle = new Map<string, YarnNode[]>();
-  for (const node of doc.nodes) {
-    if (!nodesByTitle.has(node.title)) nodesByTitle.set(node.title, []);
-    nodesByTitle.get(node.title)!.push(node);
-  }
+  // Group nodes by title to handle node groups. Shared with the string
+  // table's ID-assignment pass (compileSource) so both observe the same
+  // node order — the golden bytecode assertions pin the resulting tag order.
+  const nodesByTitle = groupNodesByTitle([doc]);
 
   const nodes: Program["nodes"] = {};
   for (const [title, nodesWithSameTitle] of nodesByTitle) {

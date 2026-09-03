@@ -46,7 +46,8 @@ const MUST_FAIL_ALLOWLIST: Record<string, string> = {
   "ShadowLines-MustNotHaveExpressions.yarn": "no #shadow: validation (spec story 29)",
   "Variables-CannotBeAssignedConflictingTypes.yarn": "no variable type checking (phase 1 diagnostics)",
   "Variables-MustBeAbleToInferDefinition.yarn": "no type inference validation (phase 1 diagnostics)",
-  "DuplicateLineTags.yarn": "no duplicate #line: check — upstream fails with YS0018 (phase 1 diagnostics)",
+  // DuplicateLineTags.yarn self-cleaned with ticket 49: the string-table
+  // registration pass emits YS0018 for duplicate explicit #line: tags.
 };
 
 /**

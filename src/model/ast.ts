@@ -8,6 +8,11 @@ export interface YarnDocument {
   type: "Document";
   enums: EnumDefinition[];
   nodes: YarnNode[];
+  /**
+   * File-level hashtags: `#tag` lines preceding the first node (upstream
+   * `file_hashtag`). Surfaced per file in the compile result's `fileTags`.
+   */
+  fileTags?: string[];
 }
 
 export interface EnumDefinition {
@@ -25,6 +30,12 @@ export interface YarnNode {
   /** Number of redundant `title:` headers beyond the first (upstream YS0052). */
   duplicateTitleHeaders?: number;
   body: Statement[];
+  /**
+   * The source file this node came from — set by the multi-file compile
+   * seam (`compile()`), not the parser, so diagnostics and string-table
+   * entries can attribute nodes to their file.
+   */
+  sourceFile?: string;
 }
 
 export type Statement =
@@ -42,6 +53,8 @@ export interface Line {
   type: "Line";
   text: string;
   tags?: string[];
+  /** 1-based source line number (string-table `lineNumber`). */
+  lineNumber?: number;
   /** Line-level `<<if expr>>` condition (upstream line conditions). */
   condition?: string;
   /** Line-level `<<once>>` / `<<once if expr>>` (upstream once modifiers);
@@ -74,6 +87,8 @@ export interface Option {
   text: string;
   body: Statement[]; // executed if chosen
   tags?: string[];
+  /** 1-based source line number (string-table `lineNumber`). */
+  lineNumber?: number;
   condition?: string;
   /** Option-level `<<once>>` / `<<once if expr>>` (upstream once options):
    *  the option is selectable once; the flag records on selection. */

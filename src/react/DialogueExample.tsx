@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { parseYarn } from "../parse/parser.js";
-import { compile } from "../compile/compiler.js";
+import { compileDocument } from "../compile/compiler.js";
 import { programLanguageVersion } from "../compile/program.js";
 import { DialogueView } from "./DialogueView.js";
 import { parseScenes } from "../scene/parser.js";
@@ -63,7 +63,7 @@ export function DialogueExample() {
     try {
       setError(null);
       const ast = parseYarn(yarnText);
-      return compile(ast);
+      return compileDocument(ast);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       return null;
