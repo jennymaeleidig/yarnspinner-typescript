@@ -49,14 +49,15 @@ Text
   assert.match(d.message, /^Syntax error: /);
 });
 
-test("YS0005 ranges are 0-based half-open over the offending token", () => {
-  // Missing '---' after the title: the NODE_END token '===' (line 2, col 1,
-  // 1-based) is the offending token.
+test("YS0004 MissingDelimiter ranges are 0-based half-open over the offending token", () => {
+  // Missing '---' after the title (upstream YS0004 — a node missing its
+  // start or end delimiter, ticket 65): the NODE_END token '===' (line 2,
+  // col 1, 1-based) is the offending token.
   const diagnostics = compile(`title: Start
 ===
 Body
 `);
-  assert.deepEqual(codesOf(diagnostics), ["YS0005"]);
+  assert.deepEqual(codesOf(diagnostics), ["YS0004"]);
   assert.deepEqual(diagnostics[0].range, { startLine: 1, startCol: 0, endLine: 1, endCol: 3 });
 });
 
@@ -148,9 +149,12 @@ test("YS0012: jump to an undefined node is a warning", () => {
 });
 
 test("YS0012: braced jump targets are runtime-resolved, never flagged", () => {
+  // Fixture-shaped braced target (Jumps.yarn uses "literal" and $var
+  // targets); the node name is deliberately undefined — the static node
+  // check must skip braced targets, which resolve at runtime.
   const diagnostics = compile(`title: Start
 ---
-<<jump {SomeVariable}>>
+<<jump {$someNode}>>
 ===
 `);
   assert.deepEqual(diagnostics, []);

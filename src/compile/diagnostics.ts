@@ -39,9 +39,18 @@ interface DiagnosticDescriptor {
 /**
  * The first-spec tranche of adoptable codes (tickets 09/10), plus the syntax
  * basics. Every entry here must have a vendored definition file — enforced by
- * src/tests/diagnostics.test.ts.
+ * src/tests/diagnostics.test.ts — and every vendored example of a registered
+ * code must emit that code (ticket 65's phase-3 golden loop in
+ * src/tests/diagnosticExamples.test.ts).
+ *
+ * Deliberately NOT registered: YS0013 UnknownFunction — upstream 3.2.2 marks
+ * it `generated_in: languageserver` (the compiler never emits it; it creates
+ * implicit function declarations instead, which ticket 54's Inference-*
+ * fixture conformance adopts). It joins when mandatory function declarations
+ * land upstream.
  */
 export const DIAGNOSTIC_REGISTRY: Record<string, DiagnosticDescriptor> = {
+  YS0003: { name: "UndefinedVariable", defaultSeverity: "warning" },
   YS0004: { name: "MissingDelimiter", defaultSeverity: "error" },
   YS0005: { name: "SyntaxError", defaultSeverity: "error" },
   YS0006: { name: "UnclosedCommand", defaultSeverity: "error" },
@@ -51,7 +60,10 @@ export const DIAGNOSTIC_REGISTRY: Record<string, DiagnosticDescriptor> = {
   YS0014: { name: "WrongFunctionParameters", defaultSeverity: "error" },
   YS0017: { name: "LinesCantHaveLineAndShadowTag", defaultSeverity: "error" },
   YS0018: { name: "DuplicateLineID", defaultSeverity: "error" },
+  YS0019: { name: "LineContentAfterCommand", defaultSeverity: "warning" },
+  YS0020: { name: "CommandFollowingLine", defaultSeverity: "error" },
   YS0021: { name: "StrayCommandEnd", defaultSeverity: "warning" },
+  YS0022: { name: "UnenclosedCommand", defaultSeverity: "warning" },
   YS0027: { name: "InvalidNodeName", defaultSeverity: "error" },
   YS0028: { name: "TypeInferenceFailure", defaultSeverity: "error" },
   YS0029: { name: "ExpressionTypeUndetermined", defaultSeverity: "error" },
@@ -73,6 +85,7 @@ export const DIAGNOSTIC_REGISTRY: Record<string, DiagnosticDescriptor> = {
   YS0051: { name: "NodeMissingTitle", defaultSeverity: "error" },
   YS0052: { name: "NodeHasMoreThanOneTitle", defaultSeverity: "error" },
   YS0062: { name: "MultipleLineOrShadowIDsOnALine", defaultSeverity: "error" },
+  YS0063: { name: "MarkupFailedToParse", defaultSeverity: "warning" },
 };
 
 /** Build a diagnostic from a registry code, filling in the default severity. */

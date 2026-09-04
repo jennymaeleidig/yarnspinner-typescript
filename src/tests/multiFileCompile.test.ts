@@ -361,7 +361,8 @@ test("parse failure in one file does not sink the others (collect-don't-throw)",
     { name: "good.yarn", source: "title: B\n---\nLine.\n===\n" },
   ];
   const result = compile(files);
-  assert.ok(result.diagnostics.some((d) => d.code === "YS0005" && d.file === "bad.yarn"));
+  // A node cut off before its '---' is upstream YS0004 MissingDelimiter.
+  assert.ok(result.diagnostics.some((d) => d.code === "YS0004" && d.file === "bad.yarn"));
   assert.ok(result.program?.nodes["B"], "the healthy file still compiles");
 });
 
@@ -370,5 +371,5 @@ test("strict mode throws on the first error across files", () => {
     { name: "good.yarn", source: "title: B\n---\nLine.\n===\n" },
     { name: "bad.yarn", source: "not a node\n" },
   ];
-  assert.throws(() => compile(files, { strict: true }), /YS0005/);
+  assert.throws(() => compile(files, { strict: true }), /YS0004/);
 });

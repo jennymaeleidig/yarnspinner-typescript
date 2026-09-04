@@ -19,6 +19,7 @@ import type {
   Detour,
   EnumBlock,
   EnumCaseDef,
+  ParserDiagnostic,
 } from "../model/ast";
 
 export function parseYarn(text: string): YarnDocument {
@@ -154,6 +155,8 @@ function rangeOf(token: Token): ParseError["range"] {
 
 class Parser {
   private i = 0;
+  /** Soft (non-throwing) findings — ticket 65's YS0019/YS0020/YS0022. */
+  private soft: ParserDiagnostic[] = [];
   constructor(private readonly tokens: Token[]) {}
 
   private peek(offset = 0) {
@@ -162,9 +165,9 @@ class Parser {
   private at(type: Token["type"]) {
     return this.peek()?.type === type;
   }
-  private take(type: Token["type"], err?: string): Token {
+  private take(type: Token["type"], err?: string, code?: string): Token {
     const t = this.peek();
-    if (!t || t.type !== type) throw new ParseError(err ?? `Expected ${type}, got ${t?.type}`, this.rangeAt(this.peek()));
+    if (!t || t.type !== type) throw new ParseError(err ?? `Expected ${type}, got ${t?.type}`, this.rangeAt(this.peek()), code);
     this.i++;
     return t;
   }
@@ -237,7 +240,92 @@ class Parser {
       enums,
       nodes,
       ...(fileTags.length > 0 ? { fileTags } : {}),
+      ...(this.soft.length > 0 ? { softDiagnostics: this.soft } : {}),
     };
+  }
+
+  /**
+   * Line-content command checks (ticket 65, upstream SyntaxValidationListener
+   * equivalents). Runs on the line's text AFTER the line-level modifier
+   * extraction — a surviving `<<...>>` span is by construction not a line
+   * condition, which is exactly upstream's "only line conditions may follow
+   * a line" rule:
+   *
+   * - YS0019 (warning): the text STARTS with a complete `<<command>>` and
+   *   dialogue follows it on the same line (our line-oriented lexer folds
+   *   this shape into one TEXT token; upstream's token stream reaches the
+   *   same validation).
+   * - YS0020 (error): a `<<command>>` is embedded after dialogue text.
+   * - YS0022 (warning): a command keyword opens the line unenclosed.
+   *
+   * Escapes (`\\<`) are skipped, matching extractLineModifier's scan.
+   */
+  private checkEmbeddedCommands(text: string, token: Token): void {
+    const record = (code: string, message: string): void => {
+      this.soft.push({ code, message, line: token.line, column: token.column });
+    };
+    const lead = /^<<([\s\S]*?)>>/.exec(text);
+    if (lead) {
+      const rest = text.slice(lead[0].length).trim();
+      if (rest) {
+        record(
+          "YS0019",
+          `Dialogue "${rest}" content found following a command. Commands should be on their own line.`,
+        );
+      }
+      this.scanCommandSpans(text, lead[0].length, false, record);
+      return;
+    }
+    const embedded = this.scanCommandSpans(text, 0, true, record);
+    if (embedded) return;
+    const keyword = /^(set|declare|jump|detour|wait|stop)\s/.exec(text);
+    if (keyword) {
+      record(
+        "YS0022",
+        `'${keyword[1]}' command must be enclosed in '<<' and '>>'. Did you mean '<<${keyword[1]} ...'?`,
+      );
+    }
+  }
+
+  /**
+   * Walks the text's `<<...>>` spans (skipping `\\` escapes), reporting:
+   * YS0020 for every non-leading span (a command embedded after dialogue
+   * text) when `reportEmbedded` is set, and YS0021 once for any stray `>>`
+   * outside a span. Returns whether any embedded command was found.
+   */
+  private scanCommandSpans(
+    text: string,
+    from: number,
+    reportEmbedded: boolean,
+    record: (code: string, message: string) => void,
+  ): boolean {
+    let embedded = false;
+    let strayReported = false;
+    for (let i = from; i < text.length; i++) {
+      if (text[i] === "\\") {
+        i++;
+        continue;
+      }
+      if (text[i] === "<" && text[i + 1] === "<") {
+        const close = text.indexOf(">>", i + 2);
+        if (close === -1) break;
+        if (reportEmbedded && i > from) {
+          record(
+            "YS0020",
+            `Command "${text.slice(i, close + 2)}" found following a line of dialogue. Commands should start on a new line.`,
+          );
+        }
+        embedded = embedded || reportEmbedded;
+        i = close + 1;
+        continue;
+      }
+      if (text[i] === ">" && text[i + 1] === ">" && !strayReported) {
+        strayReported = true;
+        record("YS0021", "Stray '>>' without matching '<<'. Did you forget to open the command?");
+        i++;
+      }
+    }
+    return embedded;
   }
 
   private parseNode(): YarnNode {
@@ -250,7 +338,10 @@ class Parser {
 
     // headers
     while (!this.at("NODE_START")) {
-      const keyTok = this.take("HEADER_KEY", "Expected node header before '---'");
+      // A node cut off before its `---` is upstream YS0004 MissingDelimiter
+      // (ticket 65; the vendored YS0004 example pins the missing-delimiter
+      // family, not plain YS0005).
+      const keyTok = this.take("HEADER_KEY", "Missing node delimiter", "YS0004");
       startLine ??= keyTok.line;
       const valTok = this.take("HEADER_VALUE", "Expected header value");
       if (keyTok.text === "title") {
@@ -285,7 +376,7 @@ class Parser {
       while (this.at("EMPTY")) this.i++;
     }
     if (!title) {
-      throw new ParseError("Every node must have a title header", this.rangeAt(this.peek()));
+      throw new ParseError("Nodes must have a title", this.rangeAt(this.peek()), "YS0051");
     }
     this.take("NODE_START");
     // allow optional empties after ---
@@ -296,7 +387,7 @@ class Parser {
     // comment with no following declaration is dropped (upstream attaches
     // them to declarations only).
     this.pendingDocComment = [];
-    this.take("NODE_END", "Expected node end '==='");
+    this.take("NODE_END", "Missing node delimiter", "YS0004");
     return { 
       type: "Node", 
       title, 
@@ -521,6 +612,7 @@ class Parser {
     const { cleanText: textWithoutTags, tags } = this.extractTags(withoutModifier);
     // Removed fork extensions (ticket 40): &css{} and inline {if} blocks.
     this.rejectRemovedSyntax(textWithoutTags, token);
+    this.checkEmbeddedCommands(textWithoutTags, token);
     const line: Line = {
       type: "Line",
       text: unescapeMainGrammar(textWithoutTags),
@@ -553,6 +645,7 @@ class Parser {
       // Removed fork extensions (ticket 40): &css{} and the [if expr] option
       // condition suffix.
       this.rejectRemovedSyntax(textWithAttrs, optTok);
+      this.checkEmbeddedCommands(textWithAttrs, optTok);
       let body: Statement[] = [];
       if (this.at("INDENT")) {
         this.take("INDENT");
@@ -626,13 +719,31 @@ class Parser {
     }
   }
 
-  private parseStatementsUntilStop(shouldStop: () => boolean): Statement[] {
+  /**
+   * An if/once body that hits the node's `===` or EOF without its closing
+   * command is an unclosed scope — upstream YS0007 (ticket 65), not a
+   * plain syntax error: the closing token is `<<{closer}>>`.
+   */
+  private parseStatementsUntilStop(
+    shouldStop: () => boolean,
+    closer: { command: "endif" | "endonce"; opener: "if" | "once" } | null = null,
+  ): Statement[] {
+    const unclosedScope = (t: Token): ParseError =>
+      new ParseError(
+        closer
+          ? `Unclosed scope: expected an <<${closer.command}>> to match the <<${closer.opener}>> statement`
+          : "Unclosed scope: expected a closing command",
+        this.rangeAt(t),
+        "YS0007",
+      );
     const out: Statement[] = [];
     while (!this.at("EOF")) {
       // Check stop condition at root level only
       if (shouldStop()) break;
+      if (this.at("NODE_END")) throw unclosedScope(this.peek());
       while (this.at("EMPTY")) this.i++;
       if (this.at("EOF") || shouldStop()) break;
+      if (this.at("NODE_END")) throw unclosedScope(this.peek());
       if (this.at("OPTION")) {
         out.push(this.parseOptionGroup());
         continue;
@@ -653,6 +764,9 @@ class Parser {
       // delimiting commands, so INDENT/DEDENT must not terminate the body.
       if (this.skipIndentTransparency()) continue;
       out.push(this.parseStatement());
+    }
+    if (!shouldStop() && this.at("EOF")) {
+      throw unclosedScope(this.tokens[this.tokens.length - 1]);
     }
     return out;
   }
@@ -681,12 +795,13 @@ class Parser {
     // transparent here, as in if-blocks).
     const atOnceClose = () =>
       this.at("COMMAND") && (this.peek().text === "else" || this.peek().text === "endonce");
-    const body = this.parseStatementsUntilStop(atOnceClose);
+    const body = this.parseStatementsUntilStop(atOnceClose, { command: "endonce", opener: "once" });
     let elseBody: Statement[] | undefined;
     if (this.at("COMMAND") && this.peek().text === "else") {
       this.take("COMMAND");
       elseBody = this.parseStatementsUntilStop(
         () => this.at("COMMAND") && this.peek().text === "endonce",
+        { command: "endonce", opener: "once" },
       );
     }
     if (this.at("COMMAND") && this.peek().text === "endonce") {
@@ -745,7 +860,7 @@ class Parser {
     const firstBody = this.parseStatementsUntilStop(() => {
       // Only stop at root level commands, not inside indented blocks
       return this.at("COMMAND") && /^(elseif\s|else$|endif$)/.test(this.peek().text);
-    });
+    }, { command: "endif", opener: "if" });
     branches.push({ condition: firstCond, body: firstBody });
 
     while (!this.at("EOF")) {
@@ -755,13 +870,13 @@ class Parser {
       if (txt.startsWith("elseif ")) {
         this.take("COMMAND");
         const cond = txt.slice(7).trim();
-        const body = this.parseStatementsUntilStop(() => this.at("COMMAND") && /^(elseif\s|else$|endif$)/.test(this.peek().text));
+        const body = this.parseStatementsUntilStop(() => this.at("COMMAND") && /^(elseif\s|else$|endif$)/.test(this.peek().text), { command: "endif", opener: "if" });
         branches.push({ condition: cond, body });
         continue;
       }
       if (txt === "else") {
         this.take("COMMAND");
-        const body = this.parseStatementsUntilStop(() => this.at("COMMAND") && /^(endif$)/.test(this.peek().text));
+        const body = this.parseStatementsUntilStop(() => this.at("COMMAND") && /^(endif$)/.test(this.peek().text), { command: "endif", opener: "if" });
         branches.push({ condition: null, body });
         // require endif after else body
         if (this.at("COMMAND") && this.peek().text.trim() === "endif") {

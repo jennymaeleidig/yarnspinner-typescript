@@ -1,5 +1,18 @@
 export type Position = { line: number; column: number };
 
+/**
+ * A soft (non-throwing) parser finding (ticket 65): semantic line-content
+ * warnings/errors the parser reports without aborting the parse — YS0019,
+ * YS0020, YS0022. The compile seam converts these to registry diagnostics.
+ * Lines/columns are 1-based token positions (the lexer's convention).
+ */
+export interface ParserDiagnostic {
+  code: string;
+  message: string;
+  line: number;
+  column: number;
+}
+
 export interface NodeHeaderMap {
   [key: string]: string;
 }
@@ -13,6 +26,11 @@ export interface YarnDocument {
    * `file_hashtag`). Surfaced per file in the compile result's `fileTags`.
    */
   fileTags?: string[];
+  /**
+   * Soft parser findings (ticket 65) — see ParserDiagnostic. Absent when
+   * the parse raised none.
+   */
+  softDiagnostics?: ParserDiagnostic[];
 }
 
 export interface EnumDefinition {

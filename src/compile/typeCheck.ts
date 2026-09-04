@@ -151,6 +151,20 @@ interface CheckContext {
    * resolution pass, which reports YS0029 only for the still-untyped.
    */
   undeterminedSites: Array<{ text: string; target: string }>;
+  /**
+   * `<<set>>` targets (ticket 65) whose variable has no `<<declare>>` and no
+   * external declaration — YS0003 per site after the walk. Reads are not
+   * recorded: condition reads are Boolean-constrained (upstream) and
+   * unresolvable inline uses keep their fixture-pinned YS0029.
+   */
+  undeclaredUses: Array<{ name: string; file?: string }>;
+  /**
+   * Variables already reported via YS0028 (ticket 65): the expression they
+   * appear in typed fine (e.g. inside a number()/string() conversion) but
+   * the variable itself could not be inferred — reported once per variable,
+   * and excluded from the inline-use YS0029 pass.
+   */
+  inferenceFailures: Set<string>;
 }
 
 // --- Expression mini-parser -------------------------------------------------
@@ -318,8 +332,16 @@ class ExprParser {
   private parseComparison(): ExprNode {
     let left = this.parseAdditive();
     while (true) {
+      // A single `=` is the runtime's tolerated equality spelling (the
+      // evaluator and codegen accept it), so the checker's mini-parser must
+      // mirror that tolerance instead of reporting trailing garbage.
       const op = this.takeOp(["==", "!=", "<=", ">=", "<", ">"]);
-      if (!op) return left;
+      if (!op) {
+        const eq = this.takeOp(["="]);
+        if (!eq) return left;
+        left = { kind: "bin", op: "==", left, right: this.parseAdditive() };
+        continue;
+      }
       left = { kind: "bin", op, left, right: this.parseAdditive() };
     }
   }
@@ -559,12 +581,64 @@ function checkArgsAgainstSignature(
       ctx.emit("YS0050", `${arg.text} (${arg.type.enumName}) is not convertible to ${PRIM_NAME[paramType]}`);
     }
   });
+  checkPrimitiveArgTypes(fnName, args, signature, ctx);
+}
+
+/**
+ * Primitive argument checking against a known signature (ticket 65): enum
+ * compatibility is checked above; a concrete primitive argument that can't
+ * convert to its parameter's type is upstream's catch-all YS0050. Unknown
+ * operands are skipped (the solver may still resolve them elsewhere).
+ */
+function checkPrimitiveArgTypes(
+  fnName: string,
+  args: Array<{ text: string; type: ExprType }>,
+  signature: FunctionSignature,
+  ctx: CheckContext,
+): void {
+  const expected = signature.params.length;
+  args.forEach((arg, i) => {
+    const paramIndex = signature.variadic && expected > 0 && i >= expected - 1 ? expected - 1 : i;
+    const paramType = signature.params[paramIndex];
+    if (!paramType || paramType === "any") return;
+    if (arg.type.enumName || arg.type.error) return;
+    if (arg.type.base === "unknown") return;
+    if (arg.type.base === paramType) return;
+    ctx.emit(
+      "YS0050",
+      `${fnName}: ${arg.text} (${PRIM_NAME[arg.type.base]}) is not convertible to ${PRIM_NAME[paramType]}`,
+      ctx.currentFile,
+    );
+  });
 }
 
 function checkCall(node: Extract<ExprNode, { kind: "call" }>, ctx: CheckContext, expectedEnum?: string): ExprType {
   // Built-in conversions (upstream Types.Number/String/Boolean functions).
   if (node.name === "string" || node.name === "number" || node.name === "bool") {
-    for (const arg of node.args) checkNode(arg, ctx, expectedEnum);
+    for (const arg of node.args) {
+      const argType = checkNode(arg, ctx, expectedEnum);
+      // YS0028 (ticket 65): the conversion expression itself types (its
+      // return is the target type), but a constituent variable whose type
+      // nothing could determine is upstream's TypeInferenceFailure —
+      // distinct from YS0029, whose expression stays untyped.
+      if (
+        arg.kind === "var" &&
+        argType.base === "unknown" &&
+        !argType.enumName &&
+        !argType.error &&
+        !ctx.variableTypes.has(arg.name) &&
+        !ctx.declaredVariables.has(arg.name) &&
+        !ctx.externalVariables.has(arg.name) &&
+        !ctx.inferenceFailures.has(arg.name)
+      ) {
+        ctx.inferenceFailures.add(arg.name);
+        ctx.emit(
+          "YS0028",
+          `Can't determine type of $${arg.name} given its usage. Manually specify its type with a declare statement.`,
+          ctx.currentFile,
+        );
+      }
+    }
     return { base: node.name as "string" | "number" | "bool" };
   }
 
@@ -698,7 +772,15 @@ function checkExpression(
   ctx.rewrites.length = 0;
   const toks = tokenize(expr);
   const parsed = new ExprParser(toks, expr).parse();
-  if (!parsed) return { type: ERROR_TYPE, rewritten: expr };
+  if (!parsed || containsBadNode(parsed)) {
+    // Expression syntax failure (ticket 65): the mini-parser's `bad` nodes
+    // all arise from malformed operand/group/call shapes (semantic failures
+    // return typed nodes with their own diagnostics), and a null parse is
+    // trailing garbage — upstream's parser reports both as YS0005. The
+    // Error type still suppresses downstream type cascades.
+    ctx.emit("YS0005", `Syntax error: ${expr.trim()}`, ctx.currentFile);
+    return { type: ERROR_TYPE, rewritten: expr };
+  }
   const type = checkNode(parsed, ctx, expectedEnum);
   let rewritten = expr;
   if (ctx.rewrites.length > 0) {
@@ -712,6 +794,23 @@ function checkExpression(
 }
 
 // --- Statement walk -----------------------------------------------------------
+
+/** True when the parsed tree contains a malformed-operand node (`bad`) —
+ *  the ExprParser's only way to say "this shape is not an expression". */
+function containsBadNode(node: ExprNode): boolean {
+  switch (node.kind) {
+    case "bad":
+      return true;
+    case "un":
+      return containsBadNode(node.operand);
+    case "bin":
+      return containsBadNode(node.left) || containsBadNode(node.right);
+    case "call":
+      return node.args.some(containsBadNode);
+    default:
+      return false;
+  }
+}
 
 function primOrDefault(expr: string, enumTypes: Map<string, EnumType>): VariableDeclaration["defaultValue"] {
   const trimmed = expr.trim();
@@ -831,6 +930,12 @@ function collectInlineExpressionVars(text: string, ctx: CheckContext): void {
         }
       };
       if (parsed) collect(parsed);
+      // Type-check the inline span too (ticket 65): the runtime evaluates
+      // every `{...}` span as an expression, so the checker validates them
+      // as expressions — YS0028 for a variable inside a conversion that
+      // still can't be inferred, YS0005 for a malformed span. Rewrites are
+      // discarded: inline-text `.Case` resolution happens in lowering.
+      checkExpression(exprSrc, ctx);
       i = close + 1;
       continue;
     }
@@ -908,16 +1013,27 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
         const compoundSet = content.match(/^set\s+\$([A-Za-z_][A-Za-z0-9_]*)\s*(?:\+=|-=|\*=|\/=|%=)/);
         if (compoundSet) {
           emitReadOnlyIfSmart(compoundSet[1], ctx);
+          if (!ctx.declaredVariables.has(compoundSet[1]) && !ctx.externalVariables.has(compoundSet[1])) {
+            ctx.undeclaredUses.push({ name: compoundSet[1], file: ctx.currentFile });
+          }
           break;
         }
 
-        const set = content.match(/^set\s+\$(\w+)\s+(to|=)\s*([\s\S]+)$/);
+          const set = content.match(/^set\s+\$(\w+)\s+(to|=)\s*([\s\S]+)$/);
         if (set) {
           const [, name, op, rest] = set;
           emitReadOnlyIfSmart(name, ctx);
           const varType = ctx.variableTypes.get(name);
           const expectedEnum = varType && ctx.enumTypes.has(varType) ? varType : undefined;
           let { type, rewritten } = checkExpression(rest.trim(), ctx, expectedEnum);
+          // YS0003 collection (ticket 65): a `<<set>>` target is a use of the
+          // variable (the vendored YS0003 example pins `<<set $x = 3>>`). A
+          // value expression that already failed validation suppresses the
+          // report — upstream's Error type stops the cascade there (the
+          // YS0038 pin: `<<set $x = Test.Failure>>` reports YS0038 only).
+          if (type.error !== true && !ctx.declaredVariables.has(name) && !ctx.externalVariables.has(name)) {
+            ctx.undeclaredUses.push({ name, file: ctx.currentFile });
+          }
           if (rewritten !== rest.trim()) s.content = `set $${name} ${op} ${rewritten}`;
           if (type.base === "unknown" && !type.enumName && !type.error) {
             if (varType) {
@@ -1208,6 +1324,8 @@ export function typeCheck(
     externalVariables,
     inferredFunctions: new Map(),
     inlineVarUses: new Set(),
+    undeclaredUses: [],
+    inferenceFailures: new Set(),
     undeterminedSites: [],
   };
 
@@ -1227,10 +1345,28 @@ export function typeCheck(
     emitUndetermined(`$${site.target}`, ctx);
   }
 
+  // Undeclared variable uses (ticket 65, YS0003): a use whose variable has
+  // no `<<declare>>` and no external declaration anywhere in the program
+  // warns once per use site — the vendored YS0003 example pins that a
+  // `<<set>>` target counts as a use.
+  for (const use of ctx.undeclaredUses) {
+    if (ctx.declaredVariables.has(use.name) || ctx.externalVariables.has(use.name)) continue;
+    emitDiagnostic(
+      makeDiagnostic(
+        "YS0003",
+        `Variable '$${use.name}' is used but not declared. Declare it with: <<declare $${use.name} = value>>`,
+        { file: use.file },
+      ),
+    );
+  }
+
   // Inline-expression uses (ticket 54): a variable referenced from line,
   // option, or command text that nothing could type has no implicit
   // declaration upstream can resolve — YS0029 for each such use site.
+  // (Ticket 65 deliberately keeps YS0029 here, not YS0003: the fixture pin
+  // is that an undeclared inline use is a compile-failing YS0029.)
   for (const name of ctx.inlineVarUses) {
+    if (ctx.inferenceFailures.has(name)) continue;
     if (!ctx.variableTypes.has(name) && !ctx.declaredVariables.has(name)) {
       emitUndetermined(`$${name}`, ctx);
     }

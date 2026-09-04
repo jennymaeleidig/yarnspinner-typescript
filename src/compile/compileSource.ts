@@ -46,6 +46,8 @@ import type { ExternalDeclarations, VariableDeclaration } from "./typeCheck.js";
 import type { EnumType } from "./enums.js";
 import { assignLineIds, StringTableManager } from "./stringTable.js";
 import type { StringTable } from "./stringTable.js";
+import { LineParser } from "../markup/lineParser.js";
+import { builtinSignatures } from "../runtime/builtins.js";
 import type { Library } from "../runtime/library.js";
 
 /** One input of a compilation (upstream `CompilationJob.File`). */
@@ -142,6 +144,21 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
     try {
       const doc = parseYarn(file.source);
       for (const node of doc.nodes) node.sourceFile = file.name;
+      // Soft parser findings (ticket 65): YS0019/YS0020/YS0022 ride the
+      // document, not an exception — the parse itself succeeded.
+      for (const sd of doc.softDiagnostics ?? []) {
+        diagnostics.push(
+          makeDiagnostic(sd.code, sd.message, {
+            file: file.name,
+            range: {
+              startLine: sd.line - 1,
+              startCol: sd.column - 1,
+              endLine: sd.line - 1,
+              endCol: sd.column,
+            },
+          }),
+        );
+      }
       docs.push({ name: file.name, doc });
     } catch (e) {
       if (!(e instanceof ParseError)) throw e;
@@ -176,11 +193,16 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
   }
 
   // Compile-time Library (ticket 49): registered signatures feed signature
-  // checking; explicit declarations.functions entries take precedence.
+  // checking; explicit declarations.functions entries take precedence. The
+  // built-in signatures sit at the base (ticket 65): upstream's compiler
+  // knows its default Library's types, so e.g. `visited(true)` is a
+  // compile-time YS0050, not a runtime surprise.
   const declarations: ExternalDeclarations = { ...opts.declarations };
-  if (opts.library) {
-    declarations.functions = { ...opts.library.getSignatures(), ...declarations.functions };
-  }
+  declarations.functions = {
+    ...builtinSignatures,
+    ...(opts.library?.getSignatures() ?? {}),
+    ...declarations.functions,
+  };
 
   // Line IDs + string table (every mode — upstream registers strings before
   // the StringsOnly stop, and TypeCheck has carried the table since 3.2.1).
@@ -198,6 +220,7 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
   };
   validate(combined, diagnostics);
   validateJumps(combined, diagnostics);
+  validateMarkup(docs, (d) => diagnostics.push(d));
 
   // File-level hashtags are collected per file (unparseable files carry no
   // file tags — their content was never parsed). Upstream surfaces them
@@ -291,6 +314,24 @@ function validate(doc: YarnDocument, diagnostics: Diagnostic[]): void {
     if (node.body.length === 0) {
       diagnostics.push(makeDiagnostic("YS0033", `Node "${node.title}" is empty`, { file: node.sourceFile }));
     }
+    // YS0027 (ticket 65): node titles and subtitles can only contain
+    // letters, numbers, and underscores — one diagnostic per invalid
+    // character, as upstream's per-character validation reports.
+    for (const [kind, value] of [
+      ["title", node.title] as const,
+      ["subtitle", node.headers["subtitle"]?.trim() ?? ""] as const,
+    ]) {
+      const invalid = [...value].find((c) => !/[A-Za-z0-9_]/.test(c));
+      if (invalid !== undefined) {
+        diagnostics.push(
+          makeDiagnostic(
+            "YS0027",
+            `Unexpected '${invalid}' in node "${kind}". Titles can only contain letters, numbers, and underscores.`,
+            { file: node.sourceFile },
+          ),
+        );
+      }
+    }
   }
 
   for (const [title, nodes] of byTitle) {
@@ -365,6 +406,91 @@ function validateJumps(doc: YarnDocument, diagnostics: Diagnostic[]): void {
       );
     }
   }
+}
+
+/**
+ * Markup validation of every dialogue line's text (YS0063 MarkupFailedToParse,
+ * ticket 65): the compiler parses each line/option through the runtime markup
+ * parser — upstream 3.2.1+ validates markup at compile time, so a malformed
+ * attribute surfaces as a compile warning instead of surprising the host at
+ * delivery.
+ *
+ * Inline `{expr}` spans are blanked out first: their contents are expression
+ * source, not markup, and a bracket inside an expression string literal would
+ * otherwise read as an unbalanced attribute. Blanking preserves positions, so
+ * attribute-source positions from the markup parser stay meaningful.
+ */
+function validateMarkup(
+  docs: Array<{ name: string; doc: YarnDocument }>,
+  push: (d: Diagnostic) => void,
+): void {
+  const parser = new LineParser();
+  const check = (text: string, file: string | undefined): void => {
+    const { diagnostics: markupDiagnostics } = parser.parseStringWithDiagnostics(
+      blankInlineExpressions(text),
+      "en",
+      // Character detection rewrites the text's prefix; it cannot affect
+      // markup validity and would only move positions — off.
+      { addImplicitCharacterAttribute: false },
+    );
+    if (markupDiagnostics.length === 0) return;
+    push(
+      makeDiagnostic("YS0063", `Dialogue has malformed or invalid markup. ${markupDiagnostics[0].message}`, {
+        file,
+      }),
+    );
+  };
+  const walk = (stmts: Statement[], file: string | undefined): void => {
+    for (const s of stmts) {
+      switch (s.type) {
+        case "Line":
+          check(s.text, file);
+          break;
+        case "LineGroup":
+          for (const item of s.items) check(item.text, file);
+          break;
+        case "OptionGroup":
+          for (const o of s.options) {
+            check(o.text, file);
+            walk(o.body, file);
+          }
+          break;
+        case "If":
+          for (const b of s.branches) walk(b.body, file);
+          break;
+        case "Once":
+          walk(s.body, file);
+          if (s.elseBody) walk(s.elseBody, file);
+          break;
+        default:
+          break;
+      }
+    }
+  };
+  for (const { name, doc } of docs) {
+    for (const node of doc.nodes) walk(node.body, name);
+  }
+}
+
+/** Replace the contents of unescaped `{expr}` spans with spaces. */
+function blankInlineExpressions(text: string): string {
+  const out = text.split("");
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === "\\") {
+      i += 2;
+      continue;
+    }
+    if (text[i] === "{") {
+      const close = text.indexOf("}", i + 1);
+      if (close === -1) break;
+      for (let j = i + 1; j < close; j++) out[j] = " ";
+      i = close + 1;
+      continue;
+    }
+    i++;
+  }
+  return out.join("");
 }
 
 export { hasErrors };

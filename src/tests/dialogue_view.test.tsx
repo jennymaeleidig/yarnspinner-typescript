@@ -184,7 +184,7 @@ Narrator: Travellers whisper of a Rogue who works the far road.
 ===
 
 title: Storylets
-subtitle: first-meeting
+subtitle: first_meeting
 when: once
 ---
 Rogue: Well met. You don't look like the usual pilgrims.
@@ -244,7 +244,7 @@ test("storylet demo: saliency strategies switch mid-story and steer the draws", 
     [
       ["Storylets.crossroads", 0],
       ["Storylets.rumor", 1],
-      ["Storylets.first-meeting", 1],
+      ["Storylets.first_meeting", 1],
       ["Storylets.rogue", 1],
       ["Storylets.duel", 2],
       ["Storylets.heist", 2],
@@ -258,7 +258,7 @@ test("storylet demo: saliency strategies switch mid-story and steer the draws", 
   ok(dialogue.setSaliencyStrategy("best_least_recent"));
 
   // Best least-recently-seen walks the story open deterministically:
-  // rumor → first-meeting (unlocks $metRogue) → duel (unlocks $trustHigh)
+  // rumor → first_meeting (unlocks $metRogue) → duel (unlocks $trustHigh)
   // → heist — each draw the least-seen, most-complex available member.
   deepEqual(drawStorylet(dialogue), ["Travellers whisper of a Rogue who works the far road."]);
   deepEqual(drawStorylet(dialogue), [
@@ -283,7 +283,7 @@ test("storylet demo: saliency strategies switch mid-story and steer the draws", 
   ]);
 
   // On a fresh dialogue, `first` takes the first written member, `best` the
-  // highest-complexity one (rumor and first-meeting tie at 1; rumor first).
+  // highest-complexity one (rumor and first_meeting tie at 1; rumor first).
   const fresh = new Dialogue(program, { startAt: "Start" });
   ok(fresh.setSaliencyStrategy("first"));
   deepEqual(drawStorylet(fresh), [

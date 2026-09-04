@@ -4,7 +4,7 @@ export interface Token {
   type:
     | "HEADER_KEY"
     | "HEADER_VALUE"
-    | "NODE_START" // ---
+    | "NODE_START" // --- or -=-
     | "NODE_END" // ===
     | "OPTION" // ->
     | "LINE_GROUP" // => (line-group item)
@@ -101,7 +101,9 @@ export function lex(input: string): Token[] {
       }
     }
 
-    if (content === "---") {
+    // Node header/body separator: `---`, or upstream's alternate `-=-`
+    // (ticket 65 — the vendored diagnostic-definition examples use it).
+    if (content === "---" || content === "-=-") {
       inHeaders = false;
       push("NODE_START", content, lineNum, indent.length + 1);
       continue;

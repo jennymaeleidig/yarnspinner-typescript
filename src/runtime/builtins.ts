@@ -11,6 +11,7 @@
  */
 
 import type { Library } from "./library.js";
+import type { FunctionSignature } from "./library.js";
 import { visitCountVariableKey } from "./generatedVariables.js";
 import type { VariableStorage } from "./variableStorage.js";
 import { stringifyOperand } from "./evaluator.js";
@@ -83,6 +84,32 @@ export function registerBuiltinFunctions(
       }),
   };
   for (const [name, fn] of Object.entries(builtins)) {
-    library.registerFunction(name, fn);
+    library.registerFunction(name, fn, builtinSignatures[name]);
   }
 }
+
+/**
+ * Compile-time signatures for the built-ins (ticket 65): upstream's compiler
+ * knows its default Library's function types, so `{visited(true)}` is a
+ * YS0050 type error at compile time, not a runtime surprise. The compile
+ * seam merges these under the host's Library/declarations.
+ */
+export const builtinSignatures: Record<string, FunctionSignature> = {
+  visited: { params: ["string"], returns: "bool" },
+  visited_count: { params: ["string"], returns: "number" },
+  format_invariant: { params: ["number"], returns: "string" },
+  random: { params: [], returns: "number" },
+  random_range: { params: ["number", "number"], returns: "number" },
+  dice: { params: ["number"], returns: "number" },
+  min: { params: ["number"], variadic: true, returns: "number" },
+  max: { params: ["number"], variadic: true, returns: "number" },
+  round: { params: ["number"], returns: "number" },
+  round_places: { params: ["number", "number"], returns: "number" },
+  floor: { params: ["number"], returns: "number" },
+  ceil: { params: ["number"], returns: "number" },
+  inc: { params: ["number"], returns: "number" },
+  dec: { params: ["number"], returns: "number" },
+  decimal: { params: ["number"], returns: "number" },
+  int: { params: ["number"], returns: "number" },
+  format: { params: ["string", "number"], variadic: true, returns: "string" },
+};
