@@ -42,6 +42,10 @@ Parity here means the observable contract upstream's own test suite pins:
     runtime crate). It answers "did the story finish?", not "is it done
     being used?" — `stop()` makes the dialogue inactive without completing
     it, and its complete event still delivers on the next `continue()`.
+    The React adapter leans on that delivery-not-queued contract: after
+    `stop()` with an option set pending, the next pull drains the queued
+    complete and fires `onDialogueComplete`, where a blocking read would
+    hang forever (ticket 02, corrected Answer).
   - The transcript-reduction module (`runUntilStopped`/`Transcript`) is
     exported non-upstream orchestration over the pull API — same standing
     as the loader and the React adapter. Upstream has no transcript

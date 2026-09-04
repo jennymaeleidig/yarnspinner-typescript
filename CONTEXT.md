@@ -86,6 +86,14 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
   terminal stopping point. `runUntilStopped` pulls to the next stopping
   point and names it; `runUntilComplete` drains through line and command
   stops to the terminal one, so no consumer re-derives the contract.
+- **Config / live split**: the hook's input shape, `useDialogue(program,
+  config, live)` — one rule, **config identity = dialogue identity**: a
+  new config object rebuilds the dialogue even with identical values
+  (construction-only inputs — start node, variables, storage, host
+  functions — belong there), while **live** (per-call callbacks and
+  logging) is read through a ref: identity ignored, the latest object
+  always in effect, a fresh literal every render is the intended shape.
+  Exists only in the React adapter layer; not part of language parity.
 - **DialogueRunner / DialogueView (the split)**: the wired container and the presentational view. `DialogueView` renders a `UseDialogueResult` — no `program` prop, no hook call — and owns **presentation state only**: typing progress, the typing skip, and the one continue scheduler (command flash, typing-done, click). All dialogue state and transitions arrive on the result object. `DialogueRunner` is the container: it calls `useDialogue` (program + config + live) and forwards the result, carrying the ticket-55 deprecated prop aliases. Exists only in the React adapter layer; not part of language parity.
 - **Scene system**: scene/actor images reached via the `scene:` header (which itself is an ordinary upstream-compatible header). The name travels on its one channel — the `NodeStartEvent`'s optional `scene` field (absent when the node declares none), surfaced to hosts as `Transcript.scene` / the hook's `sceneName`, carried forward across scene-less nodes; hosts cross-check it against their `SceneCollection` at that seam. The scene YAML parser is demo-side (`examples/browser/scenes.ts`) — the package ships no scene parser and no scene dependency. Exists only in the React adapter layer; not part of language parity.
 - **Storylet**: the browser demo's presentation name for a node-group member drawn by saliency (`examples/browser/StoryletsDemo.tsx`); demo-layer vocabulary, not upstream's — the glossary term for the thing being drawn is **node-group member**.

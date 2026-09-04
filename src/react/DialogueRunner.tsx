@@ -23,9 +23,9 @@ import type { Program } from "../compile/program.js";
  * from the hook's types, so a runtime option flows in without a second
  * declaration. The config fields forward as one memoized spread (config
  * identity is dialogue identity, so it must be stable across renders); the
- * live fields forward as the whole props object — the hook ref-reads
- * exactly its live fields (logError, logDebug, onDialogueComplete,
- * onStoryEnd) and ignores everything else.
+ * live fields are destructured explicitly — the destructure is the compile
+ * pin that every `UseDialogueLive` field actually forwards (a renamed
+ * callback breaks this file, not a host's callbacks).
  */
 export interface DialogueRunnerProps
   extends Omit<DialogueViewProps, "result">,
@@ -53,6 +53,11 @@ export function DialogueRunner(props: DialogueRunnerProps) {
     contentSaliencyStrategy,
     textProvider,
     lineHints,
+    // The live fields, destructured explicitly — see the interface docstring.
+    logError,
+    logDebug,
+    onDialogueComplete,
+    onStoryEnd,
     className,
     scenes,
     actorTransitionDuration,
@@ -73,10 +78,10 @@ export function DialogueRunner(props: DialogueRunnerProps) {
   const clickPause = pauseBeforeContinue ?? pauseBeforeAdvance ?? 0;
 
   // The config fields forward as one memoized spread (config identity is
-  // dialogue identity, so it must be stable across renders); the live fields
-  // forward as the whole props object — the hook ref-reads exactly its live
-  // fields off it and ignores everything else, so new live options forward
-  // with zero edits.
+  // dialogue identity, so it must be stable across renders); the live
+  // fields are destructured explicitly above and passed as a fresh literal
+  // — the hook ref-reads live and ignores identity, so per-render literals
+  // are the intended shape.
   const config = useMemo<UseDialogueOptions>(
     () => ({
       startAt,
@@ -89,7 +94,12 @@ export function DialogueRunner(props: DialogueRunnerProps) {
     }),
     [startAt, functions, variables, variableStorage, contentSaliencyStrategy, textProvider, lineHints],
   );
-  const result = useDialogue(program, config, props);
+  const result = useDialogue(program, config, {
+    logError,
+    logDebug,
+    onDialogueComplete,
+    onStoryEnd,
+  });
 
   return (
     <DialogueView

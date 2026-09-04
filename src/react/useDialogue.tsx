@@ -224,10 +224,20 @@ export function useDialogue(
    *  view state; flags the completion callback for post-commit delivery.
    *  The scene name rides on the transcript's `NodeStartEvent`; the hook
    *  carries it forward across pulls (the hook pulls from the empty
-   *  transcript each time — only the tail events matter for the view). */
+   *  transcript each time — only the tail events matter for the view).
+   *
+   *  The pending-selection guard here mirrors the module's at-rest
+   *  contract: `runUntilStopped` returns `prior` unchanged while a
+   *  selection is pending because "the pending set is already on `prior`"
+   *  — which is false for the hook, whose pull input is the empty
+   *  transcript (only tail events matter). Unguarded, such a pull would
+   *  reshape to `null` and blank the live option set, so the hook stops
+   *  before the module and leaves the view exactly as it is (two-axis
+   *  review of the deepening wave, spec axis). */
   const applyPull = useCallback((): void => {
     const dialogue = dialogueRef.current;
     if (!dialogue) return;
+    if (dialogue.isWaitingForOptionSelection) return;
     const { transcript, stopped } = runUntilStopped(dialogue, EMPTY_TRANSCRIPT);
     if (transcript.scene !== undefined) sceneNameRef.current = transcript.scene;
     viewRef.current = reshapeView(transcript, stopped);

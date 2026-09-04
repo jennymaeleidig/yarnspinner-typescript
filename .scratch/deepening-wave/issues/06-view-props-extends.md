@@ -94,5 +94,15 @@ build, Next.js host build, SvelteKit host build green. Public surface:
 `DialogueViewProps` gains every hook option (additive); `startNode` prop
 renamed `startAt` (hard break); the view's `functions` type narrows to the
 hook's `Record<string, YarnFunction>` — identical structure
-(`(...args: unknown[]) => unknown`), no behavioral change. Alias machinery
+(`...args: unknown[]`) => unknown`), no behavioral change. Alias machinery
 untouched.
+
+**Correction (2026-09-03, two-axis review of the wave):** the
+`future-work.md` deferral record above never landed — the entry rode in
+the working tree and was gone by the time the wave's last commit landed,
+so the binding record existed nowhere in the repo. Superseded rather than
+re-created: the headless split has since landed as headless-view ticket
+01 (commit 7fec886, with its own design-it-twice pass and two-axis
+review), so there is no deferred work left to record. The working tree's
+uncommitted deletion of `future-work.md` belongs to that cleanup session,
+not to this correction.

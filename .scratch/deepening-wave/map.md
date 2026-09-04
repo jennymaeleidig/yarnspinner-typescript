@@ -119,7 +119,9 @@ From the grilling session (2026-09-03), binding on every ticket:
   hosts for the first time; the hook's manual variables loop deleted (the
   VM constructor seeds — `$`-prefixed keys now normalize); view prop
   `startNode` renamed to the inherited `startAt` (hard break); headless
-  split deferred to `future-work.md` per the binding.
+  split deferred to `future-work.md` per the binding (superseded — the
+  deferral record never landed there; the split itself landed as
+  headless-view ticket 01, see that effort's tracker).
 - [07 scene on NodeStartEvent; js-yaml leaves](issues/07-scene-node-start.md):
   the scene name travels one channel — `NodeStartEvent.scene?` →
   `Transcript.scene` (carried forward across scene-less nodes) → the hook's
@@ -143,6 +145,19 @@ From the grilling session (2026-09-03), binding on every ticket:
   source), and a genuinely re-declaring test yarn was fixed (YS0039);
   library behaviour unchanged, as bound. The wave is complete — every
   ticket resolved.
+- **Two-axis review of the wave** (2026-09-03, `5ea9e12...5a0460a`):
+  fixes landed — the hook's `applyPull` now guards pending selection
+  itself (the module's at-rest contract — "the pending set is already on
+  `prior`" — doesn't hold for the hook's empty-transcript pulls);
+  `DialogueRunner` destructures the four live fields explicitly (the
+  destructure is the compile pin that every `UseDialogueLive` field
+  forwards); the adapter's stop-while-pending resume recorded in
+  compatibility.md; config/live vocabulary added to the CONTEXT.md
+  glossary; ticket 06's `future-work.md` deferral corrected as superseded
+  (headless-view ticket 01). Accepted no-action: `compileOk`/`compileDemo`
+  shape recurrence (three legitimately separate surfaces), ticket 09's
+  kept strict-mode throw assertions (disclosed), ticket 07's
+  checkable-only scene seam (compliant with the letter).
 
 ## Notes
 
