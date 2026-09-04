@@ -47,9 +47,11 @@ Parity here means the observable contract upstream's own test suite pins:
     `stop()` with an option set pending, the next pull drains the queued
     complete and fires `onDialogueComplete`, where a blocking read would
     hang forever (corrected Answer).
-  - The transcript-reduction module (`runUntilStopped`/`Transcript`) is
-    exported non-upstream orchestration over the pull API — same standing
-    as the loader and the React adapter. Upstream has no transcript
+  - The transcript-reduction module (`pullUntilStopped`/`mergeEvents` and
+    their consumers `runUntilStopped`/`runUntilCompleteEvents`, accumulating
+    a `Transcript`) is exported non-upstream orchestration over the pull
+    API — same standing as the loader and the React adapter. Upstream has
+    no transcript
     accumulator; the stopping-point contract it packages (line stops,
     options stop and await selection, commands surface-then-skip, node
     lifecycle and line-hint events ride through, completion terminates) is
@@ -74,6 +76,14 @@ Parity here means the observable contract upstream's own test suite pins:
     The interface promise: the view owns presentation state only — typing
     progress, the typing skip, and the one continue scheduler — all dialogue
     state and transitions arrive on the result object.
+  - Uncompilable state statements (`<<set>>`/`<<declare>>`/`<<call>>` with
+    trailing garbage) emit the upstream compile diagnostic (YS0005) but also
+    execute at runtime through the raw-command fallback — upstream never
+    executes them. The fallback is collect-don't-throw: a failed evaluation
+    logs a runtime diagnostic and skips the write (a prior value survives;
+    a void host function still writes `undefined`), so a garbage statement
+    never silently clobbers storage (coding standards §3; the
+    `continue()`-while-pending precedent).
 
 ## Historical fork syntax
 
