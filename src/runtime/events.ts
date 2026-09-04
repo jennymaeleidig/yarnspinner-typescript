@@ -11,11 +11,10 @@
  */
 
 import type { MarkupParseResult } from "../markup/types.js";
-import type { LineParser } from "../markup/lineParser.js";
 import type { Library } from "./library.js";
 import type { VariableStorage } from "./variableStorage.js";
 import type { TextProvider } from "./textProvider.js";
-import type { ContentSaliencyOption, ContentSaliencyStrategy } from "./saliency.js";
+import type { ContentSaliencyStrategy } from "./saliency.js";
 
 /**
  * The value indicating that no option was selected: the dialogue falls
@@ -135,46 +134,6 @@ export interface DialogueOptions {
   logError?: (message: string) => void;
   /** Runtime debug diagnostics. Defaults to silent. */
   logDebug?: (message: string) => void;
-}
-
-/**
- * The execution-driver contract (internal): the instruction-stream VM
- * implements this surface behind `Dialogue`. Not public API — the public
- * surface is `Dialogue`.
- */
-export interface RuntimeDriver {
-  readonly currentNode: string | null;
-  readonly isActive: boolean;
-  /** A delivered option set awaits selection (Rust `is_waiting_for_option_selection`). */
-  readonly isWaitingForOptionSelection: boolean;
-  /** A `DialogueComplete` event has been delivered (recorded project extension). */
-  readonly isComplete: boolean;
-  getLibrary(): Library;
-  continue(): DialogueEvent[];
-  selectOption(selectedOption: number | typeof noOptionSelected): void;
-  setNode(title: string): void;
-  stop(): void;
-  getVariables(): Readonly<Record<string, unknown>>;
-  getVariable(name: string): unknown;
-  setVariable(name: string, value: unknown): void;
-  tryGetSmartVariable(name: string): { ok: true; value: unknown } | { ok: false };
-  /** The active content saliency strategy (upstream `Dialogue.ContentSaliencyStrategy`). */
-  get contentSaliencyStrategy(): ContentSaliencyStrategy;
-  set contentSaliencyStrategy(strategy: ContentSaliencyStrategy);
-  /** Switch to a named built-in strategy; `false` for an unknown mode. */
-  setSaliencyStrategy(mode: string): boolean;
-  /** Upstream `Dialogue.IsNodeGroup`. */
-  isNodeGroup(nodeName: string): boolean;
-  /** Upstream `Dialogue.GetSaliencyOptionsForNodeGroup`. */
-  getSaliencyOptionsForNodeGroup(nodeGroup: string): ContentSaliencyOption[];
-  /** Upstream `Dialogue.HasSalientContent`. */
-  hasSalientContent(nodeGroup: string): boolean;
-  /** The locale replacement markers compose under (upstream `Dialogue.LocaleCode`). */
-  getLocale(): string;
-  /** Override the locale replacement markers resolve under. */
-  setLocale(localeCode: string): void;
-  /** The line parser, for host marker-processor registration. */
-  getLineParser(): LineParser;
 }
 
 /**

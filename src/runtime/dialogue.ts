@@ -40,12 +40,10 @@
 import type { Program } from "../compile/program.js";
 import { Library } from "./library.js";
 import type { ContentSaliencyOption, ContentSaliencyStrategy } from "./saliency.js";
-import type { TextProvider } from "./textProvider.js";
 import {
   noOptionSelected,
   type DialogueEvent,
   type DialogueOptions,
-  type RuntimeDriver,
 } from "./events.js";
 import { VirtualMachine } from "./vm.js";
 import type { LineParser } from "../markup/lineParser.js";
@@ -75,15 +73,10 @@ export type { YarnFunction, CommandHandler } from "./library.js";
  * surface.
  */
 export class Dialogue {
-  private readonly engine: RuntimeDriver;
-  /** The host's text provider, when one was injected. */
-  private readonly textProvider: TextProvider | null;
-  private readonly logError: (message: string) => void;
+  private readonly engine: VirtualMachine;
 
   constructor(program: Program, opts: DialogueOptions = {}) {
     this.engine = new VirtualMachine(program, opts);
-    this.textProvider = opts.textProvider ?? null;
-    this.logError = opts.logError ?? ((message) => console.error(message));
   }
 
   /** The node currently executing, or `null` when the dialogue is not active. */
@@ -265,13 +258,7 @@ export class Dialogue {
    * provider was provided.
    */
   setLanguage(language: string | null): void {
-    if (this.textProvider === null) {
-      this.logError(
-        "setLanguage was called, but no text provider was provided to this Dialogue",
-      );
-      return;
-    }
-    this.textProvider.setLanguage(language);
+    this.engine.setLanguage(language);
   }
 }
 

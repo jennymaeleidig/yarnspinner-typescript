@@ -227,7 +227,7 @@ export class VirtualMachine {
     this.enterNode(startAt, this.queuedEvents);
   }
 
-  // ── Public surface (RuntimeDriver — the Dialogue facade dispatches here) ──
+  // ── Public surface (the Dialogue facade dispatches here) ──
 
   /** The node currently executing, or `null` when the dialogue is not active. */
   get currentNode(): string | null {
@@ -1179,6 +1179,24 @@ export class VirtualMachine {
   /** The line parser, for host marker-processor registration. */
   getLineParser(): LineParser {
     return this.getOrCreateComposer().getParser();
+  }
+
+  // ── Localisation ───────────────────────────────────────────────────────
+
+  /**
+   * Switch the active language (BCP-47; `null` selects the base language —
+   * the program's own text) on the injected text provider. Reports a
+   * diagnostic when no text provider was provided; the guard's home is
+   * here, where the provider lives.
+   */
+  setLanguage(language: string | null): void {
+    if (this.textProvider === null) {
+      this.logError(
+        "setLanguage was called, but no text provider was provided to this Dialogue",
+      );
+      return;
+    }
+    this.textProvider.setLanguage(language);
   }
 
   private getOrCreateComposer(): LineComposer {
