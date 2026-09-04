@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 import React, { useState, useEffect, useRef } from "react";
 import type { MarkupParseResult } from "../markup/types.js";
 import { MarkupRenderer } from "./MarkupRenderer.js";

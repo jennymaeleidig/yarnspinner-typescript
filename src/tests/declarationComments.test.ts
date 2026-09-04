@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * `///` declaration documentation comments (spec story 47): comment lines
  * starting `///` immediately above a `<<declare>>` attach to the

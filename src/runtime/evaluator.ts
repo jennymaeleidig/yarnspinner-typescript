@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Safe expression evaluator for Yarn Spinner conditions.
  * Supports variables, functions, comparisons, and logical operators.

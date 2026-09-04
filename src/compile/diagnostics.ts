@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Diagnostics channel (spec ticket 10; coding standards §3 collect-don't-throw).
  *

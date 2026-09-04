@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Enum-aware type checking pass (spec ticket 41).
  *

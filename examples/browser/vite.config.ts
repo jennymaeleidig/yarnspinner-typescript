@@ -13,7 +13,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "yarn-spinner-ts": path.resolve(__dirname, "../src"),
+      "yarn-spinner-runner-ts": path.resolve(__dirname, "../src"),
     },
   },
   build: {

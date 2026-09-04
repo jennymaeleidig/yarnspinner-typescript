@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Port of the upstream conformance runner (`YarnSpinner.Tests/TestBase.cs`,
  * `RunStandardTestcase`) onto this project's runtime, driving the vendored

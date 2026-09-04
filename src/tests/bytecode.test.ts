@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Instruction-stream program tests (spec ticket 44; ADR 0001, ADR 0003).
  *

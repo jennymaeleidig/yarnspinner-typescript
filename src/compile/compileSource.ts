@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * The compile seam (spec tickets 23/41/49): parse → validate → type-check →
  * compile, returning the program together with its diagnostics instead of

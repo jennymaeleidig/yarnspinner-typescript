@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Line composition (the runtime line-parser stage, spec seam 2): `{expr}`
  * substitutions expanded, then the runtime markup module parses the

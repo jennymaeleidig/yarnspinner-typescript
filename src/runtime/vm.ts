@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * The instruction-stream VM (ADR 0001): executes the compiled `Program` —
  * per-node instruction streams whose expressions are bytecode and whose

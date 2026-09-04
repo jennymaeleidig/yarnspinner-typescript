@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import type { SceneCollection, SceneConfig } from "../scene/types.js";
 // Note: CSS is imported in the browser demo entry point (examples/browser/main.tsx)

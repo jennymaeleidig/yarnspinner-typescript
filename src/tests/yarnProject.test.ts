@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * YarnProject loader core (yarn-project-support ticket 02): parse + validate
  * upstream-style `.yarnproject` files (v4 schema, legacy v2 accepted, the

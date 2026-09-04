@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 import React, { useMemo } from "react";
 import { DialogueView } from "./DialogueView.js";
 import type { DialogueViewProps } from "./DialogueView.js";

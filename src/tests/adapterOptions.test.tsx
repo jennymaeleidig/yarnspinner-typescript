@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Ticket 56 (adapter options passthrough): the newer `DialogueOptions` —
  * `variableStorage` (spec story 39, the persistence seam), `textProvider`

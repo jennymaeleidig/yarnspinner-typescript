@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Command utilities for Yarn Spinner commands: parsing (`parseCommand`)
  * and state-statement execution (`executeStateStatement`).

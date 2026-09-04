@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * The transcript-reduction module (CONTEXT.md "Transcript" / "stopping
  * point"): one home for the stopping-point contract that adapter consumers

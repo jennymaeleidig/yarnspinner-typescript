@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Culture-independence port of the upstream conformance loop
  * (YarnSpinner.Tests: `DialogueTests` runs numeric formatting across 14

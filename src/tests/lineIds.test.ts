@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Line IDs + string table (spec ticket 50): the compile output carries the
  * upstream string-table contract — implicit line IDs via upstream's

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Contract tests for the transcript-reduction module (`runUntilStopped`,
  * CONTEXT.md "Transcript" / "stopping point").

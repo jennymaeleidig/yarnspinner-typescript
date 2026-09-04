@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Loader for the submodule's 3.2.2 diagnostic-definition markdown
  * (`test/fixtures/upstream/YarnSpinner/YarnSpinner.Diagnostics/Definitions/`,

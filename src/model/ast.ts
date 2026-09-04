@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 export type Position = { line: number; column: number };
 
 /**

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * The text provider seam (spec ticket 51): the injectable resolver from
  * line ID to text for the current language. The runtime is

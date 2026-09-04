@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Ported upstream markup tests (upstream `YarnSpinner.Tests/MarkupTests.cs`
  * at tag 3.2.2), run against the runtime line-parser module directly — the

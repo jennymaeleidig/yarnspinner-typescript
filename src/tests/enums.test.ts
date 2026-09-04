@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Enums end-to-end (spec ticket 41; spec stories 11-13, 30-32).
  *

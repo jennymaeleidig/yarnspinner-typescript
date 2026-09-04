@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * ParseFailures validation wave (ticket 54): the compiler-side validations
  * whose absence let 12 upstream must-fail fixtures compile clean.

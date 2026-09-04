@@ -516,4 +516,9 @@ Additional documentation is available in the `docs/` folder:
 
 ## License
 
-MIT
+The original code of this project is dedicated to the public domain under
+[CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/) (see
+`LICENSE`). Code borrowed or adapted from external sources keeps its original
+license and is recorded in [`CITATION.cff`](./CITATION.cff) — notably the
+Yarn Spinner material (MIT) this project mirrors and ports from, mounted as
+the pinned git submodule under `test/fixtures/upstream/`.

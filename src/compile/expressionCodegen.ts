@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Expression codegen (ADR 0001): the compile-time counterpart of the
  * runtime string evaluator. Condition and assignment expressions compile

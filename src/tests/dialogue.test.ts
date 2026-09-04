@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Contract tests for the pull-based runtime API (ticket 43, ADR 0002).
  *

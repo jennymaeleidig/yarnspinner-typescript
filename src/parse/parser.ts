@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 import { lex, Token } from "./lexer.js";
 import { ParseError } from "./parseError.js";
 

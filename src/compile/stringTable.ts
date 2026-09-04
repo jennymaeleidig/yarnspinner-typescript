@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * The string table (spec story 32; upstream `StringTableManager` +
  * `StringInfo` + `StringTableGeneratorVisitor`): the compile output's

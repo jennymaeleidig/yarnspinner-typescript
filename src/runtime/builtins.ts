@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * The built-in functions every dialogue carries (upstream `StandardLibrary`
  * role). Registered into the runtime's Library at construction; host

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Generated-variable naming (coding standards §4, CONTEXT.md "Generated
  * variable"): all story state that is not authored content — once-state,

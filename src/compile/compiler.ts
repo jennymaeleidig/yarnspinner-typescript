@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * The compiler: AST → instruction-stream program (ADR 0001, ADR 0003).
  *

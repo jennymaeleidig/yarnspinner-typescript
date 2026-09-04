@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Markup data model (upstream `Yarn.Markup` types, camelCased): the
  * structured result of the runtime line-parser stage — plain text plus the

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Test-side compile through the public collect-don't-throw seam
  * (deepening-wave ticket 09): the library hands back diagnostics and a

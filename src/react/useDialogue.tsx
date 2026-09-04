@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { Dialogue, Library } from "../runtime/dialogue.js";
 import type { YarnFunction, DialogueOptions } from "../runtime/dialogue.js";

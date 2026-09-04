@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 export * from "./model/ast.js";
 export * from "./parse/lexer.js";
 export * from "./parse/parser.js";

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * tagLines + line-tag generators (spec ticket 51; upstream
  * `Utility.TagLines` + `ILineTagGenerator` + the Random/Descriptive

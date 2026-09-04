@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Pluggable variable storage (spec story 39, glossary "variable storage"):
  * the persistence seam where all story state — story variables and

@@ -13,12 +13,15 @@ references:
       - name: Yarn Spinner Pty. Ltd.
       - name: Secret Lab Pty. Ltd.
       - name: Yarn Spinner contributors
-    version: main (commit ec1a680fae4c0fc8aae73b23c7b87f3e5f894100)
-    date-released: "2026-09-02"
+    version: v3.2.2 (commit 5b3a4ff2d24e4f727e3f90fee5d8ce637474c305)
+    date-released: "2026-08-11"
     license: MIT
     urls:
       - https://github.com/YarnSpinnerTool/YarnSpinner
     notes: >-
+      Incorporated as the conformance-corpus git submodule pinned at the
+      v3.2.2 tag (test/fixtures/upstream/YarnSpinner; see the corpus
+      PROVENANCE.md and the bump-upstream skill for the pin's history).
       src/compile/crc32.ts adapts YarnSpinner/CRC32.cs (standard CRC-32,
       little-endian hex formatting for implicit line IDs).
       src/compile/tagLines.ts ports YarnSpinner.Compiler/Utility.cs
@@ -29,7 +32,8 @@ references:
       compiler and runtime behavior is a parity-driven reimplementation of
       the documented upstream algorithms (string table, shadow-line
       validation, diagnostics registry), not a code borrow.
-      Accessed 2026-09-02 (crc32.ts) and 2026-09-03 (tagLines.ts).
+      Accessed 2026-09-02 (crc32.ts), 2026-09-03 (tagLines.ts, submodule
+      mount).
   - type: software
     title: YarnSpinner-Unity
     authors:

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Discovery helpers for the upstream conformance corpus, mounted as a git
  * submodule at `test/fixtures/upstream/YarnSpinner` (pinned: v3.2.2 — see

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Enum types (spec ticket 41; CONTEXT.md "Enum").
  *

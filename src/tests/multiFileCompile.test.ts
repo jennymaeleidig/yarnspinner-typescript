@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Multi-file compile + external declarations + four modes (spec ticket 49,
  * stories 31-33): the public `compile(files)` seam — `{ name, source }`

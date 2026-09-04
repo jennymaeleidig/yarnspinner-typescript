@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { DialogueScene } from "./DialogueScene.js";
 import type { SceneCollection } from "../scene/types.js";

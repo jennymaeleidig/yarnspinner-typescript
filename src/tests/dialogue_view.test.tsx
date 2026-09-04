@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 import { test } from "node:test";
 import { ok, deepEqual } from "node:assert";
 import React from "react";

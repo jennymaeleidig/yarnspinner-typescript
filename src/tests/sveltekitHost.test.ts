@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * SvelteKit host harness (yarn-project-support ticket 05): the end-to-end
  * story proven by the example app at `examples/sveltekit-host/` — the same

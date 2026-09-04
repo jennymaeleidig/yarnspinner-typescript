@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 import React, { useState, useMemo } from "react";
 import { compileSource } from "../compile/compileSource.js";
 import { DialogueRunner } from "./DialogueRunner.js";
@@ -9,7 +10,7 @@ const DEFAULT_YARN = `title: Start
 scene: scene1
 ---
 << declare $hasBadge = false >>
-Narrator: Welcome to [b]yarn-spinner-ts[/b], {$playerName}!
+Narrator: Welcome to [b]yarn-spinner-runner-ts[/b], {$playerName}!
 Narrator: Current street cred: {$reputation}
 npc: This is a dialogue system powered by Yarn Spinner.
 Narrator: Click anywhere to continue, or choose an option below.
@@ -92,7 +93,7 @@ export function DialogueExample({
       }}
     >
       <div style={{ maxWidth: "1000px", width: "100%" }}>
-        <h1 style={{ color: "#ffffff", textAlign: "center", marginBottom: "30px" }}>yarn-spinner-ts Dialogue Demo</h1>
+        <h1 style={{ color: "#ffffff", textAlign: "center", marginBottom: "30px" }}>yarn-spinner-runner-ts Dialogue Demo</h1>
 
         {errors.map((d) => (
           <div

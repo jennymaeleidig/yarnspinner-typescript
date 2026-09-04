@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * The runtime (`Dialogue`): pull-based execution of a compiled program
  * (ADR 0002, ticket 43).

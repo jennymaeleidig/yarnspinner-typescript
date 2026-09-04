@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * A parse-level problem (coding standards §3: collect-don't-throw — the
  * compile seam converts these to diagnostics; nothing escapes the seam).

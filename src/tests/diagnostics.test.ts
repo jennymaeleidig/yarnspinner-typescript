@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Diagnostics channel tests (spec ticket 23; coding standards §3).
  *

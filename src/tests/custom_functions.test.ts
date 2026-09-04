@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 import { test } from "node:test";
 import { strictEqual, ok, match } from "node:assert";
 import { compileOk } from "./compileOk.js";

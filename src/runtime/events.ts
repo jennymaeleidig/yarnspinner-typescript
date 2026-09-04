@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * The public runtime API shape (ADR 0002): the dialogue event vocabulary,
  * the pull-API constants, and the construction options — shared verbatim by

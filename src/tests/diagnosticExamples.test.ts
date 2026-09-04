@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Phase-3 diagnostic-definition golden loop (ticket 65, roadmap phase 3 of
  * the conformance harness): every code the compiler registers must fire on

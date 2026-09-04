@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * The text-provider seam + setLanguage (spec ticket 51; upstream is
  * string-table-unaware — the Rust reference reshapes localisation into an

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Next.js host harness (yarn-project-support ticket 04): the end-to-end
  * story proven by the example app at `examples/nextjs-host/` — the

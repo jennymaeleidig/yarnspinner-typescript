@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Node file system for the YarnProject loader (yarn-project-support
  * ticket 02): the default {@link YarnProjectFileSystem} implementation plus

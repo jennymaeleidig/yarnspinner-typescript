@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 /**
  * Localisation wiring (yarn-project-support ticket 03): the project's
  * `localisation` map drives localised play end-to-end — each declared
