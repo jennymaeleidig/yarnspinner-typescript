@@ -30,14 +30,14 @@ here.
 ## 2. Move the pin
 
 Fetch inside the submodule, then check out the target ref. Note: on macOS the
-osxkeychain helper can fail the fetch with `fatal: failed to store: -60008`;
-bypass it with `-c credential.helper=` (public repo, no credentials needed).
+osxkeychain helper can fail **any** network git call (fetch, ls-remote, …)
+with `fatal: failed to store: -60008`; bypass it with `-c credential.helper=`
+on every remote-touching command (public repo, no credentials needed).
+Paths below are run from the repo root (the submodule is four levels down).
 
 ```bash
-cd test/fixtures/upstream/YarnSpinner
-git -c credential.helper= fetch --tags origin
-git checkout <tag-or-ref>
-cd ../../..
+git -C test/fixtures/upstream/YarnSpinner fetch --tags origin   # add -c credential.helper= if -60008 appears
+git -C test/fixtures/upstream/YarnSpinner checkout <tag-or-ref>
 git add test/fixtures/upstream/YarnSpinner   # stage the new gitlink pin
 ```
 

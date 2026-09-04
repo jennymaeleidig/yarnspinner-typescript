@@ -29,6 +29,7 @@ submodule files by hand; upstream remains the source of truth (see
 ## Pin history
 
 - 2026-09-03: initial submodule mount pinned at `v3.2.2` (`5b3a4ff2d24e4f727e3f90fee5d8ce637474c305`) — byte-identical to the previous vendored copy; suite green (upstream-submodule ticket 01).
+- 2026-09-03: first-bump drill (upstream-submodule ticket 03) — `v3.2.2` → `origin/main` (`ec1a680`, lookahead; suite 554/554 green) → settled back to `v3.2.2` (suite 554/554). Lookahead finding: main's `c9996a93` strips whitespace from character names in the descriptive tagger — port when the pin crosses it (map fog).
 
 ## License
 
