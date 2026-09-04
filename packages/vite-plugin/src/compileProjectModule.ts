@@ -18,16 +18,22 @@ import {
   nodeProjectFs,
 } from "yarn-spinner-runner-ts/node";
 import { loadLocalisations } from "yarn-spinner-runner-ts";
-import type { DiagnosticSeverity } from "yarn-spinner-runner-ts";
+import type { DiagnosticSeverity, ExternalDeclarations } from "yarn-spinner-runner-ts";
 import { partitionDiagnostics, type CompiledYarnModule } from "./compileModule.js";
 
 export function compileYarnProjectModule(
   projectFilePath: string,
-  opts: { diagnosticsSeverity?: Record<string, DiagnosticSeverity> } = {},
+  opts: {
+    diagnosticsSeverity?: Record<string, DiagnosticSeverity>;
+    declarations?: ExternalDeclarations;
+  } = {},
 ): CompiledYarnModule {
   const { project, stringTable, program, diagnostics } = loadYarnProject(
     projectFilePath,
-    { diagnosticsSeverity: opts.diagnosticsSeverity },
+    {
+      diagnosticsSeverity: opts.diagnosticsSeverity,
+      declarations: opts.declarations,
+    },
   );
   const localisation = loadLocalisations({ project, stringTable }, nodeProjectFs(dirname(projectFilePath)));
   const { errors, warnings } = partitionDiagnostics([...diagnostics, ...localisation.diagnostics]);

@@ -11,7 +11,7 @@
 // .None): it reaches neither bucket, so it produces no build signal.
 
 import { compileSource } from "yarn-spinner-runner-ts";
-import type { Diagnostic, DiagnosticSeverity } from "yarn-spinner-runner-ts";
+import type { Diagnostic, DiagnosticSeverity, ExternalDeclarations } from "yarn-spinner-runner-ts";
 
 export interface CompileYarnOptions {
   /**
@@ -21,6 +21,11 @@ export interface CompileYarnOptions {
    * downgraded to a warning no longer fails the build.
    */
   diagnosticsSeverity?: Record<string, DiagnosticSeverity>;
+  /**
+   * External declarations — the definitions option's derived Library
+   * surface, so build-time signature checking sees the host's functions.
+   */
+  declarations?: ExternalDeclarations;
 }
 
 export interface CompiledYarnModule {
@@ -57,6 +62,7 @@ export function compileYarnModule(
     compileSource(source, {
       file: filename,
       diagnosticsSeverity: opts.diagnosticsSeverity,
+      declarations: opts.declarations,
     });
   const { errors, warnings } = partitionDiagnostics(diagnostics);
   const code =
