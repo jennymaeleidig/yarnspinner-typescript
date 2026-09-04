@@ -1,7 +1,7 @@
 # Plugin read-error shaping on both branches
 
 Type: task
-Status: open
+Status: resolved
 
 ## Problem
 
@@ -31,4 +31,17 @@ legible error for an unreadable file.
 
 ## Answer
 
-(when resolved)
+Landed. The `.yarn` branch's read in the plugin's load hook now wraps in
+`.catch(fileReadError)` (packages/vite-plugin/src/index.ts), matching the
+project branch. The `?raw` query branch deliberately keeps the raw read —
+that is Vite's raw-asset contract, not a compilation file.
+
+New pin in vitePlugin.test.ts: an unreadable `.yarn` AND an unreadable
+`.yarnproject` both fail the load with the YarnBuildError shape naming the
+file — no raw Node error (errno/syscall) escapes, no loc (nothing was read).
+Discriminator note recorded: the shaped message legitimately names the ENOENT
+cause, so the pin asserts the shape, not the absence of the string.
+
+Suite 634 pass / 0 fail / 1 skip, lint and ts-check clean. (Plugin dist
+rebuilds under pretest; standalone tsx runs over the plugin suites need
+`npm run build -w yarn-spinner-vite-plugin` first.)

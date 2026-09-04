@@ -243,7 +243,9 @@ export function yarnSpinnerVitePlugin(
           (m) => this.warn(m),
         );
       }
-      const source = await readFile(file, "utf8");
+      const source = await readFile(file, "utf8").catch((e: unknown) => {
+        throw fileReadError(file, e);
+      });
       return emitModule(
         compileYarnModule(source, file, compileOpts),
         id,

@@ -54,6 +54,31 @@ test("a .yarn import emits a module whose default export is a Program a Dialogue
   }
 });
 
+test("an unreadable compilation file fails the load naming the file, on both branches", async () => {
+  // The stated contract — a compilation file the plugin cannot read must
+  // fail the build with its path, not a raw ENOENT — on the .yarn and the
+  // .yarnproject branch alike.
+  const dir = mkdtempSync(join(tmpdir(), "yarn-plugin-read-"));
+  try {
+    for (const missing of [join(dir, "missing.yarn"), join(dir, "missing.yarnproject")]) {
+      const err = (await (
+        callHook(plugin.load, viteCtx(), missing) as Promise<unknown>
+      ).then(
+        () => null,
+        (e: unknown) => e,
+      )) as { message: string; id: string } | null;
+      ok(err, `the load fails for ${missing}`);
+      ok(!("errno" in err && "syscall" in err), `no raw Node error escapes: ${JSON.stringify(err)}`);
+      ok(err.message.startsWith("Cannot read "), `the read failure is named: ${err.message}`);
+      ok(err.message.includes(missing), `names the file: ${err.message}`);
+      strictEqual(err.id, missing);
+      ok(!("loc" in err), "no location: nothing was read");
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("load bails on query-carrying ids and non-.yarn ids", async () => {
   const dir = mkdtempSync(join(tmpdir(), "yarn-plugin-"));
   try {
