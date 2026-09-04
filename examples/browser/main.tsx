@@ -1,14 +1,16 @@
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { DialogueExample } from "../../src/react/DialogueExample.js";
+import { DialogueRunner } from "yarn-spinner-runner-ts/react";
 import { StoryletsDemo } from "./StoryletsDemo.js";
 import { parseScenes } from "./scenes.js";
-// Import CSS for dialogue system
-import "../../src/react/dialogue.css";
+// The demo owns its styling (the package ships no CSS).
+import "./dialogue.css";
+// Shared demo content, compiled at build time by yarn-spinner-vite-plugin —
+// the whole shared project (every host's content), no inline templates.
+import wayside from "../content/project.yarnproject";
 
 // The demo host owns its scene YAML and the parser (the package ships no
-// YAML scene parser); the parsed collection is
-// host input to `<DialogueExample />`.
+// YAML scene parser); the parsed collection is host input to the view.
 const DEFAULT_SCENES = `
 scenes:
     scene1: https://i.pinimg.com/1200x/73/f6/86/73f686e3c62e5982055ce34ed5c331b9.jpg
@@ -65,7 +67,15 @@ function DemoShell() {
           ))}
         </nav>
         <p style={{ color: "#9aa0b5", fontSize: 13, margin: "0 0 16px" }}>{active?.blurb}</p>
-        {tab === "dialogue" ? <DialogueExample scenes={DEMO_SCENES} /> : <StoryletsDemo />}
+        {tab === "dialogue" ? (
+          <DialogueRunner
+            program={wayside.program ?? undefined}
+            startAt="Start"
+            scenes={DEMO_SCENES}
+          />
+        ) : (
+          <StoryletsDemo />
+        )}
       </div>
     </div>
   );

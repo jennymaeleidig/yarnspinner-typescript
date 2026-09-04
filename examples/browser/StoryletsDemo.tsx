@@ -1,86 +1,23 @@
+// SPDX-License-Identifier: CC0-1.0
+// The storylet demo: a node group whose members gate on `when:`
+// conditions of varying complexity, drawn repeatedly under switchable
+// saliency strategies. Exercises the runtime's saliency surface directly —
+// `setSaliencyStrategy`, `getSaliencyOptionsForNodeGroup`, `getVariables` —
+// through the public `Dialogue` API.
+//
+// Content loads via direct import through yarn-spinner-vite-plugin from the
+// shared demo project (examples/content/storylets.yarn) — compiled at build
+// time, no inline template strings, no manual compile calls. The yarn is
+// mirrored in src/tests/dialogue_view.test.tsx, which pins this exact
+// story's draw sequence per strategy.
+
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { compileSource } from "../../src/compile/compileSource.js";
-import type { Program } from "../../src/compile/program.js";
-import { Dialogue } from "../../src/runtime/dialogue.js";
-import { runUntilComplete } from "../../src/runtime/transcript.js";
-import type { TranscriptLine } from "../../src/runtime/transcript.js";
-import type { ContentSaliencyOption } from "../../src/runtime/saliency.js";
-
-/**
- * The storylet demo: a node group whose members gate on `when:`
- * conditions of varying complexity, drawn repeatedly under switchable
- * saliency strategies. Exercises the runtime's saliency surface directly —
- * `setSaliencyStrategy`, `getSaliencyOptionsForNodeGroup`, `getVariables` —
- * through the public `Dialogue` API (the React adapter is migration-only and
- * intentionally carries no saliency features).
- *
- * The yarn below is mirrored in `src/tests/dialogue_view.test.tsx`, which
- * pins this exact story's draw sequence per strategy.
- */
-
-const STORYLET_YARN = `title: Start
----
-<<declare $metRogue = false>>
-<<declare $trustHigh = false>>
-===
-
-title: Storylets
-subtitle: crossroads
-when: always
----
-Narrator: Quiet at the crossroads. Another traveller, another tale.
-===
-
-title: Storylets
-subtitle: rumor
-when: not $metRogue
----
-Narrator: Travellers whisper of a Rogue who works the far road.
-===
-
-title: Storylets
-subtitle: first-meeting
-when: once
----
-Rogue: Well met. You don't look like the usual pilgrims.
-<<set $metRogue = true>>
-Narrator: You've met the Rogue. New roads just opened up.
-===
-
-title: Storylets
-subtitle: rogue
-when: $metRogue
----
-Rogue: Back again? The road keeps throwing us together.
-===
-
-title: Storylets
-subtitle: duel
-when: once if $metRogue
----
-Rogue: Prove your steel — once, and only once.
-<<set $trustHigh = true>>
-Narrator: Blades are crossed. Trust, somehow, was earned.
-===
-
-title: Storylets
-subtitle: heist
-when: $metRogue and $trustHigh
----
-Rogue: One last job. The vault under the chapel. Are you in?
-Narrator: The heist went off without a hitch. Trust does that.
-===`;
-
-// The demo compiles through the public collect-don't-throw seam (the
-// package's throwing AST seam is internal) and
-// asserts the host-side precondition: no error diagnostics, a program.
-function compileDemo(source: string): Program {
-  const { program, diagnostics } = compileSource(source);
-  if (!program || diagnostics.some((d) => d.severity === "error")) {
-    throw new Error(`demo story failed to compile: ${diagnostics.map((d) => d.code).join(", ")}`);
-  }
-  return program;
-}
+import { Dialogue } from "yarn-spinner-runner-ts";
+import { runUntilComplete } from "yarn-spinner-runner-ts";
+import type { Program } from "yarn-spinner-runner-ts";
+import type { TranscriptLine } from "yarn-spinner-runner-ts";
+import type { ContentSaliencyOption } from "yarn-spinner-runner-ts";
+import storyletsProgram from "../content/storylets.yarn";
 
 /**
  * The built-in saliency strategies (upstream `<<set_saliency>>` vocabulary).
@@ -130,14 +67,14 @@ export function StoryletsDemo() {
   const [storyVariables, setStoryVariables] = useState<Record<string, unknown>>({});
   const [ended, setEnded] = useState(false);
 
-  const program = useRef(compileDemo(STORYLET_YARN)).current;
+  const program: Program = storyletsProgram;
 
   const getDialogue = useCallback((): Dialogue => {
     if (dialogueRef.current === null) {
       // The storage-backed saliency history (view counts, once-state) is
       // born and dies with this instance — Reset proves it (coding
       // standards §4).
-      dialogueRef.current = new Dialogue(program, { startAt: "Start" });
+      dialogueRef.current = new Dialogue(program, { startAt: "StoryletsIntro" });
       dialogueRef.current.setSaliencyStrategy(strategy);
     }
     return dialogueRef.current;

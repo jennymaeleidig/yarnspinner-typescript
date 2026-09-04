@@ -1,0 +1,52 @@
+title: StoryletsIntro
+---
+<<declare $metRogue = false>>
+<<declare $trustHigh = false>>
+===
+
+title: Storylets
+subtitle: crossroads
+when: always
+---
+Narrator: Quiet at the crossroads. Another traveller, another tale.
+===
+
+title: Storylets
+subtitle: rumor
+when: not $metRogue
+---
+Narrator: Travellers whisper of a Rogue who works the far road.
+===
+
+title: Storylets
+subtitle: first_meeting
+when: once
+---
+Rogue: Well met. You don't look like the usual pilgrims.
+<<set $metRogue = true>>
+Narrator: You've met the Rogue. New roads just opened up.
+===
+
+title: Storylets
+subtitle: rogue
+when: $metRogue
+---
+Rogue: Back again? The road keeps throwing us together.
+===
+
+title: Storylets
+subtitle: duel
+when: once if $metRogue
+---
+Rogue: Prove your steel — once, and only once.
+<<set $trustHigh = true>>
+Narrator: Blades are crossed. Trust, somehow, was earned.
+===
+
+title: Storylets
+subtitle: heist
+when: $metRogue and $trustHigh
+---
+Rogue: One last job. The vault under the chapel. Are you in?
+Narrator: The heist went off without a hitch. Trust does that.
+===

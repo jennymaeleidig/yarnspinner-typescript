@@ -52,7 +52,7 @@ function loadHostProject(): { program: Program; sources: string[]; projectName?:
 
 test("the host's project loads server-side through the Node provider", () => {
   const { sources, projectName } = loadHostProject();
-  assert.deepEqual(sources, ["crossroads.yarn", "night_market.yarn"]);
+  assert.deepEqual(sources, ["crossroads.yarn", "night_market.yarn", "storylets.yarn"]);
   assert.equal(projectName, "Wayside");
 });
 
