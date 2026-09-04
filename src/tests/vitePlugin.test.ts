@@ -73,7 +73,7 @@ test("load bails on query-carrying ids and non-.yarn ids", async () => {
   try {
     const story = join(dir, "story.yarn");
     writeFileSync(story, DEMO);
-    strictEqual(await callHook(plugin.load, `${story}?raw`), undefined);
+    strictEqual(await callHook(plugin.load, `${story}?url`), undefined);
     strictEqual(await callHook(plugin.load, join(dir, "notes.txt")), undefined);
   } finally {
     rmSync(dir, { recursive: true, force: true });

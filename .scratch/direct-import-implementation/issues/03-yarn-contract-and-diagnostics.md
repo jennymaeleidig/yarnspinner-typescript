@@ -4,11 +4,20 @@
 
 **Blocked by:** 02 (plugin tracer bullet).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Named exports present on the emitted module and correct for a fixture source
-- [ ] `?raw` yields the exact source string; the bail set passes through to Vite core behavior
-- [ ] A YS-error fixture rejects with id, line/column, and frame in the error
-- [ ] Warning-severity diagnostics resolve without failing the build
-- [ ] Severity override flips an error to a warning and the build succeeds
-- [ ] Full suite green
+## Answer
+
+Implemented on the emitted-module seam. Two core-side discoveries made during the work:
+
+- **Core bug fixed (`src/compile/compileSource.ts`)**: the `docs.length === 0` early-return path (a file that fails to parse entirely) skipped `applySeverityOverrides()` — a project's severity override was silently dropped exactly when a build-error diagnostic was present. The helper is now hoisted above the early return and applied on every exit path. This ticket's "severity override honored" acceptance caught it.
+- **Root tsconfig `paths` self-mapping added**: the plugin's declarations now reference core types (`Diagnostic[]` in `CompiledYarnModule`), so the root program pulled its own `dist/*.d.ts` in through the workspace symlink and tsc refused to emit over its inputs (TS5055). `"paths": { "yarn-spinner-runner-ts": ["./src/index.ts"] }` maps the self-name to source within the root project — semantically exact and collision-free.
+
+Also updated: the ticket-02 tracer test's `?raw` expectation — ticket 03 makes `?raw` an owned query (raw-source module), so the bail test now covers `?url` and non-`.yarn` ids.
+
+- [x] Named exports present on the emitted module and correct for a fixture source (stringTable / containsImplicitStringTags / fileTags asserted, file tags keyed by id)
+- [x] `?raw` yields the exact source string; `?url`/`?inline`/`?no-inline` bail to Vite core
+- [x] A YS-error fixture rejects with id, line/column, and frame in the error (RollupError shape, 1-based line, caret frame)
+- [x] Warning-severity diagnostics resolve without failing the build (surfaced via this.warn)
+- [x] Severity override flips an error to a warning and the build succeeds (exposed and fixed the no-parse early-return gap in core)
+- [x] Full suite green — 646 tests, 645 pass, 0 fail, 1 skip; lint + ts-check clean
