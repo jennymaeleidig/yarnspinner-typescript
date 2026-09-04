@@ -69,6 +69,23 @@ by the pin).
   must-fail now compiles). Clean the entry — the suite self-reports stale
   entries — and note the fix in the gap ticket it closed.
 
+**Coverage diff (same step, after the verdicts):** upstream's test suite is
+not only its fixture sweep — `YarnSpinner.Tests/*.cs` pins behaviors the
+testplans never touch (parser recovery, type matrices, initial values,
+project-file schema features). After moving the pin, diff the upstream suite
+across the bump:
+
+```bash
+git diff <old-pin>..<new-pin> --stat -- YarnSpinner.Tests/   # inside the submodule
+```
+
+Every new or changed upstream test area gets a verdict: **port it now**
+(small, parity-critical), **file a coverage-gap ticket** citing the upstream
+test file/method (per the tracker conventions), or **N/A** (Unity/editor,
+debugger, analysis, language-server, upgrader — recorded out-of-scope
+surfaces). The baseline matrix is the standing coverage audit in the
+tracker; each bump's diff keeps it current.
+
 Anything that is none of these (e.g. an upstream harness semantic we never
 ported) is still a parity gap: file it, allowlist it, and let the parity
 roadmap absorb it.
