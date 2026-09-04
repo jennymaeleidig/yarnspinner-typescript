@@ -1,7 +1,7 @@
 # One finalize above compile()'s mode ladder
 
 Type: task
-Status: open
+Status: resolved
 
 ## Problem
 
@@ -36,4 +36,13 @@ pinned end-to-end).
 
 ## Answer
 
-(when resolved)
+Landed. One `finalize(extra)` above the mode ladder in src/compile/compileSource.ts:
+applies `applySeverityOverrides`, throws in strict mode, returns
+`{...empty, ...extra}`. All four exits (empty, stringsOnly, typeCheckOnly,
+full) are now one call each; the fresh 7-field full-mode literal is gone and
+`emptyCompileResult` carries the shape for every exit. The comment above
+`empty` was synced (it still claimed the plugin layers its maps over this
+pass — stale after ticket 02). Interface unchanged, no new tests — the
+public seam was already pinned end-to-end.
+
+Suite 633 pass / 0 fail / 1 skip, lint and ts-check clean.

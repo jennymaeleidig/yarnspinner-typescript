@@ -229,15 +229,22 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
   // overridden severity is the final severity everywhere. `none` keeps the
   // diagnostic in the list at severity "none" (upstream
   // DiagnosticSeverity.None: hidden from user display, still present).
-  // The shared pass (diagnostics.ts) is called directly, so the plugin
-  // package's compile steps layer their maps over exactly the same
-  // implementation.
+  // The layering decision lives with the loaders (loadProject composes
+  // the project map under the host option); compile() applies the map it
+  // is given, verbatim.
 
   const empty = emptyCompileResult(diagnostics);
-  if (docs.length === 0) {
+  // One mode exit: severity overrides on EVERY exit, then the strict
+  // decision, then the shape over the shared empty result. The invariant
+  // is structural — a new mode exit cannot skip a step (the direct-import
+  // effort's no-parse bug was exactly an exit skipping the override pass).
+  const finalize = (extra: Partial<CompileResult>): CompileResult => {
     applySeverityOverrides(diagnostics, opts.diagnosticsSeverity);
     if (opts.strict) throwOnFirstError(diagnostics);
-    return empty;
+    return { ...empty, ...extra };
+  };
+  if (docs.length === 0) {
+    return finalize({});
   }
 
   // Compile-time Library: registered signatures feed signature
@@ -282,13 +289,10 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
   }
 
   if (mode === "stringsOnly") {
-    applySeverityOverrides(diagnostics, opts.diagnosticsSeverity);
-    if (opts.strict) throwOnFirstError(diagnostics);
-    return {
-      ...empty,
+    return finalize({
       stringTable: manager.stringTable,
       containsImplicitStringTags: manager.containsImplicitStringTags,
-    };
+    });
   }
 
   // Enum-aware type checking: validates enum declarations and
@@ -297,15 +301,12 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
   const checked = typeCheck(combined, { declarations }, (d) => diagnostics.push(d));
 
   if (mode === "typeCheckOnly" || mode === "declarationsOnly") {
-    applySeverityOverrides(diagnostics, opts.diagnosticsSeverity);
-    if (opts.strict) throwOnFirstError(diagnostics);
-    return {
-      ...empty,
+    return finalize({
       stringTable: manager.stringTable,
       declarations: checked.declarations,
       fileTags,
       userDefinedTypes: [...checked.enumTypes.values()],
-    };
+    });
   }
 
   // Full compilation: lower to the instruction-stream artifact (ADR
@@ -325,17 +326,14 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
     diagnostics.push(makeDiagnostic("YS0005", `Internal lowering failure: ${e.message}`));
   }
 
-  applySeverityOverrides(diagnostics, opts.diagnosticsSeverity);
-  if (opts.strict) throwOnFirstError(diagnostics);
-  return {
+  return finalize({
     program,
     stringTable: manager.stringTable,
     declarations: checked.declarations,
-    diagnostics,
     fileTags,
     containsImplicitStringTags: manager.containsImplicitStringTags,
     userDefinedTypes: [...checked.enumTypes.values()],
-  };
+  });
 }
 
 function throwOnFirstError(diagnostics: Diagnostic[]): void {
