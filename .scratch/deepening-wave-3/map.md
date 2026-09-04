@@ -14,7 +14,7 @@ no public-surface breaks.
 | 02 | [02-bytecode-slice-runner.md](issues/02-bytecode-slice-runner.md) | One bytecode-slice runner inside the VM; op classes move beside their emitter | resolved |
 | 03 | [03-command-kind-classification.md](issues/03-command-kind-classification.md) | One classification of internal `<<command>>` kinds (ticket 05's move, one level up) | resolved |
 | 04 | [04-stateless-pull.md](issues/04-stateless-pull.md) | The transcript family's missing member: the stateless pull (`pullUntilStopped`) | open |
-| 05 | [05-empty-compile-result.md](issues/05-empty-compile-result.md) | One empty `CompileResult` across the loader seam | open |
+| 05 | [05-empty-compile-result.md](issues/05-empty-compile-result.md) | One empty `CompileResult` across the loader seam | resolved |
 | 06 | [06-typecheck-direct-drive.md](issues/06-typecheck-direct-drive.md) | Drive `typeCheck()` directly — the checker gets its own test surface | open |
 
 Frontier order = ticket number.

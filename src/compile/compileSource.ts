@@ -124,6 +124,27 @@ export interface CompileResult {
   userDefinedTypes: EnumType[];
 }
 
+/**
+ * The one empty shape every no-program path returns (null program/table,
+ * empty declarations/fileTags/types, the given diagnostics) — stated once,
+ * so a new `CompileResult` field cannot drift the loader seam's failure
+ * paths apart (deepening-wave-3 ticket 05; `yarnProject.failedResult`
+ * spreads it). Not intended for consumer use.
+ *
+ * @internal
+ */
+export function emptyCompileResult(diagnostics: Diagnostic[] = []): CompileResult {
+  return {
+    program: null,
+    stringTable: null,
+    declarations: [],
+    diagnostics,
+    fileTags: {},
+    containsImplicitStringTags: false,
+    userDefinedTypes: [],
+  };
+}
+
 /** Single-file convenience; delegates to `compile()`. */
 export function compileSource(source: string, opts: CompileSourceOptions = {}): CompileResult {
   return compile([{ name: opts.file ?? "input", source }], opts);
@@ -200,15 +221,7 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
     }
   }
 
-  const empty: CompileResult = {
-    program: null,
-    stringTable: null,
-    declarations: [],
-    diagnostics,
-    fileTags: {},
-    containsImplicitStringTags: false,
-    userDefinedTypes: [],
-  };
+  const empty = emptyCompileResult(diagnostics);
   if (docs.length === 0) {
     if (opts.strict) throwOnFirstError(diagnostics);
     return empty;

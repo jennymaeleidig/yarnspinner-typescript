@@ -1,7 +1,7 @@
 # Ticket 05 — One empty `CompileResult` across the loader seam
 
 Type: task
-Status: open
+Status: resolved
 
 ## Question
 
@@ -21,3 +21,7 @@ No behavior change.
 ## Tests
 
 Compile-time drift protection only — no new pins; suite stays green.
+
+## Answer
+
+Landed: `emptyCompileResult(diagnostics)` in `compileSource.ts` (exported at module tier beside the type it builds; carries the given diagnostics, since the compile seam's no-program paths return collected diagnostics, not an empty list); `yarnProject.failedResult` spreads it and adds `project`/`sources`. A new `CompileResult` field is now a one-place edit. Suite 615 (614 pass, 1 mirrored skip), lint clean, ts-check clean.

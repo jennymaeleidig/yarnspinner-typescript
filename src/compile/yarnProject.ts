@@ -23,7 +23,7 @@
  * whose entries must have vendored upstream definition files.
  */
 
-import { compile, hasErrors } from "./compileSource.js";
+import { compile, emptyCompileResult, hasErrors } from "./compileSource.js";
 import type { CompileFile, CompileOptions, CompileResult } from "./compileSource.js";
 import { isDiagnosticSeverity } from "./diagnostics.js";
 import type { Diagnostic, DiagnosticSeverity } from "./diagnostics.js";
@@ -73,9 +73,11 @@ export function projectDiagnostic(
 const DEFAULT_PROJECT_FILE = "project.yarnproject";
 
 /**
- * The one shape every failure path returns — one literal, so the error
- * paths cannot drift apart (code-review finding). Shared with the `./node`
- * boundary module; not intended for consumer use.
+ * The one shape every failure path returns — over the compile seam's single
+ * empty shape (`emptyCompileResult`), plus the loader's own fields, so a
+ * new `CompileResult` field lands once and every error path follows
+ * (deepening-wave-3 ticket 05). Shared with the `./node` boundary module;
+ * not intended for consumer use.
  *
  * @internal
  */
@@ -85,13 +87,7 @@ export function failedResult(
   sources: string[] = [],
 ): LoadProjectResult {
   return {
-    program: null,
-    stringTable: null,
-    declarations: [],
-    diagnostics,
-    fileTags: {},
-    containsImplicitStringTags: false,
-    userDefinedTypes: [],
+    ...emptyCompileResult(diagnostics),
     project,
     sources,
   };
