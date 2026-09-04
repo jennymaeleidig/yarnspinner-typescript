@@ -101,12 +101,12 @@ is gone; per-feature documentation lives in the language docs under
 
 ## Known issues
 
-- A ternary expression (`a ? b : c`) in `<<declare>>`/`<<set>>` currently
-  parses without a diagnostic but silently evaluates to nothing — the
-  variable is left unset. Upstream has no ternary; the fix is a parser
-  rejection with a YS0005 pointing at the `<<if>>` branch pattern, tracked
-  for the next release (the language docs are already corrected). Branch
-  with `<<if>>` instead.
+- A ternary expression (`a ? b : c`) in `<<declare>>`/`<<set>>` is
+  rejected at compile with YS0005 (upstream has no ternary); if the
+  content reaches the runtime's raw-command fallback anyway, the fallback
+  logs a failed-evaluation diagnostic and leaves the variable unset —
+  collect-don't-throw, never silent (coding standards §3). Branch with
+  `<<if>>` instead (the language docs are already corrected).
 - Conformance-harness note: the upstream testplan hashtags are parsed but
   not asserted — upstream's own assertion on them is dead code, and one
   upstream fixture's plan has a hashtag its own compiler cannot parse.
