@@ -42,7 +42,7 @@ git add test/fixtures/upstream/YarnSpinner   # stage the new gitlink pin
 ```
 
 Do not edit anything inside the submodule — ever. Upstream is the source of
-truth (`docs/coding-standards.md` §1); divergences are triaged in step 4.
+truth (`CODING_STANDARDS.md` §1); divergences are triaged in step 4.
 
 ## 3. Run the conformance suite
 

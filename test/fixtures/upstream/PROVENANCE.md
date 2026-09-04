@@ -24,7 +24,7 @@ Run the project's `bump-upstream` skill (`.pi/skills/bump-upstream/SKILL.md`):
 it fetches inside the submodule, checks out the target ref, runs the
 conformance suite and triages every failure into gap tickets. Never edit
 submodule files by hand; upstream remains the source of truth (see
-`docs/coding-standards.md` §1).
+`CODING_STANDARDS.md` §1).
 
 ## Pin history
 

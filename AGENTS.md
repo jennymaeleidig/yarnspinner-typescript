@@ -11,4 +11,4 @@ Issues live as local markdown files under `.scratch/<feature>/`. See `docs/agent
 ### Domain docs
 
 Single-context layout: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
-Coding standards: `docs/coding-standards.md` — binding for agents and humans; use the `CONTEXT.md` glossary vocabulary in all outputs.
+Coding standards: `CODING_STANDARDS.md` (repo root) — binding for agents and humans; use the `CONTEXT.md` glossary vocabulary in all outputs.

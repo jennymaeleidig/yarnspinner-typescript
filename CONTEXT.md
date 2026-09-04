@@ -9,7 +9,7 @@ TypeScript parser, compiler, and runtime for Yarn Spinner 3.x, in language-and-b
 - Runtime (`Dialogue`): pull-based event stream over a stack VM
 - React integration: `useDialogue()` hook and dialogue components (adapter-side, non-upstream)
 
-Reference documentation for the Yarn Spinner 3.x language lives in `docs/` (one file per language feature, each citing its source URL). Coding standards for agents and humans: `docs/coding-standards.md`. Architecture decisions: `docs/adr/`.
+Reference documentation for the Yarn Spinner 3.x language lives in `docs/` (one file per language feature, each citing its source URL). Coding standards for agents and humans: `CODING_STANDARDS.md` (repo root). Architecture decisions: `docs/adr/`.
 
 ## Glossary
 
