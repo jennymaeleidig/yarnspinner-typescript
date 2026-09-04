@@ -1,6 +1,6 @@
 {
   "projectFileVersion": 4,
-  "projectName": "Night Market",
+  "projectName": "Wayside",
   "sourceFiles": ["**/*.yarn"],
   "baseLanguage": "en"
 }

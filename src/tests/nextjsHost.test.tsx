@@ -35,8 +35,8 @@ import type { Program } from "../index.js";
 /** Directory of the compiled test file (dist/tests/). */
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-/** The host's authored content — the same files the server component loads. */
-const CONTENT_DIR = join(HERE, "..", "..", "examples", "nextjs-host", "content");
+/** The shared demo content — the same files the server component loads. */
+const CONTENT_DIR = join(HERE, "..", "..", "examples", "content");
 
 /** The built main entry — what the host's client bundle consumes. */
 const DIST_INDEX = join(HERE, "..", "..", "dist", "index.js");
@@ -52,8 +52,8 @@ function loadHostProject(): { program: Program; sources: string[]; projectName?:
 
 test("the host's project loads server-side through the Node provider", () => {
   const { sources, projectName } = loadHostProject();
-  assert.deepEqual(sources, ["crossroads.yarn"]);
-  assert.equal(projectName, "Crossroads");
+  assert.deepEqual(sources, ["crossroads.yarn", "night_market.yarn"]);
+  assert.equal(projectName, "Wayside");
 });
 
 test("the compiled program is serializable across the RSC boundary", () => {
@@ -152,14 +152,18 @@ test("the host's dialogue flow: buy the map, arrive, complete — then reset rep
   assert.match(line.text, /A crossroads at dusk/, "the flow replays from the top");
 });
 
-test("the walk-on path completes without the map", () => {
+test("the walk-on path reaches the night market without the map", () => {
   const { program } = loadHostProject();
   const dialogue = new Dialogue(program);
   void dialogue.continue(); // opening line
   void dialogue.continue(); // options
-  dialogue.selectOption(1); // Walk on
+  dialogue.selectOption(1); // Walk on → jump NightMarket
   const { transcript } = runUntilComplete(dialogue);
   assert.ok(transcript.lines.some((l) => l.text.includes("leave the Rogue")));
+  assert.ok(
+    transcript.lines.some((l) => l.text.includes("black as pitch")),
+    "the walk-on path lands in the night market",
+  );
   assert.equal(dialogue.getVariable("hasMap"), false);
 });
 
@@ -173,6 +177,6 @@ test("noOptionSelected falls through the host's option set", () => {
   assert.equal(
     stopped,
     "complete",
-    "falling through the options ends the Start node — and with it, the dialogue",
+    "falling through runs no option body — the Start node ends, and with it the dialogue",
   );
 });

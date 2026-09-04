@@ -17,7 +17,7 @@ relative to `process.cwd()`.
 ## How the story fits together
 
 - **Server side** (`app/page.tsx`): `loadYarnProject()` loads this app's own
-  authored project — `content/project.yarnproject` + `content/crossroads.yarn`
+  the shared demo project — `examples/content/project.yarnproject` + `examples/content/crossroads.yarn`
   — through the Node file-access provider (`nodeProjectFs`). This is the
   injected file-access seam earning its keep: the loader core never touches
   Node APIs, and all of the Node access stays here, in a server component.

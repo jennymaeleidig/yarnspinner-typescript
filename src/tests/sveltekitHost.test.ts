@@ -42,8 +42,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 /** The repo root (parent of dist/). */
 const ROOT = join(HERE, "..", "..");
 
-/** The host's authored content — the same files +page.server.ts loads. */
-const CONTENT_DIR = join(ROOT, "examples", "sveltekit-host", "content");
+/** The shared demo content — the same files +page.server.ts loads. */
+const CONTENT_DIR = join(ROOT, "examples", "content");
 
 /** The host's app sources — scanned for the Node/React split. */
 const HOST_SRC = join(ROOT, "examples", "sveltekit-host", "src");
@@ -127,8 +127,8 @@ after(() => {
 
 test("the host's project loads server-side through the Node provider", () => {
 	const { sources, projectName } = loadHostProject();
-	assert.deepEqual(sources, ["night_market.yarn"]);
-	assert.equal(projectName, "Night Market");
+	assert.deepEqual(sources, ["crossroads.yarn", "night_market.yarn"]);
+	assert.equal(projectName, "Wayside");
 });
 
 test("the compiled program is serializable across the load boundary", () => {
@@ -186,12 +186,12 @@ test("the host renders its opening line server-side (SSR harness)", async () => 
 
 	assert.match(
 		html,
-		/black as pitch/,
-		"the opening Hawker line must be in the SSR output (the first pull runs during render)",
+		/A crossroads at dusk/,
+		"the opening Narrator line must be in the SSR output (the first pull runs during render)",
 	);
-	assert.match(html, /<strong[^>]*>Hawker<\/strong>/, "the opening line's speaker renders");
-	assert.match(html, /Night Market/, "the project name renders");
-	assert.match(html, /night_market\.yarn/, "the loader's resolved sources render");
+	assert.match(html, /<strong[^>]*>Narrator<\/strong>/, "the opening line's speaker renders");
+	assert.match(html, /Wayside/, "the project name renders");
+	assert.match(html, /crossroads\.yarn/, "the loader's resolved sources render");
 	assert.match(html, /Continue/, "the pull loop's control renders");
 	assert.match(html, /Reset/, "the variable-storage reset control renders");
 	assert.ok(
@@ -202,17 +202,26 @@ test("the host renders its opening line server-side (SSR harness)", async () => 
 
 // ── Variable-storage reset through the host's flow ────────────────────────
 
-test("the host's dialogue flow: buy the lantern, arrive, complete — then reset replays", () => {
+test("the host's dialogue flow: walk on, buy the lantern, arrive, complete — then reset replays", () => {
 	const { program } = loadHostProject();
 	const dialogue = new Dialogue(program);
 
-	// First pull: declares seed the storage, opening line delivers.
+	// First pull: crossroads declares seed the storage, opening line delivers.
 	dialogue.continue();
+	assert.equal(dialogue.getVariable("gold"), 5);
+	assert.equal(dialogue.getVariable("hasMap"), false);
+
+	// Walk on → the night market: pulls stop per line, so the jump's lines
+	// arrive one pull at a time; the market's declares seed on entry.
+	void dialogue.continue(); // crossroads options
+	dialogue.selectOption(1); // Walk on → jump NightMarket
+	dialogue.continue(); // walk-on line
+	dialogue.continue(); // the Hawker opening
 	assert.equal(dialogue.getVariable("coins"), 7);
 	assert.equal(dialogue.getVariable("hasLantern"), false);
 
 	// The option set; buy the lantern → the price comes off, the jump fires.
-	void dialogue.continue(); // the options event
+	void dialogue.continue(); // the market's options event
 	dialogue.selectOption(0);
 	const { transcript, stopped } = runUntilComplete(dialogue);
 	assert.equal(dialogue.getVariable("coins"), 4, "the lantern cost 3 coins");
@@ -227,20 +236,24 @@ test("the host's dialogue flow: buy the lantern, arrive, complete — then reset
 	// Variable-storage reset (§4): a fresh Dialogue is a fresh storage — the
 	// declares reseed, generated state clears, and the story replays from the top.
 	const replay = new Dialogue(program);
-	assert.equal(replay.getVariable("coins"), 7, "the seed reapplies — storage was reset");
-	assert.equal(replay.getVariable("hasLantern"), false);
+	assert.equal(replay.getVariable("gold"), 5, "the seed reapplies — storage was reset");
+	assert.equal(replay.getVariable("hasMap"), false);
 	const line = replay
 		.continue()
 		.find((e): e is Extract<typeof e, { type: "line" }> => e.type === "line");
 	assert.ok(line);
-	assert.match(line.text, /black as pitch/, "the flow replays from the top");
+	assert.match(line.text, /A crossroads at dusk/, "the flow replays from the top");
 });
 
 test("the walk-on path completes without the lantern", () => {
 	const { program } = loadHostProject();
 	const dialogue = new Dialogue(program);
-	void dialogue.continue(); // opening line
-	void dialogue.continue(); // options
+	void dialogue.continue(); // crossroads opening
+	void dialogue.continue(); // crossroads options
+	dialogue.selectOption(1); // Walk on → jump NightMarket
+	dialogue.continue(); // walk-on line
+	dialogue.continue(); // the Hawker opening
+	void dialogue.continue(); // the market's options event
 	dialogue.selectOption(1); // Keep walking
 	const { transcript } = runUntilComplete(dialogue);
 	assert.ok(transcript.lines.some((l) => l.text.includes("keep their secrets")));
@@ -257,6 +270,6 @@ test("noOptionSelected falls through the host's option set", () => {
 	assert.equal(
 		stopped,
 		"complete",
-		"falling through the options ends the Start node — and with it, the dialogue",
+		"falling through runs no option body — the Start node ends, and with it the dialogue",
 	);
 });

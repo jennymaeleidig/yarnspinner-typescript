@@ -13,20 +13,14 @@ import DialogueHost from "./DialogueHost";
  * compiled program — a plain serializable object (ADR 0001) — plus loader
  * context.
  *
- * The content directory is the app's own authored Yarn project: a root
- * `.yarnproject` plus one `.yarn` file, exactly the shape a real consumer
- * repo would carry.
+ * The shared demo content (`examples/content/`) is the app's story source:
+ * one `.yarnproject` plus `.yarn` files, exactly the shape a real consumer
+ * repo would carry — and the same content every host loads.
  */
 export default function Page() {
   // `next build`/`next dev` run from the repo root (see package.json's
-  // host:build), so the content dir resolves relative to it.
-  const projectPath = join(
-    process.cwd(),
-    "examples",
-    "nextjs-host",
-    "content",
-    "project.yarnproject",
-  );
+  // host:build), so the shared content dir resolves relative to it.
+  const projectPath = join(process.cwd(), "examples", "content", "project.yarnproject");
   const result = loadYarnProject(projectPath);
 
   if (result.program === null) {

@@ -16,9 +16,9 @@ import { loadYarnProject } from "yarn-spinner-runner-ts/node";
  */
 export function load() {
 	// `vite dev`/`vite build` run from the host directory (the sveltekit:*
-	// npm targets cd here — the standard SvelteKit workflow), so the app's
-	// own authored content dir resolves relative to it.
-	const projectPath = join(process.cwd(), "content", "project.yarnproject");
+	// npm targets cd here — the standard SvelteKit workflow), so the shared
+	// demo content dir (`examples/content/`) resolves one level up.
+	const projectPath = join(process.cwd(), "..", "content", "project.yarnproject");
 	const result = loadYarnProject(projectPath);
 
 	if (result.program === null) {

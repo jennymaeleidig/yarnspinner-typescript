@@ -20,8 +20,8 @@ and the server load resolves the content directory relative to it
 ## How the story fits together
 
 - **Server side** (`src/routes/+page.server.ts`): `loadYarnProject()` loads
-  this app's own authored project — `content/project.yarnproject` +
-  `content/night_market.yarn` — through the Node file-access provider
+  the shared demo project — `examples/content/project.yarnproject` +
+  `examples/content/crossroads.yarn` + `examples/content/night_market.yarn` — through the Node file-access provider
   (`nodeProjectFs`). This is the injected file-access seam earning its keep:
   the loader core never touches Node APIs. The `.server.ts` suffix keeps the
   import out of the client bundle entirely — the client gets data, never
