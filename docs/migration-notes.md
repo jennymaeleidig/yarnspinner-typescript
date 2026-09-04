@@ -93,7 +93,8 @@ import { YarnRunner, useYarnRunner } from "yarn-spinner-runner-ts";
 const runner = new YarnRunner(program);
 
 // After (0.2.0)
-import { Dialogue, useDialogue } from "yarn-spinner-runner-ts";
+import { Dialogue } from "yarn-spinner-runner-ts";
+import { useDialogue } from "yarn-spinner-runner-ts/react";
 const dialogue = new Dialogue(program);
 ```
 

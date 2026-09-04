@@ -19,6 +19,7 @@ TypeScript parser, compiler, and runtime for Yarn Spinner 3.x with React adapter
 * ✅ Runtime with `Dialogue` class (pull-based event stream)
 * ✅ React hook: `useDialogue()`
 * ✅ React components: `<DialogueRunner />` (wired), `<DialogueView />` (presentational), `<DialogueScene />`, `<DialogueExample />`
+* ✅ Direct import: `.yarn` / `.yarnproject` files as build-time modules via [yarn-spinner-vite-plugin](https://www.npmjs.com/package/yarn-spinner-vite-plugin) — see [Direct import](./docs/direct-import.md)
 * ✅ Typing animation with configurable speeds, cursor styles, and auto-continue controls
 * ✅ Markup parsing with HTML formatting tags and CSS-ready spans
 * ✅ Expression evaluator for conditions
@@ -138,7 +139,7 @@ Narrator: Current street cred: {$reputation}, score: {$score}
 Two layers, your choice of seam (headless split):
 
 ```tsx
-import { compileSource, useDialogue, DialogueView } from "yarn-spinner-runner-ts";
+import { useDialogue, DialogueView } from "yarn-spinner-runner-ts/react";
 import type { SceneCollection } from "yarn-spinner-runner-ts";
 
 function MyDialogue() {
@@ -170,7 +171,7 @@ Prefer the wiring done for you? `DialogueRunner` takes the program directly
 and forwards every runtime, live, and presentation option:
 
 ```tsx
-import { DialogueRunner } from "yarn-spinner-runner-ts";
+import { DialogueRunner } from "yarn-spinner-runner-ts/react";
 
 <DialogueRunner program={program} startAt="Start" scenes={scenes} autoContinueAfterTyping />;
 ```
@@ -178,12 +179,15 @@ import { DialogueRunner } from "yarn-spinner-runner-ts";
 ### Full Example Component
 
 ```tsx
-import { DialogueExample } from "yarn-spinner-runner-ts";
+import { DialogueExample } from "yarn-spinner-runner-ts/react";
 
 function App() {
   return <DialogueExample />;
 }
 ```
+
+Every React import rides the `./react` subpath — the package root stays
+React-free, so non-React consumers never pull in `react/jsx-runtime`.
 
 ### Typing Animation
 
@@ -284,6 +288,7 @@ Loads upstream-style `.yarnproject` files (format v4, legacy v2 accepted; schema
 * `loadLocalisations({ project, stringTable }, fileSystem)` — Resolve the project's `localisation` map: each declared locale's strings CSV becomes a per-locale id → text table, the compile result's string table becomes the base table (shadow lines excluded), and `assets` directories surface as configured language → path entries for the host (never loaded). Unreadable strings files warn (YP0006) and drop that locale's table
 * `createProjectTextProvider(localisation)` — Glue the localisation tables into a `StringTableTextProvider` for `Dialogue`'s `textProvider` option; switch locales with `Dialogue.setLanguage`
 * Node hosts: `import { loadYarnProject, nodeProjectFs } from "yarn-spinner-runner-ts/node"` — `loadYarnProject("path/to/MyProject.yarnproject")` loads and compiles from disk in one call; `nodeProjectFs(dir)` is the default `YarnProjectFileSystem` (skips `node_modules`/`.git`)
+* Frontend bundles: `import story from "./story.yarn"` — the companion [yarn-spinner-vite-plugin](https://www.npmjs.com/package/yarn-spinner-vite-plugin) compiles `.yarn`/`.yarnproject` files at build time; all import shapes, options, editor types, and the webpack-loader/SSR guidance are in [docs/direct-import.md](./docs/direct-import.md)
 
 ### Runtime
 

@@ -42,7 +42,7 @@ User: Let's begin!
 The scene collection is host input — plain data passed to `DialogueRunner` (or, headless, to `DialogueView` alongside a `useDialogue` result):
 
 ```tsx
-import { DialogueRunner } from "yarn-spinner-runner-ts";
+import { DialogueRunner } from "yarn-spinner-runner-ts/react";
 import type { SceneCollection } from "yarn-spinner-runner-ts";
 
 const scenes: SceneCollection = {

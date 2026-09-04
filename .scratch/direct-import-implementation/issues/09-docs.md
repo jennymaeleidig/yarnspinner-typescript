@@ -4,10 +4,16 @@
 
 **Blocked by:** 06 (types documented), 08 (acceptance harness demonstrates the story).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] All import shapes documented with result shapes and the full options surface
-- [ ] Editor-types reference path and paste-in fallback both documented
-- [ ] Generic loader contract and Next.js/Turbopack guidance written
-- [ ] Framework boundary statement present; React subpath reflected in all import examples
-- [ ] Docs reviewed against the spec for drift
+## Answer
+
+`docs/direct-import.md` tells the whole consumption story: all three import shapes with result-shape tables, the diagnostics-as-build-errors contract, the full plugin options surface (project / definitions / compilerOptions / include+exclude), the editor-types reference path and paste-in fallback (one file serving both), the generic loader contract (compileYarnModule / compileYarnProjectModule are Vite-type-free — the webpack-loader shim maps errors to this.emitError; Next.js webpack mode covered, Turbopack has no loader API yet), the framework-boundary statement (Vite first-class incl. SvelteKit), and explicit guidance on when the SSR load path applies instead (deployment data vs baked-in bundles).
+
+React subpath reflected everywhere: README's React Usage / DialogueRunner / DialogueExample examples now import from `yarn-spinner-runner-ts/react` with an explicit root-stays-React-free note; docs/scenes.md and docs/migration-notes.md imports updated; the features list and the YarnProject loader section link the new doc; the plugin's own README rewritten to the full implemented surface.
+
+- [x] All import shapes documented with result shapes and the full options surface
+- [x] Editor-types reference path and paste-in fallback both documented
+- [x] Generic loader contract and Next.js/Turbopack guidance written
+- [x] Framework boundary statement present; React subpath reflected in all import examples
+- [x] Docs reviewed against the spec for drift (written from the implemented contracts; final reviewer pass follows)

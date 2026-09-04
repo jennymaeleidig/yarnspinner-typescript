@@ -1,0 +1,155 @@
+# Direct import: `.yarn` and `.yarnproject` as build-time modules
+
+With [yarn-spinner-vite-plugin](https://www.npmjs.com/package/yarn-spinner-vite-plugin), Yarn Spinner
+content participates in the frontend build like any other asset: content is
+compiled at build time, nothing compiles or reads files at runtime, and a
+type error in your story fails the build like any other error. Vite is the
+first-class host (including SvelteKit); webpack hosts are covered by the
+loader contract below.
+
+## Setup
+
+```bash
+npm install yarn-spinner-runner-ts yarn-spinner-vite-plugin
+```
+
+```ts
+// vite.config.ts
+import { defineConfig } from "vite";
+import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
+
+export default defineConfig({
+  plugins: [yarnSpinnerVitePlugin()],
+});
+```
+
+The plugin compiles real file ids in place (the mdx/svelte precedent) — no
+virtual modules. `?raw` returns the raw source string; `?url`, `?inline`,
+`?no-inline`, and any other query bail so Vite core (or another plugin) owns
+them. Content edits to `.yarn` and `.yarnproject` files trigger a full page
+reload in dev: a rebuilt program means a rebuilt dialogue, and variable
+storage resets regardless.
+
+## Import shapes
+
+### `import story from "./story.yarn"`
+
+The default export is the compiled, serializable
+[Program](../README.md#api-reference) — hand it straight to `Dialogue`:
+
+```ts
+import program from "./story.yarn";
+import { Dialogue } from "yarn-spinner-runner-ts";
+
+const dialogue = new Dialogue(program, { startAt: "Start" });
+```
+
+The emitted module also carries tree-shakeable named exports:
+
+| Export | Type | What it is |
+| --- | --- | --- |
+| `stringTable` | `StringTable` | Line id → text/node/line info (the full upstream table) |
+| `containsImplicitStringTags` | `boolean` | Whether the compiler created line IDs for lines lacking `#line:` tags |
+| `fileTags` | `Record<string, string[]>` | The file's file-level hashtags |
+
+### `import source from "./story.yarn?raw"`
+
+The default export is the exact source string — useful for showing script
+text in an editor pane or teaching UI.
+
+### `import project from "./project.yarnproject"`
+
+The default export is the full build-time load result: the project compiles
+as one job (source globs resolved, strings CSVs read, localisation baked in)
+and the module is pure data — no runtime file access.
+
+```ts
+import project from "./project.yarnproject";
+import {
+  createProjectTextProvider,
+  Dialogue,
+} from "yarn-spinner-runner-ts";
+
+const provider = createProjectTextProvider(project);
+const dialogue = new Dialogue(project.program!, { textProvider: provider });
+dialogue.setLanguage("de"); // localised delivery; missing lines fall back
+```
+
+| Field | What it is |
+| --- | --- |
+| `program` | The compiled program (`null` when the project failed to load) |
+| `projectName`, `baseLanguage` | Project metadata |
+| `baseTable` | Base language's id → text table (shadow lines excluded) |
+| `translations` | Per-locale id → text tables |
+| `assets` | Configured assets directory per declared locale, verbatim |
+| `diagnostics` | Localisation diagnostics (e.g. a missing strings file warns, YP0006) |
+
+An error-severity diagnostic anywhere in the compiled content fails the build
+with a RollupError-shaped error (`id`, `loc`, `frame` — clickable in the
+terminal and the Vite overlay); warnings surface through Vite's warning
+channel without failing. The project file's own
+`compilerOptions.diagnosticsSeverity` applies before that split — an error
+downgraded to a warning does not fail the build.
+
+## Plugin options
+
+```ts
+yarnSpinnerVitePlugin({
+  // Pin an explicit .yarnproject as the compilation context for .yarn
+  // imports: the project compiles as one job and .yarn imports emit its
+  // result. No upward discovery — unpinned imports stay standalone.
+  project: "./project.yarnproject",
+
+  // .ysls.json-shaped definitions — file paths or inline objects — feed
+  // build-time signature checking (the host's Library surface).
+  definitions: ["./Commands.ysls.json"],
+
+  // Compiler-options passthrough, merged over the pinned project's own
+  // compilerOptions (these win).
+  compilerOptions: { diagnosticsSeverity: { YS0012: "none" } },
+
+  // Unanchored glob-or-RegExp filters layered over extension matching.
+  include: ["src/**"],
+  exclude: ["**/draft/**"],
+})
+```
+
+## Editor types
+
+All three import shapes type-check once TS knows the ambient declarations.
+Either reference the shipped file (one line in an ambient types file, e.g.
+`src/vite-env.d.ts`):
+
+```ts
+/// <reference types="yarn-spinner-vite-plugin/client" />
+```
+
+or paste [`packages/vite-plugin/client.d.ts`](https://github.com/oleksii-chekhovskyi/yarn-spinner-runner-ts/blob/main/packages/vite-plugin/client.d.ts)
+verbatim into your ambient types — it references only `yarn-spinner-runner-ts`
+types (which you have installed), never the plugin package, so the paste-in
+works with zero extra dependencies.
+
+## Framework boundary
+
+**Vite first-class** — the plugin targets Vite (5/6/7) and works in SvelteKit
+unchanged; the browser demo in this repo is built through it as an acceptance
+harness.
+
+**The compile step is bundler-agnostic.** Inside the plugin package,
+`compileYarnModule` (`.yarn` source → emitted module text + errors/warnings
+partition) and `compileYarnProjectModule` (`.yarnproject` → same) import no
+Vite types. A webpack loader is a thin shim: call the same functions, map
+`errors` to `this.emitError` and `warnings` to `this.warn`. For Next.js:
+a loader covers **webpack mode**; **Turbopack** has no loader API yet — use
+`webpack: (config) => { ... }` config escape or, until then, the SSR path
+below.
+
+**When the SSR load path applies instead.** Server-rendered hosts that
+compile once per deploy (Next.js server components, SvelteKit `+page.server.ts`)
+can skip bundler integration entirely: call
+`loadYarnProject("path/to/project.yarnproject")` from
+`yarn-spinner-runner-ts/node` at request/build time and pass the program
+across the serialization boundary. Choose the plugin when content should be
+baked into client bundles and versioned with them; choose the SSR path when
+content is deployment data (CMS-updatable without a rebuild) or when your
+bundler has no loader seam.
