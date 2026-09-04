@@ -12,6 +12,19 @@ import { applyBinaryOp, applyUnaryOp } from "./operands.js";
 // package's public surface (index.ts `export *`) — unchanged.
 export { stringifyOperand, toNumberOperand, deepEqualsOperands } from "./operands.js";
 
+/** Thrown when an expression resolves to no value — the evaluation failed
+ * (an unresolvable token, e.g. the trailing garbage of `<<set $m to 1 2>>`).
+ * Module-internal: `evaluateExpression` softens it to `undefined` (the
+ * historical contract); `tryEvaluateExpression` surfaces it out-of-band as
+ * `{ ok: false }`. Real evaluation errors (unknown function, non-numeric
+ * operand) are ordinary `Error`s and propagate past it. */
+class EvaluationFailure extends Error {
+  constructor(expr: string) {
+    super(`No value for expression "${expr}"`);
+    this.name = "EvaluationFailure";
+  }
+}
+
 /** One character's structural position in an expression: the open-paren
  * depth once the character is consumed, and whether it sits inside a
  * string literal (opening and closing quote characters included). The
@@ -86,7 +99,57 @@ export class ExpressionEvaluator {
    * fully parenthesized logical `(1 && 0)` recursed infinitely. All fixed
    * here — deepening-wave-2 ticket 09.)
    */
+  /**
+   * Evaluate an expression with an out-of-band failure signal: `{ ok: false }
+   *` when the expression cannot be evaluated (an unresolvable value, or a
+   * thrown evaluation error), `{ ok: true, value }` otherwise — including a
+   * legitimate `undefined` result (a void host function). The shape mirrors
+   * `tryGetSmartVariable`'s.
+   *
+   * The fallback `<<set>>`/`<<declare>>` executor is the consumer this
+   * exists for: a plain `evaluateExpression` cannot distinguish "evaluation
+   * failed" from "evaluated, deliberately void", so a failing statement
+   * silently wrote `undefined` over a prior value. With the signal, the
+   * executor logs a diagnostic and skips the write (collect-don't-throw,
+   * coding standards §3) while void-function sets keep working.
+   */
+  tryEvaluateExpression(expr: string): { ok: true; value: unknown } | { ok: false } {
+    try {
+      return { ok: true, value: this.evaluateOrThrow(expr) };
+    } catch {
+      return { ok: false };
+    }
+  }
+
+  /**
+   * Evaluate an expression that can return any value (not just boolean).
+   * A failed evaluation (an unresolvable value — see `EvaluationFailure`)
+   * returns `undefined`; other evaluation errors (an unknown function, a
+   * non-numeric arithmetic operand) propagate to the caller's catch — the
+   * historical contract, unchanged. `tryEvaluateExpression` is the form
+   * that surfaces the failure out-of-band.
+   *
+   * The dispatch follows the checker/codegen grammar layering (upstream's
+   * single expression grammar) — loosest first, so a mixed expression
+   * parses against the same tree the type checker validated:
+   * and/or/xor level → comparison → negation → arithmetic → value.
+   * (The old order — comparison dispatch before logical — parsed
+   * `$a == 1 && $b > 2` as `$a == ((1 && $b) > 2)`; a leading `!` claimed
+   * the comparison dispatcher and threw on any negated expression; and a
+   * fully parenthesized logical `(1 && 0)` recursed infinitely. All fixed
+   * here — deepening-wave-2 ticket 09.)
+   */
   evaluateExpression(expr: string): unknown {
+    try {
+      return this.evaluateOrThrow(expr);
+    } catch (e) {
+      if (e instanceof EvaluationFailure) return undefined;
+      throw e;
+    }
+  }
+
+  /** The evaluation dispatch; `EvaluationFailure` on an unresolvable value. */
+  private evaluateOrThrow(expr: string): unknown {
     const trimmed = this.preprocess(expr.trim());
     if (!trimmed) return false;
 
@@ -486,8 +549,12 @@ export class ExpressionEvaluator {
       return expr.slice(1, -1);
     }
 
-    // Default: treat as variable (may be undefined)
-    return this.variables.get(key);
+    // Default: an unresolvable value — the evaluation failed. `evaluateExpression`
+    // softens this to `undefined` (the historical contract); the out-of-band
+    // wrapper (`tryEvaluateExpression`) surfaces it as `{ ok: false }` so the
+    // fallback state-statement executor can skip the write instead of
+    // silently clobbering storage (deepening-wave-3 ticket 01).
+    throw new EvaluationFailure(expr);
   }
   
   /**

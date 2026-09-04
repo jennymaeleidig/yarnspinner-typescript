@@ -990,10 +990,14 @@ export class VirtualMachine {
         // failing evaluation is a runtime diagnostic, not a crash
         // (coding standards §3).
         const expression = content.replace(/^call\b/, "").trim();
-        try {
-          this.evaluator.evaluateExpression(expression);
-        } catch (e) {
-          this.logError(`<<call>> failed: ${e instanceof Error ? e.message : String(e)}`);
+        // The out-of-band failure signal (deepening-wave-3 ticket 01): a
+        // garbage `<<call>>` payload (e.g. `call 1 2`) resolves to no value
+        // instead of throwing, so the soft contract stayed silent. Failed
+        // evaluation is a runtime diagnostic, not a crash (coding
+        // standards §3); the result is discarded either way.
+        const called = this.evaluator.tryEvaluateExpression(expression);
+        if (!called.ok) {
+          this.logError(`<<call>> failed: the expression "${expression}" could not be evaluated`);
         }
       } else {
         executeStateStatement(

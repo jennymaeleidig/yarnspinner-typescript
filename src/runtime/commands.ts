@@ -138,13 +138,26 @@ export function executeStateStatement(host: StateStatementHost, content: string)
         // The compound assignment applies the base operator through the
         // operand-semantics module — the same add/concat rule the VM's add
         // op applies (one statement, not a third copy).
-        const rhs = evaluator.evaluateExpression(expression);
-        const value = applyBinaryOp(compoundOperatorToStackOp(compoundOp), variables.get(key), rhs);
+        const rhs = evaluator.tryEvaluateExpression(expression);
+        if (!rhs.ok) {
+          logError(`Failed to evaluate expression "${expression}" in statement "${content}"`);
+          return;
+        }
+        const value = applyBinaryOp(compoundOperatorToStackOp(compoundOp), variables.get(key), rhs.value);
         setVariable(key, value);
         return;
       }
 
-      const value = evaluator.evaluateExpression(expression);
+      // The out-of-band failure signal distinguishes "evaluation failed"
+      // from a legitimate `undefined` (a void host function): a failing
+      // expression logs a diagnostic and skips the write instead of
+      // silently clobbering a prior value (deepening-wave-3 ticket 01).
+      const result = evaluator.tryEvaluateExpression(expression);
+      if (!result.ok) {
+        logError(`Failed to evaluate expression "${expression}" in statement "${content}"`);
+        return;
+      }
+      const value = result.value;
       // A script-level set of a smart variable is a compile error (YS0030),
       // so this write only ever lands on stored variables — or shadows a
       // smart variable when a host drives the storage directly (upstream
@@ -175,9 +188,17 @@ export function executeStateStatement(host: StateStatementHost, content: string)
 
       // Regular variable - evaluate once and store. Enum member access
       // (Enum.Case, or compile-time-resolved shorthand) evaluates to the
-      // case's raw value via the evaluator's enum registry.
-      const value = evaluator.evaluateExpression(expr);
-      setVariable(key, value);
+      // case's raw value via the evaluator's enum registry. A failing
+      // evaluation logs a diagnostic and skips the write (the same
+      // out-of-band signal the set branch consumes — declares are
+      // fallback-path initializers, and a failed initializer must not
+      // write `undefined` over a host-seeded value either).
+      const declared = evaluator.tryEvaluateExpression(expr);
+      if (!declared.ok) {
+        logError(`Failed to evaluate expression "${expr}" in statement "${content}"`);
+        return;
+      }
+      setVariable(key, declared.value);
     }
   } catch (e) {
     // collect-don't-throw: a failing state statement is a runtime

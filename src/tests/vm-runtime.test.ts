@@ -13,7 +13,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compileSource, Dialogue, noOptionSelected } from "../index.js";
+import { compileSource, Dialogue, Library, noOptionSelected } from "../index.js";
 import type { Dialogue as DialogueClass } from "../index.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
 import type { Program } from "../compile/program.js";
@@ -518,24 +518,80 @@ Narrator: {$n}
   assert.equal(line.text, "True");
 });
 
-test("uncompilable <<set>> with trailing garbage lands best-effort, not crash", () => {
+test("uncompilable <<set>> with trailing garbage logs a diagnostic and preserves storage", () => {
   // `1 2` fails codegen (trailing input) → the raw command → the same
-  // grammar parse → best-effort evaluation (the evaluator yields no value;
-  // no diagnostic channel fires — the fallback path's documented
-  // collect-don't-throw shape). The line composes and $m stays empty.
-  // RECORDED LIMITATION (tracker ticket 10): an undefined evaluation
-  // result silently clobbers a prior value — the fallback cannot yet
-  // distinguish "evaluation failed" from a legitimate void result, so
-  // this pin pins the no-crash contract, not the storage outcome.
-  const dialogue = makeDialogue(`
+  // grammar parse → the evaluator's out-of-band failure signal: the set
+  // branch logs a diagnostic and skips the write (collect-don't-throw,
+  // coding standards §3). The pin discriminates — it sets $m first and
+  // expects the prior value to survive plus one diagnostic (the pre-fix
+  // behavior — silently writing undefined over the prior value — fails
+  // this; so does "set does nothing, no diagnostic").
+  const errors: string[] = [];
+  const dialogue = makeDialogue(
+    `
 title: Start
 ---
+<<set $m to 1>>
 <<set $m to 1 2>>
 Narrator: value={$m}
 ===
-`);
+`,
+    { logError: (m) => errors.push(m) },
+  );
   const events = runUntilCompleteEvents(dialogue);
   const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
   assert.ok(line);
-  assert.equal(line.text, "value=");
+  assert.equal(line.text, "value=1");
+  assert.equal(dialogue.getVariable("m"), 1);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /Failed to evaluate expression "1 2"/);
+});
+
+test("a void host function's set writes undefined legitimately, no diagnostic", () => {
+  // The collision that made the fix non-trivial: evaluateExpression
+  // returns undefined both on failure and for a void host function. The
+  // out-of-band signal distinguishes them — a void-function set is a
+  // success with an undefined value, written as today.
+  const errors: string[] = [];
+  const dialogue = makeDialogue(
+    `
+title: Start
+---
+<<set $x to 5>>
+<<set $x to doNothing()>>
+Narrator: done
+===
+`,
+    {
+      logError: (m) => errors.push(m),
+      library: (() => {
+        const lib = new Library();
+        lib.registerFunction("doNothing", () => undefined);
+        return lib;
+      })(),
+    },
+  );
+  const events = runUntilCompleteEvents(dialogue);
+  assert.ok(events.some((e) => e.type === "line"));
+  assert.equal(dialogue.getVariable("x"), undefined);
+  assert.equal(errors.length, 0);
+});
+
+test("a garbage <<call>> payload logs a diagnostic instead of staying silent", () => {
+  // `call 1 2` resolves to no value (no throw), so the old try/catch
+  // stayed silent; the out-of-band signal surfaces it.
+  const errors: string[] = [];
+  const dialogue = makeDialogue(
+    `
+title: Start
+---
+<<call 1 2>>
+Narrator: done
+===
+`,
+    { logError: (m) => errors.push(m) },
+  );
+  runUntilCompleteEvents(dialogue);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /<<call>> failed/);
 });
