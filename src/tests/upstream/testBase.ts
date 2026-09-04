@@ -29,8 +29,8 @@
  *   (TestBase/LanguageTests): `assert`, `dummy_*`, `add_three_operands`, and
  *   the quest stubs — registered through the Library.
  *
- * Documented remaining gaps (each a recorded parity gap, not a new decision
- * — see `.scratch/ys32-parity/spec.md`):
+ * Documented remaining gaps (each a recorded parity gap, not a new
+ * decision):
  * - Upstream's `assert` throws and aborts the run; here `assert` records
  *   failures and the runner fails the test with them.
  *

@@ -114,7 +114,7 @@ Fork-era vocabulary, superseded by the parity API. Kept here so old docs and con
 - **`[if expr]` option conditions** → `<<if expr>>` on the option line (dropped outright)
 - **`{if}{else}{endif}` inline text blocks** → line-level `<<if>>` conditions (dropped)
 - **`&css{...}`** → removed; styling is consumer-side via markup properties
-- **`docs/compatibility-checklist.md`** → superseded by the 3.2 parity spec (`.scratch/ys32-parity/spec.md`); replaced by [docs/compatibility.md](docs/compatibility.md)
+- **`docs/compatibility-checklist.md`** → replaced by [docs/compatibility.md](docs/compatibility.md)
 
 The two code-level renames above that shipped as part of the parity API —
 `YarnRunner` → `Dialogue` and `useYarnRunner` → `useDialogue` — keep a
