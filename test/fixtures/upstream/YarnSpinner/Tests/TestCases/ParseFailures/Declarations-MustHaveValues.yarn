@@ -1,5 +1,0 @@
-title: Start
----
-// Error: Variable declarations must have a value or an expression
-<<declare $variable>>
-===

@@ -1,8 +1,0 @@
-title: Start
----
-<<enum Food>>
-    <<case Apple>>
-    <<case Orange>>
-    <<case Orange>> // error! must have unique cases
-<<endenum>>
-===

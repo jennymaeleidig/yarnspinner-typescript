@@ -1,9 +1,9 @@
 /**
  * ParseFailures validation wave (ticket 54): the compiler-side validations
- * whose absence let 12 vendored upstream must-fail fixtures compile clean.
+ * whose absence let 12 upstream must-fail fixtures compile clean.
  *
- * Each test pins the exact upstream YS-code from the vendored per-code
- * registry (test/fixtures/upstream/YarnSpinner/Diagnostics/Definitions/);
+ * Each test pins the exact upstream YS-code from the per-code registry
+ * (test/fixtures/upstream/YarnSpinner/YarnSpinner.Diagnostics/Definitions/);
  * codes and message shapes were verified against the upstream v3.2.2
  * compiler itself (coding standards §1: upstream is the source of truth).
  * The fixture-level assertion lives in upstream-conformance.test.ts, whose

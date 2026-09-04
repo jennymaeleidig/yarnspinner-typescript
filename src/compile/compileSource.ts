@@ -31,7 +31,7 @@
  *
  * Collect by default (coding standards §3): syntax errors and validation
  * failures come back as diagnostics; `strict: true` throws on the first
- * error. Codes and severities come from the vendored 3.2.2 registry via
+ * error. Codes and severities come from the upstream 3.2.2 registry via
  * ./diagnostics.js.
  */
 

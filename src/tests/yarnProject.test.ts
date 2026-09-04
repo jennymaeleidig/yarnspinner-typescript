@@ -275,7 +275,7 @@ test("nodeProjectFs enumerates files (skipping node_modules) with POSIX-relative
   }
 });
 
-test("acceptance: the vendored upstream Space project loads, compiles, and diagnoses its unvendored German.csv", () => {
+test("acceptance: the upstream Space project (submodule) loads, compiles, and diagnoses its unlisted German.csv", () => {
   const r = loadYarnProject(join(UPSTREAM_TESTS_DIR, "Projects", "Space", "Space.yarnproject"));
   assert.deepEqual(ypCodes(r.diagnostics), ["YP0006"]);
   assert.deepEqual(r.sources, ["Sally.yarn", "Ship.yarn"]);

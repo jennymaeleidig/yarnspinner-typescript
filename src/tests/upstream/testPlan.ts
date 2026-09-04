@@ -1,8 +1,10 @@
 /**
  * Parser for the upstream Yarn Spinner conformance `.testplan` DSL.
  *
- * Implements the CURRENT grammar (`YarnSpinnerTestPlan.g4`, vendored at
- * `test/fixtures/upstream/YarnSpinner/YarnSpinnerTestPlan.g4`), as used by the
+ * Implements the CURRENT grammar (`YarnSpinnerTestPlan.g4`, in the upstream
+ * submodule at
+ * `test/fixtures/upstream/YarnSpinner/YarnSpinner.Tests/TestPlan/YarnSpinnerTestPlan.g4`),
+ * as used by the
  * .NET suite at v3.2.2. Deliberately NOT a port of the Rust reader, which
  * parses the obsolete pre-backtick format (research ticket 01).
  *

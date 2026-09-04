@@ -1,0 +1,3 @@
+[submodule "test/fixtures/upstream/YarnSpinner"]
+	path = test/fixtures/upstream/YarnSpinner
+	url = https://github.com/YarnSpinnerTool/YarnSpinner

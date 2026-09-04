@@ -42,6 +42,8 @@ TypeScript parser, compiler, and runtime for Yarn Spinner 3.x with React adapter
 
 ## Installation
 
+Clone with `git clone --recurse-submodules` — the conformance fixtures are a git submodule pinned to an upstream tag (in an existing clone: `git submodule update --init --recursive`).
+
 ```bash
 npm install
 npm run build
@@ -255,10 +257,10 @@ The repo root contains `yarn-spinner-runner-ts.yarnproject`, so the
 [Yarn Spinner extension for VS Code](https://marketplace.visualstudio.com/items?itemName=SecretLab.yarn-spinner)
 (git-ignored `.vscode/extensions.json` recommends it) treats the workspace as
 a Yarn project: syntax highlighting, node navigation, and error checking are
-scoped to the authored content in `examples/yarn/`. Vendored upstream
-conformance fixtures under `test/fixtures/` are deliberately outside the
-project — they are byte-compared against upstream and must not be edited or
-auto-fixed by editor tooling.
+scoped to the authored content in `examples/yarn/`. Upstream conformance
+fixtures (the `test/fixtures/upstream/YarnSpinner` git submodule) are
+deliberately outside the project — they are pinned to an upstream tag and
+must not be edited or auto-fixed by editor tooling.
 
 ## API Reference
 

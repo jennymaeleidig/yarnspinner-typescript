@@ -1,7 +1,7 @@
 /**
  * Upstream conformance suite (roadmap phase 0).
  *
- * Drives the vendored Yarn Spinner v3.2.2 corpus through this project's
+ * Drives the upstream Yarn Spinner v3.2.2 corpus (git submodule) through this project's
  * compile → run pipeline:
  *
  * - `TestCases/ParseFailures/*.yarn` (33 files) + `DuplicateLineTags.yarn`:
@@ -31,7 +31,7 @@ import { listTestCases, listParseFailures, readFixture } from "./upstream/fixtur
  * fixture .yarn files compile with expected diagnostics").
  *
  * (The must-fail side of this harness needs no allowlist any more: since
- * ticket 54 every vendored must-fail fixture fails with its upstream code —
+ * ticket 54 every upstream must-fail fixture fails with its upstream code —
  * the MUST_FAIL_ALLOWLIST is deleted, and the per-family unit tests live in
  * src/tests/parseFailureValidations.test.ts.)
  */
@@ -77,7 +77,7 @@ function attemptCompile(source: string): { ok: true } | { ok: false; error: stri
 
 test("upstream ParseFailures fixtures must fail to compile", async (t) => {
   const failures = listParseFailures();
-  assert.ok(failures.length >= 33, `expected the vendored ParseFailures corpus, found ${failures.length}`);
+  assert.ok(failures.length >= 33, `expected the upstream ParseFailures corpus, found ${failures.length}`);
   for (const name of failures) {
     await t.test(name, () => {
       const result = attemptCompile(readFixture(`TestCases/ParseFailures/${name}`));

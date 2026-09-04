@@ -6,8 +6,9 @@ exists yet; upstream has announced a future 3.3 but not shipped it).
 
 Parity here means the observable contract upstream's own test suite pins:
 
-- The **conformance corpus** — `test/fixtures/upstream/YarnSpinner/Tests`,
-  vendored byte-exact at upstream tag `v3.2.2` — drives the compile → run
+- The **conformance corpus** — the `test/fixtures/upstream/YarnSpinner` git
+  submodule, pinned byte-exact at upstream tag `v3.2.2` (`Tests/` subtree) —
+  drives the compile → run
   pipeline (`src/tests/upstream-conformance.test.ts`). Event streams, not
   bytecode, are the contract (ADR 0001: our program format is this project's
   own versioned JSON, deliberately not upstream's protobuf).
@@ -96,7 +97,7 @@ is gone; per-feature documentation lives in the language docs under
   rejection with a YS0005 pointing at the `<<if>>` branch pattern, tracked
   for the next release (the language docs are already corrected). Branch
   with `<<if>>` instead.
-- Conformance-harness note: the vendored testplan hashtags are parsed but
+- Conformance-harness note: the upstream testplan hashtags are parsed but
   not asserted — upstream's own assertion on them is dead code, and one
   upstream fixture's plan has a hashtag its own compiler cannot parse
   (ticket 46 notes).

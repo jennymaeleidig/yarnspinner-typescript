@@ -1,7 +1,0 @@
-title: Start
----
-<<enum Food>>
-    <<case Apple = "one">>
-    <<case Orange = "one">> // error! must have unique raw values
-<<endenum>>
-===

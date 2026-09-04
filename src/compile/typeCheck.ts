@@ -1027,7 +1027,7 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           const expectedEnum = varType && ctx.enumTypes.has(varType) ? varType : undefined;
           let { type, rewritten } = checkExpression(rest.trim(), ctx, expectedEnum);
           // YS0003 collection (ticket 65): a `<<set>>` target is a use of the
-          // variable (the vendored YS0003 example pins `<<set $x = 3>>`). A
+          // variable (the upstream YS0003 example pins `<<set $x = 3>>`). A
           // value expression that already failed validation suppresses the
           // report — upstream's Error type stops the cascade there (the
           // YS0038 pin: `<<set $x = Test.Failure>>` reports YS0038 only).
@@ -1201,7 +1201,7 @@ function splitArgs(src: string): string[] {
  * YS0030 (ticket 42): smart variables are read-only — any assignment to one
  * is an error (upstream Compiler.AddErrorsForSettingReadonlyVariables).
  * The message carries the variable and its always-equal initializer
- * expression, per the vendored YS0030 registry definition.
+ * expression, per the upstream YS0030 registry definition.
  */
 function emitReadOnlyIfSmart(name: string, ctx: CheckContext): void {
   const declaration = ctx.declaredVariables.get(name);
@@ -1347,7 +1347,7 @@ export function typeCheck(
 
   // Undeclared variable uses (ticket 65, YS0003): a use whose variable has
   // no `<<declare>>` and no external declaration anywhere in the program
-  // warns once per use site — the vendored YS0003 example pins that a
+  // warns once per use site — the upstream YS0003 example pins that a
   // `<<set>>` target counts as a use.
   for (const use of ctx.undeclaredUses) {
     if (ctx.declaredVariables.has(use.name) || ctx.externalVariables.has(use.name)) continue;

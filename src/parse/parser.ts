@@ -339,7 +339,7 @@ class Parser {
     // headers
     while (!this.at("NODE_START")) {
       // A node cut off before its `---` is upstream YS0004 MissingDelimiter
-      // (ticket 65; the vendored YS0004 example pins the missing-delimiter
+      // (ticket 65; the upstream YS0004 example pins the missing-delimiter
       // family, not plain YS0005).
       const keyTok = this.take("HEADER_KEY", "Missing node delimiter", "YS0004");
       startLine ??= keyTok.line;

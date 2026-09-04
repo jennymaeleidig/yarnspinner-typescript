@@ -3,8 +3,8 @@
  *
  * Shape mirrors upstream `YarnSpinner.Diagnostics.Diagnostic` (3.2.2):
  * { code, severity, message, file, range, context }. Codes and default
- * severities follow the vendored per-code definitions registry
- * (test/fixtures/upstream/YarnSpinner/Diagnostics/Definitions/YSxxxx-*.md) —
+ * severities follow the upstream per-code definitions registry
+ * (test/fixtures/upstream/YarnSpinner/YarnSpinner.Diagnostics/Definitions/YSxxxx-*.md) —
  * the authoritative source (the docs site is stale on severities).
  *
  * Ranges are upstream-style 0-based line/column, inclusive start, exclusive

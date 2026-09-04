@@ -1,6 +1,0 @@
-title: Start
----
-// error! must not be empty
-<<enum MyEnum>>
-<<endenum>>
-===

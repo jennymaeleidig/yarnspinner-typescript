@@ -4,8 +4,9 @@
  * Contract: collect by default — compile continues and diagnostics come back
  * with the result; `strict` throws on the first error. Shape mirrors upstream
  * `Diagnostic`: { code, severity, message, file, range, context }, with
- * 0-based half-open ranges. Codes and severities follow the vendored 3.2.2
- * registry (test/fixtures/upstream/YarnSpinner/Diagnostics/Definitions/).
+ * 0-based half-open ranges. Codes and severities follow the upstream 3.2.2
+ * registry (submodule path
+ * test/fixtures/upstream/YarnSpinner/YarnSpinner.Diagnostics/Definitions/).
  *
  * Scope note: only the validations the current front-end supports are
  * asserted here. Exact-code emission for set/declare values, enums, smart
@@ -25,7 +26,7 @@ import { DIAGNOSTIC_REGISTRY } from "../compile/diagnostics.js";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DEFINITIONS_DIR = path.resolve(
   here,
-  "../../test/fixtures/upstream/YarnSpinner/Diagnostics/Definitions",
+  "../../test/fixtures/upstream/YarnSpinner/YarnSpinner.Diagnostics/Definitions",
 );
 
 function compile(source: string, opts?: { file?: string; strict?: boolean }): Diagnostic[] {
@@ -341,12 +342,12 @@ test("an option with two different <<if>> conditions is a diagnostic", () => {
   assert.match(diagnostics[0].message, /only one <<if>>\/<<once>> condition/);
 });
 
-test("every emitted code exists in the vendored 3.2.2 definitions registry", () => {
-  const vendored = new Set(
+test("every emitted code exists in the upstream 3.2.2 definitions registry", () => {
+  const registry = new Set(
     fs.readdirSync(DEFINITIONS_DIR).map((f) => f.match(/^(YS\d+)-/)?.[1]).filter(Boolean),
   );
-  assert.ok(vendored.size > 40, `expected the full registry vendored, got ${vendored.size}`);
+  assert.ok(registry.size > 40, `expected the full registry, got ${registry.size}`);
   for (const code of Object.keys(DIAGNOSTIC_REGISTRY)) {
-    assert.ok(vendored.has(code), `code ${code} has no vendored definition file`);
+    assert.ok(registry.has(code), `code ${code} has no upstream definition file`);
   }
 });

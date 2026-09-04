@@ -1,9 +1,0 @@
-title: Start
----
-<<enum Food>>
-    <<case Apple = "Apple">>
-    <<case Orange>> // error! all cases must have a raw value if any of them do
-    <<case Pear = "Pear">>
-<<endenum>>
-
-===

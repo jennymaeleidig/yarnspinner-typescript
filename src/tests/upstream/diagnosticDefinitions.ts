@@ -1,7 +1,7 @@
 /**
- * Loader for the vendored 3.2.2 diagnostic-definition markdown
- * (`test/fixtures/upstream/YarnSpinner/Diagnostics/Definitions/`, pinned per
- * the corpus PROVENANCE.md). The per-code files are the authoritative YS00xx
+ * Loader for the submodule's 3.2.2 diagnostic-definition markdown
+ * (`test/fixtures/upstream/YarnSpinner/YarnSpinner.Diagnostics/Definitions/`,
+ * pinned per the corpus PROVENANCE.md). The per-code files are the authoritative YS00xx
  * registry (tickets 09/10 — the docs site is stale on severities); ticket
  * 65's phase-3 golden loop compiles each registered code's `examples`
  * scripts and pins the exact code.
@@ -13,12 +13,12 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { UPSTREAM_TESTS_DIR } from "./fixtures.js";
+import { UPSTREAM_TESTS_DIR, ensureUpstreamSubmodule } from "./fixtures.js";
 
 export const DIAGNOSTIC_DEFINITIONS_DIR = join(
   UPSTREAM_TESTS_DIR,
   "..",
-  "Diagnostics",
+  "YarnSpinner.Diagnostics",
   "Definitions",
 );
 
@@ -33,6 +33,7 @@ export interface DiagnosticDefinition {
 }
 
 export function listDiagnosticDefinitionFiles(): string[] {
+  ensureUpstreamSubmodule();
   return readdirSync(DIAGNOSTIC_DEFINITIONS_DIR)
     .filter((f) => f.endsWith(".md"))
     .sort();

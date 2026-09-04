@@ -1,7 +1,0 @@
-title: Start
----
-Source line #line:abc123
-
-// Error: #shadow:abc123 must have the exact same text as #line:abc123
-Shadow line #shadow:abc123
-===

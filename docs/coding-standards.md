@@ -32,7 +32,7 @@ Use the canonical glossary in `CONTEXT.md`. Upstream concept names render in cam
 
 ## 6. Tests only through public seams
 
-Tests assert observable behavior — compiled outputs and runtime event streams — against the vendored upstream fixture corpus and ported upstream tests. No tests against internals, opcode layout, or private modules. The vendored corpus is pinned by upstream tag.
+Tests assert observable behavior — compiled outputs and runtime event streams — against the upstream fixture corpus (mounted as a git submodule) and ported upstream tests. No tests against internals, opcode layout, or private modules. The corpus is pinned by upstream tag.
 
 *Case study: the golden-test design in `.scratch/ys32-parity/spec.md` (seams: compile→run pipeline; runtime line parser).*
 
