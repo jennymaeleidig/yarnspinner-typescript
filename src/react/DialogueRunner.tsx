@@ -7,7 +7,7 @@ import type { UseDialogueOptions, UseDialogueLive } from "./useDialogue.js";
 import type { Program } from "../compile/program.js";
 
 /**
- * The wired dialogue component (headless split, headless-view ticket 01):
+ * The wired dialogue component (headless split):
  * the container over the presentational [DialogueView](./DialogueView) — it
  * calls `useDialogue` with `program`/config/live and forwards the result,
  * so `<DialogueRunner program={...} />` is the one-component path. Hosts
@@ -15,11 +15,11 @@ import type { Program } from "../compile/program.js";
  * directly.
  *
  * The prop surface is the pre-split `DialogueView` surface: program +
- * config + live + presentation options, with the ticket-55 deprecated
+ * config + live + presentation options, with the deprecated
  * alias names resolved here (new name wins) — the aliases live on the
  * container, not the clean presentational view.
  *
- * Derivation stays single-sourced (deepening-wave ticket 06): presentation
+ * Derivation stays single-sourced: presentation
  * options are declared once, on `DialogueViewProps`; config/live derive
  * from the hook's types, so a runtime option flows in without a second
  * declaration. The config fields forward as one memoized spread (config
@@ -33,13 +33,13 @@ export interface DialogueRunnerProps
     UseDialogueOptions,
     UseDialogueLive {
   program: Program;
-  /** @deprecated Renamed to `autoContinueAfterTyping` (ticket 55); removed in
+  /** @deprecated Renamed to `autoContinueAfterTyping`; removed in
    *  the release after the one that ships this alias. */
   autoAdvanceAfterTyping?: boolean;
-  /** @deprecated Renamed to `autoContinueDelay` (ticket 55); removed in the
+  /** @deprecated Renamed to `autoContinueDelay`; removed in the
    *  release after the one that ships this alias. */
   autoAdvanceDelay?: number;
-  /** @deprecated Renamed to `pauseBeforeContinue` (ticket 55); removed in the
+  /** @deprecated Renamed to `pauseBeforeContinue`; removed in the
    *  release after the one that ships this alias. */
   pauseBeforeAdvance?: number;
 }

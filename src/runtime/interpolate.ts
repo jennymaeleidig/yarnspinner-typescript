@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Line composition (the runtime line-parser stage, spec seam 2): `{expr}`
+ * Line composition (the runtime line-parser stage): `{expr}`
  * substitutions expanded, then the runtime markup module parses the
  * composed text into a structured markup parse result — attributes with
  * positions, the implicit `character` attribute carrying the speaker, and
  * replacement markers composing their text.
  *
- * Upstream order (ticket 48): substitutions expand FIRST (upstream
+ * Upstream order: substitutions expand FIRST (upstream
  * `ExpandSubstitutions` runs before `ParseString`), then the markup parses.
  * The delivered text keeps the character-name prefix (upstream
  * `MarkupParseResult.Text` does); the runtime slices it at the
@@ -56,7 +56,7 @@ export class LineComposer {
 
   constructor(
     private readonly evaluateExpression: (expr: string) => unknown,
-    /** Host-overridable BCP-47 locale for replacement markers (ticket 48). */
+    /** Host-overridable BCP-47 locale for replacement markers. */
     private localeCode = "en",
   ) {
     // The built-in replacement markers ride the same processor registry as

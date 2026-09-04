@@ -11,7 +11,7 @@ interface MarkupRendererProps {
 const DEFAULT_HTML_TAGS = new Set(["b", "em", "small", "strong", "sub", "sup", "ins", "del", "mark"]);
 
 /**
- * Renders a markup parse result (the attribute model, ticket 48): the
+ * Renders a markup parse result (the attribute model): the
  * text is sliced by the attributes' ranges, nested attributes wrap their
  * range, and zero-length markers (e.g. self-closing `[pause/]`) render as
  * empty elements at their position. Styling tags are opaque data: names

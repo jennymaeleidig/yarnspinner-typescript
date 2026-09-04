@@ -10,7 +10,7 @@ import { useDialogue } from "../react/useDialogue.js";
 import { setupClientDom, tickClock } from "./clientDomHarness.js";
 
 /**
- * The continue scheduler (deepening-wave ticket 04): the view defers
+ * The continue scheduler: the view defers
  * continues through ONE timer fed by named causes — a surfaced command
  * flashes for a hardcoded 50ms, a finished typing animation waits for
  * `autoContinueDelay`, a clicked line waits for `pauseBeforeContinue` —
@@ -46,7 +46,7 @@ Mae: after the command
 `;
 
 test("scheduler: works headless — a host's own useDialogue + DialogueView, no runner", async (t) => {
-  // The headless split (headless-view ticket 01): the scheduler and typing
+  // The headless split: the scheduler and typing
   // state are presentation state owned by the view, and the result object
   // carries every dialogue transition — so a host that pairs `useDialogue`
   // with `DialogueView` directly (no `DialogueRunner`) gets the identical

@@ -3,7 +3,7 @@
  * The instruction-stream VM (ADR 0001): executes the compiled `Program` —
  * per-node instruction streams whose expressions are bytecode and whose
  * jumps are instruction indices — end-to-end behind the public runtime API
- * (`Dialogue` dispatches here; tickets 45–47).
+ * (`Dialogue` dispatches here).
  *
  * Semantics mirror upstream 3.2.2 `VirtualMachine.cs`:
  * - `NodeStart` fires when a node is entered (`setNode`, `runNode`, detour);
@@ -19,7 +19,7 @@
  *   flags and awaits selection. Selecting an option resumes at its
  *   destination (the inline body, which jumps past the construct);
  *   `noOptionSelected` falls through to the pc after `showOptions`.
- * - Saliency (ticket 47, upstream `Yarn.Saliency`): node-group entries
+ * - Saliency (upstream `Yarn.Saliency`): node-group entries
  *   build a candidate per member from its `when:` conditions and let the
  *   active strategy pick (upstream's hub-node
  *   AddSaliencyCandidateFromNode/SelectSaliencyCandidate sequence, run
@@ -138,7 +138,7 @@ export class VirtualMachine {
   private readonly lineHintsEnabled: boolean;
   private readonly logError: (message: string) => void;
   private readonly logDebug: (message: string) => void;
-  /** The host's text provider (ticket 51); null — the program's text is the base language. */
+  /** The host's text provider; null — the program's text is the base language. */
   private readonly textProvider: TextProvider | null;
 
   private readonly stack: unknown[] = [];
@@ -167,7 +167,7 @@ export class VirtualMachine {
 
   constructor(program: Program, opts: DialogueOptions = {}) {
     this.program = program;
-    // Pluggable variable storage (spec story 39): the host's implementation
+    // Pluggable variable storage: the host's implementation
     // when injected, the in-memory default otherwise. All story state —
     // story variables and generated variables alike — lives here.
     this.storage = opts.variableStorage ?? new InMemoryVariableStorage();
@@ -206,7 +206,7 @@ export class VirtualMachine {
       this.program.enums,
     );
 
-    // Smart variables (ticket 42): compiled initializers, recomputed on
+    // Smart variables: compiled initializers, recomputed on
     // every access (upstream: smart variables are not in InitialValues).
     for (const [name, code] of Object.entries(this.program.smartVariables ?? {})) {
       this.evaluator.setSmartVariable(name, () => this.evaluateInitializer(code, name));
@@ -218,7 +218,7 @@ export class VirtualMachine {
     // runs. Host-provided variables are applied afterwards and override
     // declared defaults.
     for (const [name, code] of Object.entries(this.program.initialValues)) {
-      // Pluggable storage (spec story 39): a name the injected storage
+      // Pluggable storage: a name the injected storage
       // already holds is restored host state — declare defaults never
       // clobber it. The in-memory default starts empty, so every declared
       // variable is seeded on a fresh dialogue exactly as before.
@@ -400,7 +400,7 @@ export class VirtualMachine {
     return this.evaluator.tryGetSmartVariable(name);
   }
 
-  // ── Saliency (ticket 47) ──────────────────────────────────────────
+  // ── Saliency ───────────────────────────────────────────────────────
 
   /** The active content saliency strategy (upstream `Dialogue.ContentSaliencyStrategy`). */
   get contentSaliencyStrategy(): ContentSaliencyStrategy {
@@ -491,7 +491,7 @@ export class VirtualMachine {
       try {
         switch (ins.op) {
           case "runLine": {
-            // Text resolution (ticket 51): the provider's text for the line's
+            // Text resolution: the provider's text for the line's
             // canonical ID wins; without a provider — or a line it lacks —
             // the program's own text is the base language. Composition
             // (substitutions + markup) runs on whatever text resolved.
@@ -840,7 +840,7 @@ export class VirtualMachine {
     if (!("nodes" in nodeOrGroup)) {
       return { ok: true, node: nodeOrGroup, nodeIndex: -1 };
     }
-    // Node group (ticket 47): build a saliency candidate per member from
+    // Node group: build a saliency candidate per member from
     // its `when:` conditions, and let the strategy pick (upstream: the hub
     // node's AddSaliencyCandidateFromNode/SelectSaliencyCandidate sequence).
     const selected = this.saliencyStrategy.queryBestContent(this.saliencyOptionsForGroup(nodeOrGroup));
@@ -1038,11 +1038,11 @@ export class VirtualMachine {
       return "continued";
     }
     if (name === "set" || name === "declare" || name === "call") {
-      // State statements are internal (spec, ticket 03 conformance): they
+      // State statements are internal (spec conformance): they
       // execute their effect and never surface as Command events.
       if (name === "call") {
         // `<<call>>` invokes the host function and discards the result
-        // (spec story 4, upstream CallStatement — the compiler validated
+        // (upstream CallStatement — the compiler validated
         // the target). Side effects are the point: the conformance
         // fixtures call `assert(...)` through it. An unknown function or
         // failing evaluation is a runtime diagnostic, not a crash
@@ -1098,7 +1098,7 @@ export class VirtualMachine {
     const accumulated = this.accumulatedOptions;
     this.accumulatedOptions = [];
     const delivered = accumulated.map((option, index) => {
-      // Options resolve text through the provider like lines (ticket 51) —
+      // Options resolve text through the provider like lines —
       // at delivery, so a setLanguage between accumulation and delivery
       // still applies — and compose like lines (substitutions + markup,
       // implicit character attribute enabled — upstream
@@ -1209,7 +1209,7 @@ export class VirtualMachine {
     }
   }
 
-  // ── Text resolution (ticket 51) ───────────────────────────────────
+  // ── Text resolution ───────────────────────────────────────────────
 
   /**
    * The provider's text for the canonical line ID in `tags`, or `fallback`
@@ -1225,7 +1225,7 @@ export class VirtualMachine {
     return fallback;
   }
 
-  // ── Line composition (substitutions + markup, ticket 48) ────────────
+  // ── Line composition (substitutions + markup) ─────────────────────
 
   /** The line composer: substitutions, markup, and speaker resolution. */
   private composer: LineComposer | null = null;

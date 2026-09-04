@@ -71,7 +71,7 @@ export interface NodeStartEvent {
   type: "nodeStart";
   nodeName: string;
   /** The node's `scene:` header, when it declares one — the scene name's
-   *  one delivery channel (deepening-wave ticket 07; adapter-side, the
+   *  one delivery channel (adapter-side, the
    *  scene system is non-upstream). Absent when the node has no header. */
   scene?: string;
 }
@@ -108,7 +108,7 @@ export interface DialogueOptions {
   /** Host-provided initial variables (`$` prefix optional), applied after `<<declare>>` seeding. */
   variables?: Record<string, unknown>;
   /**
-   * Host-provided variable storage (spec story 39, glossary "variable
+   * Host-provided variable storage (glossary "variable
    * storage"): the pluggable store for story variables and generated
    * variables alike. Defaults to an in-memory storage. Injecting a
    * pre-populated storage is the persistence seam — declare-default seeding
@@ -119,13 +119,13 @@ export interface DialogueOptions {
   /** Opt-in `LineHints` events (upstream `PrepareForLinesHandler`). */
   lineHints?: boolean;
   /**
-   * Host-provided content saliency strategy (ticket 47, upstream
+   * Host-provided content saliency strategy (upstream
    * `Dialogue.ContentSaliencyStrategy`). Defaults to Random
    * Best-Least-Recently-Viewed over the variable storage.
    */
   contentSaliencyStrategy?: ContentSaliencyStrategy;
   /**
-   * Host-provided text provider (ticket 51): the injectable resolver from
+   * Host-provided text provider: the injectable resolver from
    * line ID to text for the current language. When absent — or when the
    * provider has no text for a line — the program's own text is the base
    * language. `Dialogue.setLanguage` switches the provider's language.

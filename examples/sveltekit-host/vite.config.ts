@@ -6,7 +6,7 @@ export default defineConfig({
 	css: {
 		// No PostCSS config exists for this host; pinning an empty one stops
 		// PostCSS from searching up the directory tree (which breaks in
-		// sandboxes that deny reads above the repo root — the ticket-52 lesson).
+		// sandboxes that deny reads above the repo root).
 		postcss: { plugins: [] },
 	},
 });

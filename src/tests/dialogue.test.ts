@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Contract tests for the pull-based runtime API (ticket 43, ADR 0002).
+ * Contract tests for the pull-based runtime API (ADR 0002).
  *
  * The event-stream seam: `continue()` returns the dialogue events up to the
  * next stopping point; `selectOption(index | noOptionSelected)` resumes a
@@ -519,7 +519,7 @@ title: Start
   assert.equal(dialogue.tryGetSmartVariable("money").ok, false);
 });
 
-test("state queries track option selection and completion (deepening-wave ticket 02)", () => {
+test("state queries track option selection and completion", () => {
   const dialogue = makeDialogue(`
 title: Start
 ---

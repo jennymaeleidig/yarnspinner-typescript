@@ -1,22 +1,21 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Next.js host harness (yarn-project-support ticket 04): the end-to-end
+ * Next.js host harness: the end-to-end
  * story proven by the example app at `examples/nextjs-host/` — the
  * YarnProject loader runs server-side (`loadYarnProject` over the app's own
  * authored content), the compiled program crosses the RSC boundary as a
  * plain serializable object, and the client component runs `Dialogue`'s
  * pull-based continue loop with variable-storage reset.
  *
- * Tests run from src only (no package surface for a one-app example, the
- * ticket-52 precedent). The pull loop the client component runs is the
+ * Tests run from src only (no package surface for a one-app example). The pull loop the client component runs is the
  * package's own transcript-reduction module (`runUntilStopped`) — the same
  * shipped logic, imported, not mirrored. The content itself is NOT
  * mirrored either: the real `examples/nextjs-host/content/` files are the
  * single source of truth, loaded through the same server-side path the
- * host's page uses. The SSR pattern mirrors the ticket-52 demo harness
+ * host's page uses. The SSR pattern mirrors the browser demo harness
  * (renderToStaticMarkup over the first pull). Two disclosed §6 trade-offs,
  * both precedent-backed: the test imports `nodeProjectFs` from its internal
- * path (ticket 02's yarnProject.test.ts does the same) and asserts
+ * path (yarnProject.test.ts does the same) and asserts
  * bundle-safety on the built artifacts — client-path purity cannot be
  * asserted behaviorally.
  */
@@ -77,7 +76,7 @@ test("the client bundle's main entry carries no Node builtins (§2)", () => {
   assert.ok(nodeSubpath.includes("node:fs"), "the ./node subpath is where node:fs lives");
 });
 
-// ── SSR harness (mirrors the ticket-52 demo pattern over the first pull) ──
+// ── SSR harness (mirrors the browser demo pattern over the first pull) ──
 
 /** The mirrored client component's initial pull: a fresh Dialogue and its
  *  first transcript — exactly what DialogueHost's render-time adjustment

@@ -7,7 +7,7 @@
  * `test/fixtures/upstream/YarnSpinner/YarnSpinner.Tests/TestPlan/YarnSpinnerTestPlan.g4`),
  * as used by the
  * .NET suite at v3.2.2. Deliberately NOT a port of the Rust reader, which
- * parses the obsolete pre-backtick format (research ticket 01).
+ * parses the obsolete pre-backtick format.
  *
  * Grammar (informative):
  *   testplan  : run ('---' run)*

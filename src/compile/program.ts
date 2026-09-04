@@ -31,9 +31,9 @@
  *   variable ops; the key naming contract lives in
  *   `runtime/generatedVariables.ts` (coding standards §4).
  * - `when` conditions stay evaluator strings; the VM's saliency machinery
- *   (ticket 47) evaluates them and scores complexity per member
+ *   evaluates them and scores complexity per member
  *   (`runtime/saliency.ts`).
- * - Line groups (ticket 47) lower like option groups: one condition push +
+ * - Line groups lower like option groups: one condition push +
  *   `addSaliencyCandidate` per item (the evaluated `<<if>>`/`<<once>>`
  *   gate, or `pushBool true`; the op records the candidate with its
  *   complexity and destination), then `selectSaliencyCandidate` (the
@@ -44,7 +44,7 @@
  *   stores at its body's first instruction, like a once option.
  * - A node-group member's `subtitle:` header carries into the program: it
  *   qualifies the member's visit-tracking key (`Title.Subtitle`, upstream
- *   node-group naming — ticket 46) and its saliency content ID (ticket 47).
+ *   node-group naming) and its saliency content ID.
  */
 
 /** The program format's language version (ADR 0003). Bump on schema changes. */
@@ -73,7 +73,7 @@ export type Program = {
    */
   initialValues: Record<string, Instruction[]>;
   /**
-   * Smart variables (ticket 42, upstream "inline expansion"): variable name
+   * Smart variables (upstream "inline expansion"): variable name
    * → compiled initializer expression, recomputed on every access; they
    * carry no initial stored value.
    */
@@ -84,7 +84,7 @@ export type Program = {
 export type ProgramNode = {
   title: string;
   instructions: Instruction[];
-  /** `when:` header conditions, verbatim (saliency compilation: ticket 47). */
+  /** `when:` header conditions, verbatim (saliency compilation). */
   when?: string[];
   /** `scene:` header (adapter-side concern). */
   scene?: string;
@@ -122,7 +122,7 @@ export type Instruction =
    *  emits `pushBool true` for unconditioned options — upstream AddOption). */
   | { op: "addOption"; text: string; tags?: string[]; destination: number }
   | { op: "showOptions" } // delivers and clears the accumulated set; halts
-  /** Records a line-group item as a saliency candidate (ticket 47): pops the
+  /** Records a line-group item as a saliency candidate: pops the
    *  item's evaluated condition (upstream AddSaliencyCandidate). */
   | { op: "addSaliencyCandidate"; contentId: string; complexity: number; destination: number }
   /** Asks the saliency strategy to pick from the accumulated candidates

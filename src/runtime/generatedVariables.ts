@@ -20,8 +20,8 @@ export const generatedVariablePrefix = "Yarn.Internal.";
  * headers — upstream `$Yarn.Internal.Once.<lineID|nodeTitle>`). */
 export const onceVariableKey = (id: string) => `${generatedVariablePrefix}Once:${id}`;
 
-/** Storage key for a piece of content's saliency view count (ticket 47;
- * upstream `$Yarn.Internal.Content.ViewCount.<contentID>`). */
+/** Storage key for a piece of content's saliency view count
+ * upstream `$Yarn.Internal.Content.ViewCount.<contentID>`. */
 export const contentViewCountVariableKey = (contentId: string) =>
   `${generatedVariablePrefix}Content.ViewCount.${contentId}`;
 

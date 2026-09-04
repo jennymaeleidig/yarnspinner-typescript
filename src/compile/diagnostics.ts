@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Diagnostics channel (spec ticket 10; coding standards §3 collect-don't-throw).
+ * Diagnostics channel (coding standards §3 collect-don't-throw).
  *
  * Shape mirrors upstream `YarnSpinner.Diagnostics.Diagnostic` (3.2.2):
  * { code, severity, message, file, range, context }. Codes and default
@@ -10,7 +10,7 @@
  *
  * Ranges are upstream-style 0-based line/column, inclusive start, exclusive
  * end. `file` and `context` are optional (single-source compiles may omit
- * file; the multi-file surface arrives with the phase-3 compiler reshape).
+ * file; multi-file compiles carry it).
  */
 
 export type DiagnosticSeverity = "error" | "warning" | "info";
@@ -38,15 +38,15 @@ interface DiagnosticDescriptor {
 }
 
 /**
- * The first-spec tranche of adoptable codes (tickets 09/10), plus the syntax
+ * The first-spec tranche of adoptable codes, plus the syntax
  * basics. Every entry here must have a vendored definition file — enforced by
  * src/tests/diagnostics.test.ts — and every vendored example of a registered
- * code must emit that code (ticket 65's phase-3 golden loop in
+ * code must emit that code (the diagnostic golden loop in
  * src/tests/diagnosticExamples.test.ts).
  *
  * Deliberately NOT registered: YS0013 UnknownFunction — upstream 3.2.2 marks
  * it `generated_in: languageserver` (the compiler never emits it; it creates
- * implicit function declarations instead, which ticket 54's Inference-*
+ * implicit function declarations instead, which the Inference-*
  * fixture conformance adopts). It joins when mandatory function declarations
  * land upstream.
  */

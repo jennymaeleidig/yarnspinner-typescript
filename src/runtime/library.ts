@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
  * Library-style registry for host functions and command handlers
- * (ticket 43; upstream `Yarn.Library`). Replaces the constructor
+ * (upstream `Yarn.Library`). Replaces the constructor
  * `functions` map / `handleCommand` split of the fork-era runner.
  *
  * Functions are plain TypeScript callables, so variadic functions are

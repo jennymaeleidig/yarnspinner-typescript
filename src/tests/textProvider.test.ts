@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * The text-provider seam + setLanguage (spec ticket 51; upstream is
+ * The text-provider seam + setLanguage (upstream is
  * string-table-unaware — the Rust reference reshapes localisation into an
  * injected `TextProvider`, and the CSV-backed provider ships so hosts can
  * localise end-to-end): `Dialogue` accepts a `TextProvider` (base language

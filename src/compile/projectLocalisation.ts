@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Localisation wiring (yarn-project-support ticket 03): the project's
+ * Localisation wiring: the project's
  * `localisation` map drives localised play end-to-end. Each declared
- * locale's strings CSV — the upstream 8-column interchange format (ticket
- * 51) — resolves through the injected file system into a per-locale id →
+ * locale's strings CSV — the upstream 8-column interchange format —
+ * resolves through the injected file system into a per-locale id →
  * text table, and {@link createProjectTextProvider} glues those tables into
  * a {@link StringTableTextProvider} a `Dialogue` runs with; the runtime's
- * `setLanguage` then switches locales (the ticket-51 language surface).
+ * `setLanguage` then switches locales (the runtime's language surface).
  *
  * Design constraints on record:
  * - Coding standard §2: pure data in, data out — the strings CSVs are read
  *   through the same injected `YarnProjectFileSystem` the loader used; the
  *   library never touches assets. The `assets` directories surface as the
  *   configured paths (a language → path map) for the host to load; a
- *   nonexistent assets path is not an error here (spec story 15).
+ *   nonexistent assets path is not an error here.
  * - Coding standard §3: reading failures are diagnostics, not throws. The
- *   loader's validation (ticket 02) already warns YP0006 for a referenced
+ *   loader's validation already warns YP0006 for a referenced
  *   strings file that does not exist; this module reports the same code
  *   when the file still cannot be read at consumption time, drops that
  *   locale's table, and carries on — a missing translation blocks

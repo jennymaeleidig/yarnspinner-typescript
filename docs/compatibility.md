@@ -22,13 +22,13 @@ Parity here means the observable contract upstream's own test suite pins:
   - The runtime API is pull-based (`continue()` → `DialogueEvent[]`), the
     Rust port's shape, not upstream .NET's push handlers (ADR 0002).
   - On error diagnostics upstream nulls the program; this fork keeps it
-    observable (ticket 49 notes).
+    observable.
   - Line-ID collision handling: upstream throws after 1000 suffix attempts;
     this fork emits YS0041 and keeps retrying past that cap — no throw
-    crosses the seam (ticket 50 notes, coding standards §3).
+    crosses the seam (coding standards §3).
   - `tagLines` aborts are data, not throws (upstream `TagLines` throws on
     abort), and upstream's 500 ms stopwatch becomes an attempt cap — no
-    clocks in the library (ticket 51 notes, coding standards §2/§3).
+    clocks in the library (coding standards §2/§3).
   - `continue()` while an option set is pending logs a diagnostic and
     returns an empty batch; upstream fails loudly (.NET throws
     `DialogueException`, `VirtualMachine.cs:537–540`; Rust returns
@@ -46,7 +46,7 @@ Parity here means the observable contract upstream's own test suite pins:
     The React adapter leans on that delivery-not-queued contract: after
     `stop()` with an option set pending, the next pull drains the queued
     complete and fires `onDialogueComplete`, where a blocking read would
-    hang forever (ticket 02, corrected Answer).
+    hang forever (corrected Answer).
   - The transcript-reduction module (`runUntilStopped`/`Transcript`) is
     exported non-upstream orchestration over the pull API — same standing
     as the loader and the React adapter. Upstream has no transcript
@@ -65,11 +65,11 @@ Parity here means the observable contract upstream's own test suite pins:
     their scene collection.
   - The `.yarnproject` loader and the React adapter are this project's own
     surface (non-upstream).
-  - React component split (headless-view ticket 01, hard break — 0.2.0 is
+  - React component split (hard break — 0.2.0 is
     unpublished): `DialogueView` is presentational — it renders a
     `UseDialogueResult` and no longer accepts `program` or any config/live
     prop; the wired surface moved verbatim to the new `DialogueRunner`
-    container, which also resolves the ticket-55 deprecated prop aliases
+    container, which also resolves the deprecated prop aliases
     (the aliases live on the runner, not on the clean presentational view).
     The interface promise: the view owns presentation state only — typing
     progress, the typing skip, and the one continue scheduler — all dialogue
@@ -99,5 +99,4 @@ is gone; per-feature documentation lives in the language docs under
   with `<<if>>` instead.
 - Conformance-harness note: the upstream testplan hashtags are parsed but
   not asserted — upstream's own assertion on them is dead code, and one
-  upstream fixture's plan has a hashtag its own compiler cannot parse
-  (ticket 46 notes).
+  upstream fixture's plan has a hashtag its own compiler cannot parse.

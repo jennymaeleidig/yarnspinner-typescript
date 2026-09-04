@@ -105,7 +105,7 @@ removed earlier in the parity wave; see CONTEXT.md "Retired terms".
 ## 6. Adapter props: `advance` → `continue`, `onStoryEnd` → `onDialogueComplete`
 
 The React adapter's own names were still fork-era vocabulary; they now
-match the glossary (ticket 55). The old names remain as **deprecated exact
+match the glossary. The old names remain as **deprecated exact
 aliases for one release** — same pattern as §5:
 
 ```tsx

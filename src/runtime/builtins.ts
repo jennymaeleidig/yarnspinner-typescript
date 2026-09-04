@@ -90,7 +90,7 @@ export function registerBuiltinFunctions(
 }
 
 /**
- * Compile-time signatures for the built-ins (ticket 65): upstream's compiler
+ * Compile-time signatures for the built-ins: upstream's compiler
  * knows its default Library's function types, so `{visited(true)}` is a
  * YS0050 type error at compile time, not a runtime surprise. The compile
  * seam merges these under the host's Library/declarations.

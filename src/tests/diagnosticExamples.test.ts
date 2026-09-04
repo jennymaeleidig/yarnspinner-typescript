@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Phase-3 diagnostic-definition golden loop (ticket 65, roadmap phase 3 of
- * the conformance harness): every code the compiler registers must fire on
+ * Diagnostic-definition golden loop (the conformance harness): every code the compiler registers must fire on
  * its own vendored 3.2.2 example script — the Definitions/*.md `examples`
  * are upstream's own executable spec for each YSxxxx code. Codes the
  * compiler deliberately does not emit (deferred / languageserver-generated)

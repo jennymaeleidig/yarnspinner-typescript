@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Enums end-to-end (spec ticket 41; spec stories 11-13, 30-32).
+ * Enums end-to-end.
  *
  * - Enum declarations: uniform raw values, auto-numbering, `.Case` shorthand.
  * - Same-enum ==/!= restriction enforced at compile time (upstream YS0050).

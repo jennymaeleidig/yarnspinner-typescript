@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
  * The runtime (`Dialogue`): pull-based execution of a compiled program
- * (ADR 0002, ticket 43).
+ * (ADR 0002).
  *
  * The compiled program is the instruction-stream artifact (ADR 0001/0003);
- * the tree-IR driver is retired (ticket 46) and `Dialogue` executes it
+ * the tree-IR driver is retired and `Dialogue` executes it
  * through the `VirtualMachine` (./vm.js). Consumers never drive the machine
  * directly — this facade is the runtime's public surface.
  *
@@ -76,7 +76,7 @@ export type { YarnFunction, CommandHandler } from "./library.js";
  */
 export class Dialogue {
   private readonly engine: RuntimeDriver;
-  /** The host's text provider (ticket 51), when one was injected. */
+  /** The host's text provider, when one was injected. */
   private readonly textProvider: TextProvider | null;
   private readonly logError: (message: string) => void;
 
@@ -187,7 +187,7 @@ export class Dialogue {
     return this.engine.tryGetSmartVariable(name);
   }
 
-  // ── Saliency (ticket 47) ───────────────────────────────────────────
+  // ── Saliency ──────────────────────────────────────────────────────────
 
   /** The active content saliency strategy (upstream `Dialogue.ContentSaliencyStrategy`). */
   get contentSaliencyStrategy(): ContentSaliencyStrategy {
@@ -227,7 +227,7 @@ export class Dialogue {
     return this.engine.hasSalientContent(nodeGroup);
   }
 
-  // ── Markup / locale (ticket 48) ─────────────────────────────────────
+  // ── Markup / locale ──────────────────────────────────────────────────────
 
   /**
    * The locale replacement markers (`[select]`, `[plural]`, `[ordinal]`)
@@ -254,7 +254,7 @@ export class Dialogue {
     return this.engine.getLineParser();
   }
 
-  // ── Localisation (ticket 51) ────────────────────────────────────────
+  // ── Localisation ────────────────────────────────────────────────────────
 
   /**
    * Switch the active language (BCP-47; `null` selects the base language —
@@ -277,7 +277,7 @@ export class Dialogue {
 
 /**
  * Deprecated 0.1.x name of {@link Dialogue}, kept as an exact alias for one
- * release (removed in the release after 0.2.0). Ticket 17: the glossary
+ * release (removed in the release after 0.2.0). The glossary
  * concept is upstream's `Dialogue` — "runner" is a retired term.
  *
  * @deprecated Renamed to `Dialogue` in 0.2.0.

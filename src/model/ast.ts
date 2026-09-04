@@ -2,7 +2,7 @@
 export type Position = { line: number; column: number };
 
 /**
- * A soft (non-throwing) parser finding (ticket 65): semantic line-content
+ * A soft (non-throwing) parser finding: semantic line-content
  * warnings/errors the parser reports without aborting the parse — YS0019,
  * YS0020, YS0022. The compile seam converts these to registry diagnostics.
  * Lines/columns are 1-based token positions (the lexer's convention).
@@ -28,7 +28,7 @@ export interface YarnDocument {
    */
   fileTags?: string[];
   /**
-   * Soft parser findings (ticket 65) — see ParserDiagnostic. Absent when
+   * Soft parser findings — see ParserDiagnostic. Absent when
    * the parse raised none.
    */
   softDiagnostics?: ParserDiagnostic[];
@@ -92,7 +92,7 @@ export interface Command {
   content: string; // inside << >>
   /**
    * `///` documentation comment lines immediately above the command, one
-   * per line joined with `\n` (spec story 47). Upstream attaches them to
+   * per line joined with `\n`. Upstream attaches them to
    * `<<declare>>`s — they surface as the declaration's `description`.
    */
   docComment?: string;
@@ -128,7 +128,7 @@ export interface Option {
 
 /**
  * A line group (upstream `line_group_statement`): consecutive `=>` lines —
- * saliency selects exactly one item to run (ticket 47). Each item is an
+ * saliency selects exactly one item to run. Each item is an
  * ordinary line; its `<<if>>`/`<<once>>`/`<<once if>>` modifier becomes the
  * item's saliency condition rather than a line gate.
  */

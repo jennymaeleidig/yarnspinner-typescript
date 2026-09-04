@@ -21,7 +21,7 @@ export type UseYarnRunnerOptions = UseDialogueOptions;
 export type UseYarnRunnerResult = UseDialogueResult;
 
 /**
- * React adapter over the pull-based event-stream runtime (ticket 43).
+ * React adapter over the pull-based event-stream runtime.
  *
  * The stopping-point contract — line stops; options stop and await
  * selection; commands surface-then-skip; lifecycle events ride through;
@@ -36,8 +36,8 @@ export type UseYarnRunnerResult = UseDialogueResult;
  * - a `complete` stop clears the view and fires `onDialogueComplete` (after
  *   commit).
  * The scene name travels on its one channel — the `NodeStartEvent` — and
- * the hook derives `sceneName` from the transcript (deepening-wave ticket
- * 07); the old per-view-result `scene` field is gone.
+ * the hook derives `sceneName` from the transcript; the old per-view-result
+ * `scene` field is gone.
  *
  * The dialogue is created and first pulled synchronously during render (the
  * React "adjust state when props change" pattern) so server-side rendering
@@ -77,7 +77,7 @@ export interface DialogueCompleteInfo {
   dialogueComplete: true;
 }
 
-/** @deprecated Renamed to `DialogueCompleteInfo` (ticket 55); removed in the
+/** @deprecated Renamed to `DialogueCompleteInfo`; removed in the
  *  release after the one that ships this alias. */
 export interface StoryEndInfo {
   variables: Readonly<Record<string, unknown>>;
@@ -91,7 +91,7 @@ export interface StoryEndInfo {
  * inside is identical; per-call inputs (callbacks, logging) belong in
  * `UseDialogueLive`.
  *
- * Derived from the runtime's `DialogueOptions` (deepening-wave ticket 06):
+ * Derived from the runtime's `DialogueOptions`:
  * a runtime option declared there flows into the hook without a second
  * declaration. `library` is re-modeled as `functions` (the hook builds the
  * `Library`); the diagnostics live in `UseDialogueLive`, never frozen at
@@ -118,7 +118,7 @@ export interface UseDialogueLive {
   /** Fired after commit when the dialogue completes (the `DialogueComplete`
    *  event, glossary). Takes precedence over the deprecated `onStoryEnd`. */
   onDialogueComplete?: (info: DialogueCompleteInfo) => void;
-  /** @deprecated Renamed to `onDialogueComplete` (ticket 55); removed in the
+  /** @deprecated Renamed to `onDialogueComplete`; removed in the
    *  release after the one that ships this alias. Used only when
    *  `onDialogueComplete` is absent, with this option's original payload. */
   onStoryEnd?: (info: StoryEndInfo) => void;
@@ -130,7 +130,7 @@ export interface UseDialogueResult {
    *  selection) — glossary "Continue", the adapter-side counterpart of
    *  `Dialogue.continue()`. */
   continue: () => void;
-  /** @deprecated Renamed to `continue` (ticket 55) — the same function;
+  /** @deprecated Renamed to `continue` — the same function;
    *  removed in the release after the one that ships this alias. */
   advance: () => void;
   /** Select a delivered option by its index (upstream `Dialogue.SetSelectedOption`). */
@@ -253,7 +253,7 @@ export function useDialogue(
   // markup correct). One comparison rule — config identity = dialogue
   // identity; a fresh object with identical values still rebuilds.
   //
-  // The config spreads into the runtime's DialogueOptions (ticket 06): new
+  // The config spreads into the runtime's DialogueOptions: new
   // runtime options forward without per-field code here. `variables` seeds
   // in the VM constructor after <<declare>> defaults (with `$`-prefix
   // normalization); diagnostics route to the live object's current logging

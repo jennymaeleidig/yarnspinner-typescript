@@ -6,8 +6,8 @@ import { parseScenes } from "./scenes.js";
 // Import CSS for dialogue system
 import "../../src/react/dialogue.css";
 
-// The demo host owns its scene YAML and the parser (deepening-wave ticket
-// 07 — the package ships no YAML scene parser); the parsed collection is
+// The demo host owns its scene YAML and the parser (the package ships no
+// YAML scene parser); the parsed collection is
 // host input to `<DialogueExample />`.
 const DEFAULT_SCENES = `
 scenes:

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * YarnProject loader (yarn-project-support ticket 02): parses upstream-style
+ * YarnProject loader: parses upstream-style
  * `.yarnproject` files (format v4, legacy v2 accepted, the dead dev v3
  * rejected), resolves `sourceFiles`/`excludeFiles` glob patterns against an
  * injected {@link YarnProjectFileSystem}, and feeds the resolved
- * `{ name, source }` files to `compile()` (the ticket-49 seam).
+ * `{ name, source }` files to `compile()` (the multi-file seam).
  *
  * Design constraints on record:
  * - Coding standard §2: this module performs no I/O — the file system is
@@ -324,7 +324,7 @@ export function parseYarnProject(
   }
 
   // projectName / authorName: optional, but the schema types them — malformed
-  // values are diagnosed (story 5: failures legible, never silent).
+  // values are diagnosed (failures legible, never silent).
   if (raw.projectName !== undefined && typeof raw.projectName !== "string") {
     return fail(projectDiagnostic("YP0003", "`projectName` must be a string", projectFile));
   }

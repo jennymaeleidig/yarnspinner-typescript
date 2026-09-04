@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * The string table (spec story 32; upstream `StringTableManager` +
+ * The string table (upstream `StringTableManager` +
  * `StringInfo` + `StringTableGeneratorVisitor`): the compile output's
  * mapping of line ID → string info, covering every line and option line of
  * the compiled sources.
  *
- * Ticket 50 scope: the upstream ID scheme — implicit line IDs are
+ * The upstream ID scheme — implicit line IDs are
  * `line:` + CRC32(fileName + nodeName + running table count) in
  * little-endian hex (`sh_`-prefixed for shadow lines, numeric suffix
  * retried on collision — exhaustion reports YS0041 and keeps retrying,

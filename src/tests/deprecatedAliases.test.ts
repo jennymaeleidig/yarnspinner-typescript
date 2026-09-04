@@ -22,7 +22,7 @@ import { DialogueRunner } from "../react/DialogueRunner.js";
 import { setupClientDom, tickClock } from "./clientDomHarness.js";
 
 /**
- * Ticket 53 (the 0.2.0 breaking wave): `YarnRunner` → `Dialogue` and
+ * The 0.2.0 breaking wave: `YarnRunner` → `Dialogue` and
  * `useYarnRunner` → `useDialogue` ship with one-release deprecated aliases.
  * These tests pin the alias contract — the aliases ARE the new names (same
  * value, same identity), so nothing can accidentally fork behavior between
@@ -58,8 +58,8 @@ const _resultAliasCheck: UseYarnRunnerResult = {} as UseDialogueResult;
 void _optionsAliasCheck;
 void _resultAliasCheck;
 
-// ── Ticket 55 (adapter resurfacing): advance → continue, onStoryEnd →
-// onDialogueComplete. Same one-release alias contract as ticket 53.
+// ── Adapter resurfacing: advance → continue, onStoryEnd →
+// onDialogueComplete. Same one-release alias contract.
 
 test("useDialogue result: advance is a deprecated exact alias of continue (same function)", () => {
   const program = compileOk(`title: Start
@@ -87,7 +87,7 @@ Mae: two
   ok(typeof captured!.continue === "function");
 });
 
-// ── Ticket 55 behaviour pins (client-render harness) ─────────────────────
+// ── Adapter behaviour pins (client-render harness) ───────────────────
 // The SSR harness (`renderToStaticMarkup`) never fires post-commit effects,
 // so the behavioural half of the alias contract — `onStoryEnd`'s
 // absent-precedence fallback with its original payload, and the three

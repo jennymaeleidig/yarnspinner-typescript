@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Saliency (ticket 47): the content-selection machinery for node groups and
+ * Saliency: the content-selection machinery for node groups and
  * line groups, mirroring upstream 3.2.2 `Yarn.Saliency` (coding standards §5).
  *
  * - `ContentSaliencyOption` mirrors upstream `ContentSaliencyOption`: one

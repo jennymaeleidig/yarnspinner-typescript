@@ -1,6 +1,6 @@
 # Instruction-stream VM over the tree IR
 
-> Status: fully adopted (ticket 46). The tree IR is deleted; `compile()`
+> Status: fully adopted. The tree IR is deleted; `compile()`
 > emits the instruction-stream program directly and it is the one program
 > format.
 

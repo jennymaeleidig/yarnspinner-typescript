@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Saliency machinery (ticket 47): complexity scoring, the four built-in
+ * Saliency machinery: complexity scoring, the four built-in
  * strategies (Random BLRV default), the pluggable two-method strategy
  * interface, `<<set_saliency>>`, line groups (`=>`), and the node-group
  * query APIs — asserted through the public compile → run seam.

@@ -1,4 +1,4 @@
-# Next.js host (yarn-project-support ticket 04)
+# Next.js host
 
 A worked app-router example proving the end-to-end story in Next.js: the
 YarnProject loader runs server-side, the client component runs `Dialogue`'s
@@ -39,7 +39,7 @@ relative to `process.cwd()`.
 
 ## Tests
 
-`src/tests/nextjsHost.test.tsx` mirrors the ticket-52 demo-harness pattern:
+`src/tests/nextjsHost.test.tsx` mirrors the browser demo-harness pattern:
 the content files are the single source of truth (loaded through the same
 server-side path the page uses), the client component's initial-pull logic is
 mirrored in the test (tests compile from src only — no package surface for a

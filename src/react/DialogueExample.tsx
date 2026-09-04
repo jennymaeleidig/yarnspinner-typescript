@@ -47,7 +47,7 @@ const DEMO_VARIABLES = {
 /**
  * The browser demo's dialogue tab. The scene YAML and its parser live with
  * the demo host (`examples/browser`) — the package ships no YAML scene
- * parser (deepening-wave ticket 07); the parsed `SceneCollection` is host
+ * parser; the parsed `SceneCollection` is host
  * input, like any other prop.
  */
 export function DialogueExample({

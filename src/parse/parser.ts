@@ -31,7 +31,7 @@ export function parseYarn(text: string): YarnDocument {
 
 /**
  * Speaker identity is resolved at RUNTIME by the line parser's implicit
- * `[character name=]` marker (ticket 48) — no compile-time regex split.
+ * `[character name=]` marker — no compile-time regex split.
  * The compiler stores raw line text; the speaker surfaces on the delivered
  * event, derived from the markup attribute.
  */
@@ -156,7 +156,7 @@ function rangeOf(token: Token): ParseError["range"] {
 
 class Parser {
   private i = 0;
-  /** Soft (non-throwing) findings — ticket 65's YS0019/YS0020/YS0022. */
+  /** Soft (non-throwing) findings — YS0019/YS0020/YS0022. */
   private soft: ParserDiagnostic[] = [];
   constructor(private readonly tokens: Token[]) {}
 
@@ -246,7 +246,7 @@ class Parser {
   }
 
   /**
-   * Line-content command checks (ticket 65, upstream SyntaxValidationListener
+   * Line-content command checks (upstream SyntaxValidationListener
    * equivalents). Runs on the line's text AFTER the line-level modifier
    * extraction — a surviving `<<...>>` span is by construction not a line
    * condition, which is exactly upstream's "only line conditions may follow
@@ -340,7 +340,7 @@ class Parser {
     // headers
     while (!this.at("NODE_START")) {
       // A node cut off before its `---` is upstream YS0004 MissingDelimiter
-      // (ticket 65; the upstream YS0004 example pins the missing-delimiter
+      // (the upstream YS0004 example pins the missing-delimiter
       // family, not plain YS0005).
       const keyTok = this.take("HEADER_KEY", "Missing node delimiter", "YS0004");
       startLine ??= keyTok.line;
@@ -359,7 +359,7 @@ class Parser {
         // Each when: header adds one condition (can have multiple when: headers).
         // The grammar's header_when_expression requires an expression (or
         // "always"/"once") — an empty when: header is the upstream
-        // ParseFailures case (YS0005 via the compile seam, ticket 54).
+        // ParseFailures case (YS0005 via the compile seam).
         const raw = valTok.text.trim();
         if (!raw) {
           throw new ParseError(
@@ -369,7 +369,7 @@ class Parser {
         }
         whenConditions.push(raw);
       }
-      // Removed fork extension (ticket 40): header-carried &css{} styles are
+      // Removed fork extension: header-carried &css{} styles are
       // rejected with a YS0005 diagnostic via the compile seam.
       this.rejectRemovedSyntax(valTok.text, valTok);
       headers[keyTok.text] = valTok.text;
@@ -408,7 +408,7 @@ class Parser {
   private trailingBlankBeforeEnd = false;
 
   /**
-   * Pending `///` documentation comment lines (spec story 47): collected
+   * Pending `///` documentation comment lines: collected
    * while skipping comment lines, attached to the next `<<declare>>` the
    * parser builds (upstream `Declaration.Description`; upstream's
    * doc-comment collection is stream-global — the next declaration wins
@@ -459,7 +459,7 @@ class Parser {
         continue;
       }
 
-      // A line group: consecutive `=>` lines (ticket 47).
+      // A line group: consecutive `=>` lines.
       if (this.at("LINE_GROUP")) {
         out.push(this.parseLineGroup());
         continue;
@@ -467,7 +467,7 @@ class Parser {
 
       // Full-line // comments are not dialogue content (upstream lexer skips
       // them); /// lines are documentation comments collected for the next
-      // <<declare>> (spec story 47).
+      // <<declare>>.
       if (this.at("TEXT") && this.peek().text.trimStart().startsWith("//")) {
         this.consumeCommentLine();
         continue;
@@ -484,8 +484,8 @@ class Parser {
   }
 
   private parseStatement(): Statement {
-    // `///` documentation comments attach to the next `<<declare>>` only
-    // (spec story 47); take them off the pending buffer no matter what
+    // `///` documentation comments attach to the next `<<declare>>` only;
+    // take them off the pending buffer no matter what
     // statement follows.
     const docComment = this.takeDocComment();
     const t = this.peek();
@@ -496,7 +496,7 @@ class Parser {
       const cmd = cmdTok.text;
       // A `///` comment on the same line after a declaration overrides the
       // preceding doc lines (upstream Compiler.GetDocumentComments'
-      // allowCommentsAfter — ticket 54's parity-completeness item).
+      // allowCommentsAfter parity-completeness item).
       const trailingDoc = cmdTok.trailingComment?.startsWith("///")
         ? cmdTok.trailingComment.replace(/^\/\/\/ ?/, "").trim() || undefined
         : undefined;
@@ -508,7 +508,7 @@ class Parser {
         const enumName = cmd.slice(5).trim();
         return this.parseEnumBlock(enumName);
       }
-      // $-prefix strictness (ticket 40, spec story 10): state commands must
+      // $-prefix strictness: state commands must
       // target a $-prefixed variable; bare names get a YS0005 via the seam.
       const stateCmd = cmd.match(/^(set|declare)\s+(\S+)/);
       if (stateCmd && !stateCmd[2].startsWith("$")) {
@@ -517,7 +517,7 @@ class Parser {
           this.rangeAt(t),
         );
       }
-      // State commands must have a value (ticket 54): the grammar's
+      // State commands must have a value: the grammar's
       // set/declare statements require `= expression`. Upstream's error
       // listener reports the failure shapes differently — a command
       // truncated right after the variable (or any non-`=` clause) is
@@ -540,7 +540,7 @@ class Parser {
       // The grammar's call_statement requires a function_call: a bare
       // <<call>> with no expression is invalid, and <<call name>> without
       // the argument list reports upstream's unclosed-command code (both
-      // verified against the upstream compiler; ticket 54).
+      // verified against the upstream compiler).
       if (cmd === "call") {
         throw new ParseError(
           "<<call>> requires a function call expression, e.g. <<call myFunction()>>",
@@ -572,7 +572,7 @@ class Parser {
   }
 
   /**
-   * A line group (ticket 47): the consecutive run of `=>` line statements.
+   * A line group: the consecutive run of `=>` line statements.
    * Blank lines, comments, and indentation tokens between items do not
    * break the group (upstream: the group is the run of line_group_items —
    * comments are not statements and blank lines are not either); any other
@@ -604,14 +604,14 @@ class Parser {
    * comment ends the line; a `<<if>>`/`<<once>>`/`<<once if>>` modifier is
    * extracted; hashtags are pulled. The text is stored raw — markup
    * parsing, `{expr}` substitution, and speaker resolution all happen at
-   * runtime through the line-parser module (ticket 48); the runtime-owned
+   * runtime through the line-parser module; the runtime-owned
    * escapes (`\{`, `\}`, `\[`, `\]`, `\:`) keep their backslashes.
    */
   private parseLineFromText(raw: string, token: Token): Line {
     const commented = truncateAtComment(raw).trimEnd();
     const { text: withoutModifier, modifier } = extractLineModifier(commented, token);
     const { cleanText: textWithoutTags, tags } = this.extractTags(withoutModifier);
-    // Removed fork extensions (ticket 40): &css{} and inline {if} blocks.
+    // Removed fork extensions: &css{} and inline {if} blocks.
     this.rejectRemovedSyntax(textWithoutTags, token);
     this.checkEmbeddedCommands(textWithoutTags, token);
     const line: Line = {
@@ -639,11 +639,11 @@ class Parser {
       // Option-line pipeline: same stages as a text line (see
       // parseStatement) — comment, condition/once modifier, hashtags. The
       // option's text is stored raw; markup and substitutions compose at
-      // runtime through the line-parser module (ticket 48).
+      // runtime through the line-parser module.
       const commented = truncateAtComment(raw).trimEnd();
       const { text: withoutModifier, modifier } = extractLineModifier(commented, optTok);
       const { cleanText: textWithAttrs, tags } = this.extractTags(withoutModifier);
-      // Removed fork extensions (ticket 40): &css{} and the [if expr] option
+      // Removed fork extensions: &css{} and the [if expr] option
       // condition suffix.
       this.rejectRemovedSyntax(textWithAttrs, optTok);
       this.checkEmbeddedCommands(textWithAttrs, optTok);
@@ -692,7 +692,7 @@ class Parser {
   }
 
   /**
-   * Removed fork extensions (ticket 40 — the three intentional breaking
+   * Removed fork extensions (the three intentional breaking
    * syntax removals). Each surfaces as a YS0005 SyntaxError through the
    * compile seam with a migration pointer in the message; see
    * docs/migration-notes.md.
@@ -722,7 +722,7 @@ class Parser {
 
   /**
    * An if/once body that hits the node's `===` or EOF without its closing
-   * command is an unclosed scope — upstream YS0007 (ticket 65), not a
+   * command is an unclosed scope — upstream YS0007, not a
    * plain syntax error: the closing token is `<<{closer}>>`.
    */
   private parseStatementsUntilStop(
@@ -755,7 +755,7 @@ class Parser {
       }
       // Full-line // comments are not dialogue content (upstream lexer skips
       // them); /// lines are documentation comments collected for the next
-      // <<declare>> (spec story 47).
+      // <<declare>>.
       if (this.at("TEXT") && this.peek().text.trimStart().startsWith("//")) {
         this.consumeCommentLine();
         continue;

@@ -3,8 +3,7 @@
 	import type { Diagnostic, Program, Transcript } from "yarn-spinner-runner-ts";
 
 	/**
-	 * The SvelteKit host's dialogue component (yarn-project-support ticket
-	 * 05): `Dialogue`'s pull-based continue loop runs natively in Svelte —
+	 * The SvelteKit host's dialogue component: `Dialogue`'s pull-based continue loop runs natively in Svelte —
 	 * runes state, no framework adapter, zero React in the tree. The only
 	 * props are the compiled program — the serializable artifact (ADR 0001)
 	 * the server load handed across the load boundary — plus loader context.

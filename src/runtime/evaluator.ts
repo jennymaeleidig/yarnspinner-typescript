@@ -66,14 +66,14 @@ export function deepEqualsOperands(a: unknown, b: unknown): boolean {
 }
 
 export class ExpressionEvaluator {
-  /** variable name → recomputing read (compiled bytecode; ticket 42). */
+  /** variable name → recomputing read (compiled bytecode). */
   private smartVariables: Record<string, () => unknown> = {}; // variable name -> read
   
   constructor(
     private variables: VariableStorage = new InMemoryVariableStorage(),
-    /** Function lookup — reads through the runtime's Library (ticket 43). */
+    /** Function lookup — reads through the runtime's Library. */
     private functions: { get(name: string): ((...args: unknown[]) => unknown) | undefined } = { get: () => undefined },
-    /** Enum registry: enum name → case name → raw value (ticket 41). */
+    /** Enum registry: enum name → case name → raw value. */
     private enums: Record<string, Record<string, number | string>> = {}
   ) {}
 
@@ -462,7 +462,7 @@ export class ExpressionEvaluator {
       return this.variables.get(key);
     }
 
-    // Smart variable: re-evaluate on every access (ticket 42).
+    // Smart variable: re-evaluate on every access.
     if (Object.prototype.hasOwnProperty.call(this.smartVariables, key)) {
       return this.smartVariables[key]();
     }

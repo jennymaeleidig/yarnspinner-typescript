@@ -42,7 +42,7 @@ title: Start
   `Dialogue.getVariables()` snapshots.
 - Booleans interpolate as upstream's C# `ToString`: `True`/`False`.
 - String `+` concatenates; comparing against an unset variable uses the
-  implicit type default (bool→false, number→0, string→"") — a recorded
+  implicit type default (bool→false, number→0, string→"") — a deliberate
   adaptation.
 
 

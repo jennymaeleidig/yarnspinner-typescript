@@ -45,7 +45,7 @@ export interface Transcript {
   commands: string[];
   /**
    * The `scene:` header of the most recently started node (from its
-   * `NodeStartEvent`, deepening-wave ticket 07) — the scene name's one
+   * `NodeStartEvent`) — the scene name's one
    * delivery channel, carried forward across scene-less nodes the way the
    * view keeps its last background. Hosts cross-check it against their
    * `SceneCollection` right here, at node start — the one seam where the

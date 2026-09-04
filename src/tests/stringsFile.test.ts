@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * CSV strings files (spec ticket 51; upstream 8-column interchange): the
+ * CSV strings files (upstream 8-column interchange): the
  * CSV never exists inside the core compiler — it is the host-integration
  * artifact derived from the compile result's string table (Unity
  * `StringTableEntry.ParseFromCSV`/`CreateCSV` + `YarnProjectImporter`'s

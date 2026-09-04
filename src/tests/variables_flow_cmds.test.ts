@@ -187,7 +187,7 @@ Narrator: Final {$credits}
   strictEqual(dialogue.getVariable("credits"), 30, "Stored variable should reflect final value");
 });
 
-test("<<call>> invokes the registered host function and discards the result (spec story 4)", () => {
+test("<<call>> invokes the registered host function and discards the result (upstream CallStatement pin)", () => {
   let observed: string | null = null;
   let callCount = 0;
   const dialogue = makeDialogue(
@@ -242,7 +242,7 @@ Mae: still here
   strictEqual(lines.includes("still here"), true, "the run continues after the diagnostic");
 });
 
-test("<<wait>> is a consumer-timed command (spec story 7): delivered as a command event, then the batch stops", () => {
+test("<<wait>> is a consumer-timed command: delivered as a command event, then the batch stops", () => {
   const dialogue = makeDialogue(
     `
 title: Start

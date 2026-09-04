@@ -177,7 +177,7 @@ export function executeStateStatement(host: StateStatementHost, content: string,
       const expr = exprParts.join(" ").replace(/\s+as\s+[A-Za-z_][A-Za-z0-9_]*\s*$/, "");
       const key = varNameRaw.startsWith("$") ? varNameRaw.slice(1) : varNameRaw;
 
-      // Smart variables (ticket 42) were classified at compile time and
+      // Smart variables were classified at compile time and
       // registered from the program's smart variables at start-up: read-only,
       // recomputed on every access, no initial stored value (upstream:
       // they are not in Program.InitialValues).

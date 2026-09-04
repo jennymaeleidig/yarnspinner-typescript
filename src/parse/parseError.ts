@@ -10,7 +10,7 @@ export class ParseError extends Error {
   /** 0-based source range of the offending token, when known. */
   range?: { startLine: number; startCol: number; endLine: number; endCol: number };
   /**
-   * The registry YS-code the compile seam should report (ticket 54).
+   * The registry YS-code the compile seam should report.
    * Upstream's error listener assigns codes beyond plain syntax errors —
    * an unclosed command is YS0006, not YS0005 — so raiseable parse
    * problems carry their code. Absent → the seam reports YS0005.

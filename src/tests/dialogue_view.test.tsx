@@ -32,7 +32,7 @@ Narrator: Hello {$playerName}!
   );
 });
 
-// ── the headless split (headless-view ticket 01): the presentational view ─
+// ── the headless split: the presentational view ──────────────────
 
 /** A hand-built `UseDialogueResult` — no `program`, no hook call. The
  *  `dialogue` escape hatch is unused by the view, so tests stub it. */
@@ -121,7 +121,7 @@ Narrator: Done
 
 test("DialogueExample (the browser demo) renders its opening line", () => {
   // The demo component compiles its own yarn and renders the first view
-  // state during SSR — the package-level "demo green" harness (ticket 52).
+  // state during SSR — the package-level "demo green" harness.
   const html = renderToStaticMarkup(<DialogueExample />);
 
   ok(html.includes("Welcome to"), "Expected the demo's opening line to render");

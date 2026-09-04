@@ -2,7 +2,7 @@
 /**
  * Port of the upstream conformance runner (`YarnSpinner.Tests/TestBase.cs`,
  * `RunStandardTestcase`) onto this project's runtime, driving the vendored
- * `.testplan` fixtures over the pull-based event-stream API (ticket 43).
+ * `.testplan` fixtures over the pull-based event-stream API.
  *
  * Upstream semantics preserved:
  * - Step-locked event stream: every expectation fails if any *other* event
@@ -25,7 +25,7 @@
  * - `set:` steps are validated against the program's declared initial values
  *   (upstream `Program.InitialValues`) and applied to the shared storage.
  * - `saliency:` steps swap the named built-in saliency strategy onto the
- *   dialogue mid-run (upstream TestBase's saliencyStrategies map; ticket 47).
+ *   dialogue mid-run (upstream TestBase's saliencyStrategies map).
  * - Harness-registered functions are part of the conformance contract
  *   (TestBase/LanguageTests): `assert`, `dummy_*`, `add_three_operands`, and
  *   the quest stubs — registered through the Library.
@@ -35,8 +35,8 @@
  * - Upstream's `assert` throws and aborts the run; here `assert` records
  *   failures and the runner fails the test with them.
  *
- * `<<call>>` invokes its host function and discards the result (spec
- * story 4), so the fixtures' `assert(...)`-in-call coverage is real.
+ * `<<call>>` invokes its host function and discards the result
+ * (upstream CallStatement pin), so the fixtures' `assert(...)`-in-call coverage is real.
  */
 
 import { Dialogue, Library, noOptionSelected } from "../../runtime/dialogue.js";
@@ -290,7 +290,7 @@ export function runTestPlan(program: Program, plan: TestPlan): void {
         }
         case "saliency": {
           // Upstream TestBase maps the plan's mode to a built-in strategy
-          // and swaps it onto the dialogue mid-run (ticket 47).
+          // and swaps it onto the dialogue mid-run.
           if (!dialogue.setSaliencyStrategy(step.mode)) {
             throw new PlanFailure(`unknown saliency strategy "${step.mode}"`);
           }

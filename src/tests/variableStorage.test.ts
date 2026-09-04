@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Pluggable variable storage (spec story 39, glossary "variable storage"):
+ * Pluggable variable storage (glossary "variable storage"):
  * the persistence seam where all story state — story variables and
  * generated variables alike (coding standards §4) — lives in one
  * host-replaceable store.
@@ -68,7 +68,7 @@ test("story writes and generated state land in the injected storage", () => {
   strictEqual(storage.get("gold"), 5);
 
   // Generated variables (the <<once>> flag) live in the same storage under
-  // the reserved namespace (spec story 42 — resetting storage resets all
+  // the reserved namespace (resetting storage resets all
   // story state together).
   const generated = [...storage.entries()].filter(([key]) => key.startsWith("Yarn.Internal."));
   ok(generated.length > 0, "once-state should be a generated variable in the injected storage");
@@ -88,7 +88,7 @@ test("generated state in the injected storage persists across a fresh Dialogue",
 
   // A fresh Dialogue over the same storage inherits its state: the once-line
   // is suppressed (its flag is stored state, not runtime state) and the
-  // story variable survives — persistence is the host's storage (story 39).
+  // story variable survives — persistence is the host's storage.
   const second = makeDialogue(SCRIPT, { variableStorage: storage });
   const texts: string[] = [];
   for (let i = 0; i < 100; i++) {

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Node file system for the YarnProject loader (yarn-project-support
- * ticket 02): the default {@link YarnProjectFileSystem} implementation plus
+ * Node file system for the YarnProject loader: the default {@link YarnProjectFileSystem} implementation plus
  * a one-call `loadYarnProject(path)` convenience.
  *
  * This module is the ONLY place the loader's I/O touches Node `fs` — the

@@ -14,7 +14,7 @@ function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialog
 const lineTexts = (events: DialogueEvent[]) =>
   events.filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line").map((e) => e.text);
 
-// The AST-level lowering seam is internal (deepening-wave ticket 09): real
+// The AST-level lowering seam is internal: real
 // for tooling and the compiler's own tests, unreachable from the package
 // root — hosts meet only the collect-don't-throw seam.
 test("compileDocument and its error types are not package surface", () => {
@@ -23,7 +23,7 @@ test("compileDocument and its error types are not package surface", () => {
   strictEqual("CompileDocumentOptions" in pkg, false);
 });
 
-// The headless split (headless-view ticket 01): the wired container is
+// The headless split: the wired container is
 // package surface alongside the presentational view.
 test("DialogueRunner is exported from the package root", () => {
   strictEqual(typeof (pkg as Record<string, unknown>).DialogueRunner, "function");

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * SvelteKit host harness (yarn-project-support ticket 05): the end-to-end
+ * SvelteKit host harness: the end-to-end
  * story proven by the example app at `examples/sveltekit-host/` — the same
  * story as the Next.js host, with zero React anywhere. The YarnProject
  * loader runs server-side (`loadYarnProject` over the app's own authored
@@ -8,8 +8,7 @@
  * as a plain serializable object, and the client component runs `Dialogue`'s
  * pull-based continue loop natively in Svelte runes.
  *
- * Tests run from src only (no package surface for a one-app example, the
- * ticket-52 precedent). The pull loop the client component runs is the
+ * Tests run from src only (no package surface for a one-app example). The pull loop the client component runs is the
  * package's own transcript-reduction module (`runUntilStopped`) — the same
  * shipped logic, imported, not mirrored. The SSR harness compiles the REAL
  * `DialogueHost.svelte` (svelte/compiler, both generations clean) and
@@ -21,8 +20,7 @@
  * loaded through the same server-side path the host's +page.server.ts uses.
  *
  * The `npm run sveltekit:build` target (adapter-static) prerenders the page,
- * so the loader call and this same SSR output run at build time; CI wiring
- * is ticket 53, the ticket-04 precedent.
+ * so the loader call and this same SSR output run at build time in CI.
  */
 
 import { test, after } from "node:test";
@@ -85,7 +83,7 @@ function compileHostComponent(): string {
 	// harness below renders; client generation is what the browser hydrates —
 	// the interactive handlers (Continue/option/reset) live in it. The
 	// handlers' behavior itself is asserted through `Dialogue` in the flow
-	// tests (tests compile from src only — the ticket-04 mirror disclosure).
+	// tests (tests compile from src only — the Next.js mirror disclosure).
 	for (const generate of ["server", "client"] as const) {
 		const { js, warnings } = compile(source, {
 			generate,

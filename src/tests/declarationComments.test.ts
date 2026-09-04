@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * `///` declaration documentation comments (spec story 47): comment lines
+ * `///` declaration documentation comments: comment lines
  * starting `///` immediately above a `<<declare>>` attach to the
  * declaration and surface in the compile result as its `description`
  * (upstream `Declaration.Description` — the variable's purpose, shown in

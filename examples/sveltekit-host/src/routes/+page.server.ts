@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { loadYarnProject } from "yarn-spinner-runner-ts/node";
 
 /**
- * The SvelteKit host's server load (yarn-project-support ticket 05): the
+ * The SvelteKit host's server load: the
  * YarnProject loader runs here — the injected file-access seam
  * (`nodeProjectFs`, driven by `loadYarnProject`) earning its keep — and the
  * only thing crossing the load boundary to the page is the compiled program,

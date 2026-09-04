@@ -127,8 +127,7 @@ Narrator: Menu
   const dialogue = makeDialogue(script);
 
   // First pass: the secret option's condition holds, so the if-wrapped
-  // option group is reached (the compiler merges the lists into one —
-  // ticket 46).
+  // option group is reached (the compiler merges the lists into one).
   const secretMenu = nextOptions(dialogue);
   strictEqual(secretMenu.options.length, 1, "First pass should expose the conditional secret option");
   strictEqual(secretMenu.options[0].text, "Secret Option");

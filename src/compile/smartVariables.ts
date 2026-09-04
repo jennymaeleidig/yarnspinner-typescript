@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Smart variable classification (spec ticket 42).
+ * Smart variable classification.
  *
  * Upstream Yarn Spinner 3.2 classifies a `<<declare>>` by the shape of its
  * initial value expression (TypeCheckerListener.ResolveInitialValues): a

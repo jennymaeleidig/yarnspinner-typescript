@@ -27,8 +27,8 @@ Narrator: We are in the next scene.
 - A jump exits the current node entirely: the exit records a visit, and
   detoured nodes on the return stack record theirs (upstream records visits
   on node return).
-- The `tracking: never` node header suppresses visit recording for that node
-  (spec story 22 / issue 13).
+- The `tracking: never` node header suppresses visit recording for that
+  node.
 - The runtime API exposes `setNode(title)` for host-initiated jumps (upstream
   `Dialogue.SetNode`).
 

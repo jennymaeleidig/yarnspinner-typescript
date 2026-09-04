@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * The compile seam (spec tickets 23/41/49): parse → validate → type-check →
+ * The compile seam: parse → validate → type-check →
  * compile, returning the program together with its diagnostics instead of
  * throwing.
  *
- * Multi-file surface (ticket 49, upstream `CompilationJob`): `compile()`
+ * Multi-file surface (upstream `CompilationJob`): `compile()`
  * accepts `{ name, source }` entries — no globs or filesystem I/O in the
  * library (coding standards §2). External declarations (variables,
  * functions, enums; conflicts produce YS diagnostics — YS0039/YS0040), a
@@ -19,10 +19,9 @@
  *   string table (upstream 3.2.1+ behavior); no program. `declarationsOnly`
  *   is the obsolete upstream name, accepted as an alias;
  * - `full` with errors still returns the program (upstream nulls it; this
- *   fork keeps the lowering result observable — collect-don't-throw, §3 —
- *   recorded as a deliberate divergence in ticket 49's notes).
+ *   fork keeps the lowering result observable — collect-don't-throw, §3).
  *
- * The string table (ticket 50: the full upstream contract) is assigned in
+ * The string table (the full upstream contract) is assigned in
  * one pass over all files in the upstream registration order — files in
  * input order, nodes in document order, statements depth-first — so the
  * IDs match upstream's CRC32(file + node + count) scheme exactly, and the
@@ -74,14 +73,14 @@ export interface CompileOptions {
   /** Throw on the first error diagnostic instead of collecting. */
   strict?: boolean;
   /**
-   * Host-provided external declarations (ticket 41): enum types
+   * Host-provided external declarations: enum types
    * (EnumTypeBuilder outputs), function signatures, and variables for
    * compile-time checking. Conflicts with in-script declarations produce
    * YS0039 (variables) / YS0040 (types).
    */
   declarations?: ExternalDeclarations;
   /**
-   * A compile-time Library (ticket 49): registered functions' signatures
+   * A compile-time Library: registered functions' signatures
    * feed signature checking (upstream `CompilationJob.Library`). Explicit
    * `declarations.functions` entries take precedence. The runtime keeps its
    * own Library instance.
@@ -92,7 +91,7 @@ export interface CompileOptions {
 
 /**
  * The result of a compilation — the upstream `CompilationResult` shape,
- * camelCased (spec story 31/33): program, string table, declarations,
+ * camelCased (upstream `CompilationResult` naming): program, string table, declarations,
  * diagnostics, file tags, implicit-string-tag flag, user-defined types.
  */
 export interface CompileResult {
@@ -116,12 +115,12 @@ export interface CompileResult {
   userDefinedTypes: EnumType[];
 }
 
-/** Single-file convenience kept from ticket 23; delegates to `compile()`. */
+/** Single-file convenience; delegates to `compile()`. */
 export function compileSource(source: string, opts: CompileSourceOptions = {}): CompileResult {
   return compile([{ name: opts.file ?? "input", source }], opts);
 }
 
-// `compileSource`'s historical `file` option (ticket 23) names the single
+// `compileSource`'s historical `file` option names the single
 // input; it rides the same CompileOptions as `compile()`.
 export interface CompileSourceOptions extends CompileOptions {
   file?: string;
@@ -129,7 +128,7 @@ export interface CompileSourceOptions extends CompileOptions {
 export type CompileSourceResult = CompileResult;
 
 /**
- * Compile a collection of files (spec story 31): parse every file, assign
+ * Compile a collection of files: parse every file, assign
  * line IDs and register the string table, validate node structure, then
  * continue per the compilation mode.
  */
@@ -145,7 +144,7 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
     try {
       const doc = parseYarn(file.source);
       for (const node of doc.nodes) node.sourceFile = file.name;
-      // Soft parser findings (ticket 65): YS0019/YS0020/YS0022 ride the
+      // Soft parser findings: YS0019/YS0020/YS0022 ride the
       // document, not an exception — the parse itself succeeded.
       for (const sd of doc.softDiagnostics ?? []) {
         diagnostics.push(
@@ -163,7 +162,7 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
       docs.push({ name: file.name, doc });
     } catch (e) {
       if (!(e instanceof ParseError)) throw e;
-      // Raiseable parse problems carry their registry code (ticket 54):
+      // Raiseable parse problems carry their registry code:
       // upstream's error listener reports unclosed commands as YS0006, not
       // YS0005. Codeless errors are plain syntax errors (YS0005, whose
       // registry template is "Syntax error: {0}").
@@ -193,9 +192,9 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
     return empty;
   }
 
-  // Compile-time Library (ticket 49): registered signatures feed signature
+  // Compile-time Library: registered signatures feed signature
   // checking; explicit declarations.functions entries take precedence. The
-  // built-in signatures sit at the base (ticket 65): upstream's compiler
+  // built-in signatures sit at the base: upstream's compiler
   // knows its default Library's types, so e.g. `visited(true)` is a
   // compile-time YS0050, not a runtime surprise.
   const declarations: ExternalDeclarations = { ...opts.declarations };
@@ -243,7 +242,7 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
     };
   }
 
-  // Enum-aware type checking (ticket 41): validates enum declarations and
+  // Enum-aware type checking: validates enum declarations and
   // member access, enforces the same-enum comparison restriction, resolves
   // `.Case` shorthand in place, and collects declarations.
   const checked = typeCheck(combined, { declarations }, (d) => diagnostics.push(d));
@@ -315,7 +314,7 @@ function validate(doc: YarnDocument, diagnostics: Diagnostic[]): void {
     if (node.body.length === 0) {
       diagnostics.push(makeDiagnostic("YS0033", `Node "${node.title}" is empty`, { file: node.sourceFile }));
     }
-    // YS0027 (ticket 65): node titles and subtitles can only contain
+    // YS0027: node titles and subtitles can only contain
     // letters, numbers, and underscores — one diagnostic per invalid
     // character, as upstream's per-character validation reports.
     for (const [kind, value] of [
@@ -410,8 +409,8 @@ function validateJumps(doc: YarnDocument, diagnostics: Diagnostic[]): void {
 }
 
 /**
- * Markup validation of every dialogue line's text (YS0063 MarkupFailedToParse,
- * ticket 65): the compiler parses each line/option through the runtime markup
+ * Markup validation of every dialogue line's text (YS0063 MarkupFailedToParse):
+ * the compiler parses each line/option through the runtime markup
  * parser — upstream 3.2.1+ validates markup at compile time, so a malformed
  * attribute surfaces as a compile warning instead of surprising the host at
  * delivery.

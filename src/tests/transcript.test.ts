@@ -241,7 +241,7 @@ Narrator: Three
   const first = runUntilStopped(dialogue);
   assert.equal(first.stopped, "line");
   dialogue.stop();
-  assert.equal(dialogue.isComplete, false, "stop() alone does not complete (ticket-02 edge)");
+  assert.equal(dialogue.isComplete, false, "stop() alone does not complete");
 
   const stopped = runUntilStopped(dialogue, first.transcript);
   assert.equal(stopped.stopped, "complete");
@@ -329,7 +329,7 @@ Narrator: Hello
   assert.deepEqual(EMPTY_TRANSCRIPT, { lines: [], options: null, commands: [] } satisfies Transcript);
 });
 
-// ── scene on NodeStartEvent (deepening-wave ticket 07) ────────────────────
+// ── scene on NodeStartEvent ───────────────────────────────
 
 test("a node's scene header lands on the transcript from its NodeStartEvent", () => {
   const source = `

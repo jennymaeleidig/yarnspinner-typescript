@@ -7,7 +7,7 @@ import type { TranscriptLine } from "../../src/runtime/transcript.js";
 import type { ContentSaliencyOption } from "../../src/runtime/saliency.js";
 
 /**
- * The storylet demo (ticket 52): a node group whose members gate on `when:`
+ * The storylet demo: a node group whose members gate on `when:`
  * conditions of varying complexity, drawn repeatedly under switchable
  * saliency strategies. Exercises the runtime's saliency surface directly —
  * `setSaliencyStrategy`, `getSaliencyOptionsForNodeGroup`, `getVariables` —
@@ -72,7 +72,7 @@ Narrator: The heist went off without a hitch. Trust does that.
 ===`;
 
 // The demo compiles through the public collect-don't-throw seam (the
-// package's throwing AST seam is internal — deepening-wave ticket 09) and
+// package's throwing AST seam is internal) and
 // asserts the host-side precondition: no error diagnostics, a program.
 function compileDemo(source: string): Program {
   const { program, diagnostics } = compileSource(source);

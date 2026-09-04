@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Instruction-stream program tests (spec ticket 44; ADR 0001, ADR 0003).
+ * Instruction-stream program tests (ADR 0001, ADR 0003).
  *
  * The compiler emits a TS-idiomatic instruction-stream stack-VM program: a
  * versioned JSON artifact (`languageVersion`) in which expressions are
@@ -13,7 +13,7 @@
  * the public contract once 0.2.0 ships"), and the artifact is observed
  * through the public compile seam (`compileSource().program`). Coding
  * standards §6's "no tests against opcode layout" governs the VM's private
- * execution machinery (tickets 45–46), not the documented program format.
+ * execution machinery, not the documented program format.
  *
  * Lowering contract (what each test pins):
  * - lines/commands → `runLine`/`runCommand` (upstream RunLine/RunCommand);
@@ -32,9 +32,9 @@
  * - `<<once>>` lowers to generated-variable reads/writes (coding standards
  *   §4) — no dedicated block op;
  * - line groups lower to `addSaliencyCandidate`/`selectSaliencyCandidate`/
- *   `popJump` with body destinations as resolved indices (ticket 47);
+ *   `popJump` with body destinations as resolved indices;
  * - node groups and headers (`when`, `scene`, `tracking`) carry over
- *   verbatim; the VM's saliency machinery (ticket 47) evaluates them.
+ *   verbatim; the VM's saliency machinery evaluates them.
  */
 
 import { test } from "node:test";

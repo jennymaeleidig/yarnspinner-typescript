@@ -2,7 +2,7 @@
 /**
  * The compiler: AST → instruction-stream program (ADR 0001, ADR 0003).
  *
- * The tree-shaped IR is retired (ticket 46): the compiler walks the parsed
+ * The tree-shaped IR is retired: the compiler walks the parsed
  * statements and emits per-node instruction streams directly, with jumps
  * and option destinations as instruction indices whose labels are resolved
  * in the label pass (NodeLowering) before the program is handed out.
@@ -73,7 +73,7 @@ import type { EnumType } from "./enums.js";
 /**
  * Group nodes by title: titles by first occurrence, members in document
  * order. The lowering walks this grouping so node-group members lower
- * together (ticket 47).
+ * together.
  */
 function groupNodesByTitle(docs: YarnDocument[]): Map<string, YarnNode[]> {
   const nodesByTitle = new Map<string, YarnNode[]>();
@@ -135,7 +135,7 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
   const genOnce = opts.generateOnceIds ?? ((x) => `${x.node}#once#${x.index}`);
   let globalLineCounter = 0;
   /**
-   * Assign the line's `line:` ID. The string-table pass (ticket 50) writes
+   * Assign the line's `line:` ID. The string-table pass writes
    * every implicit ID into the AST before lowering, so this finds the tag
    * already in place; the counter fallback only fires for lines that bailed
    * registration (YS0017/YS0062) — the compile carries error diagnostics
@@ -165,7 +165,7 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
     } else {
       // A single node with `when:` headers is a one-member node group
       // (upstream: the NodeGroupVisitor processes any node with when:
-      // headers, so it gets the hub/selection machinery too — ticket 47).
+      // headers, so it gets the hub/selection machinery too).
       nodes[title] = {
         title,
         nodes: nodesWithSameTitle.map((node) =>
@@ -340,7 +340,7 @@ class NodeLowering {
   }
 
   /** Emit `addSaliencyCandidate` with a label destination (resolved at
-   *  `resolve` time) — the line-group candidate record (ticket 47). */
+   *  `resolve` time) — the line-group candidate record. */
   addSaliencyCandidate(contentId: string, complexity: number, label: string): void {
     this.refs.push({ at: this.instructions.length, key: "destination", label });
     this.instructions.push({ op: "addSaliencyCandidate", contentId, complexity, destination: -1 });
@@ -482,7 +482,7 @@ function lowerLine(line: Line, lowering: NodeLowering, ctx: LoweringContext): vo
 }
 
 /**
- * Lower a line group (ticket 47, upstream `VisitLine_group_statement`): each
+ * Lower a line group (upstream `VisitLine_group_statement`): each
  * item evaluates its `<<if>>`/`<<once>>`/`<<once if>>` gate (or pushes true)
  * and records a saliency candidate with its complexity score (a `once`
  * marker adds 1; an expression adds its boolean-operator count + 1); the
@@ -726,7 +726,7 @@ function lowerSet(parsed: ParsedCommand, enums: Program["enums"]): Instruction[]
 
 /**
  * Collect `<<declare $var = expr>>` commands from a statement tree, splitting
- * them by kind (ticket 42): smart variables (initializer that is not a plain
+ * them by kind: smart variables (initializer that is not a plain
  * literal — upstream "inline expansion") go into `program.smartVariables`
  * with their compiled initializer; stored declarations go into
  * `program.initialValues` (upstream `Program.InitialValues`) as compiled

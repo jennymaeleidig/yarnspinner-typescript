@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * ParseFailures validation wave (ticket 54): the compiler-side validations
+ * ParseFailures validation wave: the compiler-side validations
  * whose absence let 12 upstream must-fail fixtures compile clean.
  *
- * Expectations are SOURCED, not hand-copied (upstream-submodule ticket 06):
+ * Expectations are SOURCED, not hand-copied (upstream-submodule):
  * the corpus-level must-fail contract stays exactly upstream's ("has
  * errors" — upstream-conformance.test.ts), and here every emitted
  * diagnostic is cross-checked against the submodule's per-code Definitions
@@ -35,7 +35,7 @@ function errorCodesOf(result: CompileResult): string[] {
 
 /**
  * Cross-check every emitted diagnostic against the Definitions registry
- * (ticket 06): the code must exist in the submodule's registry, and an
+ * (the code must exist in the submodule's registry, and an
  * emitted severity must equal the definition's defaultSeverity. An emitted
  * code upstream does not define — or a severity that drifts from the
  * registry — fails here.

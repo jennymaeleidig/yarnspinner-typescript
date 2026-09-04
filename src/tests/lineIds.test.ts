@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Line IDs + string table (spec ticket 50): the compile output carries the
+ * Line IDs + string table: the compile output carries the
  * upstream string-table contract — implicit line IDs via upstream's
  * CRC32(file + node + running count) scheme (little-endian hex, `sh_`
  * prefix for shadow lines, numeric suffix on collision), explicit `#line:`

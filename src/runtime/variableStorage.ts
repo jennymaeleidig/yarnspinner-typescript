@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Pluggable variable storage (spec story 39; glossary "variable storage").
+ * Pluggable variable storage (glossary "variable storage").
  *
  * All story state — declared/story variables plus generated variables
  * (once-state, visit counts, saliency history; coding standards §4) — lives

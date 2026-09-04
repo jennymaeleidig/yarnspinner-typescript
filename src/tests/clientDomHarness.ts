@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
  * Shared jsdom client-render harness for the React adapter's behavioural
- * tests (ticket 55 introduced it inside the alias suite; the continue
+ * tests (introduced inside the alias suite; the continue
  * scheduler pins need the same effects-and-timers surface).
  *
  * `renderToStaticMarkup` never fires post-commit effects, so anything that

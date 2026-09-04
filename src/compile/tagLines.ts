@@ -1,5 +1,5 @@
 /**
- * tagLines — the line-tagging utility (spec ticket 51; upstream
+ * tagLines — the line-tagging utility (upstream
  * `YarnSpinner.Compiler.Utility.TagLines` + `ILineTagGenerator`): parse a
  * `.yarn` source, find every user-visible line lacking a content-ID tag
  * (`#line:` or `#shadow:`), and append a generated `#line:` tag to each —

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Smart variables end-to-end (spec ticket 42).
+ * Smart variables end-to-end.
  *
  * Upstream contract (Yarn Spinner 3.2):
  * - A `<<declare>>` whose initial value is anything other than a plain
@@ -53,7 +53,7 @@ test("a declare whose initializer references variables is a smart variable", () 
 ===
 `);
   assert.equal(hasErrors(result.diagnostics), false, JSON.stringify(result.diagnostics));
-  // Smart variables compile their initializer to bytecode (ticket 42's
+  // Smart variables compile their initializer to bytecode (the
   // compiled form).
   assert.deepEqual(result.program?.smartVariables["can_afford"], [
     { op: "pushVariable", name: "money" },

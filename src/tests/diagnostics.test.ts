@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Diagnostics channel tests (spec ticket 23; coding standards §3).
+ * Diagnostics channel tests (coding standards §3).
  *
  * Contract: collect by default — compile continues and diagnostics come back
  * with the result; `strict` throws on the first error. Shape mirrors upstream
@@ -10,8 +10,7 @@
  * test/fixtures/upstream/YarnSpinner/YarnSpinner.Diagnostics/Definitions/).
  *
  * Scope note: only the validations the current front-end supports are
- * asserted here. Exact-code emission for set/declare values, enums, smart
- * variables and shadow lines lands with tickets 40–42.
+ * asserted here.
  */
 
 import { test } from "node:test";
@@ -53,7 +52,7 @@ Text
 
 test("YS0004 MissingDelimiter ranges are 0-based half-open over the offending token", () => {
   // Missing '---' after the title (upstream YS0004 — a node missing its
-  // start or end delimiter, ticket 65): the NODE_END token '===' (line 2,
+  // start or end delimiter): the NODE_END token '===' (line 2,
   // col 1, 1-based) is the offending token.
   const diagnostics = compile(`title: Start
 ===
@@ -179,7 +178,7 @@ Two
   assert.deepEqual(diagnostics, []);
 });
 
-// --- Syntax removals (ticket 40): fork-era extensions fail compilation with
+// --- Syntax removals: fork-era extensions fail compilation with
 // --- YS-coded diagnostics, not parser crashes.
 
 // Note: each removal surfaces as YS0005 (SyntaxError) because the fork-era

@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Multi-file compile + external declarations + four modes (spec ticket 49,
- * stories 31-33): the public `compile(files)` seam — `{ name, source }`
+ * Multi-file compile + external declarations + four modes: the public `compile(files)` seam — `{ name, source }`
  * entries, no globs or filesystem I/O in the library (coding standards §2) —
  * exercised against the upstream `Projects/Basic` and `Projects/Space`
  * fixtures (the `.ysls` command definitions included) and ported upstream
  * assertions.
  *
  * String-table ID scheme note: implicit line IDs are the fork's per-compile
- * counter until ticket 50 lands upstream's CRC32(file+node+count); the
- * Duplicates/ lipsum fixtures (implicit-tag collision tagging) are that
- * ticket's fixtures and are not asserted here.
+ * counter; the
+ * Duplicates/ lipsum fixtures (implicit-tag collision tagging) are not asserted here.
  */
 
 import { test } from "node:test";
@@ -79,7 +77,7 @@ test("Projects/Space: the .ysls command definitions ride the declarations path",
   // Upstream's Commands.ysls.json declares `test_command(string)` for the
   // language server; a host derives declarations from it and passes them
   // alongside the compile. The files also compile with a compile-time
-  // Library present (ticket 49: signature checking without runtime wiring).
+  // Library present (signature checking without runtime wiring).
   const ysls = JSON.parse(readFileSync(join(UPSTREAM_TESTS_DIR, "Projects", "Space", "Commands.ysls.json"), "utf8"));
   const library = new Library();
   for (const command of ysls.commands) {
@@ -221,7 +219,7 @@ test("duplicate explicit line IDs across files produce YS0018 on both occurrence
   assert.equal(result.stringTable!["line:dupe"].text, "First.");
 });
 
-// ── External declarations: variables (story 32) ──────────────────────────
+// ── External declarations: variables ────────────────────────────
 
 test("external variables are known to the type checker and surface in declarations", () => {
   const result = compile([{ name: "ext.yarn", source: "title: A\n---\n<<set $gold to 5>>\n===\n" }], {
@@ -292,7 +290,7 @@ test("enum-typed external variables feed assignment checking (YS0050)", () => {
   );
 });
 
-// ── Compile-time Library signature checking (ticket 49) ──────────────────
+// ── Compile-time Library signature checking ──────────────────────
 
 test("a compile-time Library's signatures drive arity checking (YS0014)", () => {
   const library = new Library();

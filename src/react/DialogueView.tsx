@@ -17,10 +17,10 @@ type ContinueCause = "command" | "typing-done" | "click";
 const COMMAND_CONTINUE_DELAY_MS = 50;
 
 /**
- * The presentational dialogue view (headless split, headless-view ticket
- * 01): it renders a `UseDialogueResult` — no `program`, no hook call — and
+ * The presentational dialogue view (headless split): it renders a
+ * `UseDialogueResult` — no `program`, no hook call — and
  * owns **presentation state only**: the typing progress and skip, and the
- * one continue scheduler (ticket 04's causes: command flash, typing-done,
+ * one continue scheduler (causes: command flash, typing-done,
  * click). All dialogue state and transitions arrive on the result object.
  *
  * Hosts that want the wiring done for them use `DialogueRunner` (program +

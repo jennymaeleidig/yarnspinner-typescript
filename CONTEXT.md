@@ -37,12 +37,12 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 - **Compilation result**: what `compile()` returns — program,
   string table, declarations, diagnostics, file tags,
   containsImplicitStringTags, user-defined types (upstream camelCased
-  shape). `compile()` takes `{name, source}` files (story 31); since ticket
-  46 the program is the instruction-stream artifact (the versioned-JSON
+  shape). `compile()` takes `{name, source}` files; the program is the
+  instruction-stream artifact (the versioned-JSON
   bytecode of the "Program" entry, ADR 0001/0003); the tree-IR program is
   retired and the VM executes this artifact behind the public runtime API.
   A program is only lowered in `full` mode; upstream nulls it on error
-  diagnostics while this fork keeps it observable (ticket 49 notes).
+  diagnostics while this fork keeps it observable.
 - **Compilation mode**: full, strings-only, declarations-only, or
   type-check-only (which also emits the string table); declarations-only is
   the obsolete upstream alias of type-check-only.
@@ -96,7 +96,7 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
   logging) is read through a ref: identity ignored, the latest object
   always in effect, a fresh literal every render is the intended shape.
   Exists only in the React adapter layer; not part of language parity.
-- **DialogueRunner / DialogueView (the split)**: the wired container and the presentational view. `DialogueView` renders a `UseDialogueResult` — no `program` prop, no hook call — and owns **presentation state only**: typing progress, the typing skip, and the one continue scheduler (command flash, typing-done, click). All dialogue state and transitions arrive on the result object. `DialogueRunner` is the container: it calls `useDialogue` (program + config + live) and forwards the result, carrying the ticket-55 deprecated prop aliases. Exists only in the React adapter layer; not part of language parity.
+- **DialogueRunner / DialogueView (the split)**: the wired container and the presentational view. `DialogueView` renders a `UseDialogueResult` — no `program` prop, no hook call — and owns **presentation state only**: typing progress, the typing skip, and the one continue scheduler (command flash, typing-done, click). All dialogue state and transitions arrive on the result object. `DialogueRunner` is the container: it calls `useDialogue` (program + config + live) and forwards the result, carrying the deprecated prop aliases. Exists only in the React adapter layer; not part of language parity.
 - **Scene system**: scene/actor images reached via the `scene:` header (which itself is an ordinary upstream-compatible header). The name travels on its one channel — the `NodeStartEvent`'s optional `scene` field (absent when the node declares none), surfaced to hosts as `Transcript.scene` / the hook's `sceneName`, carried forward across scene-less nodes; hosts cross-check it against their `SceneCollection` at that seam. The scene YAML parser is demo-side (`examples/browser/scenes.ts`) — the package ships no scene parser and no scene dependency. Exists only in the React adapter layer; not part of language parity.
 - **Storylet**: the browser demo's presentation name for a node-group member drawn by saliency (`examples/browser/StoryletsDemo.tsx`); demo-layer vocabulary, not upstream's — the glossary term for the thing being drawn is **node-group member**.
 
@@ -120,7 +120,7 @@ The two code-level renames above that shipped as part of the parity API —
 `YarnRunner` → `Dialogue` and `useYarnRunner` → `useDialogue` — keep a
 **deprecated alias for one release** (0.2.0 only; removed in the release
 after), so pre-0.2.0 consumers keep compiling while they migrate. The
-adapter resurfacing (ticket 55) ships the same way: `advance` → `continue`,
+adapter resurfacing ships the same way: `advance` → `continue`,
 `onStoryEnd` → `onDialogueComplete` (payload `storyEnd: true` →
 `dialogueComplete: true`), and the typing-flow props
 `autoAdvanceAfterTyping`/`autoAdvanceDelay`/`pauseBeforeAdvance` →

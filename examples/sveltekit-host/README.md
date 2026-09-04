@@ -1,4 +1,4 @@
-# SvelteKit host (yarn-project-support ticket 05)
+# SvelteKit host
 
 The Next.js host's story with zero React anywhere — the strongest proof the
 runtime is framework-agnostic. A worked SvelteKit example: the YarnProject
@@ -50,7 +50,7 @@ and the server load resolves the content directory relative to it
 
 ## Tests
 
-`src/tests/sveltekitHost.test.ts` mirrors the ticket-52 demo-harness
+`src/tests/sveltekitHost.test.ts` mirrors the browser demo-harness
 pattern: the content files are the single source of truth (loaded through
 the same server-side path +page.server.ts uses), the client component's
 initial-pull logic is mirrored in the test (tests compile from src only —

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Enum types (spec ticket 41; CONTEXT.md "Enum").
+ * Enum types (CONTEXT.md "Enum").
  *
  * An enum is a named set of cases with uniform raw values (number or string).
  * Script enums come from `<<enum>>` blocks; host enums are registered from

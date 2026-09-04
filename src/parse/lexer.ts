@@ -21,7 +21,7 @@ export interface Token {
   /**
    * A `//`-comment after the closing `>>` on a command line. Only `///`
    * documentation comments are consumed (parser: they become the declared
-   * variable's description, upstream `allowCommentsAfter` — ticket 54);
+   * variable's description, upstream `allowCommentsAfter`);
    * plain `//` trails are ignored.
    */
   trailingComment?: string;
@@ -36,7 +36,7 @@ export function lex(input: string): Token[] {
   let inHeaders = true;
 
   /** The last non-EMPTY line's token type + raw indent — the indentation
-   *  validation (ticket 54) only inspects options and line-group items. */
+   *  validation only inspects options and line-group items. */
   let lastContent: { type: Token["type"]; indent: number } | null = null;
 
   /** Raw indent of the line currently being lexed (push() records it). */
@@ -63,7 +63,7 @@ export function lex(input: string): Token[] {
     const content = raw.slice(indent.length);
 
     if (content.trim() === "") {
-      // Indentation validation (ticket 54, upstream ParseFailures case
+      // Indentation validation (upstream ParseFailures case
       // "IndentedLinesFollowingOptionsMustHaveContent"): a whitespace-only
       // line indented past an option/line-group line would start a body
       // with no content — upstream reports the extraneous empty text as a
@@ -103,7 +103,7 @@ export function lex(input: string): Token[] {
     }
 
     // Node header/body separator: `---`, or upstream's alternate `-=-`
-    // (ticket 65 — the vendored diagnostic-definition examples use it).
+    // (the vendored diagnostic-definition examples use it).
     if (content === "---" || content === "-=-") {
       inHeaders = false;
       push("NODE_START", content, lineNum, indent.length + 1);
@@ -135,7 +135,7 @@ export function lex(input: string): Token[] {
       continue;
     }
 
-    // Line-group item (ticket 47): `=> text` — like an option arrow, the
+    // Line-group item: `=> text` — like an option arrow, the
     // `=>` prefix is consumed by the lexer; the parser owns the rest of the
     // line-suffix pipeline.
     if (content.startsWith("=>")) {
@@ -151,7 +151,7 @@ export function lex(input: string): Token[] {
       continue;
     }
 
-    // A line opening a command but never closing it (ticket 54, upstream
+    // A line opening a command but never closing it (upstream
     // ParseFailures case "NewlinesNotPermittedInCommands"): upstream's
     // lexer hits the newline while still in command mode and reports
     // YS0006 UnclosedCommand. Lines whose `>>` closes but carries text

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Runtime tests over the instruction-stream program (tickets 45–46): the
+ * Runtime tests over the instruction-stream program: the
  * VM executes the compiled bytecode (ADR 0001) behind the public runtime
  * API — the one `Dialogue` event stream since the tree IR retired.
  *

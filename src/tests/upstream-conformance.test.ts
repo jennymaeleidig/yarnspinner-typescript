@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Upstream conformance suite (roadmap phase 0).
+ * Upstream conformance suite.
  *
  * Drives the upstream Yarn Spinner v3.2.2 corpus (git submodule) through this project's
  * compile → run pipeline:
@@ -28,11 +28,11 @@ import { listTestCases, listParseFailures, readFixture } from "./upstream/fixtur
 
 /**
  * Fixtures that must compile clean but currently fail. Each entry cites the
- * missing language feature. Must shrink to empty by phase-1 exit ("all 32
+ * missing language feature. Must shrink to empty ("all 32
  * fixture .yarn files compile with expected diagnostics").
  *
- * (The must-fail side of this harness needs no allowlist any more: since
- * ticket 54 every upstream must-fail fixture fails with its upstream code —
+ * (The must-fail side of this harness needs no allowlist any more: every
+ * upstream must-fail fixture fails with its upstream code —
  * the MUST_FAIL_ALLOWLIST is deleted, and the per-family unit tests live in
  * src/tests/parseFailureValidations.test.ts.)
  */
@@ -40,14 +40,14 @@ const COMPILE_CLEAN_ALLOWLIST: Record<string, string> = {};
 
 /**
  * Plan-driven fixtures that currently fail. Each entry cites the runtime gap.
- * Must shrink to empty by phase-2 exit ("testplan runner green on the 32 pairs").
+ * Must shrink to empty ("testplan runner green on the 32 pairs").
  */
 const PLAN_RUN_ALLOWLIST: Record<string, string> = {};
 
 /**
  * Compile-time function signatures for the harness-registered quest stubs
  * (upstream registers these functions with the compilation Library, so the
- * type checker knows their parameter types — ticket 41).
+ * type checker knows their parameter types).
  */
 const HARNESS_FUNCTION_SIGNATURES = {
   set_objective_complete: { params: ["string"], returns: "bool" },
@@ -57,8 +57,8 @@ const HARNESS_FUNCTION_SIGNATURES = {
 
 /**
  * Every plan-driven pair runs on the instruction-stream program (ADR 0001)
- * through the same public runtime API — the tree-IR driver is retired
- * (ticket 46), so there is no per-fixture driver split any more.
+ * through the same public runtime API — the tree-IR driver is retired,
+ * so there is no per-fixture driver split any more.
  */
 
 function attemptCompile(source: string): { ok: true } | { ok: false; error: string } {
@@ -123,7 +123,7 @@ test("upstream testplan pairs run per plan", async (t) => {
         declarations: { functions: HARNESS_FUNCTION_SIGNATURES },
       });
       // Every pair drives the instruction-stream program (ADR 0001); the
-      // tree-IR driver is retired (ticket 46).
+      // tree-IR driver is retired.
       const program = result.program;
       if (!program || hasErrors(result.diagnostics)) {
         throw new Error(`fixture failed to compile: ${result.diagnostics.map((d) => d.code).join(", ")}`);

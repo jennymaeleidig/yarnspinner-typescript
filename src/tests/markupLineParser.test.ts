@@ -2,7 +2,7 @@
 /**
  * Ported upstream markup tests (upstream `YarnSpinner.Tests/MarkupTests.cs`
  * at tag 3.2.2), run against the runtime line-parser module directly — the
- * fixture corpus has no markup coverage (ticket 48, spec seam 2).
+ * fixture corpus has no markup coverage.
  *
  * Upstream tests are MIT-licensed (© Secret Lab Pty. Ltd. and Yarn Spinner
  * contributors); assertions mirror the upstream cases with node:test.

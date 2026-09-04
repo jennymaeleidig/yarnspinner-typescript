@@ -27,7 +27,7 @@
  *
  * Ported from upstream 3.2.2 `YarnSpinner/YarnSpinner.Markup/LineParser.cs`
  * (MIT © Secret Lab Pty. Ltd. and Yarn Spinner contributors), with the
- * upstream CLDR plural tables replaced by `Intl.PluralRules` (ticket 48).
+ * upstream CLDR plural tables replaced by `Intl.PluralRules`.
  */
 
 // Citation: adapted from YarnSpinner v3.2.2 LineParser.cs and

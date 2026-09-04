@@ -5,7 +5,7 @@ import { loadYarnProject } from "yarn-spinner-runner-ts/node";
 import DialogueHost from "./DialogueHost";
 
 /**
- * The Next.js host's server component (yarn-project-support ticket 04): the
+ * The Next.js host's server component: the
  * YarnProject loader runs here, server-side — the injected file-access seam
  * (`nodeProjectFs`, driven by `loadYarnProject`) earning its keep: the
  * loader core never touches Node APIs, and none of them reach the client.

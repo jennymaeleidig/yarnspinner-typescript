@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Ticket 56 (adapter options passthrough): the newer `DialogueOptions` —
- * `variableStorage` (spec story 39, the persistence seam), `textProvider`
- * (ticket 51, localisation), the opt-in `lineHints` flag, and the
+ * Adapter options passthrough: the newer `DialogueOptions` —
+ * `variableStorage` (the persistence seam), `textProvider`
+ * (localisation), the opt-in `lineHints` flag, and the
  * `logError`/`logDebug` diagnostics — reach React consumers through
  * `useDialogue` (and `<DialogueRunner>`, the wired container).
  *
@@ -12,7 +12,7 @@
  * values; a new `live` object never does, and its callbacks/logging are
  * always current (read through a ref, not frozen at construction).
  *
- * Harness: SSR hook probes per ticket 55 (`renderToStaticMarkup` — the
+ * Harness: SSR hook probes (`renderToStaticMarkup` — the
  * hook runs during server render, and the captured result object keeps
  * working afterwards because its callbacks mutate refs, not React state).
  *
@@ -49,7 +49,7 @@ import { InMemoryVariableStorage } from "../runtime/variableStorage.js";
 import { StringTableTextProvider } from "../runtime/textProvider.js";
 import type { Program } from "../compile/program.js";
 
-/** Ticket 55's SSR harness: render a probe, hand back the captured hook. */
+/** SSR harness: render a probe, hand back the captured hook. */
 function captureHook(
   program: Program,
   config: UseDialogueOptions = {},
@@ -65,7 +65,7 @@ function captureHook(
   return capture.hook;
 }
 
-// ── variableStorage (the persistence seam, spec story 39) ─────────────────
+// ── variableStorage (the persistence seam) ──────────────────────
 
 const DECLARE_YARN = `title: Start
 ---
@@ -149,7 +149,7 @@ test("useDialogue lineHints: default off — no LineHints event flows", () => {
   ok(batch.some((e) => e.type === "nodeStart" && e.nodeName === "Next"));
 });
 
-// ── textProvider (ticket 51) + language switching ─────────────────────────
+// ── textProvider + language switching ──────────────────────────
 
 const LOCALISED_YARN = `title: Start
 ---
@@ -209,7 +209,7 @@ test("useDialogue textProvider: language switching stays on Dialogue.setLanguage
   const provider = new RecordingProvider();
   const hook = captureHook(program, { textProvider: provider });
 
-  // No rebuild, no hook-level language API: the ticket-51 surface is
+  // No rebuild, no hook-level language API: the language surface is
   // Dialogue.setLanguage, reached through the documented escape hatch.
   hook.dialogue.setLanguage("fr");
   hook.continue(); // delivers the second line
@@ -307,15 +307,14 @@ test("DialogueView forwards variableStorage and textProvider to the hook", () =>
   );
 });
 
-// ── config/live split (deepening-wave ticket 05): the one rule ────────────
+// ── config/live split: the one rule ──────────────────────────
 
-// Type-level: the one-edit rule (deepening-wave ticket 06) — an option
+// Type-level: the one-edit rule — an option
 // declared on the runtime's `DialogueOptions` flows into both adapter types
 // without a second declaration. These assignments compile only while
 // `UseDialogueOptions` derives from `DialogueOptions` and
-// `DialogueRunnerProps` derives from the hook's types (headless-view
-// ticket 01: the wired surface moved from `DialogueView` to
-// `DialogueRunner`).
+// `DialogueRunnerProps` derives from the hook's types (the wired surface
+// moved from `DialogueView` to `DialogueRunner`).
 const _runtimeOptionsFlowToHook: UseDialogueOptions = {} as DialogueOptions;
 const _runtimeOptionsFlowToRunner: DialogueRunnerProps = {
   program: {} as Program,
@@ -323,7 +322,7 @@ const _runtimeOptionsFlowToRunner: DialogueRunnerProps = {
 void _runtimeOptionsFlowToHook;
 void _runtimeOptionsFlowToRunner;
 
-// Headless split (headless-view ticket 01): presentation options stay
+// Headless split: presentation options stay
 // single-sourced on `DialogueViewProps` — the runner derives them, so a
 // presentation option declared on the view flows into the runner without a
 // second declaration. And the view itself takes no `program`.
@@ -340,7 +339,7 @@ function _noProgramOnView(props: { program: Program }) {
 }
 void _noProgramOnView;
 
-// The ticket-55 deprecated prop aliases live on the wired container
+// The deprecated prop aliases live on the wired container
 // (DialogueRunner), not on the clean view; passing them here must not compile.
 function _noAliasesOnView() {
   return (

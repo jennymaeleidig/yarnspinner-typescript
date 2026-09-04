@@ -222,7 +222,7 @@ npm run host:start   # serve the built host (after host:build)
 ```
 
 Run from the repo root — the server component resolves the content directory
-relative to `process.cwd()`. The SSR render test (the ticket-52 demo-harness
+relative to `process.cwd()`. The SSR render test (the browser demo-harness
 pattern over the host's first pull) lives in
 `src/tests/nextjsHost.test.tsx`.
 
@@ -272,7 +272,7 @@ must not be edited or auto-fixed by editor tooling.
 
 * `compile(files: CompileFile[], opts?: CompileOptions): CompileResult` — Compile `{ name, source }` files (multi-file; four modes, string table, external declarations, diagnostics)
 * `compileSource(source: string, opts?: CompileSourceOptions): CompileResult` — Single-file convenience wrapper — **the public compile seam**: collect-don't-throw, diagnostics come back with the result
-* `compileDocument(doc: YarnDocument, opts?: CompileDocumentOptions): Program` — *Internal*: the AST-level lowering seam (throws `ParseError`/`LoweringError`); real for tooling and the compiler's own tests, not reachable from the package root (deepening-wave ticket 09)
+* `compileDocument(doc: YarnDocument, opts?: CompileDocumentOptions): Program` — *Internal*: the AST-level lowering seam (throws `ParseError`/`LoweringError`); real for tooling and the compiler's own tests, not reachable from the package root
 
 ### YarnProject loader
 

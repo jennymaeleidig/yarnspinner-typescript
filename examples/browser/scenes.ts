@@ -1,5 +1,5 @@
 /**
- * The browser demo's scene configuration parser (deepening-wave ticket 07):
+ * The browser demo's scene configuration parser:
  * moved verbatim out of the package, where `parseScenes` was the library's
  * only js-yaml consumer and its only throwing + console.error-ing parser
  * (violating coding standards §2/§3). The parsed `SceneCollection` is host

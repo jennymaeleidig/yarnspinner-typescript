@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * YarnProject loader core (yarn-project-support ticket 02): parse + validate
+ * YarnProject loader core: parse + validate
  * upstream-style `.yarnproject` files (v4 schema, legacy v2 accepted, the
  * dead dev v3 rejected), resolve sourceFiles/excludeFiles globs behind an
- * injected file-access seam, feed `compile()` (ticket 49), diagnose
+ * injected file-access seam, feed `compile()`, diagnose
  * referenced-but-missing strings files, and expose `listSources()`.
  *
  * Seams: the public `loadProject()` / `listSources()` over an in-memory

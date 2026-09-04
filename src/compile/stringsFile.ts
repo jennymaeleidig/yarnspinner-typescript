@@ -1,5 +1,5 @@
 /**
- * The CSV strings file (spec ticket 51): the upstream 8-column interchange
+ * The CSV strings file: the upstream 8-column interchange
  * format for translators — `language,id,text,file,node,lineNumber,lock,
  * comment`. The CSV never exists inside the core compiler (upstream or
  * here): it is the host-integration artifact derived from the compile

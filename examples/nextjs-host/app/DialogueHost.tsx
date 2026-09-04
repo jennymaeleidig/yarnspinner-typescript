@@ -5,7 +5,7 @@ import { Dialogue, EMPTY_TRANSCRIPT, noOptionSelected, runUntilStopped } from "y
 import type { Diagnostic, Program, Transcript } from "yarn-spinner-runner-ts";
 
 /**
- * The Next.js host's client component (yarn-project-support ticket 04):
+ * The Next.js host's client component:
  * `Dialogue`'s pull-based continue loop runs natively in a client component.
  * The server component hands over the compiled program — the serializable
  * artifact (ADR 0001) — plus loader context (project name, resolved sources,

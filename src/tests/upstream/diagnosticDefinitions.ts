@@ -3,8 +3,8 @@
  * Loader for the submodule's 3.2.2 diagnostic-definition markdown
  * (`test/fixtures/upstream/YarnSpinner/YarnSpinner.Diagnostics/Definitions/`,
  * pinned per the corpus PROVENANCE.md). The per-code files are the authoritative YS00xx
- * registry (tickets 09/10 — the docs site is stale on severities); ticket
- * 65's phase-3 golden loop compiles each registered code's `examples`
+ * registry (the docs site is stale on severities); the
+ * diagnostic golden loop compiles each registered code's `examples`
  * scripts and pins the exact code.
  *
  * The frontmatter is parsed as the narrow YAML subset the definitions use —

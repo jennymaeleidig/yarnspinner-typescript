@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Test-side compile through the public collect-don't-throw seam
- * (deepening-wave ticket 09): the library hands back diagnostics and a
+ * Test-side compile through the public collect-don't-throw seam:
+ * the library hands back diagnostics and a
  * possibly-null program (the recorded keep-it-observable divergence); a
  * test that only wants a working program asserts that precondition
  * explicitly instead of reaching for the retired throwing AST seam.

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Enum-aware type checking pass (spec ticket 41).
+ * Enum-aware type checking pass.
  *
  * Walks the parsed document, validates enum usage, and records the variable
  * types and declarations the compile result exposes:
@@ -47,13 +47,13 @@ export interface VariableDeclaration {
   /** The static initial value when the initializer is a constant. */
   defaultValue?: EnumRawValue | boolean;
   /**
-   * The `///` documentation comment above the declaration (spec story 47;
-   * upstream `Declaration.Description` — the variable's purpose, shown in
+   * The `///` documentation comment above the declaration (upstream
+   * `Declaration.Description` — the variable's purpose, shown in
    * editor hovers).
    */
   description?: string;
   /**
-   * True when the declaration is a smart variable (ticket 42; upstream
+   * True when the declaration is a smart variable (upstream
    * `Declaration.IsInlineExpansion`): the initializer is not a plain literal,
    * the variable is read-only (YS0030), and its value is recomputed on every
    * access.
@@ -73,7 +73,7 @@ export interface ExternalVariableDeclaration {
   defaultValue?: EnumRawValue | boolean;
 }
 
-/** Host-provided external declarations feeding the type checker (ticket 41). */
+/** Host-provided external declarations feeding the type checker. */
 export interface ExternalDeclarations {
   /** Host-defined enum types (built EnumTypeBuilder outputs or plain EnumTypes). */
   enums?: Array<EnumType | EnumTypeBuilder>;
@@ -131,7 +131,7 @@ interface CheckContext {
   /** Source file of the node being walked (diagnostic attribution). */
   currentFile?: string;
   /**
-   * Implicit function inferences (ticket 54's Inference-* fixtures): the
+   * Implicit function inferences (the upstream Inference-* fixtures): the
    * first call to an unknown function in a typed context pins its return
    * type and arity; later calls must agree (upstream TypeCheckerListener
    * creates an implicit Declaration with type variables on first call and
@@ -140,7 +140,7 @@ interface CheckContext {
   inferredFunctions: Map<string, { returns: ExprType; arity: number }>;
   /**
    * Variables referenced by inline `{expr}` expressions in line, option,
-   * and command text (ticket 54's Variables-MustBeAbleToInferDefinition).
+   * and command text (upstream's Variables-MustBeAbleToInferDefinition).
    * Resolved after the walk: a variable nothing can type is YS0029.
    */
   inlineVarUses: Set<string>;
@@ -153,14 +153,14 @@ interface CheckContext {
    */
   undeterminedSites: Array<{ text: string; target: string }>;
   /**
-   * `<<set>>` targets (ticket 65) whose variable has no `<<declare>>` and no
+   * `<<set>>` targets whose variable has no `<<declare>>` and no
    * external declaration — YS0003 per site after the walk. Reads are not
    * recorded: condition reads are Boolean-constrained (upstream) and
    * unresolvable inline uses keep their fixture-pinned YS0029.
    */
   undeclaredUses: Array<{ name: string; file?: string }>;
   /**
-   * Variables already reported via YS0028 (ticket 65): the expression they
+   * Variables already reported via YS0028: the expression they
    * appear in typed fine (e.g. inside a number()/string() conversion) but
    * the variable itself could not be inferred — reported once per variable,
    * and excluded from the inline-use YS0029 pass.
@@ -546,8 +546,8 @@ function checkMember(
 /**
  * Check call arguments against a known signature (shared by expression
  * calls and `<<call>>` statements): arity (YS0014) and enum-argument
- * convertibility (YS0050). Non-enum argument type mismatches are ticket
- * 42/43 scope; only enum arguments are checked here (spec ticket 41).
+ * convertibility (YS0050). Non-enum argument type mismatches are the
+ * smart-variable/Library scope; only enum arguments are checked here.
  */
 function checkArgsAgainstSignature(
   fnName: string,
@@ -586,7 +586,7 @@ function checkArgsAgainstSignature(
 }
 
 /**
- * Primitive argument checking against a known signature (ticket 65): enum
+ * Primitive argument checking against a known signature: enum
  * compatibility is checked above; a concrete primitive argument that can't
  * convert to its parameter's type is upstream's catch-all YS0050. Unknown
  * operands are skipped (the solver may still resolve them elsewhere).
@@ -618,7 +618,7 @@ function checkCall(node: Extract<ExprNode, { kind: "call" }>, ctx: CheckContext,
   if (node.name === "string" || node.name === "number" || node.name === "bool") {
     for (const arg of node.args) {
       const argType = checkNode(arg, ctx, expectedEnum);
-      // YS0028 (ticket 65): the conversion expression itself types (its
+      // YS0028: the conversion expression itself types (its
       // return is the target type), but a constituent variable whose type
       // nothing could determine is upstream's TypeInferenceFailure —
       // distinct from YS0029, whose expression stays untyped.
@@ -716,7 +716,7 @@ function checkBinary(node: Extract<ExprNode, { kind: "bin" }>, ctx: CheckContext
     pinFrom(node.right, UNKNOWN_TYPE, "bool");
     return { base: "bool" };
   }
-  // Operator typing (ticket 54, upstream ExitExpAddSub/ExitExpMultDivMod):
+  // Operator typing (upstream ExitExpAddSub/ExitExpMultDivMod):
   // '+' requires numbers or strings; the other arithmetic operators require
   // numbers. A concrete operand outside the permitted set is YS0050.
   const arithmeticOp = node.op === "+" || ["-", "*", "/", "%"].includes(node.op);
@@ -774,7 +774,7 @@ function checkExpression(
   const toks = tokenize(expr);
   const parsed = new ExprParser(toks, expr).parse();
   if (!parsed || containsBadNode(parsed)) {
-    // Expression syntax failure (ticket 65): the mini-parser's `bad` nodes
+    // Expression syntax failure: the mini-parser's `bad` nodes
     // all arise from malformed operand/group/call shapes (semantic failures
     // return typed nodes with their own diagnostics), and a null parse is
     // trailing garbage — upstream's parser reports both as YS0005. The
@@ -931,7 +931,7 @@ function collectInlineExpressionVars(text: string, ctx: CheckContext): void {
         }
       };
       if (parsed) collect(parsed);
-      // Type-check the inline span too (ticket 65): the runtime evaluates
+      // Type-check the inline span too: the runtime evaluates
       // every `{...}` span as an expression, so the checker validates them
       // as expressions — YS0028 for a variable inside a conversion that
       // still can't be inferred, YS0005 for a malformed span. Rewrites are
@@ -960,7 +960,7 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           let { type, rewritten } = checkExpression(expr, ctx, expectedEnum);
           if (rewritten !== expr) s.content = `declare $${name} = ${rewritten}${asMatch ? ` as ${declaredType}` : ""}`;
           if (type.base === "unknown" && !type.enumName && !type.error) {
-            // The initializer's type is undetermined (ticket 54's Inference-*
+            // The initializer's type is undetermined (the Inference-*
             // fixtures). An explicit `as` type pins it (also pinning an
             // implicit function's return); otherwise neither the expression
             // nor the variable can ever be typed — YS0029 for both, as
@@ -972,7 +972,7 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
               ctx.undeterminedSites.push({ text: expr, target: name });
             }
           }
-          // Smart-variable classification (ticket 42): an initializer that is
+          // Smart-variable classification: an initializer that is
           // not a plain literal declares a smart variable (upstream
           // ResolveInitialValues → Declaration.IsInlineExpansion).
           const isSmart = isSmartVariableInitializer(rewritten);
@@ -1008,7 +1008,7 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           break;
         }
 
-        // Compound assignment (`<<set $var += expr>>`, ticket 40's grammar):
+        // Compound assignment (`<<set $var += expr>>`):
         // assignment to a smart variable is read-only (YS0030), same as a
         // plain `<<set>>`.
         const compoundSet = content.match(/^set\s+\$([A-Za-z_][A-Za-z0-9_]*)\s*(?:\+=|-=|\*=|\/=|%=)/);
@@ -1027,7 +1027,7 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           const varType = ctx.variableTypes.get(name);
           const expectedEnum = varType && ctx.enumTypes.has(varType) ? varType : undefined;
           let { type, rewritten } = checkExpression(rest.trim(), ctx, expectedEnum);
-          // YS0003 collection (ticket 65): a `<<set>>` target is a use of the
+          // YS0003 collection: a `<<set>>` target is a use of the
           // variable (the upstream YS0003 example pins `<<set $x = 3>>`). A
           // value expression that already failed validation suppresses the
           // report — upstream's Error type stops the cascade there (the
@@ -1122,8 +1122,8 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
         for (const item of s.items) checkLineStatement(item, ctx);
         break;
       case "Jump": {
-        // Jump-target expressions must resolve to strings (ticket 54;
-        // upstream ExitJumpToExpression's convertible-to-String constraint).
+        // Jump-target expressions must resolve to strings (upstream
+        // ExitJumpToExpression's convertible-to-String constraint).
         const targetExpr = s.target.match(/^\{([\s\S]*)\}$/);
         if (targetExpr) {
           const { type } = checkExpression(targetExpr[1], ctx);
@@ -1199,7 +1199,7 @@ function splitArgs(src: string): string[] {
 }
 
 /**
- * YS0030 (ticket 42): smart variables are read-only — any assignment to one
+ * YS0030: smart variables are read-only — any assignment to one
  * is an error (upstream Compiler.AddErrorsForSettingReadonlyVariables).
  * The message carries the variable and its always-equal initializer
  * expression, per the upstream YS0030 registry definition.
@@ -1215,7 +1215,7 @@ function emitReadOnlyIfSmart(name: string, ctx: CheckContext): void {
 }
 
 /**
- * YS0045 (ticket 42): smart variables must not form reference loops
+ * YS0045: smart variables must not form reference loops
  * (upstream TypeCheckerListener.GetDependenciesForVariable). For each smart
  * declaration, a depth-tracking DFS over the initializer's variable
  * references follows smart-variable declarations only; re-reaching a
@@ -1335,7 +1335,7 @@ export function typeCheck(
     walkStatements(node.body, ctx);
   }
 
-  // Undetermined set/declare sites (ticket 54's Inference-* fixtures):
+  // Undetermined set/declare sites (the upstream Inference-* fixtures):
   // upstream's solver resolves these globally, so a site only reports
   // YS0029 when — after the whole walk — neither its expression's function
   // nor its target variable got a type. Both the expression and the target
@@ -1346,7 +1346,7 @@ export function typeCheck(
     emitUndetermined(`$${site.target}`, ctx);
   }
 
-  // Undeclared variable uses (ticket 65, YS0003): a use whose variable has
+  // Undeclared variable uses (YS0003): a use whose variable has
   // no `<<declare>>` and no external declaration anywhere in the program
   // warns once per use site — the upstream YS0003 example pins that a
   // `<<set>>` target counts as a use.
@@ -1361,10 +1361,10 @@ export function typeCheck(
     );
   }
 
-  // Inline-expression uses (ticket 54): a variable referenced from line,
+  // Inline-expression uses: a variable referenced from line,
   // option, or command text that nothing could type has no implicit
   // declaration upstream can resolve — YS0029 for each such use site.
-  // (Ticket 65 deliberately keeps YS0029 here, not YS0003: the fixture pin
+  // (YS0029 deliberately stays here, not YS0003: the fixture pin
   // is that an undeclared inline use is a compile-failing YS0029.)
   for (const name of ctx.inlineVarUses) {
     if (ctx.inferenceFailures.has(name)) continue;
@@ -1373,7 +1373,7 @@ export function typeCheck(
     }
   }
 
-  // Smart-variable validation (ticket 42): reference loops across the
+  // Smart-variable validation: reference loops across the
   // declared smart variables (YS0045).
   detectSmartVariableLoops(ctx);
 

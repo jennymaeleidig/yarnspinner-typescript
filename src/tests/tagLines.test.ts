@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * tagLines + line-tag generators (spec ticket 51; upstream
+ * tagLines + line-tag generators (upstream
  * `Utility.TagLines` + `ILineTagGenerator` + the Random/Descriptive
  * built-ins): every user-visible line lacking a `#line:` (or `#shadow:`)
  * tag gets one appended, via a pluggable generator asked per node and per
@@ -18,7 +18,7 @@
  * `character` markup attribute — including the node's *unique* title for
  * node-group members (`Title.Subtitle`, or `Title.<crc32>` without one).
  *
- * Divergence (recorded in ticket 51): upstream's Random generator aborts on
+ * Divergence: upstream's Random generator aborts on
  * a 500 ms stopwatch; the library reads no clocks (coding standards §2), so
  * the same "running out of time" exception fires after an attempt cap.
  *

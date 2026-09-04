@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Localisation wiring (yarn-project-support ticket 03): the project's
+ * Localisation wiring: the project's
  * `localisation` map drives localised play end-to-end — each declared
- * locale's strings CSV resolves through the strings-file surface (ticket
- * 51's CSV + provider tests are the prior art) into a text provider, and a
+ * locale's strings CSV resolves through the strings-file surface (the
+ * CSV + provider tests are the prior art) into a text provider, and a
  * `Dialogue` running with that provider emits lines in the chosen locale,
  * with `setLanguage` switching per the runtime's language surface. The
  * `assets` directories surface as configured paths — the library never
@@ -59,7 +59,7 @@ function memoryFs(files: Record<string, string>): YarnProjectFileSystem {
 }
 
 /**
- * The full host workflow of ticket 51, saved to disk: compile the story,
+ * The full host workflow, saved to disk: compile the story,
  * export its base CSV, hand-"translate" the German rows, and write the CSV
  * as the project's declared German strings file. With `translateAll` every
  * row is filled (an availability check requires the whole node's lines);
@@ -366,8 +366,8 @@ test("loadYarnProject's Node provider localises a real project directory", () =>
   }
 });
 
-// csvEntriesToTable is the strings-file surface the glue consumes (prior art
-// from ticket 51) — a smoke check that the glue's filtering matches it.
+// csvEntriesToTable is the strings-file surface the glue consumes (the
+// strings-file tests are the prior art) — a smoke check that the glue's filtering matches it.
 test("the glue's per-locale tables match csvEntriesToTable's filtering", () => {
   const csv = germanCSV();
   const viaGlue = localisedFixture(csv).localisation.translations["de"];
