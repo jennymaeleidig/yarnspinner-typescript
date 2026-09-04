@@ -6,8 +6,8 @@
  * (`executeStateStatement`).
  * Commands like <<command_name arg1 arg2>> or <<command_name "arg with spaces">>
  *
- * The kind classification is the seam's single home (deepening-wave-3
- * ticket 03): both drivers that branch on command names dispatch on it.
+ * The kind classification is the seam's single home: both drivers that
+ * branch on command names dispatch on it.
  * Each driver keeps its own per-kind POLICY — this table is the lockstep
  * obligation, stated once:
  *
@@ -29,6 +29,7 @@
 import type { ExpressionEvaluator } from "./evaluator.js";
 import { applyBinaryOp } from "./operands.js";
 import { compoundOperatorToStackOp, parseStateStatement } from "../parse/stateStatement.js";
+import { describeError } from "../describeError.js";
 import type { VariableStorage } from "./variableStorage.js";
 
 export interface ParsedCommand {
@@ -215,7 +216,8 @@ export function executeStateStatement(host: StateStatementHost, content: string)
       // The out-of-band failure signal distinguishes "evaluation failed"
       // from a legitimate `undefined` (a void host function): a failing
       // expression logs a diagnostic and skips the write instead of
-      // silently clobbering a prior value (deepening-wave-3 ticket 01).
+      // silently clobbering a prior value (docs/compatibility.md, the
+      // fallback-execution divergence).
       const result = evaluateStatementValue(evaluator, expression, content, logError);
       if (!result.ok) return;
       const value = result.value;
@@ -261,6 +263,6 @@ export function executeStateStatement(host: StateStatementHost, content: string)
   } catch (e) {
     // collect-don't-throw: a failing state statement is a runtime
     // diagnostic, not a crash.
-    logError(`Failed to execute statement "${content}": ${e instanceof Error ? e.message : String(e)}`);
+    logError(`Failed to execute statement "${content}": ${describeError(e)}`);
   }
 }

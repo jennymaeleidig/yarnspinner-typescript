@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
  * The type checker driven directly through its public seam — `typeCheck()`
- * is exported from the package root, and this is its first test traffic
- * (deepening-wave-3 ticket 06; the review's free win). Checker-specific
+ * is exported from the package root, and this is its first test traffic.
+ * Checker-specific
  * semantics that previously only rode the compile end-to-end get their own
  * surface here: the YS0029 solver, type inference, YS0045 loops, the
  * `.Case` shorthand rewrite, YS0028/YS0050/YS0014/YS0040, and the external

@@ -6,8 +6,8 @@
  *
  * This is the deepening of the two hand-copied loops that lived inside the
  * VM (`evaluateConditionExpression`, `evaluateInitializer` — the same
- * saved-stack dance with two different failure policies, deepening-wave-3
- * ticket 02). The runner is policy-free: it throws typed errors and each
+ * saved-stack dance with two different failure policies). The runner is
+ * policy-free: it throws typed errors and each
  * call site keeps its own failure policy (the condition path falls back to
  * the string evaluator; the initializer path propagates with its name
  * context). The op gate is the emitter's own declared subset —

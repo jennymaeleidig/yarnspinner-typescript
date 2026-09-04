@@ -35,6 +35,7 @@ import { isSmartVariableInitializer } from "./smartVariables.js";
 import { parseStateStatement } from "../parse/stateStatement.js";
 import type { DeclaredValueType, FunctionSignature } from "../runtime/library.js";
 import { inlineExpressionSpans } from "../runtime/interpolate.js";
+import { describeError } from "../describeError.js";
 
 // Re-exported so the declarations surface keeps its historical home in the
 // public API (the runtime Library owns the definition).
@@ -1276,7 +1277,7 @@ export function typeCheck(
         // A half-built builder passed to the compile seam is host misuse;
         // keep the seam throw-free by reporting it as a diagnostic.
         emitDiagnostic(
-          makeDiagnostic("YS0035", e instanceof Error ? e.message : String(e)),
+          makeDiagnostic("YS0035", describeError(e)),
         );
       }
       continue;

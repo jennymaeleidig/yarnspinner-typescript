@@ -444,7 +444,7 @@ Narrator: Looping
   // the drain starts is the caller's pending/complete state, not a stall.
 });
 
-// ── The stateless pull (deepening-wave-3 ticket 04) ────────────────────
+// ── The stateless pull ──────────────────────────────────────────────────
 
 test("pullUntilStopped returns the events of one pull to the next stopping point", () => {
   const dialogue = makeDialogue(`

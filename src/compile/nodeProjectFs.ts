@@ -13,6 +13,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 
 import { loadProject, failedResult } from "./yarnProject.js";
+import { describeError } from "../describeError.js";
 import type { LoadProjectResult, YarnProjectFileSystem } from "./yarnProject.js";
 import type { CompileOptions } from "./compileSource.js";
 
@@ -77,7 +78,7 @@ export function loadYarnProject(
       {
         code: "YP0001",
         severity: "error",
-        message: `Project file could not be read: ${e instanceof Error ? e.message : String(e)}`,
+        message: `Project file could not be read: ${describeError(e)}`,
         file: projectFilePath,
       },
     ]);

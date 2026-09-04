@@ -188,7 +188,7 @@ function stoppingPointOf(batch: DialogueEvent[]): StoppingPoint | null {
  * a caller must pre-empt: a consumer that must distinguish "nothing new"
  * from "a fresh tail" reads `events.length` instead of hand-copying the
  * at-rest guards before calling (the React hook's old shape —
- * deepening-wave-3 ticket 04).
+ * CONTEXT.md "stopping point").
  *
  * Lifecycle-only batches accumulate into `events` (a node's scene header
  * can ride a batch of its own) — the run's events arrive in delivery order
@@ -253,9 +253,7 @@ const MAX_DRAIN_PULLS = 1_000;
  * - `DialogueComplete` is delivered (the complete event is in the stream);
  * - an option set is delivered and no `selectOption` policy was given —
  *   the set is the stream's last options event and the dialogue stays
- *   pending, exactly as a pull-API consumer would;
- * - a pull returns nothing (unreachable per the VM's batch contract, kept
- *   as the loop's belt).
+ *   pending, exactly as a pull-API consumer would.
  *
  * With a `selectOption` policy, a delivered option set is answered inline
  * (return the index to select, or `noOptionSelected` to fall through) and
@@ -272,11 +270,11 @@ export function runUntilCompleteEvents(
       throw new Error(`runUntilCompleteEvents: stalled after ${MAX_DRAIN_PULLS} pulls without reaching a terminal stopping point`);
     }
     const { events: pulled, stopped } = pullUntilStopped(dialogue);
-    // Empty pull: the dialogue was at rest on entry (an option set pending
-    // without a policy, or already complete) — or the belt for an empty
-    // batch (unreachable per the VM's batch contract, kept as the loop's
-    // belt: a stopping point requires an event, so an empty `pulled` can
-    // only mean the guard fired).
+    // An empty pull is exactly the at-rest guard firing: the pending-
+    // selection or complete check returned `{ events: [] }` without
+    // pulling. It cannot be an empty batch — `pullUntilStopped`'s loop
+    // only exits on a stopping point, and a stopping point requires an
+    // event.
     if (pulled.length === 0) break;
     events.push(...pulled);
     if (stopped === "options") {

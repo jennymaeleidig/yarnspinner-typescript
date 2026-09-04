@@ -226,7 +226,7 @@ export function useDialogue(
    *  point means the dialogue was pending a selection or already complete,
    *  so there is nothing new to reshape and the view stays exactly as it
    *  is. The hook reads the module's contract instead of pre-empting it
-   *  (deepening-wave-3 ticket 04; the old shape hand-copied the
+   *  (CONTEXT.md "stopping point"; the old shape hand-copied the
    *  pending-selection guard before the pull). */
   const applyPull = useCallback((): void => {
     const dialogue = dialogueRef.current;

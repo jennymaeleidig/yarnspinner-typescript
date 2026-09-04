@@ -27,6 +27,7 @@ import { compile, emptyCompileResult, hasErrors } from "./compileSource.js";
 import type { CompileFile, CompileOptions, CompileResult } from "./compileSource.js";
 import { isDiagnosticSeverity } from "./diagnostics.js";
 import type { Diagnostic, DiagnosticSeverity } from "./diagnostics.js";
+import { describeError } from "../describeError.js";
 
 // ── Diagnostics (this project's own YP registry) ──────────────────────────
 
@@ -75,8 +76,8 @@ const DEFAULT_PROJECT_FILE = "project.yarnproject";
 /**
  * The one shape every failure path returns — over the compile seam's single
  * empty shape (`emptyCompileResult`), plus the loader's own fields, so a
- * new `CompileResult` field lands once and every error path follows
- * (deepening-wave-3 ticket 05). Shared with the `./node` boundary module;
+ * new `CompileResult` field lands once and every error path follows.
+ * Shared with the `./node` boundary module;
  * not intended for consumer use.
  *
  * @internal
@@ -255,7 +256,7 @@ export function parseYarnProject(
       diagnostics.push(
         projectDiagnostic(
           "YP0001",
-          `Project file is not valid JSON: ${e instanceof Error ? e.message : String(e)}`,
+          `Project file is not valid JSON: ${describeError(e)}`,
           projectFile,
         ),
       );

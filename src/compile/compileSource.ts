@@ -128,12 +128,12 @@ export interface CompileResult {
  * The one empty shape every no-program path returns (null program/table,
  * empty declarations/fileTags/types, the given diagnostics) — stated once,
  * so a new `CompileResult` field cannot drift the loader seam's failure
- * paths apart (deepening-wave-3 ticket 05; `yarnProject.failedResult`
- * spreads it). Not intended for consumer use.
+ * paths apart (`yarnProject.failedResult` spreads it). Not intended for
+ * consumer use.
  *
  * @internal
  */
-export function emptyCompileResult(diagnostics: Diagnostic[] = []): CompileResult {
+export function emptyCompileResult(diagnostics: Diagnostic[]): CompileResult {
   return {
     program: null,
     stringTable: null,

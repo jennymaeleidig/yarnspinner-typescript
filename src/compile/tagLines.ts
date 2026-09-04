@@ -47,6 +47,7 @@ import { crc32Hex } from "./crc32.js";
 import { LineParser } from "../markup/lineParser.js";
 import { characterAttribute, characterAttributeNameProperty } from "../markup/lineParser.js";
 import { tryGetProperty } from "../markup/types.js";
+import { describeError } from "../describeError.js";
 
 /** The generator seam (upstream `ILineTagGenerator`, context flattened). */
 export interface LineTagGenerator {
@@ -187,7 +188,7 @@ export function tagLines(source: string, opts: TagLinesOptions = {}): TagLinesRe
         const error =
           e instanceof LineTaggingError
             ? e
-            : new LineTaggingError(e instanceof Error ? e.message : String(e), fileName, context.lineNumber);
+            : new LineTaggingError(describeError(e), fileName, context.lineNumber);
         if (error.sourceFile === undefined) {
           error.sourceFile = fileName;
           error.lineNumber = context.lineNumber;

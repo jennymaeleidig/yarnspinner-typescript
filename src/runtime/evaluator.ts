@@ -541,7 +541,8 @@ export class ExpressionEvaluator {
     // softens this to `undefined` (the historical contract); the out-of-band
     // wrapper (`tryEvaluateExpression`) surfaces it as `{ ok: false }` so the
     // fallback state-statement executor can skip the write instead of
-    // silently clobbering storage (deepening-wave-3 ticket 01).
+    // silently clobbering storage (docs/compatibility.md, the
+    // fallback-execution divergence).
     throw new EvaluationFailure(expr);
   }
   

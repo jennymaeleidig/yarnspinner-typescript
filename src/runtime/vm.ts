@@ -85,6 +85,7 @@ import {
 } from "./saliency.js";
 import type { TextProvider } from "./textProvider.js";
 import { InMemoryVariableStorage, type VariableStorage } from "./variableStorage.js";
+import { describeError } from "../describeError.js";
 import type { ProgramNodeGroup } from "../compile/program.js";
 
 /** Outcome of executing one command instruction. */
@@ -205,7 +206,7 @@ export class VirtualMachine {
         this.storage.set(name, this.evaluateInitializer(code, name));
       } catch (e) {
         this.logError(
-          `Failed to initialize variable "${name}": ${e instanceof Error ? e.message : String(e)}`,
+          `Failed to initialize variable "${name}": ${describeError(e)}`,
         );
       }
     }
@@ -617,7 +618,7 @@ export class VirtualMachine {
         // consumed operands) and re-balanced with a null, and execution
         // continues at the next instruction.
         this.logError(
-          `Failed to execute ${ins.op}: ${e instanceof Error ? e.message : String(e)}`,
+          `Failed to execute ${ins.op}: ${describeError(e)}`,
         );
         this.stack.length = stackDepth;
         if (STACK_PRODUCERS.has(ins.op)) this.push(null);
@@ -859,7 +860,7 @@ export class VirtualMachine {
     } catch (e) {
       if (e instanceof ForeignOpError) return this.evaluator.evaluate(expression);
       this.logError(
-        `Failed to evaluate saliency condition "${expression}": ${e instanceof Error ? e.message : String(e)}`,
+        `Failed to evaluate saliency condition "${expression}": ${describeError(e)}`,
       );
       return false;
     }
@@ -958,7 +959,8 @@ export class VirtualMachine {
         // failing evaluation is a runtime diagnostic, not a crash
         // (coding standards §3).
         const expression = content.replace(/^call\b/, "").trim();
-        // The out-of-band failure signal (deepening-wave-3 ticket 01): a
+        // The out-of-band failure signal (docs/compatibility.md, the
+        // fallback-execution divergence): a
         // garbage `<<call>>` payload (e.g. `call 1 2`) resolves to no value
         // instead of throwing, so the soft contract stayed silent. Failed
         // evaluation is a runtime diagnostic, not a crash (coding
@@ -970,7 +972,7 @@ export class VirtualMachine {
           // function, bad argument) — the historical message shape keeps
           // the cause visible either way.
           this.logError(
-            `<<call>> failed: ${called.error instanceof Error ? called.error.message : String(called.error)}`,
+            `<<call>> failed: ${describeError(called.error)}`,
           );
         }
       } else {
@@ -1000,7 +1002,7 @@ export class VirtualMachine {
           // tokens); the delivered event text keeps the authored form.
           handler(parsed.args.map(stripQuotes));
         } catch (e) {
-          this.logError(`Command handler for "${parsed.name}" failed: ${e instanceof Error ? e.message : String(e)}`);
+          this.logError(`Command handler for "${parsed.name}" failed: ${describeError(e)}`);
         }
       }
     }
