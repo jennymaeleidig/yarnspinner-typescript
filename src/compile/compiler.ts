@@ -67,7 +67,7 @@ import { programLanguageVersion } from "./program.js";
 import { compileExpression, ExpressionCodegenError } from "./expressionCodegen.js";
 import { onceVariableKey } from "../runtime/generatedVariables.js";
 import { booleanOperatorCount } from "../runtime/saliency.js";
-import { parseCommand, type ParsedCommand } from "../runtime/commands.js";
+import { commandKind, parseCommand, type ParsedCommand } from "../runtime/commands.js";
 import { isSmartVariableInitializer } from "./smartVariables.js";
 import { compoundOperatorToStackOp, parseStateStatement } from "../parse/stateStatement.js";
 import { buildEnumTypes, collectEnumBlocks } from "./enums.js";
@@ -652,35 +652,38 @@ function lowerCommand(content: string, lowering: NodeLowering, enums: Program["e
     lowering.instructions.push({ op: "runCommand", content });
     return;
   }
-  const name = parsed.name.toLowerCase();
-  if (name === "set") {
-    const code = lowerSet(content, enums);
-    if (code) {
-      lowering.instructions.push(...code);
+  const kind = commandKind(parsed.name);
+  switch (kind) {
+    case "set": {
+      const code = lowerSet(content, enums);
+      if (code) {
+        lowering.instructions.push(...code);
+        return;
+      }
+      // An uncompilable set keeps the raw command: the VM's command dispatch
+      // then reproduces the runtime's error handling for it.
+      lowering.instructions.push({ op: "runCommand", content });
       return;
     }
-    // An uncompilable set keeps the raw command: the VM's command dispatch
-    // then reproduces the runtime's error handling for it.
-    lowering.instructions.push({ op: "runCommand", content });
-    return;
+    case "declare":
+      // Declares hoist to the program's compiled initialValues (upstream:
+      // declares compile to no instruction); collectInitialValues gathered
+      // them during the node walk.
+      return;
+    case "stop":
+      lowering.instructions.push({ op: "stop" });
+      return;
+    case "return":
+      lowering.instructions.push({ op: "return" });
+      return;
+    case "call":
+    case "setSaliency":
+    case "host":
+      // <<call>> and custom commands keep authored text; the VM dispatches
+      // them exactly as upstream's RunCommand does.
+      lowering.instructions.push({ op: "runCommand", content });
+      return;
   }
-  if (name === "declare") {
-    // Declares hoist to the program's compiled initialValues (upstream:
-    // declares compile to no instruction); collectInitialValues gathered
-    // them during the node walk.
-    return;
-  }
-  if (name === "stop") {
-    lowering.instructions.push({ op: "stop" });
-    return;
-  }
-  if (name === "return") {
-    lowering.instructions.push({ op: "return" });
-    return;
-  }
-  // <<call>> and custom commands keep authored text; the VM dispatches
-  // them exactly as upstream's RunCommand does.
-  lowering.instructions.push({ op: "runCommand", content });
 }
 
 /**

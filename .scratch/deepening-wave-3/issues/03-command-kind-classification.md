@@ -1,7 +1,7 @@
 # Ticket 03 — One classification of internal `<<command>>` kinds
 
 Type: task
-Status: open
+Status: resolved
 
 ## Question
 
@@ -39,3 +39,9 @@ dispatch.
 
 - New classification table pins (module-tier): every internal command classified; every classified kind handled by both driver sides (a "handled by both" pin per kind).
 - Existing end-to-end command pins unchanged.
+
+## Answer
+
+Landed as designed. `commandKind(name) → "set" | "declare" | "call" | "setSaliency" | "stop" | "return" | "host"` in `src/runtime/commands.ts` (case-insensitive, the host fall-through the default); `lowerCommand` and `runCommand` both dispatch on it. The per-kind policy table lives in the module header as the stated lockstep obligation — including the deliberate `call` asymmetry (compiler keeps it raw; VM executes it internally) and `stop`/`return` being unreachable in `runCommand` (dedicated ops, never raw commands).
+
+Pins: `commandKind.test.ts` — the classification table, case-insensitivity (matching both drivers' old `toLowerCase` comparisons), and the host fall-through. Driver policies stay pinned end-to-end by the conformance corpus and the vm-runtime/full_featured suites; the header table is the stated obligation, not a re-tested one. Suite 615 (614 pass, 1 mirrored skip), lint clean, ts-check clean.

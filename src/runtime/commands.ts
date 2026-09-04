@@ -1,8 +1,29 @@
 // SPDX-License-Identifier: CC0-1.0
 /**
- * Command utilities for Yarn Spinner commands: parsing (`parseCommand`)
- * and state-statement execution (`executeStateStatement`).
+ * Command utilities for Yarn Spinner commands: parsing (`parseCommand`),
+ * the one classification of command names across the compile↔runtime seam
+ * (`commandKind`), and state-statement execution
+ * (`executeStateStatement`).
  * Commands like <<command_name arg1 arg2>> or <<command_name "arg with spaces">>
+ *
+ * The kind classification is the seam's single home (deepening-wave-3
+ * ticket 03): both drivers that branch on command names dispatch on it.
+ * Each driver keeps its own per-kind POLICY — this table is the lockstep
+ * obligation, stated once:
+ *
+ * | kind        | compiler (`lowerCommand`)          | VM (`runCommand`)                     |
+ * |-------------|------------------------------------|---------------------------------------|
+ * | set         | lower to bytecode (fallback: raw)  | execute via the state-statement module|
+ * | declare     | hoist to initialValues (no instr.) | execute via the state-statement module|
+ * | stop        | lower to the `stop` op             | unreachable (dedicated op)            |
+ * | return      | lower to the `return` op           | unreachable (dedicated op)            |
+ * | call        | keep raw (host-delivered shape)    | execute: invoke, discard the result   |
+ * | setSaliency | unreachable (compiler-generated)   | execute: switch the saliency strategy |
+ * | host        | keep raw                           | deliver as a Command event            |
+ *
+ * The deliberate asymmetry on `call` (compiler keeps it raw; the VM
+ * executes it internally) is upstream's shape, made explicit here instead
+ * of hidden across two name lists.
  */
 
 import type { ExpressionEvaluator } from "./evaluator.js";
@@ -14,6 +35,34 @@ export interface ParsedCommand {
   name: string;
   args: string[];
   raw: string;
+}
+
+/** The one classification of a command's name (case-insensitive), stated
+ * once for both drivers that branch on it — the compiler's `lowerCommand`
+ * and the VM's `runCommand` (see the module header's policy table for each
+ * driver's per-kind obligation). */
+export type CommandKind = "set" | "declare" | "call" | "setSaliency" | "stop" | "return" | "host";
+
+export function commandKind(name: string): CommandKind {
+  switch (name.toLowerCase()) {
+    case "set":
+      return "set";
+    case "declare":
+      return "declare";
+    case "call":
+      return "call";
+    // Upstream's strategy-switch command (Try Yarn Spinner's built-in
+    // `<<set_saliency first|random|best|...>>`) — compiler-generated, but
+    // classified so the VM's arm has a kind to dispatch on.
+    case "set_saliency":
+      return "setSaliency";
+    case "stop":
+      return "stop";
+    case "return":
+      return "return";
+    default:
+      return "host";
+  }
 }
 
 /**

@@ -62,7 +62,7 @@ import {
 import { Library, type YarnFunction } from "./library.js";
 import { ExpressionEvaluator } from "./evaluator.js";
 import { applyBinaryOp, applyUnaryOp } from "./operands.js";
-import { executeStateStatement, parseCommand, stripQuotes, type ParsedCommand } from "./commands.js";
+import { commandKind, executeStateStatement, parseCommand, stripQuotes, type ParsedCommand } from "./commands.js";
 import { LineComposer } from "./interpolate.js";
 import { LineParser } from "../markup/lineParser.js";
 import { registerBuiltinFunctions } from "./builtins.js";
@@ -936,11 +936,9 @@ export class VirtualMachine {
       this.deliverCommand(content, undefined, batch);
       return "delivered";
     }
-    const name = parsed.name.toLowerCase();
-    if (name === "set_saliency") {
-      // Upstream's strategy-switch command (Try Yarn Spinner's built-in
-      // `<<set_saliency first|random|best|...>>`): switches to a named
-      // built-in strategy. Internal: it never surfaces as an event.
+    const kind = commandKind(parsed.name);
+    if (kind === "setSaliency") {
+      // Internal: it never surfaces as an event.
       const mode = (parsed.args[0] ?? "").trim();
       if (!this.setSaliencyStrategy(mode)) {
         this.logError(
@@ -949,10 +947,10 @@ export class VirtualMachine {
       }
       return "continued";
     }
-    if (name === "set" || name === "declare" || name === "call") {
+    if (kind === "set" || kind === "declare" || kind === "call") {
       // State statements are internal (spec conformance): they
       // execute their effect and never surface as Command events.
-      if (name === "call") {
+      if (kind === "call") {
         // `<<call>>` invokes the host function and discards the result
         // (upstream CallStatement — the compiler validated
         // the target). Side effects are the point: the conformance
