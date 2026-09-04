@@ -41,3 +41,7 @@ Landed as designed, with two refinements recorded:
 - **Two pathological-path tightenings, recorded**: the condition slice now also runs the balanced-stack guard (old code popped blindly). Both paths' code comes from `compileExpression`, which always leaves exactly one value, so the guard is unreachable today; if it ever fired, the condition path logs a diagnostic instead of silently `Boolean`-popping — an improvement on an unreachable path, not a behavior change on a reachable one.
 
 New `runBytecode.test.ts` (6 pins: emitter-gate structural pin, end-to-end arithmetic with stack restore, foreign op naming + restore, unbalanced/empty + restore, propagating failure + restore). Suite 612 (611 pass, 1 mirrored skip), lint clean, ts-check clean, demo build green.
+
+## Comments
+
+**Two-axis review fix (2026-09-04)**: both axes flagged that the "emitter-gate structural pin" could never fail (it iterated the set asserting `typeof op === "string"`), which also diluted the spec's "every initializer-subset op executes" item. Replaced with a real gate-agreement pin: a battery of expressions covering the codegen's operator classes (arithmetic, unary-fold, pushVariable, comparisons, logical, literals) compiles and every emitted op must pass `EXPRESSION_OPS` — a codegen op outside the declared subset now fails at the pin instead of at runtime as `ForeignOpError`. (xor has no codegen source spelling — the recorded ADR 0005 gap — so the gate includes it for the VM's op support but the battery cannot exercise it from source.)

@@ -51,13 +51,28 @@ const ins = (op: Instruction["op"], value?: unknown): Instruction =>
 
 // ── The emitter's declared subset is the runner's gate ───────────────────
 
-test("every op the codegen emits for an expression slice runs through the runner", () => {
-  // The gate and the emitter's output agree: compile a representative
-  // expression per emitted op class... the exhaustive operator table lives
-  // in operands.test.ts; here the pin is that the classification itself is
-  // the import, not a hand-copy (structural).
-  for (const op of EXPRESSION_OPS) {
-    assert.ok(typeof op === "string");
+test("every op compileExpression emits is inside the runner's gate — the emitter and the gate agree", () => {
+  // The gate is the emitter's own declared subset (imported, not a
+  // hand-copy); this pin executes the agreement: a battery of expressions
+  // covering the emitter's operator classes compiles, and every emitted op
+  // passes the gate (a codegen op missing from EXPRESSION_OPS fails here —
+  // ForeignOpError at run time).
+  const battery = [
+    "1 + 2", "5 - 3", "4 * 2", "6 / 2", "7 % 3", // arithmetic → add..modulo
+    "-1", // unary minus folds to a literal (pushNumber)
+    "$gold + 1", // pushVariable
+    "1 == 1", "1 != 2", "1 < 2", "1 <= 1", "2 > 1", "2 >= 2", // comparisons
+    "true && false", "true || false", "not false", // logical (xor: the VM supports the op but codegen has no xor source spelling — the recorded ADR 0005 gap)
+    "true", "\"text\"", // literal pushes
+  ];
+  for (const expr of battery) {
+    const code = compileExpression(expr);
+    for (const ins of code) {
+      assert.ok(
+        EXPRESSION_OPS.has(ins.op),
+        `codegen emitted "${ins.op}" for "${expr}" — outside the declared expression subset`,
+      );
+    }
   }
   // Literals are in the subset but are not stack producers (main-loop
   // rebalancing excludes them) — the derivation the VM performs.

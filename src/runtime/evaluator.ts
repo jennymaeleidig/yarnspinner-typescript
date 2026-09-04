@@ -87,22 +87,10 @@ export class ExpressionEvaluator {
   }
 
   /**
-   * Evaluate an expression that can return any value (not just boolean).
-   *
-   * The dispatch follows the checker/codegen grammar layering (upstream's
-   * single expression grammar) — loosest first, so a mixed expression
-   * parses against the same tree the type checker validated:
-   * and/or/xor level → comparison → negation → arithmetic → value.
-   * (The old order — comparison dispatch before logical — parsed
-   * `$a == 1 && $b > 2` as `$a == ((1 && $b) > 2)`; a leading `!` claimed
-   * the comparison dispatcher and threw on any negated expression; and a
-   * fully parenthesized logical `(1 && 0)` recursed infinitely. All fixed
-   * here — deepening-wave-2 ticket 09.)
-   */
-  /**
-   * Evaluate an expression with an out-of-band failure signal: `{ ok: false }
-   *` when the expression cannot be evaluated (an unresolvable value, or a
-   * thrown evaluation error), `{ ok: true, value }` otherwise — including a
+   * Evaluate an expression with an out-of-band failure signal: `{ ok: false,
+   * error }` when the expression cannot be evaluated (an unresolvable value,
+   * or a thrown evaluation error — the error is carried so a caller can
+   * report its cause), `{ ok: true, value }` otherwise — including a
    * legitimate `undefined` result (a void host function). The shape mirrors
    * `tryGetSmartVariable`'s.
    *
@@ -113,11 +101,11 @@ export class ExpressionEvaluator {
    * executor logs a diagnostic and skips the write (collect-don't-throw,
    * coding standards §3) while void-function sets keep working.
    */
-  tryEvaluateExpression(expr: string): { ok: true; value: unknown } | { ok: false } {
+  tryEvaluateExpression(expr: string): { ok: true; value: unknown } | { ok: false; error: unknown } {
     try {
       return { ok: true, value: this.evaluateOrThrow(expr) };
-    } catch {
-      return { ok: false };
+    } catch (e) {
+      return { ok: false, error: e };
     }
   }
 

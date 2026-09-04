@@ -286,9 +286,12 @@ export function runUntilCompleteEvents(
         break;
       }
       const optionsEvent = pulled.find((event): event is Extract<DialogueEvent, { type: "options" }> => event.type === "options");
-      // The stopping point came from this pull's options event — find is
-      // total here, but the guard keeps the type honest.
-      if (!optionsEvent) break;
+      // The stopping point came from this pull's options event — `find` is
+      // total here; if it ever isn't, the invariant is broken and a stalled
+      // runtime is a bug to surface, not a drain to quietly end.
+      if (!optionsEvent) {
+        throw new Error("runUntilCompleteEvents: an options stopping point without an options event");
+      }
       dialogue.selectOption(selectOption(optionsEvent.options));
     }
     if (stopped === "complete") break;

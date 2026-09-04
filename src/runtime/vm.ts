@@ -965,7 +965,13 @@ export class VirtualMachine {
         // standards §3); the result is discarded either way.
         const called = this.evaluator.tryEvaluateExpression(expression);
         if (!called.ok) {
-          this.logError(`<<call>> failed: the expression "${expression}" could not be evaluated`);
+          // The failure result carries the cause: an unresolvable value
+          // (EvaluationFailure) or a thrown evaluation error (unknown
+          // function, bad argument) — the historical message shape keeps
+          // the cause visible either way.
+          this.logError(
+            `<<call>> failed: ${called.error instanceof Error ? called.error.message : String(called.error)}`,
+          );
         }
       } else {
         executeStateStatement(

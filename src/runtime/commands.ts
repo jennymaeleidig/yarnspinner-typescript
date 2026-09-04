@@ -153,6 +153,24 @@ export function stripQuotes(value: string): string {
   return value;
 }
 
+/** Collect-don't-throw (coding standards §3): evaluate one statement
+ * expression through the evaluator's out-of-band failure signal — a
+ * failing evaluation is a runtime diagnostic naming the statement, not a
+ * crash (the one failure-policy statement for all three statement
+ * branches). */
+function evaluateStatementValue(
+  evaluator: ExpressionEvaluator,
+  expression: string,
+  content: string,
+  logError: (message: string) => void,
+): { ok: true; value: unknown } | { ok: false } {
+  const result = evaluator.tryEvaluateExpression(expression);
+  if (!result.ok) {
+    logError(`Failed to evaluate expression "${expression}" in statement "${content}"`);
+  }
+  return result;
+}
+
 /**
  * Execute a state statement's effect on variable storage (`<<set>>`/
  * `<<declare>>` grammar: `set $var (to|=) expr`, compound assignment
@@ -187,11 +205,8 @@ export function executeStateStatement(host: StateStatementHost, content: string)
         // The compound assignment applies the base operator through the
         // operand-semantics module — the same add/concat rule the VM's add
         // op applies (one statement, not a third copy).
-        const rhs = evaluator.tryEvaluateExpression(expression);
-        if (!rhs.ok) {
-          logError(`Failed to evaluate expression "${expression}" in statement "${content}"`);
-          return;
-        }
+        const rhs = evaluateStatementValue(evaluator, expression, content, logError);
+        if (!rhs.ok) return;
         const value = applyBinaryOp(compoundOperatorToStackOp(compoundOp), variables.get(key), rhs.value);
         setVariable(key, value);
         return;
@@ -201,11 +216,8 @@ export function executeStateStatement(host: StateStatementHost, content: string)
       // from a legitimate `undefined` (a void host function): a failing
       // expression logs a diagnostic and skips the write instead of
       // silently clobbering a prior value (deepening-wave-3 ticket 01).
-      const result = evaluator.tryEvaluateExpression(expression);
-      if (!result.ok) {
-        logError(`Failed to evaluate expression "${expression}" in statement "${content}"`);
-        return;
-      }
+      const result = evaluateStatementValue(evaluator, expression, content, logError);
+      if (!result.ok) return;
       const value = result.value;
       // A script-level set of a smart variable is a compile error (YS0030),
       // so this write only ever lands on stored variables — or shadows a
@@ -242,11 +254,8 @@ export function executeStateStatement(host: StateStatementHost, content: string)
       // out-of-band signal the set branch consumes — declares are
       // fallback-path initializers, and a failed initializer must not
       // write `undefined` over a host-seeded value either).
-      const declared = evaluator.tryEvaluateExpression(expr);
-      if (!declared.ok) {
-        logError(`Failed to evaluate expression "${expr}" in statement "${content}"`);
-        return;
-      }
+      const declared = evaluateStatementValue(evaluator, expr, content, logError);
+      if (!declared.ok) return;
       setVariable(key, declared.value);
     }
   } catch (e) {

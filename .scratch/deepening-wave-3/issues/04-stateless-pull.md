@@ -44,3 +44,7 @@ New pins in `transcript.test.ts`: one pull's events (lifecycle riding in deliver
 - New stateless-pull pins in `transcript.test.ts` without React: pending-selection → `{events: [], stopped: "options"}`; complete-once → `{events: [], stopped: "complete"}`; a normal pull returns the batch's events with its stopping point.
 - Accumulator pins unchanged (the family's behavior is identical by construction).
 - Hook tests: the React pins stop covering contract logic the module owns.
+
+## Comments
+
+**Two-axis review note (2026-09-04)**: the spec axis flagged the "Hook tests" work item as unactioned. That item was an expectation about the *existing* React pins, not new work: after the migration the React suite passes unchanged and no longer covers any stopping-point contract logic — the stateless-pull contract is pinned in `transcript.test.ts` (module tier, no React), which is the item's intent delivered. Also fixed from the standards axis: `runUntilCompleteEvents`'s total-`find` guard was a silent `break` on a broken invariant; it now throws (a stalled runtime is a bug to surface, matching the module's stated cap policy).
