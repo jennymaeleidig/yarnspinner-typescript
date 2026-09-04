@@ -1,6 +1,6 @@
 # yarn-spinner-runner-ts
 
-TypeScript parser, compiler, and runtime for Yarn Spinner 3.x with a React adapter.
+TypeScript parser, compiler, and runtime for Yarn Spinner 3.x. Framework-agnostic: hosts own their UI against `Dialogue`/`Transcript` directly.
 
 ## Agent skills
 

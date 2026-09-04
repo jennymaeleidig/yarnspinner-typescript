@@ -2,7 +2,7 @@
   "name": "yarn-spinner-runner-ts",
   "version": "0.2.0",
   "private": false,
-  "description": "TypeScript parser, compiler, and runtime for Yarn Spinner 3.x with React adapter [NPM package](https://www.npmjs.com/package/yarn-spinner-runner-ts)",
+  "description": "TypeScript parser, compiler, and runtime for Yarn Spinner 3.x [NPM package](https://www.npmjs.com/package/yarn-spinner-runner-ts)",
   "license": "CC0-1.0",
   "type": "module",
   "workspaces": [
@@ -23,7 +23,7 @@
     "build:all": "npm run build && npm run build:cjs && npm run build -w yarn-spinner-vite-plugin",
     "clean": "rimraf dist",
     "dev": "tsc -w -p tsconfig.json",
-    "lint": "eslint \"src/**/*.ts\" \"src/**/*.tsx\" \"packages/*/src/**/*.ts\"",
+    "lint": "eslint \"src/**/*.ts\" \"packages/*/src/**/*.ts\"",
     "ts-check": "tsc -p tsconfig.json",
     "pretest": "npm run build:all",
     "test": "node scripts/run-tests.js",
@@ -46,16 +46,6 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./react": {
-      "import": {
-        "types": "./dist/react/index.d.ts",
-        "default": "./dist/react/index.js"
-      },
-      "require": {
-        "types": "./dist/react/index.d.cts",
-        "default": "./dist/react/index.cjs"
-      }
-    },
     "./node": {
       "import": {
         "types": "./dist/compile/nodeProjectFs.d.ts",
@@ -76,7 +66,6 @@
     "dist/markup",
     "dist/model",
     "dist/parse",
-    "dist/react",
     "dist/runtime",
     "dist/scene",
     "README.md"
@@ -85,21 +74,8 @@
     "yarn-spinner",
     "dialogue",
     "parser",
-    "compiler",
-    "react"
+    "compiler"
   ],
-  "peerDependencies": {
-    "react": "^18.0.0 || ^19.0.0",
-    "react-dom": "^18.0.0 || ^19.0.0"
-  },
-  "peerDependenciesMeta": {
-    "react": {
-      "optional": true
-    },
-    "react-dom": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "js-yaml": "^4.1.0",
     "@eslint/js": "^9.12.0",
@@ -107,15 +83,12 @@
     "@sveltejs/kit": "^2.70.3",
     "@sveltejs/vite-plugin-svelte": "^4.0.4",
     "@types/js-yaml": "^4.0.9",
-    "@types/jsdom": "^30.0.0",
     "@types/node": "^22.7.4",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^8.8.1",
     "@typescript-eslint/parser": "^8.8.1",
-    "@vitejs/plugin-react": "^4.3.1",
     "eslint": "^9.12.0",
-    "jsdom": "^30.0.1",
     "next": "^14.2.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

@@ -50,11 +50,10 @@ with the block-form `<<if>>` instead.
 
 ## 3. `&css{}` removed → styling is consumer-side
 
-`&css{...}` on nodes, lines, and options no longer exists. Style dialogue in
-your consumer (e.g. via markup attributes on the text, or your own component
-logic keyed on speaker/tags). There is no replacement syntax in the language;
-the React adapter consumes the runtime's structured events and applies its own
-presentation.
+`&css{...}` on nodes, lines, and options no longer exists. There is no
+replacement syntax in the language: styling is consumer-side — hosts consume
+the runtime's structured events (speaker, tags, markup attributes) and apply
+their own presentation.
 
 ```yarn
 // Before (fork syntax — now a YS0005 diagnostic)
@@ -80,21 +79,20 @@ the mismatch now surfaces as a `YS0005` diagnostic at compile time.
 <<declare $hasKey = true>>
 ```
 
-## 5. `YarnRunner` → `Dialogue`, `useYarnRunner` → `useDialogue`
+## 5. `YarnRunner` → `Dialogue`
 
 The glossary concept is upstream's `Dialogue` — "runner" is retired
-vocabulary (CONTEXT.md). The runtime class and the React hook ship under the
-new names; the old ones remain as **deprecated, exact aliases for this
-release only** and are removed in the release after 0.2.0:
+vocabulary (CONTEXT.md). The runtime class ships under the new name; the
+old one remains as a **deprecated, exact alias for this release only** and
+is removed in the release after 0.2.0:
 
 ```typescript
 // Before (0.1.x)
-import { YarnRunner, useYarnRunner } from "yarn-spinner-runner-ts";
+import { YarnRunner } from "yarn-spinner-runner-ts";
 const runner = new YarnRunner(program);
 
 // After (0.2.0)
 import { Dialogue } from "yarn-spinner-runner-ts";
-import { useDialogue } from "yarn-spinner-runner-ts/react";
 const dialogue = new Dialogue(program);
 ```
 
@@ -103,37 +101,15 @@ Note that the 0.1.x `YarnRunner` class already spoke the pull-based API
 mutate-and-read surface (`advance()`, `currentResult`, `TextResult`) was
 removed earlier in the parity wave; see CONTEXT.md "Retired terms".
 
-## 6. Adapter props: `advance` → `continue`, `onStoryEnd` → `onDialogueComplete`
+## 6. The React adapter → removed
 
-The React adapter's own names were still fork-era vocabulary; they now
-match the glossary. The old names remain as **deprecated exact
-aliases for one release** — same pattern as §5:
-
-```tsx
-// Before (0.2.0)
-const { result, advance, selectOption } = useDialogue(program, {
-  onStoryEnd: (info) => console.log(info.storyEnd, info.variables),
-});
-<DialogueView program={program} autoAdvanceAfterTyping pauseBeforeAdvance={500} />;
-
-// After
-const { result, continue: continueDialogue, selectOption } = useDialogue(program, {
-  // `continue` is a reserved word — destructure it under a local name.
-  onDialogueComplete: (info) => console.log(info.dialogueComplete, info.variables),
-});
-<DialogueRunner program={program} autoContinueAfterTyping pauseBeforeContinue={500} />;
-```
-
-- `advance` is the same function as `continue` (identity pinned by the
-  alias tests).
-- `onStoryEnd` fires only when `onDialogueComplete` is absent, and keeps
-  its original payload (`storyEnd: true`); the new callback's payload uses
-  `dialogueComplete: true`.
-- `DialogueRunner`'s typing-flow props rename with the same verb (the headless
-  split moved the wired prop surface from `DialogueView` to
-  `DialogueRunner`): `autoAdvanceAfterTyping` → `autoContinueAfterTyping`,
-  `autoAdvanceDelay` → `autoContinueDelay`, `pauseBeforeAdvance` →
-  `pauseBeforeContinue`.
+0.2.0 also renamed the React adapter's fork-era prop vocabulary
+(`advance` → `continue`, `onStoryEnd` → `onDialogueComplete`, the
+typing-flow props to their `Continue` spellings). That surface no longer
+exists to migrate to: the adapter has since been removed entirely (ADR 0006,
+amended) — the package root is the whole story. Hosts own their UI against
+`Dialogue`/`Transcript` directly; there is no `./react` subpath, hook, or
+component to update to.
 
 ## Unchanged
 

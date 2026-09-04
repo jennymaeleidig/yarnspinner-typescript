@@ -12,12 +12,13 @@
  * shipped logic, imported, not mirrored. The content itself is NOT
  * mirrored either: the real `examples/nextjs-host/content/` files are the
  * single source of truth, loaded through the same server-side path the
- * host's page uses. The SSR pattern mirrors the browser demo harness
- * (renderToStaticMarkup over the first pull). Two disclosed §6 trade-offs,
- * both precedent-backed: the test imports `nodeProjectFs` from its internal
- * path (yarnProject.test.ts does the same) and asserts
- * bundle-safety on the built artifacts — client-path purity cannot be
- * asserted behaviorally.
+ * host's page uses. The SSR story is asserted through the vanilla layer:
+ * the render-time initial pull (fresh `Dialogue` + one `runUntilStopped`)
+ * is what puts the opening line in the server-rendered markup. Two
+ * disclosed §6 trade-offs, both precedent-backed: the test imports
+ * `nodeProjectFs` from its internal path (yarnProject.test.ts does the
+ * same) and asserts bundle-safety on the built artifacts — client-path
+ * purity cannot be asserted behaviorally.
  */
 
 import { test } from "node:test";
@@ -25,8 +26,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
-import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 
 import { Dialogue, noOptionSelected, runUntilComplete, runUntilStopped } from "../index.js";
 import { loadYarnProject } from "../compile/nodeProjectFs.js";
@@ -76,47 +75,19 @@ test("the client bundle's main entry carries no Node builtins (§2)", () => {
   assert.ok(nodeSubpath.includes("node:fs"), "the ./node subpath is where node:fs lives");
 });
 
-// ── SSR harness (mirrors the browser demo pattern over the first pull) ──
+// ── The SSR story (vanilla): the render-time initial pull ─────────────────
 
-/** The mirrored client component's initial pull: a fresh Dialogue and its
- *  first transcript — exactly what DialogueHost's render-time adjustment
- *  runs, server-side included. */
-function initialTranscript(program: Program) {
-  const dialogue = new Dialogue(program);
-  return runUntilStopped(dialogue).transcript.lines;
-}
-
-function MirroredHost({ program }: { program: Program }) {
-  const lines = initialTranscript(program);
-  return (
-    <main>
-      <h1>Crossroads — Next.js host</h1>
-      <div aria-live="polite">
-        {lines.map((line, i) => (
-          <p key={i}>
-            {line.speaker && <strong>{line.speaker}</strong>}
-            <span>{line.text}</span>
-          </p>
-        ))}
-      </div>
-      <button type="button">Continue</button>
-      <button type="button">Reset (variable-storage reset)</button>
-    </main>
-  );
-}
-
-test("the host renders its opening line server-side (SSR harness)", () => {
+test("the host's opening line is in the initial pull it renders (SSR story)", () => {
+  // DialogueHost's first render runs one synchronous pull — a fresh
+  // `Dialogue` reduced through `runUntilStopped` — so the opening line is
+  // in the server-rendered markup with no effects or hydration. This runs
+  // that exact pull.
   const { program } = loadHostProject();
-  const html = renderToStaticMarkup(<MirroredHost program={program} />);
-
-  assert.match(
-    html,
-    /A crossroads at dusk/,
-    "the opening Narrator line must be in the SSR output (the first pull runs during render)",
-  );
-  assert.match(html, /<strong>Narrator<\/strong>/, "the opening line's speaker renders");
-  assert.match(html, /Continue/, "the pull loop's control renders");
-  assert.match(html, /Reset/, "the variable-storage reset control renders");
+  const { transcript } = runUntilStopped(new Dialogue(program));
+  const opening = transcript.lines[0];
+  assert.ok(opening, "the first pull delivers the opening line");
+  assert.match(opening.text, /A crossroads at dusk/, "the opening Narrator line is in the SSR output");
+  assert.equal(opening.speaker, "Narrator", "the opening line's speaker renders");
 });
 
 // ── Variable-storage reset through the host's flow ────────────────────────

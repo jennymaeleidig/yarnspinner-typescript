@@ -16,7 +16,7 @@ const pkg: { name: string; exports: Record<string, any> } = JSON.parse(
   readFileSync(join(repoRoot, "package.json"), "utf8"),
 );
 
-const SUBPATHS = [".", "./react", "./node"] as const;
+const SUBPATHS = [".", "./node"] as const;
 
 const selfSpecifier = (subpath: string): string =>
   subpath === "." ? pkg.name : `${pkg.name}${subpath.slice(1)}`;
@@ -68,7 +68,6 @@ test("no CJS artifact requires an ESM sibling", () => {
 test("every CJS surface matches its ESM twin", () => {
   const surfaceChecks: Record<(typeof SUBPATHS)[number], string[]> = {
     ".": ["Dialogue", "compileSource"],
-    "./react": ["DialogueRunner"],
     "./node": ["loadYarnProject", "nodeProjectFs"],
   };
   const parities: Promise<void>[] = [];

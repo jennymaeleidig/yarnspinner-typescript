@@ -1,13 +1,12 @@
 # yarn-spinner-runner-ts
 
-TypeScript parser, compiler, and runtime for Yarn Spinner 3.x, in language-and-behavior parity with upstream Yarn Spinner 3.2.x. Framework-agnostic at the root: React lives behind the `./react` subpath, and `.yarn`/`.yarnproject` content imports as build-time modules via the companion `yarn-spinner-vite-plugin` package.
+TypeScript parser, compiler, and runtime for Yarn Spinner 3.x, in language-and-behavior parity with upstream Yarn Spinner 3.2.x. Framework-agnostic: no UI layer ships — hosts own their UI against `Dialogue`/`Transcript` directly (ADR 0006, amended); `.yarn`/`.yarnproject` content imports as build-time modules via the companion `yarn-spinner-vite-plugin` package.
 
 ## Overview
 
 - Parser for `.yarn` files → AST
 - Compiler: AST → instruction-stream program, with string table, declarations, and diagnostics
-- Runtime (`Dialogue`): pull-based event stream over a stack VM
-- React integration: `useDialogue()` hook and dialogue components (adapter-side, non-upstream)
+- Runtime (`Dialogue`): pull-based event stream over a stack VM, plus the transcript-reduction helpers (`runUntilStopped`, `pullUntilStopped`, `mergeEvents`)
 
 Reference documentation for the Yarn Spinner 3.x language lives in `docs/` (one file per language feature, each citing its source URL). Coding standards for agents and humans: `CODING_STANDARDS.md` (repo root). Architecture decisions: `docs/adr/`.
 
@@ -77,19 +76,19 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 - **Character marker**: the implicit `[character name=]` markup generated from a line's character-name prefix, before other processing.
 - **Text provider**: injectable resolver from line ID to text for the current language; the runtime is string-table-unaware.
 
-### Packaging & consumption (adapter-side)
+### Packaging & consumption
 
-- **Framework-agnostic core**: the package root stays React-free — React is optional and lives behind the `./react` subpath (ADR 0006), so non-React consumers never pull in `react/jsx-runtime`. The runtime, compiler, and parser import from the root; every React import rides the subpath.
+- **Framework-agnostic core**: the package has no UI layer and no framework surface — no React, no adapter, no subpath for one (ADR 0006, amended). Hosts own their UI against `Dialogue`/`Transcript` directly. The runtime, compiler, and parser all import from the root.
 - **Companion plugin**: the workspace package `yarn-spinner-vite-plugin` (npm name of the same shape) — the Vite integration that makes direct import work. Vite-only by design, with the compile step extracted as pure, bundler-agnostic functions (`compileYarnModule`, `compileYarnProjectModule`) so a future thin webpack loader reuses them verbatim; core and Vite are peer dependencies (ADR 0006 records the npm constraint that forces this).
 - **Direct import**: consuming `.yarn` and `.yarnproject` files as build-time modules through the companion plugin — content compiles at build time, the compiled program rides the bundle, and a compile error fails the build. Import shapes: a `.yarn` file yields the Program (plus named `stringTable`/`containsImplicitStringTags`/`fileTags`), `?raw` yields the source string, a `.yarnproject` yields the full load result (program, project name, base language, per-locale tables, assets, diagnostics) ready for a text provider. Severity overrides merge in a fixed order — the project file's own map first, then the plugin's top-level option, then the `compilerOptions` passthrough (most specific wins). Full surface: [docs/direct-import.md](docs/direct-import.md).
 - **Editor types**: the plugin's types-only `./client` subpath — one file declaring all three import shapes for TypeScript, served both as a triple-slash reference and as a zero-dependency paste-in.
 
-### Adapter-side (non-upstream)
+### Runtime helpers (non-upstream)
 
-- **Transcript**: the adapter-side accumulator over a dialogue run — every
+- **Transcript**: the accumulator over a dialogue run — every
   delivered line in order, the live option set (a resolved set leaves the
-  transcript), and surfaced commands. Hosts adopt it as component state;
-  `runUntilStopped` produces it by merging each pull into the prior one.
+  transcript), and surfaced commands. Hosts adopt it as state and read it
+  raw; `runUntilStopped` produces it by merging each pull into the prior one.
 - **Stopping point**: where the runtime pauses a `continue()` batch for the
   consumer — a delivered line, an option set, or a command, with node
   lifecycle and line-hint events riding through; completion is the
@@ -103,17 +102,8 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
   the terminal one, and `runUntilCompleteEvents` returns the raw event
   stream to that terminal (the runtime/scripts drain), so no consumer
   re-derives the contract.
-- **Config / live split**: the hook's input shape, `useDialogue(program,
-  config, live)` — one rule, **config identity = dialogue identity**: a
-  new config object rebuilds the dialogue even with identical values
-  (construction-only inputs — start node, variables, storage, host
-  functions — belong there), while **live** (per-call callbacks and
-  logging) is read through a ref: identity ignored, the latest object
-  always in effect, a fresh literal every render is the intended shape.
-  Exists only in the React adapter layer; not part of language parity.
-- **DialogueRunner / DialogueView (the split)**: the wired container and the presentational view. `DialogueView` renders a `UseDialogueResult` — no `program` prop, no hook call — and owns **presentation state only**: typing progress, the typing skip, and the one continue scheduler (command flash, typing-done, click). All dialogue state and transitions arrive on the result object. `DialogueRunner` is the container: it calls `useDialogue` (program + config + live) and forwards the result, carrying the deprecated prop aliases. Exists only in the React adapter layer; not part of language parity.
-- **Scene system**: scene/actor images reached via the `scene:` header (which itself is an ordinary upstream-compatible header). The name travels on its one channel — the `NodeStartEvent`'s optional `scene` field (absent when the node declares none), surfaced to hosts as `Transcript.scene` / the hook's `sceneName`, carried forward across scene-less nodes; hosts cross-check it against their `SceneCollection` at that seam. The scene YAML parser is demo-side (`examples/browser/scenes.ts`) — the package ships no scene parser and no scene dependency. Exists only in the React adapter layer; not part of language parity.
-- **Storylet**: the browser demo's presentation name for a node-group member drawn by saliency (`examples/browser/StoryletsDemo.tsx`); demo-layer vocabulary, not upstream's — the glossary term for the thing being drawn is **node-group member**.
+- **Scene system**: scene/actor images reached via the `scene:` header (which itself is an ordinary upstream-compatible header). The name travels on its one channel — the `NodeStartEvent`'s optional `scene` field (absent when the node declares none), surfaced to hosts as `Transcript.scene`, carried forward across scene-less nodes; hosts cross-check it against their `SceneCollection` at that seam and own all rendering — backgrounds, actors, transitions. The package ships no scene parser (YAML or otherwise) and no scene dependency. Non-upstream; not part of language parity.
+- **Storylet**: the browser demo's presentation name for a node-group member drawn by saliency (`examples/browser/StoryletsDemo.ts`); demo-layer vocabulary, not upstream's — the glossary term for the thing being drawn is **node-group member**.
 
 ## Retired terms
 
@@ -131,15 +121,12 @@ Fork-era vocabulary, superseded by the parity API. Kept here so old docs and con
 - **`&css{...}`** → removed; styling is consumer-side via markup properties
 - **`docs/compatibility-checklist.md`** → replaced by [docs/compatibility.md](docs/compatibility.md)
 
-The two code-level renames above that shipped as part of the parity API —
-`YarnRunner` → `Dialogue` and `useYarnRunner` → `useDialogue` — keep a
+The one code-level rename above that shipped as part of the parity API —
+`YarnRunner` → `Dialogue` — keeps a
 **deprecated alias for one release** (0.2.0 only; removed in the release
 after), so pre-0.2.0 consumers keep compiling while they migrate. The
-adapter resurfacing ships the same way: `advance` → `continue`,
-`onStoryEnd` → `onDialogueComplete` (payload `storyEnd: true` →
-`dialogueComplete: true`), and the typing-flow props
-`autoAdvanceAfterTyping`/`autoAdvanceDelay`/`pauseBeforeAdvance` →
-`autoContinueAfterTyping`/`autoContinueDelay`/`pauseBeforeContinue` (since
-the headless split these live on `DialogueRunner`, the wired container) — old
-names stay as `@deprecated` aliases for one release. Everything
+React adapter — and with it `useYarnRunner`/`useDialogue`, the view
+components, and the prop-vocabulary renames (`advance` → `continue`,
+`onStoryEnd` → `onDialogueComplete`, `autoAdvanceAfterTyping` →
+`autoContinueAfterTyping`) — is gone entirely (ADR 0006, amended). Everything
 else in this list is gone outright.

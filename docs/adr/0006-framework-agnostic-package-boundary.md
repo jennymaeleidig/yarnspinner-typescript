@@ -10,3 +10,20 @@ The root package shipped React imports on its main surface, forcing non-React co
 ## Consequences
 
 The companion plugin declares `yarn-spinner-runner-ts` and `vite` as peerDependencies, not workspace/file dependencies: npm rejects `workspace:*` ranges, cannot link a workspace package to the root by name, and packs a `file:` dependency verbatim (the tarball would ship an uninstallable `file:../..`). All published exports carry dual ESM/CJS conditions (`build:cjs` + `scripts/postprocess-cjs.mjs`), so CJS consumers get the same surface.
+
+## Amendment (2026-09-04): the React adapter is removed
+
+The `./react` subpath was a halfway house: it kept React imports out of
+non-React bundles but still shipped a framework adapter — a UI layer the
+package owned, with React as an optional peer dependency. The adapter is now
+removed entirely: `src/react/`, the `./react` export, and the React peers
+are gone, and no consumer-facing `react` dependency remains — no adapter, no
+`./react` export, no optional peers (the examples' own tooling keeps react as a
+development-only dependency, the Next.js host being a React app by nature). The package root is
+the whole story — a framework-agnostic core (`Dialogue`, `Transcript`, the
+compile/loader/markup surfaces), with hosts owning their UI directly against
+it. This completes the boundary this ADR drew rather than reversing it: the
+root did not just stay React-free; there is no React (and no other
+framework) surface behind it to keep out. The browser demo, Next.js host,
+and SvelteKit host demonstrate the pattern in three frameworks on the same
+root surface.

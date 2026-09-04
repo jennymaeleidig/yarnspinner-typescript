@@ -568,3 +568,148 @@ b
   const codes2 = duplicateSubtitle.diagnostics.map((d) => d.code);
   assert.ok(codes2.includes("YS0032"), `expected YS0032, got ${codes2.join(", ")}`);
 });
+
+// ── Storylet demo walk: saliency strategies switch mid-story and steer the
+// draws (re-homed from the deleted React adapter suite, which only sat in a
+// .tsx file by accident — every API here is core `Dialogue`). The demo
+// content mirrors examples/browser/StoryletsDemo.ts.
+
+const STORYLET_YARN = `title: Start
+---
+<<declare $metRogue = false>>
+<<declare $trustHigh = false>>
+===
+
+title: Storylets
+subtitle: crossroads
+when: always
+---
+Narrator: Quiet at the crossroads. Another traveller, another tale.
+===
+
+title: Storylets
+subtitle: rumor
+when: not $metRogue
+---
+Narrator: Travellers whisper of a Rogue who works the far road.
+===
+
+title: Storylets
+subtitle: first_meeting
+when: once
+---
+Rogue: Well met. You don't look like the usual pilgrims.
+<<set $metRogue = true>>
+Narrator: You've met the Rogue. New roads just opened up.
+===
+
+title: Storylets
+subtitle: rogue
+when: $metRogue
+---
+Rogue: Back again? The road keeps throwing us together.
+===
+
+title: Storylets
+subtitle: duel
+when: once if $metRogue
+---
+Rogue: Prove your steel — once, and only once.
+<<set $trustHigh = true>>
+Narrator: Blades are crossed. Trust, somehow, was earned.
+===
+
+title: Storylets
+subtitle: heist
+when: $metRogue and $trustHigh
+---
+Rogue: One last job. The vault under the chapel. Are you in?
+Narrator: The heist went off without a hitch. Trust does that.
+===`;
+
+/** One storylet draw: enter the node group and collect the member's lines. */
+function drawStorylet(dialogue: Dialogue): string[] {
+  dialogue.setNode("Storylets");
+  const lines: string[] = [];
+  for (;;) {
+    const batch = dialogue.continue();
+    if (batch.length === 0) break;
+    for (const event of batch) {
+      if (event.type === "line") lines.push(event.text);
+      if (event.type === "dialogueComplete") return lines;
+    }
+    if (!dialogue.isActive) break;
+  }
+  return lines;
+}
+
+test("storylet demo: saliency strategies switch mid-story and steer the draws", () => {
+  const dialogue = new Dialogue(compile(STORYLET_YARN), { startAt: "Start" });
+
+  // The query APIs the demo panel shows: every member with its complexity
+  // score (always=0, once=+1, expression = boolean operators + 1).
+  const options = dialogue.getSaliencyOptionsForNodeGroup("Storylets");
+  assert.deepEqual(
+    options.map((o) => [o.contentId, o.complexityScore]),
+    [
+      ["Storylets.crossroads", 0],
+      ["Storylets.rumor", 1],
+      ["Storylets.first_meeting", 1],
+      ["Storylets.rogue", 1],
+      ["Storylets.duel", 2],
+      ["Storylets.heist", 2],
+    ],
+  );
+
+  assert.ok(
+    !dialogue.setSaliencyStrategy("no-such-strategy"),
+    "An unknown mode must be rejected, leaving the strategy unchanged",
+  );
+  assert.ok(dialogue.setSaliencyStrategy("best_least_recent"));
+
+  // Best least-recently-seen walks the story open deterministically:
+  // rumor → first_meeting (unlocks $metRogue) → duel (unlocks $trustHigh)
+  // → heist — each draw the least-seen, most-complex available member.
+  assert.deepEqual(drawStorylet(dialogue), ["Travellers whisper of a Rogue who works the far road."]);
+  assert.deepEqual(drawStorylet(dialogue), [
+    "Well met. You don't look like the usual pilgrims.",
+    "You've met the Rogue. New roads just opened up.",
+  ]);
+  assert.deepEqual(drawStorylet(dialogue), [
+    "Prove your steel — once, and only once.",
+    "Blades are crossed. Trust, somehow, was earned.",
+  ]);
+  assert.deepEqual(drawStorylet(dialogue), [
+    "One last job. The vault under the chapel. Are you in?",
+    "The heist went off without a hitch. Trust does that.",
+  ]);
+
+  // Switching to `best` mid-history ignores view counts: heist is still the
+  // most complex available member (the two `once` members are spent).
+  assert.ok(dialogue.setSaliencyStrategy("best"));
+  assert.deepEqual(drawStorylet(dialogue), [
+    "One last job. The vault under the chapel. Are you in?",
+    "The heist went off without a hitch. Trust does that.",
+  ]);
+
+  // On a fresh dialogue, `first` takes the first written member, `best` the
+  // highest-complexity one (rumor and first_meeting tie at 1; rumor first).
+  const fresh = new Dialogue(compile(STORYLET_YARN), { startAt: "Start" });
+  assert.ok(fresh.setSaliencyStrategy("first"));
+  assert.deepEqual(drawStorylet(fresh), [
+    "Quiet at the crossroads. Another traveller, another tale.",
+  ]);
+  const freshBest = new Dialogue(compile(STORYLET_YARN), { startAt: "Start" });
+  assert.ok(freshBest.setSaliencyStrategy("best"));
+  assert.deepEqual(drawStorylet(freshBest), [
+    "Travellers whisper of a Rogue who works the far road.",
+  ]);
+
+  // The generated saliency history lives in the variable storage (coding
+  // standards §4): a fresh dialogue's view counts reset with it.
+  assert.deepEqual(
+    fresh.getVariables(),
+    { metRogue: false, trustHigh: false },
+    "Generated variables (view counts, once-state) must not surface as story variables",
+  );
+});

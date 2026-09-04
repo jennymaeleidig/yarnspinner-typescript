@@ -1,6 +1,6 @@
 # yarn-spinner-runner-ts
 
-TypeScript parser, compiler, and runtime for Yarn Spinner 3.x with React adapter.
+TypeScript parser, compiler, and runtime for Yarn Spinner 3.x. Framework-agnostic: hosts own their UI against `Dialogue`/`Transcript` directly.
 
 * [Github repository](https://github.com/oleksii-chekhovskyi/yarn-spinner-runner-ts) for more information.
 * [NPM package](https://www.npmjs.com/package/yarn-spinner-runner-ts)
@@ -17,14 +17,11 @@ TypeScript parser, compiler, and runtime for Yarn Spinner 3.x with React adapter
 * ✅ Parser for `.yarn` files → AST
 * ✅ Compiler: AST → instruction-stream program (versioned JSON bytecode, ADR 0001)
 * ✅ Runtime with `Dialogue` class (pull-based event stream)
-* ✅ React hook: `useDialogue()`
-* ✅ React components: `<DialogueRunner />` (wired), `<DialogueView />` (presentational), `<DialogueScene />`, `<DialogueExample />`
 * ✅ Direct import: `.yarn` / `.yarnproject` files as build-time modules via [yarn-spinner-vite-plugin](https://www.npmjs.com/package/yarn-spinner-vite-plugin) — see [Direct import](./docs/direct-import.md)
-* ✅ Typing animation with configurable speeds, cursor styles, and auto-continue controls
-* ✅ Markup parsing with HTML formatting tags and CSS-ready spans
+* ✅ Markup parsing into structured attributes
 * ✅ Expression evaluator for conditions
 * ✅ Command system with built-in handlers (`<<set>>`, `<<declare>>`, etc.)
-* ✅ Scene system with backgrounds and actor images (with configurable portrait cross-fades)
+* ✅ Scene system: the `scene:` header arrives on `NodeStartEvent`/`Transcript.scene`; scene/actor configuration is host input
 * ✅ Built-in functions (`visited`, `random`, `min`, `max`, etc.)
 * ✅ Support for:
   * Lines with speakers
@@ -134,65 +131,6 @@ Once some branch executes `<<set $hasBadge = true>>`, the badge option arrives w
 Narrator: Current street cred: {$reputation}, score: {$score}
 ```
 
-### React Usage
-
-Two layers, your choice of seam (headless split):
-
-```tsx
-import { useDialogue, DialogueView } from "yarn-spinner-runner-ts/react";
-import type { SceneCollection } from "yarn-spinner-runner-ts";
-
-function MyDialogue() {
-  // Collect-don't-throw: diagnostics come back with the result.
-  const { program, diagnostics } = compileSource(yarnText);
-
-  // The scene collection is host input — plain data, no library parser
-  // (the package ships no YAML scene parser; the browser demo keeps one in
-  // examples/browser/scenes.ts if you want a starting point).
-  const scenes: SceneCollection = {
-    scenes: {
-      street: {
-        background: "/images/street.jpg",
-        actors: { Narrator: { image: "/images/narrator.png" } },
-      },
-    },
-  };
-
-  // Full control: the hook carries all dialogue state and transitions; the
-  // presentational view owns only presentation state (typing, the continue
-  // scheduler). One rule: config identity = dialogue identity, so keep the
-  // config object stable across renders (module constant or useMemo).
-  const result = useDialogue(program, { startAt: "Start", variables: { score: 10 } });
-  return <DialogueView result={result} scenes={scenes} />;
-}
-```
-
-Prefer the wiring done for you? `DialogueRunner` takes the program directly
-and forwards every runtime, live, and presentation option:
-
-```tsx
-import { DialogueRunner } from "yarn-spinner-runner-ts/react";
-
-<DialogueRunner program={program} startAt="Start" scenes={scenes} autoContinueAfterTyping />;
-```
-
-### Full Example Component
-
-```tsx
-import { DialogueExample } from "yarn-spinner-runner-ts/react";
-
-function App() {
-  return <DialogueExample />;
-}
-```
-
-Every React import rides the `./react` subpath — the package root stays
-React-free, so non-React consumers never pull in `react/jsx-runtime`.
-
-### Typing Animation
-
-Set `enableTypingAnimation` on `DialogueView` (or `DialogueRunner`) to enable the `TypingText` component for typewriter-style delivery. Tweak props like `typingSpeed`, `showTypingCursor`, and `cursorCharacter` to fine-tune behaviour, and see [Typing Animation (React)](./docs/typing-animation.md) for details.
-
 ### Browser Demo
 
 Run the interactive browser demo:
@@ -201,10 +139,10 @@ Run the interactive browser demo:
 npm run demo
 ```
 
-This starts a Vite dev server with two demos: the **Dialogue** tab (the
-visual-novel view over the pull-based runtime) and a **Storylets** tab — a
-node-group/saliency demo with switchable saliency strategies
-(`examples/browser/StoryletsDemo.tsx`). See
+This starts a Vite dev server with two demos: the **Dialogue** tab (plain
+text over the pull-based runtime: lines, option buttons, a manual continue
+button) and a **Storylets** tab — a node-group/saliency demo with
+switchable saliency strategies (`examples/browser/StoryletsDemo.ts`). See
 [examples/browser/README.md](./examples/browser/README.md).
 
 ### Next.js Host
@@ -228,7 +166,7 @@ npm run host:start   # serve the built host (after host:build)
 Run from the repo root — the server component resolves the content directory
 relative to `process.cwd()`. The SSR render test (the browser demo-harness
 pattern over the host's first pull) lives in
-`src/tests/nextjsHost.test.tsx`.
+`src/tests/nextjsHost.test.ts`.
 
 ### SvelteKit host
 
@@ -301,30 +239,22 @@ Loads upstream-style `.yarnproject` files (format v4, legacy v2 accepted; schema
   * `tryGetSmartVariable(name: string)` — Read a smart variable's current value
   * `currentNode: string | null` — Current node title (the `scene:` header travels on the `NodeStartEvent`, not a getter)
   * Options: `startAt` (default `"Start"`), `library`, `variables`, `variableStorage` (pluggable store for story and generated variables; the persistence seam — inject a pre-populated `VariableStorage` to restore state, see [docs/logic-and-variables.md](docs/logic-and-variables.md)), `lineHints` (opt-in `LineHintsEvent`), `textProvider` (line-ID → text resolver for localisation; lines a provider lacks fall back to the program's text), `logError` (default `console.error`), `logDebug` (default silent)
-  * Events (all camelCased): `LineEvent`, `OptionsEvent` (full option set with advisory `isAvailable` flags), `CommandEvent` (state commands like `<<set>>` never surface), `NodeStartEvent` (carries the node's `scene:` header as `scene?` when it declares one — adapter-side, the scene system is non-upstream), `NodeCompleteEvent`, `LineHintsEvent`, `DialogueCompleteEvent`
+  * Events (all camelCased): `LineEvent`, `OptionsEvent` (full option set with advisory `isAvailable` flags), `CommandEvent` (state commands like `<<set>>` never surface), `NodeStartEvent` (carries the node's `scene:` header as `scene?` when it declares one — the scene system is non-upstream), `NodeCompleteEvent`, `LineHintsEvent`, `DialogueCompleteEvent`
 * `VariableStorage` / `InMemoryVariableStorage` — The storage contract the runtime drives (`has`/`get`/`set`/`entries`) and its in-memory default; exported from `dialogue.ts` and the package root. Generated variables (once-state, visit tracking) live in the same storage and appear in `entries()` but not `getVariables()` snapshots
 * `Library` — Registry of host functions and command handlers (replaces the old `functions` map and `handleCommand` option)
   * `registerFunction(name, fn)` — Throws on duplicate; `getFunction(name)` returns undefined when missing
   * `registerCommandHandler(name, handler)` / `getCommandHandler(name)` — Handlers receive quote-stripped parameters
   * `importLibrary(other)` — Merge another library; its entries take precedence
 
-### React Components
-
-* `useDialogue(program: Program, config: UseDialogueOptions, live?: UseDialogueLive)` — React hook over `Dialogue`
-  * Returns: `{ result: DialogueViewResult | null, continue: () => void, selectOption: (index: number) => void, sceneName?: string, dialogue: Dialogue }` (`continue` is a reserved word — destructure it under a local name; `dialogue` is the escape hatch for variable reads and `setLanguage`; `sceneName` is the `scene:` header of the most recently started node, derived from the transcript's `NodeStartEvent` and carried forward across scene-less nodes — cross-check it against your `SceneCollection` here, the one seam where the name and the image collection meet)
-  * `config` holds construction-only inputs, reference-compared as a whole — one rule: **config identity = dialogue identity** (a new config object means a new dialogue, even with identical values): `startAt`, `functions`, `variables` (they seed state — different values means a new dialogue), `variableStorage` (the persistence seam — inject a pre-populated storage to restore state), `textProvider` (line-ID → text for the current language; switch languages via `dialogue.setLanguage` on the hook result, no rebuild), `lineHints` (opt-in `LineHintsEvent`; the hook consumes hints silently, so observe them via the provider's `acceptLineHints` or the `dialogue` escape hatch)
-  * `live` holds per-call inputs, read through a ref — identity is ignored and the latest object is always in effect (a fresh literal every render is fine): `onDialogueComplete` (fired once on dialogue completion, with the story variables; deprecated alias: `onStoryEnd`), `logError`/`logDebug` (runtime diagnostics; defaults `console.error`/silent)
-  * Deprecated aliases: `advance` (same function as `continue`)
-* `<DialogueRunner program={...} startAt={...} scenes={...} onDialogueComplete={...} />` — The wired component: calls the hook and renders `DialogueView`; its props extend the hook's `UseDialogueOptions` + `UseDialogueLive` and the view's presentation options, so every runtime option is accepted here under the same rules as the hook (deprecated prop aliases: `onStoryEnd`, `autoAdvanceAfterTyping`/`autoAdvanceDelay`/`pauseBeforeAdvance` → `autoContinueAfterTyping`/`autoContinueDelay`/`pauseBeforeContinue`); the scene background follows the hook's `sceneName` automatically
-* `<DialogueView result={hookResult} scenes={...} enableTypingAnimation={...} />` — The presentational view: renders a `UseDialogueResult` — **no `program` prop, no hook call**. It owns presentation state only: typing progress, the typing skip, and the continue scheduler (a surfaced command auto-continues after its 50ms flash, a finished typing animation waits `autoContinueDelay`, a click waits `pauseBeforeContinue`); all dialogue state and transitions arrive on the result object. Pair it with `useDialogue` for full control
-* `<DialogueScene sceneName={...} speaker={...} scenes={...} actorTransitionDuration={...} /> — Scene background, actor display, and portrait transitions` — Scene background and actor display
-* `<DialogueExample scenes={...} />` — Full example with editor (the scene collection is host input; the browser demo parses its own YAML in `examples/browser/scenes.ts`)
-
 ### Scene System
 
-* `SceneCollection` — Type for scene configuration (host input — the parsed collection is passed to the view; the package ships no YAML parser, the browser demo keeps one in `examples/browser/scenes.ts`)
+* `SceneCollection` — Type for scene configuration (host input — the package ships no YAML scene parser; parse your collection host-side)
 * `SceneConfig` — Type for individual scene config
 * `ActorConfig` — Type for actor configuration
+
+The scene name itself is runtime output: it travels on the `NodeStartEvent`'s
+`scene` field (and `Transcript.scene`, carried forward across scene-less
+nodes) — the seam where you cross-check your collection.
 
 See [Scene and Actor Setup Guide](./docs/scenes-actors-setup.md) for detailed documentation.
 
@@ -448,7 +378,6 @@ yarn-spinner/
 │   ├── compile/        # Compiler (AST → IR)
 │   ├── runtime/        # Runtime execution
 │   ├── scene/          # Scene system
-│   ├── react/          # React components
 │   └── tests/          # Test files
 ├── examples/
 │   ├── yarn/           # Example Yarn scripts
@@ -515,8 +444,6 @@ Additional documentation is available in the `docs/` folder:
 * [Migration Notes (0.2.0 breaking changes)](./docs/migration-notes.md)
 * [Compatibility](./docs/compatibility.md)
 * [Changelog](./CHANGELOG.md)
-* [Typing Animation (React)](./docs/typing-animation.md)
-* [Actor Image Transitions](./docs/actor-transition.md)
 * [Scene and Actor Setup](./docs/scenes-actors-setup.md)
 
 ## License

@@ -43,14 +43,14 @@ Parity here means the observable contract upstream's own test suite pins:
     runtime crate). It answers "did the story finish?", not "is it done
     being used?" — `stop()` makes the dialogue inactive without completing
     it, and its complete event still delivers on the next `continue()`.
-    The React adapter leans on that delivery-not-queued contract: after
+    The delivery-not-queued contract is what hosts lean on there: after
     `stop()` with an option set pending, the next pull drains the queued
-    complete and fires `onDialogueComplete`, where a blocking read would
-    hang forever (corrected Answer).
+    complete event, so a host awaiting completion after `stop()` is never
+    left hanging (corrected Answer).
   - The transcript-reduction module (`pullUntilStopped`/`mergeEvents` and
     their consumers `runUntilStopped`/`runUntilCompleteEvents`, accumulating
     a `Transcript`) is exported non-upstream orchestration over the pull
-    API — same standing as the loader and the React adapter. Upstream has
+    API — same standing as the loader. Upstream has
     no transcript
     accumulator; the stopping-point contract it packages (line stops,
     options stop and await selection, commands surface-then-skip, node
@@ -65,17 +65,8 @@ Parity here means the observable contract upstream's own test suite pins:
     scene system (non-upstream, CONTEXT.md glossary), so the name rides the
     node-start event to the one seam where hosts cross-check it against
     their scene collection.
-  - The `.yarnproject` loader and the React adapter are this project's own
+  - The `.yarnproject` loader is this project's own
     surface (non-upstream).
-  - React component split (hard break — 0.2.0 is
-    unpublished): `DialogueView` is presentational — it renders a
-    `UseDialogueResult` and no longer accepts `program` or any config/live
-    prop; the wired surface moved verbatim to the new `DialogueRunner`
-    container, which also resolves the deprecated prop aliases
-    (the aliases live on the runner, not on the clean presentational view).
-    The interface promise: the view owns presentation state only — typing
-    progress, the typing skip, and the one continue scheduler — all dialogue
-    state and transitions arrive on the result object.
   - Uncompilable state statements (`<<set>>`/`<<declare>>`/`<<call>>` with
     trailing garbage) emit the upstream compile diagnostic (YS0005) but also
     execute at runtime through the raw-command fallback — upstream never

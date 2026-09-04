@@ -1,190 +1,146 @@
-/* Yarn Dialogue System Styles */
+/* Demo-owned styling (the package ships no CSS). */
 
-/* Main dialogue container */
-.yd-container {
-  position: relative;
-  width: 100%;
-  min-height: 400px;
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: #1a1a2e;
+  color: #e8eaf2;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
+  padding: 20px;
 }
 
-/* Scene container */
-.yd-scene {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+.demo-wrap,
+#app {
   width: 100%;
-  height: 100%;
-  min-height: 400px;
-  background-color: rgba(26, 26, 46, 1);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  transition: opacity 0.6s ease-in-out;
-  z-index: 0;
-  overflow: visible;
-  pointer-events: none;
+  max-width: 760px;
 }
 
-/* Scene background transition overlay */
-.yd-scene-next {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  z-index: 0;
+.demo-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
-/* Actor image */
-.yd-actor {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  max-height: 70%;
-  max-width: 40%;
-  object-fit: contain;
-  opacity: 0;
-  transition: opacity var(--yd-actor-transition, 0.35s) ease-in-out;
-  pointer-events: none;
-  z-index: 1;
-  will-change: opacity;
-}
-
-.yd-actor--current {
-  z-index: 2;
-}
-
-.yd-actor--previous {
-  z-index: 1;
-}
-
-.yd-actor--visible {
-  opacity: 1;
-}
-
-/* Dialogue box container */
-.yd-dialogue-box {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
-  margin: 20px;
-  width: calc(100% - 40px);
+.demo-tab {
+  background-color: #2a2d3e;
+  color: #e8eaf2;
+  border: 1px solid #43475c;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
   cursor: pointer;
 }
 
-/* Text dialogue box content */
-.yd-text-box {
-  background-color: rgba(30, 30, 60, 0.9);
-  border: 2px solid #4a9eff;
-  border-radius: 12px;
-  padding: 20px;
-  color: #ffffff;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  min-height: 120px;
+.demo-tab--active {
+  background-color: #4f7cff;
+  border-color: #4f7cff;
 }
 
-/* Speaker label */
-.yd-speaker {
-  background-color: #4a9eff;
-  color: #ffffff;
-  padding: 8px 16px;
-  border-radius: 8px;
-  display: inline-block;
-  margin-bottom: 12px;
-  font-size: 14px;
-  font-weight: bold;
-}
-
-/* Dialogue text */
-.yd-text {
-  margin: 0;
-  font-size: 18px;
-  line-height: 1.6;
-}
-
-.yd-text-with-speaker {
-  margin-top: 12px;
-}
-
-/* Continue indicator */
-.yd-continue {
-  text-align: right;
-  margin-top: 12px;
-  font-size: 24px;
-  color: #4a9eff;
-}
-
-/* Options container */
-.yd-options-container {
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
-  margin: 20px;
-  width: calc(100% - 40px);
-}
-
-.yd-options-box {
-  background-color: rgba(30, 30, 60, 0.9);
-  border: 2px solid #4a9eff;
-  border-radius: 12px;
-  padding: 20px;
-  color: #ffffff;
-}
-
-.yd-options-title {
-  margin-bottom: 16px;
-  font-size: 16px;
-  color: #a0a0ff;
-}
-
-.yd-options-list {
+.demo-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  padding-bottom: 40px;
 }
 
-/* Option button */
-.yd-option-button {
-  border: none;
+.demo-heading {
+  color: #e8eaf2;
+  font-size: 15px;
+  margin: 12px 0 4px;
+}
+
+.demo-card {
+  background-color: #23263a;
+  border: 1px solid #43475c;
   border-radius: 8px;
   padding: 16px 20px;
   font-size: 16px;
+  line-height: 1.5;
+}
+
+.demo-line {
+  margin: 0 0 8px;
+}
+
+.demo-speaker {
+  color: #8fb3ff;
+  margin-right: 8px;
+}
+
+.demo-command {
+  color: #9aa0b5;
+  font-family: monospace;
+  margin: 0 0 8px;
+}
+
+.demo-muted {
+  color: #9aa0b5;
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
+.demo-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.demo-button,
+.demo-option {
+  background-color: #2a2d3e;
+  color: #e8eaf2;
+  border: 1px solid #43475c;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 14px;
   cursor: pointer;
+}
+
+.demo-button--active {
+  background-color: #4f7cff;
+  border-color: #4f7cff;
+}
+
+.demo-button--primary {
+  background-color: #2e7d4f;
+  border-color: #2e7d4f;
+}
+
+.demo-option {
+  display: block;
+  width: 100%;
   text-align: left;
-  transition: transform 0.1s, opacity 0.1s;
-  font-family: inherit;
-  background-color: #4a9eff;
-  color: #ffffff;
 }
 
-.yd-option-button:hover {
-  transform: scale(1.02);
-  opacity: 0.9;
+.demo-history {
+  margin: 0;
+  padding-left: 20px;
+  color: #c2c5d4;
+  font-size: 13px;
+  line-height: 1.7;
 }
 
-/* Command result */
-.yd-command {
-  padding: 20px;
-  text-align: center;
-  color: #888;
+.demo-variables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-/* Empty/ended dialogue */
-.yd-empty {
-  padding: 20px;
-  text-align: center;
+.demo-variables:empty::after {
+  content: "No story variables yet.";
+  color: #9aa0b5;
+  font-size: 13px;
 }
 
+.demo-chip {
+  background-color: #2a2d3e;
+  border: 1px solid #43475c;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: #c2c5d4;
+}

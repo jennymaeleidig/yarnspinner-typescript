@@ -112,7 +112,8 @@ Once a scene is set, the background persists across nodes until a new scene is s
 - Actor images are matched by name (case-insensitive)
 - The speaking actor's image appears at the top center of the scene
 - If no matching actor is found in the scene configuration, only the text is shown
-- The portrait transition duration defaults to 350 ms and can be adjusted by passing `actorTransitionDuration` (in milliseconds) to either `<DialogueScene />` or `<DialogueView />`
+- Portrait transitions (if your UI shows actors at all) are a presentation
+  choice: pick a duration and drive it from your own CSS or component code.
 
 ### Actor Matching
 
@@ -176,15 +177,9 @@ User: Thank you, guide!
 
 ## CSS Styling
 
-All dialogue elements use CSS classes prefixed with `yd-` for easy customization:
-
-- `.yd-scene` - Scene background container
-- `.yd-actor` - Actor image
-- `.yd-dialogue-box` - Dialogue box container
-- `.yd-text-box` - Text dialogue content
-- `.yd-options-box` - Options container
-
-You can override these styles in your own CSS to customize the appearance.
+The package ships no stylesheet and no CSS class convention — presentation is
+host-owned. The browser demo's `examples/browser/dialogue.css` is one
+example of styling a plain-text UI; write your own to match your game.
 
 ## Tips
 

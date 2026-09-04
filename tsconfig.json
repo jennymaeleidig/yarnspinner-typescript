@@ -15,10 +15,9 @@
       "yarn-spinner-runner-ts": ["./src/index.ts"]
     },
     "sourceMap": true,
-    "jsx": "react-jsx",
     "lib": ["ES2021", "DOM"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
 

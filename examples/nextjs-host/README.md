@@ -39,9 +39,9 @@ relative to `process.cwd()`.
 
 ## Tests
 
-`src/tests/nextjsHost.test.tsx` mirrors the browser demo-harness pattern:
-the content files are the single source of truth (loaded through the same
-server-side path the page uses), the client component's initial-pull logic is
-mirrored in the test (tests compile from src only — no package surface for a
-one-app example), and the reset story is asserted behaviorally through
+`src/tests/nextjsHost.test.ts` (vanilla — no React harness): the content
+files are the single source of truth (loaded through the same server-side
+path the page uses), the client component's render-time initial pull is
+mirrored in the test (tests compile from src only — no package surface for
+a one-app example), and the reset story is asserted behaviorally through
 `Dialogue`.

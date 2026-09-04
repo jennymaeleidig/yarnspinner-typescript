@@ -87,7 +87,8 @@ dialogue.setLanguage("de"); // localised delivery; missing lines fall back
 An error-severity diagnostic anywhere in the compiled content fails the build
 with a RollupError-shaped error (`id`, `loc`, `frame` — clickable in the
 terminal and the Vite overlay); warnings surface through Vite's warning
-channel without failing. Severity overrides merge in a fixed order — the
+channel without failing, each carrying its code, message, and source
+location (file, and line:column when the diagnostic has a range). Severity overrides merge in a fixed order — the
 project file's `compilerOptions.diagnosticsSeverity` map first, then the
 plugin's options (top-level `diagnosticsSeverity`, then the
 `compilerOptions` passthrough, most specific winning) — applied before that
@@ -133,16 +134,35 @@ verbatim into your ambient types — it references only `yarn-spinner-runner-ts`
 types (which you have installed), never the plugin package, so the paste-in
 works with zero extra dependencies.
 
+One deviation is documented rather than typed: a `.yarn` import pinned to a
+project (the `project` option) emits the full one-job load result — the same
+shape as a `.yarnproject` import — not a bare `Program`, and none of the
+named exports. TypeScript cannot vary an ambient declaration by plugin
+option, so `*.yarn` types the common unpinned case; a host using `project`
+types its import as `YarnProjectLoadResult`, declared by `client.d.ts` and
+in scope once the reference (or paste-in) is present.
+
 ## Framework boundary
+
+**The package is framework-agnostic — end to end.** There is no framework
+adapter: the package root ships no UI layer of any kind, and hosts own their
+UI against `Dialogue`/`Transcript` directly — pull events, render the line
+and options, act on input, repeat. The examples in this repo demonstrate the
+pattern in three frameworks on the same surface: a plain-TypeScript browser
+demo (`examples/browser/`), a Next.js app (`examples/nextjs-host/`), and a
+SvelteKit app (`examples/sveltekit-host/`). They are just a demo — no helper
+library, no presentation framework; read `Transcript` raw and render it your
+way.
 
 **Vite first-class** — the plugin targets Vite (5/6/7) and works in SvelteKit
 unchanged; the browser demo in this repo is built through it as an acceptance
 harness.
 
-**The compile step is bundler-agnostic.** Inside the plugin package,
-`compileYarnModule` (`.yarn` source → emitted module text + errors/warnings
-partition) and `compileYarnProjectModule` (`.yarnproject` → same) import no
-Vite types. A webpack loader is a thin shim: call the same functions, map
+**The compile step is bundler-agnostic — and importable.** The plugin package
+exports `compileYarnModule` (`.yarn` source → emitted module text +
+errors/warnings partition) and `compileYarnProjectModule` (`.yarnproject` →
+same) from its main entry: both import no Vite types. A webpack loader is a
+thin shim: import the same functions from `yarn-spinner-vite-plugin`, map
 `errors` to `this.emitError` and `warnings` to `this.warn`. For Next.js:
 a loader covers **webpack mode**; **Turbopack** has no loader API yet — use
 `webpack: (config) => { ... }` config escape or, until then, the SSR path

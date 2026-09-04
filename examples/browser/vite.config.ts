@@ -1,9 +1,9 @@
+// SPDX-License-Identifier: CC0-1.0
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
 import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
 
 export default defineConfig({
-  plugins: [react(), yarnSpinnerVitePlugin()],
+  plugins: [yarnSpinnerVitePlugin()],
   root: "examples/browser",
   css: {
     // No PostCSS config exists for this demo; pinning an empty one stops
@@ -12,8 +12,8 @@ export default defineConfig({
     postcss: { plugins: [] },
   },
   // No source aliasing: the package name resolves through the published
-  // surface (dist/ + the react subpath via the workspace), and content
-  // imports compile through the plugin below.
+  // surface (dist/, the framework-agnostic root), and content imports
+  // compile through the plugin below.
   build: {
     outDir: "../../dist-demo",
     emptyOutDir: true,
