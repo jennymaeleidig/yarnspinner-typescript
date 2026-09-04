@@ -18,6 +18,7 @@ import { parseYarn } from "../parse/parser.js";
 import { compileOk } from "./compileOk.js";
 import { Dialogue } from "../runtime/dialogue.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
+import { runUntilCompleteEvents } from "../runtime/transcript.js";
 
 function withCultureSensitiveApisBlocked<T>(fn: () => T): T {
   const boom = () => {
@@ -48,14 +49,9 @@ function withCultureSensitiveApisBlocked<T>(fn: () => T): T {
 function runStory(source: string): string[] {
   const program = compileOk(source);
   const dialogue = new Dialogue(program, { startAt: "Start" });
-  const out: string[] = [];
-  let guard = 0;
-  while (dialogue.isActive && guard++ < 100) {
-    for (const event of dialogue.continue() as DialogueEvent[]) {
-      if (event.type === "line" && event.text) out.push(event.text);
-    }
-  }
-  return out;
+  return runUntilCompleteEvents(dialogue)
+    .filter((event): event is Extract<DialogueEvent, { type: "line" }> => event.type === "line" && !!event.text)
+    .map((event) => event.text);
 }
 
 const NUMERIC_STORY = `title: Start

@@ -24,6 +24,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compileSource } from "../index.js";
 import { Dialogue } from "../runtime/dialogue.js";
+import { runUntilCompleteEvents } from "../runtime/transcript.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
 import type { Diagnostic } from "../compile/diagnostics.js";
 import { hasErrors } from "../compile/diagnostics.js";
@@ -172,14 +173,11 @@ test("smart variables are recomputed on every access", () => {
 
 /** The first line event of the dialogue. */
 function nextLine(dialogue: Dialogue): string {
-  for (let guard = 0; guard < 100; guard++) {
-    const batch = dialogue.continue() as DialogueEvent[];
-    for (const e of batch) {
-      if (e.type === "line") return e.text;
-    }
-    if (batch.length === 0 || batch[batch.length - 1].type === "dialogueComplete") break;
-  }
-  throw new Error("stalled without a line event");
+  const event = runUntilCompleteEvents(dialogue).find(
+    (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+  );
+  if (!event) throw new Error("stalled without a line event");
+  return event.text;
 }
 
 test("tryGetSmartVariable computes the current value on access", () => {

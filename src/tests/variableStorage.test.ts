@@ -16,6 +16,7 @@ import { compileOk } from "./compileOk.js";
 import { Dialogue } from "../runtime/dialogue.js";
 import type { DialogueOptions } from "../runtime/dialogue.js";
 import { InMemoryVariableStorage, type VariableStorage } from "../runtime/variableStorage.js";
+import { runUntilCompleteEvents } from "../runtime/transcript.js";
 
 function makeDialogue(source: string, opts?: DialogueOptions): Dialogue {
   const program = compileOk(source);
@@ -53,10 +54,7 @@ class RecordingStorage implements VariableStorage {
 }
 
 function drain(dialogue: Dialogue): void {
-  for (let i = 0; i < 100; i++) {
-    const batch = dialogue.continue();
-    if (batch.length === 0 || batch[batch.length - 1].type === "dialogueComplete") return;
-  }
+  runUntilCompleteEvents(dialogue);
 }
 
 test("story writes and generated state land in the injected storage", () => {

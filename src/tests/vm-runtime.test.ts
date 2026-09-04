@@ -17,6 +17,7 @@ import { compileSource, Dialogue, noOptionSelected } from "../index.js";
 import type { Dialogue as DialogueClass } from "../index.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
 import type { Program } from "../compile/program.js";
+import { runUntilCompleteEvents } from "../runtime/transcript.js";
 
 function makeDialogue(source: string, opts?: ConstructorParameters<typeof DialogueClass>[1]): DialogueClass {
   const result = compileSource(source);
@@ -25,16 +26,11 @@ function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialog
 }
 
 /** Run the dialogue to completion, auto-selecting via `onOptions`. */
-function drain(dialogue: DialogueClass, onOptions: (count: number) => number | typeof noOptionSelected): DialogueEvent[] {
-  const events: DialogueEvent[] = [];
-  for (let guard = 0; guard < 1000; guard++) {
-    const batch = dialogue.continue();
-    if (batch.length === 0) break;
-    events.push(...batch);
-    const options = batch.find((e): e is Extract<DialogueEvent, { type: "options" }> => e.type === "options");
-    if (options) dialogue.selectOption(onOptions(options.options.length));
-  }
-  return events;
+function drain(
+  dialogue: DialogueClass,
+  onOptions: (count: number) => number | typeof noOptionSelected,
+): DialogueEvent[] {
+  return runUntilCompleteEvents(dialogue, (options) => onOptions(options.length));
 }
 
 const textsOf = (events: DialogueEvent[]) =>

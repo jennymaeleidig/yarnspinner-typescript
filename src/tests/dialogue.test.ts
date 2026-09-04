@@ -14,6 +14,7 @@ import assert from "node:assert/strict";
 import { compileOk } from "./compileOk.js";
 import { Dialogue, noOptionSelected, Library } from "../runtime/dialogue.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
+import { runUntilCompleteEvents } from "../runtime/transcript.js";
 
 function makeDialogue(
   source: string,
@@ -27,16 +28,7 @@ function makeDialogue(
 }
 
 /** Drain a dialogue to completion, collecting every event. */
-function drain(dialogue: Dialogue, guard = 100): DialogueEvent[] {
-  const events: DialogueEvent[] = [];
-  for (let i = 0; i < guard; i++) {
-    const batch = dialogue.continue();
-    if (batch.length === 0) break;
-    events.push(...batch);
-    if (events[events.length - 1].type === "dialogueComplete") break;
-  }
-  return events;
-}
+const drain = runUntilCompleteEvents;
 
 const typesOf = (events: DialogueEvent[]) => events.map((e) => e.type);
 

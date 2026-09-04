@@ -21,6 +21,7 @@
  * state directly.
  */
 
+import { noOptionSelected } from "./events.js";
 import type { DialogueEvent, DialogueOption, LineEvent } from "./events.js";
 import type { Dialogue } from "./dialogue.js";
 
@@ -191,4 +192,60 @@ export function runUntilComplete(
     result = runUntilStopped(dialogue, result.transcript);
   }
   return result;
+}
+
+/**
+ * Pull cap for `runUntilCompleteEvents` — far above any legitimate run (the
+ * VM delivers one stopping point per `continue()`, so a cap of 1000 pulls
+ * means a thousand stopping points); past it, a runaway loop throws instead
+ * of silently returning a partial stream (the one stated policy for every
+ * caller — the pasted test drains each carried their own, and no two
+ * agreed).
+ */
+const MAX_DRAIN_PULLS = 1_000;
+
+/**
+ * Drain `dialogue` to the terminal stopping point and return the raw event
+ * stream — the events-shaped convenience over the pull API that scripts and
+ * runtime tests want (the transcript reducers keep the accumulator
+ * interface; this owns the "pull until quiescent" loop and its guard
+ * policy, stated once here).
+ *
+ * Terminal, in order:
+ * - `DialogueComplete` is delivered (the complete event is in the stream);
+ * - an option set is delivered and no `selectOption` policy was given —
+ *   the set is the stream's last options event and the dialogue stays
+ *   pending, exactly as a pull-API consumer would;
+ * - a pull returns nothing (unreachable per the VM's batch contract, kept
+ *   as the loop's belt).
+ *
+ * With a `selectOption` policy, a delivered option set is answered inline
+ * (return the index to select, or `noOptionSelected` to fall through) and
+ * the drain continues past it. Past `MAX_DRAIN_PULLS` the drain throws —
+ * a stalled runtime is a bug to surface, not a partial stream to pin.
+ */
+export function runUntilCompleteEvents(
+  dialogue: Dialogue,
+  selectOption?: (options: DialogueOption[]) => number | typeof noOptionSelected,
+): DialogueEvent[] {
+  const events: DialogueEvent[] = [];
+  for (let pulls = 0; ; pulls++) {
+    if (pulls === MAX_DRAIN_PULLS) {
+      throw new Error(`runUntilCompleteEvents: stalled after ${MAX_DRAIN_PULLS} pulls without reaching a terminal stopping point`);
+    }
+    // An option set pending on entry (the caller already pulled its batch)
+    // has no channel back here — the drain stops, leaving the pending state
+    // for the caller's selectOption.
+    if (dialogue.isComplete || dialogue.isWaitingForOptionSelection) break;
+    const batch = dialogue.continue();
+    if (batch.length === 0) break;
+    events.push(...batch);
+    const optionsEvent = batch.find((event): event is Extract<DialogueEvent, { type: "options" }> => event.type === "options");
+    if (optionsEvent) {
+      if (!selectOption) break;
+      dialogue.selectOption(selectOption(optionsEvent.options));
+    }
+    if (batch[batch.length - 1].type === "dialogueComplete") break;
+  }
+  return events;
 }

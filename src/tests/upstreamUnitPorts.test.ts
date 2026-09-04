@@ -13,6 +13,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compileSource } from "../index.js";
 import { Dialogue } from "../runtime/dialogue.js";
+import type { DialogueEvent } from "../runtime/dialogue.js";
+import { runUntilCompleteEvents } from "../runtime/transcript.js";
 import { InMemoryVariableStorage } from "../runtime/variableStorage.js";
 import type { CompileResult } from "../compile/compileSource.js";
 import { loadDiagnosticDefinitions } from "./upstream/diagnosticDefinitions.js";
@@ -150,26 +152,17 @@ test("port: TestInitialValues — declared and external defaults reach the runti
   storage.set("external_int", 42);
   storage.set("external_bool", true);
   const dialogue = new Dialogue(result.program!, { variableStorage: storage });
-  const lines: string[] = [];
-  let guard = 0;
-  while (guard++ < 30) {
-    const batch = dialogue.continue();
-    for (const e of batch) {
-      if (e.type === "line") lines.push(e.text);
-      if (e.type === "dialogueComplete") {
-        assert.deepEqual(lines, [
-          "42",
-          "Hello",
-          "True", // upstream C# bool.ToString() rendering (logic docs)
-          "42",
-          "Hello",
-          "True",
-        ]);
-        return;
-      }
-    }
-  }
-  throw new Error("dialogue never completed");
+  const lines = runUntilCompleteEvents(dialogue)
+    .filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line")
+    .map((e) => e.text);
+  assert.deepEqual(lines, [
+    "42",
+    "Hello",
+    "True", // upstream C# bool.ToString() rendering (logic docs)
+    "42",
+    "Hello",
+    "True",
+  ]);
 });
 
 const OPERATOR_CASES: Array<{ op: string; decl: string; type: "number" | "bool" | "string" }> = [

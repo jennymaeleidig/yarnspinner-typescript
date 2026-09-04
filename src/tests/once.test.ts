@@ -4,22 +4,14 @@ import { strictEqual } from "node:assert";
 import { compileOk } from "./compileOk.js";
 import { Dialogue } from "../runtime/dialogue.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
+import { runUntilCompleteEvents } from "../runtime/transcript.js";
 
 function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
   const program = compileOk(source);
   return new Dialogue(program, { startAt: "Start", ...opts });
 }
 
-function drain(dialogue: Dialogue, guard = 100): DialogueEvent[] {
-  const events: DialogueEvent[] = [];
-  for (let i = 0; i < guard; i++) {
-    const batch = dialogue.continue();
-    if (batch.length === 0) break;
-    events.push(...batch);
-    if (events[events.length - 1].type === "dialogueComplete") break;
-  }
-  return events;
-}
+const drain = runUntilCompleteEvents;
 
 const lineTexts = (events: DialogueEvent[]) =>
   events.filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line").map((e) => e.text);

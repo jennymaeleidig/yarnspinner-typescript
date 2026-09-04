@@ -87,7 +87,9 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
   lifecycle and line-hint events riding through; completion is the
   terminal stopping point. `runUntilStopped` pulls to the next stopping
   point and names it; `runUntilComplete` drains through line and command
-  stops to the terminal one, so no consumer re-derives the contract.
+  stops to the terminal one, and `runUntilCompleteEvents` returns the raw
+  event stream to that terminal (the runtime/scripts drain), so no
+  consumer re-derives the contract.
 - **Config / live split**: the hook's input shape, `useDialogue(program,
   config, live)` — one rule, **config identity = dialogue identity**: a
   new config object rebuilds the dialogue even with identical values

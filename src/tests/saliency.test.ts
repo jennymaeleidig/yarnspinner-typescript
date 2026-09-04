@@ -32,6 +32,7 @@ import {
   type SaliencyState,
   type DialogueEvent,
 } from "../index.js";
+import { runUntilCompleteEvents } from "../index.js";
 
 /** Compile a source, asserting it compiles clean. */
 function compile(source: string) {
@@ -62,14 +63,7 @@ function runLines(
 }
 
 /** Pull events until the dialogue completes. */
-function drain(dialogue: Dialogue): DialogueEvent[] {
-  const events: DialogueEvent[] = [];
-  let guard = 0;
-  while (dialogue.isActive && guard++ < 1000) {
-    events.push(...dialogue.continue());
-  }
-  return events;
-}
+const drain = runUntilCompleteEvents;
 
 /** First line text a dialogue delivers. */
 function firstLine(dialogue: Dialogue): string | null {

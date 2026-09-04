@@ -4,6 +4,7 @@ import { strictEqual, deepStrictEqual, ok } from "node:assert";
 import { compileOk } from "./compileOk.js";
 import { Dialogue, Library } from "../runtime/dialogue.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
+import { runUntilCompleteEvents } from "../runtime/transcript.js";
 
 function makeDialogue(
   source: string,
@@ -17,18 +18,10 @@ function makeDialogue(
 }
 
 /** Drain the dialogue, collecting line text (as delivered, without speaker prefix). */
-function drainTexts(dialogue: Dialogue, guard = 100): string[] {
-  const texts: string[] = [];
-  for (let i = 0; i < guard; i++) {
-    const batch = dialogue.continue();
-    for (const event of batch) {
-      if (event.type === "line") {
-        texts.push(event.text);
-      }
-    }
-    if (batch.length === 0 || batch[batch.length - 1].type === "dialogueComplete") break;
-  }
-  return texts;
+function drainTexts(dialogue: Dialogue): string[] {
+  return runUntilCompleteEvents(dialogue)
+    .filter((event): event is Extract<DialogueEvent, { type: "line" }> => event.type === "line")
+    .map((event) => event.text);
 }
 
 test("variables, flow control, and commands", () => {

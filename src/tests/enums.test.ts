@@ -19,18 +19,13 @@ import assert from "node:assert/strict";
 import { compileSource, EnumTypeBuilder } from "../index.js";
 import { Dialogue } from "../runtime/dialogue.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
+import { runUntilCompleteEvents } from "../runtime/transcript.js";
 
 /** Drain the dialogue, collecting non-empty line texts. */
 function drainLines(dialogue: Dialogue): string[] {
-  const seen: string[] = [];
-  for (let guard = 0; guard < 100; guard++) {
-    const batch = dialogue.continue() as DialogueEvent[];
-    for (const e of batch) {
-      if (e.type === "line" && e.text.trim()) seen.push(e.text.trim());
-    }
-    if (batch.length === 0 || batch[batch.length - 1].type === "dialogueComplete") break;
-  }
-  return seen;
+  return runUntilCompleteEvents(dialogue)
+    .filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line" && !!e.text.trim())
+    .map((e) => e.text.trim());
 }
 import type { EnumType, ExternalDeclarations } from "../index.js";
 import type { Diagnostic } from "../index.js";

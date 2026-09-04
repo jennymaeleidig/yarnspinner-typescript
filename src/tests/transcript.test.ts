@@ -29,7 +29,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compileOk } from "./compileOk.js";
 import { Dialogue, noOptionSelected } from "../index.js";
-import { EMPTY_TRANSCRIPT, runUntilComplete, runUntilStopped } from "../index.js";
+import { EMPTY_TRANSCRIPT, runUntilComplete, runUntilCompleteEvents, runUntilStopped } from "../index.js";
 import type { Transcript } from "../index.js";
 
 function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
@@ -375,4 +375,71 @@ Narrator: Line three
   );
   const third = runUntilStopped(dialogue, second.transcript);
   assert.equal(third.transcript.scene, "interior", "a new header replaces the carried scene");
+});
+
+// --- runUntilCompleteEvents: the events-shaped drain (deepening-wave-2 ticket 01) ---
+
+test("runUntilCompleteEvents without a policy drains to a pending option set and stops there", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+Narrator: Before
+-> A
+-> B
+===
+`);
+  const events = runUntilCompleteEvents(dialogue);
+  assert.deepEqual(
+    events.map((e) => e.type),
+    ["nodeStart", "line", "options"],
+    "the option set is the stream's last options event; the dialogue stays pending",
+  );
+  assert.equal(dialogue.isWaitingForOptionSelection, true);
+  assert.equal(dialogue.isComplete, false);
+});
+
+test("runUntilCompleteEvents with a selection policy crosses option sets and completes", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+Narrator: Before
+-> A
+  Narrator: Chose A
+-> B
+  Narrator: Chose B
+===
+`);
+  const events = runUntilCompleteEvents(dialogue, () => 1);
+  assert.equal(dialogue.isComplete, true);
+  assert.deepEqual(
+    events.filter((e) => e.type === "line").map((e) => (e as { text: string }).text),
+    ["Before", "Chose B"],
+  );
+  assert.equal(events[events.length - 1].type, "dialogueComplete");
+});
+
+test("runUntilCompleteEvents honours the noOptionSelected fall-through policy", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+Narrator: Before
+-> Unavailable <<if false>>
+===
+`);
+  const events = runUntilCompleteEvents(dialogue, () => noOptionSelected);
+  assert.equal(dialogue.isComplete, true, "the fall-through resolves the set and the run completes");
+  assert.equal(events[events.length - 1].type, "dialogueComplete");
+});
+
+test("runUntilCompleteEvents throws past its pull cap instead of pinning a partial stream", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+Narrator: Looping
+<<jump Start>>
+===
+`);
+  assert.throws(() => runUntilCompleteEvents(dialogue), /stalled after 1000 pulls/);
+  // The cap is the stated policy, not dialogue state: a run stopped before
+  // the drain starts is the caller's pending/complete state, not a stall.
 });

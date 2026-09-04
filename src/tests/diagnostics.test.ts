@@ -20,6 +20,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { compileSource } from "../compile/compileSource.js";
 import { Dialogue } from "../runtime/dialogue.js";
+import type { DialogueEvent } from "../runtime/dialogue.js";
+import { runUntilCompleteEvents } from "../runtime/transcript.js";
 import type { Diagnostic } from "../compile/diagnostics.js";
 import { DIAGNOSTIC_REGISTRY } from "../compile/diagnostics.js";
 
@@ -305,19 +307,12 @@ title: StartTrue
   // advisory; the set is not filtered).
   const result = compileSource(source);
   const dialogue = new Dialogue(result.program!, { startAt: "StartFalse" });
-  for (let guard = 0; guard < 25; guard++) {
-    const batch = dialogue.continue();
-    const options = batch.find((e) => e.type === "options");
-    if (options?.type === "options") {
-      assert.equal(options.options.length, 2, "the full set is delivered");
-      assert.equal(options.options[0].isAvailable, false, "Hidden option is delivered as unavailable");
-      assert.equal(options.options[1].text, "Visible");
-      assert.equal(options.options[1].isAvailable, true);
-      return;
-    }
-    if (batch.length === 0 || batch[batch.length - 1].type === "dialogueComplete") break;
-  }
-  throw new Error("Failed to reach options");
+  const options = runUntilCompleteEvents(dialogue).find((e): e is Extract<DialogueEvent, { type: "options" }> => e.type === "options");
+  if (!options) throw new Error("Failed to reach options");
+  assert.equal(options.options.length, 2, "the full set is delivered");
+  assert.equal(options.options[0].isAvailable, false, "Hidden option is delivered as unavailable");
+  assert.equal(options.options[1].text, "Visible");
+  assert.equal(options.options[1].isAvailable, true);
 });
 
 test("option-line <<if>> without an expression is a diagnostic (upstream ParseFailures)", () => {
