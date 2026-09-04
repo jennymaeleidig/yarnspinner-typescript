@@ -8,10 +8,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./client.d.ts"
     }
   },
   "files": [
     "dist",
+    "client.d.ts",
     "README.md"
   ],
   "scripts": {
