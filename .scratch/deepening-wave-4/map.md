@@ -49,4 +49,11 @@ own pin per the repo's standalone-fixes rule (ADR 0005 ticket-03 precedent).
 
 ## Fog
 
-(none yet)
+Two-axis review (2026-09-04, a0d82d8...HEAD): Standards axis 0 hard
+violations / 7 met — judgement calls only, of which the Middle Man flag on
+Dialogue's facade stubs is sanctioned by the glossary + ADR 0002, the
+project-text double read predates the wave, and the setLanguage message nit
+is verbatim-by-design. Spec axis 12 met / 2 partial (both ticket 05, cosmetic
+and recorded on the ticket) / 0 missing / 0 creep — both promised pins
+verified to discriminate against pre-wave code. The one actionable finding
+(the duplicated warn/emit tail) fixed in the review-fixes commit.

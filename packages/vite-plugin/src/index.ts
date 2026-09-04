@@ -8,7 +8,7 @@
 import type { Plugin } from "vite";
 import { readFile } from "node:fs/promises";
 import { dirname, isAbsolute, join } from "node:path";
-import { compileYarnModule } from "./compileModule.js";
+import { compileYarnModule, type CompiledYarnModule } from "./compileModule.js";
 import { compileYarnProjectModule } from "./compileProjectModule.js";
 import { toDeclarations, type YslsDefinitions } from "./definitions.js";
 import type { Diagnostic, DiagnosticSeverity } from "yarn-spinner-runner-ts";
@@ -213,6 +213,19 @@ export function yarnSpinnerVitePlugin(
     file: string,
     warn: (msg: string) => void,
   ): Promise<string> => {
+    // The emit tail both compile steps share: warnings to the sink (with
+    // location), the first error as a build failure, otherwise the code.
+    const emit = async (
+      compiled: CompiledYarnModule,
+      source: string,
+      baseDir: string,
+    ): Promise<string> => {
+      for (const w of compiled.warnings) warn(asWarning(w, id));
+      if (compiled.errors.length > 0) {
+        throw await asBuildError(compiled.errors[0], id, source, baseDir);
+      }
+      return compiled.code;
+    };
     if (PROJECT_FILE.test(file) || opts.project !== undefined) {
       // The .yarnproject itself, or a .yarn import pinned to a project:
       // the project compiles as one job and the module emits its result.
@@ -220,22 +233,12 @@ export function yarnSpinnerVitePlugin(
       const projectText = await readFile(projectFile, "utf8").catch((e: unknown) => {
         throw fileReadError(projectFile, e);
       });
-      const compiled = compileYarnProjectModule(projectFile, compileOpts);
-      for (const w of compiled.warnings) warn(asWarning(w, id));
-      if (compiled.errors.length > 0) {
-        throw await asBuildError(compiled.errors[0], id, projectText, dirname(projectFile));
-      }
-      return compiled.code;
+      return emit(compileYarnProjectModule(projectFile, compileOpts), projectText, dirname(projectFile));
     }
     const source = await readFile(file, "utf8").catch((e: unknown) => {
       throw fileReadError(file, e);
     });
-    const compiled = compileYarnModule(source, file, compileOpts);
-    for (const w of compiled.warnings) warn(asWarning(w, id));
-    if (compiled.errors.length > 0) {
-      throw await asBuildError(compiled.errors[0], id, source, dirname(file));
-    }
-    return compiled.code;
+    return emit(compileYarnModule(source, file, compileOpts), source, dirname(file));
   };
 
   return {

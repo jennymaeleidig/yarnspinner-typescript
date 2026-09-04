@@ -50,3 +50,13 @@ All plugin suites green unchanged (the seam suite drives load/
 handleHotUpdate the way Vite does; ticket 04's read-error pin covers both
 branches post-collapse). Suite 634 pass / 0 fail / 1 skip, lint and ts-check
 clean.
+## Comments
+
+2026-09-04 two-axis review: the review's one actionable finding — the two
+branches still repeated the warn/emit tail (Duplicated Code, a judgement
+call) — is fixed by an `emit` closure inside `loadAndCompile` owning the
+shared tail once. The spec axis's two partials stand as recorded: the landed
+`(id, file, warn)` signature drops the Decision's unused `query` param
+(better shape; the Decision text was written before the collapse), and the
+evaluation-order note is the only behavior delta, deliberate and recorded in
+the Answer.
