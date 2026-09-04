@@ -26,6 +26,10 @@ conformance suite and triages every failure into gap tickets. Never edit
 submodule files by hand; upstream remains the source of truth (see
 `docs/coding-standards.md` §1).
 
+## Pin history
+
+- 2026-09-03: initial submodule mount pinned at `v3.2.2` (`5b3a4ff2d24e4f727e3f90fee5d8ce637474c305`) — byte-identical to the previous vendored copy; suite green (upstream-submodule ticket 01).
+
 ## License
 
 The submodule's files are from Yarn Spinner, © Yarn Spinner Pty. Ltd., Secret
