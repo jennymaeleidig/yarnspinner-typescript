@@ -999,7 +999,6 @@ export class VirtualMachine {
         executeStateStatement(
           { variables: this.storage, evaluator: this.evaluator, logError: this.logError },
           content,
-          parsed,
         );
       }
       return "continued";

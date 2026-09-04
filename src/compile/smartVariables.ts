@@ -14,21 +14,6 @@
  * `Declaration.IsInlineExpansion`): read-only, recomputed on every access.
  */
 
-/** A parsed `<<declare $name = expression>>` command's parts. */
-export interface DeclareCommand {
-  name: string;
-  expression: string;
-}
-
-/** Extract the variable name and initial value expression from a `<<declare>>` command's content. */
-export function parseDeclareCommand(content: string): DeclareCommand | null {
-  const match = /^declare\s+\$([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/.exec(content.trim());
-  if (!match) return null;
-  const asMatch = match[2].match(/\s+as\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/);
-  const expression = (asMatch ? match[2].slice(0, asMatch.index) : match[2]).trim();
-  return { name: match[1], expression };
-}
-
 interface ShapeToken {
   kind: "num" | "str" | "ident" | "op" | "dot";
   text: string;

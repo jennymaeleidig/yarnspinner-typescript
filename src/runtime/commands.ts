@@ -6,7 +6,8 @@
  */
 
 import type { ExpressionEvaluator } from "./evaluator.js";
-import { applyBinaryOp, type BinaryOperator } from "./operands.js";
+import { applyBinaryOp } from "./operands.js";
+import { compoundOperatorToStackOp, parseStateStatement } from "../parse/stateStatement.js";
 import type { VariableStorage } from "./variableStorage.js";
 
 export interface ParsedCommand {
@@ -111,47 +112,39 @@ export function stripQuotes(value: string): string {
  * The one execution driver (the instruction-stream VM): `<<set>>`
  * expressions compile to bytecode, but an uncompilable `<<set>>` keeps its
  * authored command (the compiler's documented fallback) and lands here —
- * the runtime's error handling applies unchanged.
+ * the runtime's error handling applies unchanged. The statement's shape
+ * comes from the shared state-statement grammar
+ * (src/parse/stateStatement.ts) — the same parse the type checker and the
+ * compiler's lowering consume.
  *
  * Collect-don't-throw (coding standards §3): a failing statement is a
  * runtime diagnostic, not a crash.
  */
-export function executeStateStatement(host: StateStatementHost, content: string, parsed?: ParsedCommand): void {
+export function executeStateStatement(host: StateStatementHost, content: string): void {
   const { variables, evaluator, logError } = host;
   const setVariable = (name: string, value: unknown): void => {
     variables.set(name, value);
     evaluator.setVariable(name, value);
   };
   try {
-    const command = parsed ?? parseCommand(content);
-    const name = command.name.toLowerCase();
-    const args = command.args;
-    if (name === "set") {
-      if (args.length < 2) return;
-      const varNameRaw = args[0];
-      let exprParts = args.slice(1);
-      if (exprParts[0] === "to") exprParts = exprParts.slice(1);
-      if (exprParts[0] === "=") exprParts = exprParts.slice(1);
-      const key = varNameRaw.startsWith("$") ? varNameRaw.slice(1) : varNameRaw;
-
-      const compoundOp = exprParts[0];
-      if (compoundOp === "+=" || compoundOp === "-=" || compoundOp === "*=" || compoundOp === "/=" || compoundOp === "%=") {
+    // The shared state-statement grammar (src/parse/stateStatement.ts) —
+    // the same parse the type checker and compiler's lowering consume, so
+    // the fallback path agrees with them structurally.
+    const statement = parseStateStatement(content);
+    if (!statement) return;
+    if (statement.kind === "set") {
+      const { name: key, compoundOp, expression } = statement;
+      if (compoundOp) {
         // The compound assignment applies the base operator through the
         // operand-semantics module — the same add/concat rule the VM's add
         // op applies (one statement, not a third copy).
-        const op: BinaryOperator =
-          compoundOp === "+=" ? "add"
-          : compoundOp === "-=" ? "subtract"
-          : compoundOp === "*=" ? "multiply"
-          : compoundOp === "/=" ? "divide"
-          : "modulo";
-        const rhs = evaluator.evaluateExpression(exprParts.slice(1).join(" "));
-        const value = applyBinaryOp(op, variables.get(key), rhs);
+        const rhs = evaluator.evaluateExpression(expression);
+        const value = applyBinaryOp(compoundOperatorToStackOp(compoundOp), variables.get(key), rhs);
         setVariable(key, value);
         return;
       }
 
-      const value = evaluator.evaluateExpression(exprParts.join(" "));
+      const value = evaluator.evaluateExpression(expression);
       // A script-level set of a smart variable is a compile error (YS0030),
       // so this write only ever lands on stored variables — or shadows a
       // smart variable when a host drives the storage directly (upstream
@@ -160,15 +153,10 @@ export function executeStateStatement(host: StateStatementHost, content: string,
       setVariable(key, value);
       return;
     }
-    if (name === "declare") {
-      if (args.length < 3) return; // name, '=', expr
-      const varNameRaw = args[0];
-      let exprParts = args.slice(1);
-      if (exprParts[0] === "=") exprParts = exprParts.slice(1);
-      // Upstream declare grammar: <<declare $var = expr (as TYPE)?>> — the
-      // type postfix is compile metadata; evaluate the expression alone.
-      const expr = exprParts.join(" ").replace(/\s+as\s+[A-Za-z_][A-Za-z0-9_]*\s*$/, "");
-      const key = varNameRaw.startsWith("$") ? varNameRaw.slice(1) : varNameRaw;
+    // declare: the ` as TYPE` postfix is compile metadata; the module has
+    // already stripped it from the expression.
+    {
+      const { name: key, expression: expr } = statement;
 
       // Smart variables were classified at compile time and
       // registered from the program's smart variables at start-up: read-only,

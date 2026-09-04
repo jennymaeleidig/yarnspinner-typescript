@@ -32,6 +32,7 @@ import type { EnumRawValue, EnumType } from "./enums.js";
 import { makeDiagnostic } from "./diagnostics.js";
 import type { Diagnostic } from "./diagnostics.js";
 import { isSmartVariableInitializer } from "./smartVariables.js";
+import { parseStateStatement } from "../parse/stateStatement.js";
 import type { DeclaredValueType, FunctionSignature } from "../runtime/library.js";
 
 // Re-exported so the declarations surface keeps its historical home in the
@@ -947,15 +948,13 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
       case "Command": {
         const content = s.content;
 
-        const declare = content.match(/^declare\s+\$(\w+)\s*=\s*([\s\S]+)$/);
-        if (declare) {
-          const [, name, rest] = declare;
-          const asMatch = rest.match(/\s+as\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/);
-          const declaredType = asMatch?.[1];
-          const expr = (asMatch ? rest.slice(0, asMatch.index) : rest).trim();
+        const stateStatement = parseStateStatement(content);
+
+        if (stateStatement?.kind === "declare") {
+          const { name, expression: expr, declaredType } = stateStatement;
           const expectedEnum = declaredType && ctx.enumTypes.has(declaredType) ? declaredType : undefined;
           let { type, rewritten } = checkExpression(expr, ctx, expectedEnum);
-          if (rewritten !== expr) s.content = `declare $${name} = ${rewritten}${asMatch ? ` as ${declaredType}` : ""}`;
+          if (rewritten !== expr) s.content = `declare $${name} = ${rewritten}${declaredType ? ` as ${declaredType}` : ""}`;
           if (type.base === "unknown" && !type.enumName && !type.error) {
             // The initializer's type is undetermined (the Inference-*
             // fixtures). An explicit `as` type pins it (also pinning an
@@ -1008,22 +1007,21 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
         // Compound assignment (`<<set $var += expr>>`):
         // assignment to a smart variable is read-only (YS0030), same as a
         // plain `<<set>>`.
-        const compoundSet = content.match(/^set\s+\$([A-Za-z_][A-Za-z0-9_]*)\s*(?:\+=|-=|\*=|\/=|%=)/);
-        if (compoundSet) {
-          emitReadOnlyIfSmart(compoundSet[1], ctx);
-          if (!ctx.declaredVariables.has(compoundSet[1]) && !ctx.externalVariables.has(compoundSet[1])) {
-            ctx.undeclaredUses.push({ name: compoundSet[1], file: ctx.currentFile });
+        if (stateStatement?.kind === "set" && stateStatement.compoundOp) {
+          const { name } = stateStatement;
+          emitReadOnlyIfSmart(name, ctx);
+          if (!ctx.declaredVariables.has(name) && !ctx.externalVariables.has(name)) {
+            ctx.undeclaredUses.push({ name, file: ctx.currentFile });
           }
           break;
         }
 
-          const set = content.match(/^set\s+\$(\w+)\s+(to|=)\s*([\s\S]+)$/);
-        if (set) {
-          const [, name, op, rest] = set;
+        if (stateStatement?.kind === "set") {
+          const { name, assignment: op, expression: rest } = stateStatement;
           emitReadOnlyIfSmart(name, ctx);
           const varType = ctx.variableTypes.get(name);
           const expectedEnum = varType && ctx.enumTypes.has(varType) ? varType : undefined;
-          let { type, rewritten } = checkExpression(rest.trim(), ctx, expectedEnum);
+          let { type, rewritten } = checkExpression(rest, ctx, expectedEnum);
           // YS0003 collection: a `<<set>>` target is a use of the
           // variable (the upstream YS0003 example pins `<<set $x = 3>>`). A
           // value expression that already failed validation suppresses the
@@ -1032,7 +1030,7 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           if (type.error !== true && !ctx.declaredVariables.has(name) && !ctx.externalVariables.has(name)) {
             ctx.undeclaredUses.push({ name, file: ctx.currentFile });
           }
-          if (rewritten !== rest.trim()) s.content = `set $${name} ${op} ${rewritten}`;
+          if (rewritten !== rest) s.content = `set $${name} ${op} ${rewritten}`;
           if (type.base === "unknown" && !type.enumName && !type.error) {
             if (varType) {
               // The value's type is undetermined, but the target's is known:

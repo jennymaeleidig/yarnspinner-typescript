@@ -66,7 +66,8 @@ import { compileExpression, ExpressionCodegenError } from "./expressionCodegen.j
 import { onceVariableKey } from "../runtime/generatedVariables.js";
 import { booleanOperatorCount } from "../runtime/saliency.js";
 import { parseCommand, type ParsedCommand } from "../runtime/commands.js";
-import { isSmartVariableInitializer, parseDeclareCommand } from "./smartVariables.js";
+import { isSmartVariableInitializer } from "./smartVariables.js";
+import { compoundOperatorToStackOp, parseStateStatement } from "../parse/stateStatement.js";
 import { buildEnumTypes, collectEnumBlocks } from "./enums.js";
 import type { EnumType } from "./enums.js";
 
@@ -651,7 +652,7 @@ function lowerCommand(content: string, lowering: NodeLowering, enums: Program["e
   }
   const name = parsed.name.toLowerCase();
   if (name === "set") {
-    const code = lowerSet(parsed, enums);
+    const code = lowerSet(content, enums);
     if (code) {
       lowering.instructions.push(...code);
       return;
@@ -680,44 +681,30 @@ function lowerCommand(content: string, lowering: NodeLowering, enums: Program["e
   lowering.instructions.push({ op: "runCommand", content });
 }
 
-/** Compound-assignment operator → the stack op that applies it. */
-const COMPOUND_OPS: Record<string, Instruction["op"]> = {
-  "+=": "add",
-  "-=": "subtract",
-  "*=": "multiply",
-  "/=": "divide",
-  "%=": "modulo",
-};
-
 /**
  * Lower `<<set $var (to|=) expr>>` / compound assignment to read/operate/
- * write bytecode, mirroring the runtime's set handler (the fallback shape
- * for uncompilable expressions must stay in lockstep with this one).
+ * write bytecode over the shared state-statement parse (the runtime's set
+ * handler consumes the same module — one grammar, no lockstep prose).
  * Returns `null` when the expression cannot compile (the caller keeps the
  * raw command).
  */
-function lowerSet(parsed: ParsedCommand, enums: Program["enums"]): Instruction[] | null {
-  const args = parsed.args;
-  if (args.length < 2) return null;
-  const key = args[0].startsWith("$") ? args[0].slice(1) : args[0];
-  let exprParts = args.slice(1);
-  if (exprParts[0] === "to") exprParts = exprParts.slice(1);
-  if (exprParts[0] === "=") exprParts = exprParts.slice(1);
-  if (exprParts.length === 0) return null;
+function lowerSet(content: string, enums: Program["enums"]): Instruction[] | null {
+  const statement = parseStateStatement(content);
+  if (statement?.kind !== "set" || statement.expression === "") return null;
+  const { name: key, compoundOp, expression } = statement;
 
-  const compoundOp = COMPOUND_OPS[exprParts[0]];
   if (compoundOp) {
-    const rhs = tryCompile(exprParts.slice(1).join(" "), enums);
+    const rhs = tryCompile(expression, enums);
     if (!rhs) return null;
     return [
       { op: "pushVariable", name: key },
       ...rhs,
-      { op: compoundOp } as Instruction,
+      { op: compoundOperatorToStackOp(compoundOp) } as Instruction,
       { op: "popVariable", name: key },
     ];
   }
 
-  const value = tryCompile(exprParts.join(" "), enums);
+  const value = tryCompile(expression, enums);
   if (!value) return null;
   return [...value, { op: "popVariable", name: key }];
 }
@@ -737,8 +724,8 @@ function collectInitialValues(stmts: Statement[], ctx: LoweringContext): void {
   for (const s of stmts) {
     switch (s.type) {
       case "Command": {
-        const declare = parseDeclareCommand((s as { content: string }).content);
-        if (declare) {
+        const declare = parseStateStatement((s as { content: string }).content);
+        if (declare?.kind === "declare") {
           const compiled =
             tryCompile(declare.expression, ctx.enums) ?? [{ op: "pushNull" } as Instruction];
           if (isSmartVariableInitializer(declare.expression)) {

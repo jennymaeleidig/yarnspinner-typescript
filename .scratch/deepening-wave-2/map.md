@@ -13,7 +13,7 @@ after, the parity-risky grammar merge last behind a research gate.
 | 02 | [02-derived-view-option.md](issues/02-derived-view-option.md) | Derive DialogueViewOption from DialogueOption (review #7) | resolved |
 | 03 | [03-xor-fallback-parity-fix.md](issues/03-xor-fallback-parity-fix.md) | Standalone xor fallback-path parity fix (review #3, fix half) | resolved |
 | 04 | [04-operand-semantics-module.md](issues/04-operand-semantics-module.md) | One operand-semantics module (review #3, deepening half) | resolved |
-| 05 | [05-state-statement-grammar.md](issues/05-state-statement-grammar.md) | One grammar module for `<<set>>`/`<<declare>>` (review #2) | open, blocked by 04 |
+| 05 | [05-state-statement-grammar.md](issues/05-state-statement-grammar.md) | One grammar module for `<<set>>`/`<<declare>>` (review #2) | resolved |
 | 06 | [06-statement-walker.md](issues/06-statement-walker.md) | One statement walker for the compile seam (review #1) | open |
 | 07 | [07-inline-expression-spans.md](issues/07-inline-expression-spans.md) | One inline-expression span scanner (review #4) | open, blocked by 05 |
 | 08 | [08-expression-grammar-merge.md](issues/08-expression-grammar-merge.md) | One expression grammar, three consumers (review #5) — research-gated | open, blocked by 04, 05 |
@@ -22,6 +22,15 @@ Frontier order = ticket number (matches the grilling round: 6→7→3→3→2→
 
 ## Decisions-so-far
 
+- **Ticket 05 (resolved)**: `src/parse/stateStatement.ts` — one
+  `parseStateStatement` + `compoundOperatorToStackOp`; four consumers
+  rewired (typeCheck's three regexes, compiler's lowerSet +
+  collectInitialValues, commands' executeStateStatement whose unused
+  `parsed?` param is dropped, smartVariables' parseDeclareCommand
+  deleted); lockstep prose deleted. Convergences recorded: upstream
+  identifier rule everywhere (`$1abc` rejected), `to += 1` garbage
+  converges on the checker's reading. parser.ts's YS0006/YS0005 shape
+  validation deliberately separate (records malformed shapes).
 - **Ticket 04 (resolved)**: `src/runtime/operands.ts` — applyBinaryOp/
   applyUnaryOp own every operator rule; VM's 14 binary cases collapsed to
   one dispatch; the evaluator's private `toNumber` duplicate and unused

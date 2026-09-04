@@ -1,7 +1,7 @@
 # Ticket 05 — One grammar module for `<<set>>` / `<<declare>>`
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 04
 
 ## Question
@@ -63,3 +63,55 @@ answer.
 - Per the grilling round: `parseStateStatement` becomes a named module —
   propose the CONTEXT.md glossary wording at resolution.
 - Suite green, lint clean, ts-check clean per CODING_STANDARDS.
+
+## Answer
+
+`src/parse/stateStatement.ts` is the one grammar module:
+`parseStateStatement(content)` returns
+`{ kind, name, expression, assignment?, compoundOp?, declaredType? }`, and
+`compoundOperatorToStackOp` is the one compound-operator → stack-op
+mapping (compiler's `COMPOUND_OPS` and commands.ts's ternary both
+deleted). The parse lives in the parse tier (compile already imported
+it; runtime now does too — one tier closer than runtime→compile).
+
+Consumers rewired:
+- **typeCheck.ts**: the declare regex, compound regex, and set regex
+  (three hand-rolled matchers, two identifier rules) replaced by the one
+  `parseStateStatement` + kind guards; the `as TYPE` postfix handling
+  collapses into the module.
+- **compiler.ts**: `lowerSet` takes the content string and parses through
+  the module; the lockstep prose comment ("must stay in lockstep with
+  this one") is deleted — the runtime fallback consumes the same parse
+  structurally. `collectInitialValues` uses the module;
+  `parseDeclareCommand`/`DeclareCommand` are deleted from
+  smartVariables.ts.
+- **commands.ts**: `executeStateStatement` restructured over the parse;
+  the unused `parsed?: ParsedCommand` parameter is dropped from its
+  interface (the vm.ts call site updated) — the interface shrinks.
+- **parser.ts's YS0006/YS0005 shape validation deliberately stays
+  separate** (recorded per the module's header): it reports the *malformed*
+  truncation shapes this parser rejects, with looser regexes by design so
+  it can name what went wrong; folding it in would couple diagnostic
+  shape parity to the parse result.
+
+Deliberate convergence recorded (both stricter, both upstream-correct):
+- Identifier rule: `[A-Za-z_][A-Za-z0-9_]*` everywhere — the type
+  checker's old `$\w+` accepted `$1abc`; a pin in the grammar test now
+  locks the upstream rule.
+- `set $x to += 1` (operator after the assignment word): the old runtime
+  and compile paths double-stripped and treated it as compound, while the
+  type checker diagnosed it — the shared grammar treats it as a plain set
+  of expression `+= 1` (an evaluation error at runtime, YS0005-class at
+  compile), matching upstream's token order (operator directly after the
+  variable reference). Garbage input now agrees across all consumers.
+
+New `src/tests/stateStatement.test.ts`: the spelling table (to/=, all
+five compound ops spaced and attached, declare with/without postfix,
+`as` inside quotes not the postfix, identifier rule, null shapes, the
+stack-op mapping). Suite 588 (587 pass, 1 mirrored skip), lint clean,
+ts-check clean, demo build green.
+
+**Glossary proposal (per the grilling round):** none —
+`parseStateStatement` is implementation (the state-statement grammar is
+already covered by CONTEXT.md's language entries; the module is its
+mechanism).
