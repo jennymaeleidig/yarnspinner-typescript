@@ -56,3 +56,5 @@ Pins in `vm-runtime.test.ts`: trailing-garbage set now discriminates ($m survive
 ## Comments
 
 **Two-axis review fix (2026-09-04)**: the spec axis flagged that `<<call>>`'s migrated branch degraded the diagnostic — the wrapper's blanket catch swallowed the cause, so an unknown function logged a generic message instead of the historical `Function not found: x`. Fix: the failure shape now carries the error (`{ ok: false, error: unknown }` — mirroring upstream `TryGet` shapes that report cause) and the `<<call>>` branch logs `<<call>> failed: <cause>` for both failure kinds. The state-statement branches keep the helper's statement-naming message. Standards axis also had the executor's three hand-copied failure blocks extracted into `evaluateStatementValue` (one failure-policy statement) and an orphaned duplicated docstring in `evaluator.ts` removed.
+
+**Reviewer-pass fix (2026-09-04)**: the Tests list's "ordinary `<<set $n to 2>>` success path" pin existed only folded into the trailing-garbage pin's setup; it is now a standalone pin (`vm-runtime.test.ts` — value stored, composed text, zero diagnostics).

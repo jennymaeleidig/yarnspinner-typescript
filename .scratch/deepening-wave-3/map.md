@@ -32,3 +32,8 @@ Frontier order = ticket number.
 ## Notes
 
 - The wave-2 tracker was cleared in its own commit immediately before this map was created; ticket 10 (the wave-2 final reviewer pass's open file) is re-filed here as 01 with the same evidence and work item, updated for the settled design.
+
+## Fog / corrections
+
+- **Suite-count bookkeeping (reviewer pass, 2026-09-04)**: the suite counts recorded in this wave's ticket Answers and commit messages (606→630) were captured on the working tree, which throughout the wave carried a concurrent agent's five uncommitted test additions in `src/tests/index.test.ts` (framework-agnostic-consumption effort) — `npm test` builds `dist/` from the working tree, so those five rode along. The committed tree verifies at **625 tests (624 pass, 1 mirrored skip)** at HEAD pre-review-fixes; **626 (625 pass, 1 skip)** after the review-fix commit (the standalone ordinary-set pin added to ticket 01's surface). Per-ticket committed counts were not separately captured; every ticket's own pins were green at its commit in all runs. Future waves: record committed-tree counts, or note the concurrent-agent delta explicitly.
+- Verdict from the reviewer pass (2026-09-04): 30 criteria — 27 met, 3 met-by-record (STACK_PRODUCERS home, mergeEvents as the family's second member, ticket 03's dropped "handled by both" pins), 0 partial, 0 missing.

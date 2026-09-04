@@ -518,6 +518,29 @@ Narrator: {$n}
   assert.equal(line.text, "True");
 });
 
+test("an ordinary fallback <<set>> stores its value with no diagnostic", () => {
+  // The success path, standalone: the discriminating pin below asserts it
+  // implicitly (its opening `<<set $m to 1>>` must land for the clobber
+  // check to mean anything); this pin states it literally.
+  const errors: string[] = [];
+  const dialogue = makeDialogue(
+    `
+title: Start
+---
+<<set $n to 2>>
+Narrator: value={$n}
+===
+`,
+    { logError: (m) => errors.push(m) },
+  );
+  const events = runUntilCompleteEvents(dialogue);
+  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  assert.ok(line);
+  assert.equal(line.text, "value=2");
+  assert.equal(dialogue.getVariable("n"), 2);
+  assert.deepEqual(errors, []);
+});
+
 test("uncompilable <<set>> with trailing garbage logs a diagnostic and preserves storage", () => {
   // `1 2` fails codegen (trailing input) → the raw command → the same
   // grammar parse → the evaluator's out-of-band failure signal: the set
