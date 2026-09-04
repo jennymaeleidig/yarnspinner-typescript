@@ -46,11 +46,11 @@ const dialogue = new Dialogue(program, { startAt: "Start" });
 
 The emitted module also carries tree-shakeable named exports:
 
-| Export | Type | What it is |
-| --- | --- | --- |
-| `stringTable` | `StringTable` | Line id → text/node/line info (the full upstream table) |
-| `containsImplicitStringTags` | `boolean` | Whether the compiler created line IDs for lines lacking `#line:` tags |
-| `fileTags` | `Record<string, string[]>` | The file's file-level hashtags |
+| Export                       | Type                       | What it is                                                            |
+| ---------------------------- | -------------------------- | --------------------------------------------------------------------- |
+| `stringTable`                | `StringTable`              | Line id → text/node/line info (the full upstream table)               |
+| `containsImplicitStringTags` | `boolean`                  | Whether the compiler created line IDs for lines lacking `#line:` tags |
+| `fileTags`                   | `Record<string, string[]>` | The file's file-level hashtags                                        |
 
 ### `import source from "./story.yarn?raw"`
 
@@ -75,14 +75,14 @@ const dialogue = new Dialogue(project.program!, { textProvider: provider });
 dialogue.setLanguage("de"); // localised delivery; missing lines fall back
 ```
 
-| Field | What it is |
-| --- | --- |
-| `program` | The compiled program (`null` when the project failed to load) |
-| `projectName`, `baseLanguage` | Project metadata |
-| `baseTable` | Base language's id → text table (shadow lines excluded) |
-| `translations` | Per-locale id → text tables |
-| `assets` | Configured assets directory per declared locale, verbatim |
-| `diagnostics` | Localisation diagnostics (e.g. a missing strings file warns, YP0006) |
+| Field                         | What it is                                                           |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `program`                     | The compiled program (`null` when the project failed to load)        |
+| `projectName`, `baseLanguage` | Project metadata                                                     |
+| `baseTable`                   | Base language's id → text table (shadow lines excluded)              |
+| `translations`                | Per-locale id → text tables                                          |
+| `assets`                      | Configured assets directory per declared locale, verbatim            |
+| `diagnostics`                 | Localisation diagnostics (e.g. a missing strings file warns, YP0006) |
 
 An error-severity diagnostic anywhere in the compiled content fails the build
 with a RollupError-shaped error (`id`, `loc`, `frame` — clickable in the

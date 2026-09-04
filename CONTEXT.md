@@ -1,6 +1,6 @@
 # yarn-spinner-runner-ts
 
-TypeScript parser, compiler, and runtime for Yarn Spinner 3.x, in language-and-behavior parity with upstream Yarn Spinner 3.2.x, with a React adapter.
+TypeScript parser, compiler, and runtime for Yarn Spinner 3.x, in language-and-behavior parity with upstream Yarn Spinner 3.2.x. Framework-agnostic at the root: React lives behind the `./react` subpath, and `.yarn`/`.yarnproject` content imports as build-time modules via the companion `yarn-spinner-vite-plugin` package.
 
 ## Overview
 
@@ -76,6 +76,12 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 - **Replacement marker**: built-in value-driven text selection markup — `[select]`, `[plural]`, `[ordinal]`.
 - **Character marker**: the implicit `[character name=]` markup generated from a line's character-name prefix, before other processing.
 - **Text provider**: injectable resolver from line ID to text for the current language; the runtime is string-table-unaware.
+
+### Packaging & consumption (adapter-side)
+
+- **Framework-agnostic core**: the package root stays React-free — React is optional and lives behind the `./react` subpath (ADR 0006), so non-React consumers never pull in `react/jsx-runtime`. The runtime, compiler, and parser import from the root; every React import rides the subpath.
+- **Direct import**: consuming `.yarn` and `.yarnproject` files as build-time modules through the companion **Vite plugin** package (`yarn-spinner-vite-plugin`) — content compiles at build time, the compiled program rides the bundle, and a compile error fails the build. Import shapes: a `.yarn` file yields the Program (plus named `stringTable`/`containsImplicitStringTags`/`fileTags`), `?raw` yields the source string, a `.yarnproject` yields the full load result (program, project name, base language, per-locale tables, assets, diagnostics) ready for a text provider. Severity overrides merge in a fixed order — the project file's own map first, then the plugin's top-level option, then the `compilerOptions` passthrough (most specific wins). Full surface: [docs/direct-import.md](docs/direct-import.md).
+- **Editor types**: the plugin's types-only `./client` subpath — one file declaring all three import shapes for TypeScript, served both as a triple-slash reference and as a zero-dependency paste-in.
 
 ### Adapter-side (non-upstream)
 
