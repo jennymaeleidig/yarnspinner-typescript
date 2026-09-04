@@ -39,3 +39,5 @@ Tests assert observable behavior — compiled outputs and runtime event streams 
 ## 7. Docs must match reality
 
 Every reference transcription in `docs/` cites its source URL. Claims about upstream behavior are verified against the authoritative source before being documented. Stale docs get fixed or deleted in the same change that makes them stale — a compatibility checklist that describes long-fixed gaps as current is worse than no checklist.
+
+Citations stay resolvable: cite living artifacts — ADR files, `docs/` pages, registry codes (`YS####`/`YP####`), section numbers of this file — never ephemeral tracker tickets or numbered spec stories, which are working notes and get deleted. A reference whose target no longer exists is stale on arrival.

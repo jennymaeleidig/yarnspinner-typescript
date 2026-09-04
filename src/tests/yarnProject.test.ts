@@ -166,8 +166,8 @@ test("every compilerOptions key is either mapped or diagnosed — never silently
   // "not recognised" variant — both keyed to the offending option. YP-filtered:
   // the compile result also carries compiler diagnostics (YSxxxx).
   // `allowPreviewFeatures` and `diagnosticsSeverity` are no longer diagnosed:
-  // they are mapped onto the project (upstream-submodule ticket 09 port),
-  // covered by the upstreamUnitPorts ports of ProjectFileTests.
+  // they are mapped onto the project (ported from upstream ProjectFileTests
+  // in the coverage-audit wave), covered by the upstreamUnitPorts ports.
   assert.deepEqual(
     r.diagnostics.filter((d) => d.code.startsWith("YP")).map((d) => d.context).sort(),
     [

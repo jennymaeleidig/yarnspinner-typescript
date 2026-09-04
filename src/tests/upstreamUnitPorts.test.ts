@@ -23,7 +23,9 @@ function errorsOf(result: CompileResult): string[] {
   return result.diagnostics.filter((d) => d.severity === "error").map((d) => d.code);
 }
 
-/** Cross-check emitted diagnostics against the submodule's registry (ticket 06). */
+/** Cross-check emitted diagnostics against the submodule's Definitions
+ * registry (existence + defaultSeverity — the conformance policy the
+ * parseFailureValidations wave established). */
 function checkAgainstDefinitions(result: CompileResult): void {
   for (const d of result.diagnostics) {
     const def = DEFINITIONS.get(d.code);
@@ -312,6 +314,26 @@ test("port: TestProjectFilesCanSpecifyDiagnosticSeverityOverrides — four overr
   });
   const ys0003 = overridden.diagnostics.find((d) => d.code === "YS0003");
   assert.ok(ys0003, "expected YS0003 in the overridden compile");
+  assert.equal(ys0003.severity, "info");
+});
+
+test("severity overrides apply in every mode and before strict's throw decision", () => {
+  // Placement pin: the overridden severity is the final severity everywhere,
+  // so strict reacts to the overridden result — an error overridden to
+  // "none" no longer throws.
+  const dupes = "title: Start\n---\n<<declare $int = 5>>\n<<declare $int = 6>>\n===\n";
+  assert.throws(() => compileSource(dupes, { strict: true }));
+  const overridden = compileSource(dupes, { strict: true, diagnosticsSeverity: { YS0039: "none" } });
+  const ys0039 = overridden.diagnostics.find((d) => d.code === "YS0039");
+  assert.ok(ys0039, "YS0039 still present at severity none");
+  assert.equal(ys0039.severity, "none");
+  // Non-full modes honour overrides too.
+  const typeOnly = compileSource("title: Start\n---\n<<set $undeclared = 1>>\n===\n", {
+    mode: "typeCheckOnly",
+    diagnosticsSeverity: { YS0003: "info" },
+  });
+  const ys0003 = typeOnly.diagnostics.find((d) => d.code === "YS0003");
+  assert.ok(ys0003, "expected YS0003 in typeCheckOnly");
   assert.equal(ys0003.severity, "info");
 });
 

@@ -25,6 +25,7 @@
 
 import { compile, hasErrors } from "./compileSource.js";
 import type { CompileFile, CompileOptions, CompileResult } from "./compileSource.js";
+import { isDiagnosticSeverity } from "./diagnostics.js";
 import type { Diagnostic, DiagnosticSeverity } from "./diagnostics.js";
 
 // ── Diagnostics (this project's own YP registry) ──────────────────────────
@@ -482,7 +483,7 @@ export function parseYarnProject(
         const overrides: Record<string, DiagnosticSeverity> = {};
         let valid = true;
         for (const [code, severity] of Object.entries(value as Record<string, unknown>)) {
-          if (severity !== "error" && severity !== "warning" && severity !== "info" && severity !== "none") {
+          if (!isDiagnosticSeverity(severity)) {
             diagnostics.push(
               projectDiagnostic(
                 "YP0003",

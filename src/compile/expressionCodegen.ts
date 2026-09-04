@@ -178,20 +178,22 @@ class Parser {
 
   // or → and
   // Upstream's ExpAndOrXor grammar rule: and/or/xor share ONE precedence
-  // level (left-associative) — deliberately not C's two-level split. xor
-  // lowers to the VM's Xor instruction (BooleanType.MethodXor).
+  // level (left-associative) — deliberately not C's two-level split.
+  // LOCKSTEP: the type checker's ExprParser (typeCheck.ts parseOr) mirrors
+  // this rule and its operator order — change both together (one upstream
+  // grammar, two hand-rolled parsers).
   private parseOr(): Instruction[] {
     let left = this.parseEquality();
     for (;;) {
-      if (this.matchOp("or", "||")) {
-        left = [...left, ...this.parseEquality(), { op: "or" } as Instruction];
-      } else if (this.matchOp("and", "&&")) {
-        left = [...left, ...this.parseEquality(), { op: "and" } as Instruction];
-      } else if (this.matchOp("^")) {
-        left = [...left, ...this.parseEquality(), { op: "xor" } as Instruction];
-      } else {
-        return left;
-      }
+      const op: "or" | "and" | "xor" | null = this.matchOp("or", "||")
+        ? "or"
+        : this.matchOp("and", "&&")
+          ? "and"
+          : this.matchOp("^")
+            ? "xor"
+            : null;
+      if (!op) return left;
+      left = [...left, ...this.parseEquality(), { op } as Instruction];
     }
   }
 

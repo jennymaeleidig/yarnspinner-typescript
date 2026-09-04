@@ -316,6 +316,9 @@ class ExprParser {
     // Upstream's ExpAndOrXor grammar rule: and/or/xor share ONE
     // precedence level (left-associative) — deliberately not C's
     // two-level and/or split. xor maps to `^` via WORD_OPS.
+    // LOCKSTEP: the codegen parser (expressionCodegen.ts parseOr) mirrors
+    // this rule and its operator order — change both together (one
+    // upstream grammar, two hand-rolled parsers).
     let left = this.parseComparison();
     while (true) {
       const op = this.takeOp(["||", "&&", "^"]);

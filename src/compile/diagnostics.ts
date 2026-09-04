@@ -22,6 +22,16 @@ export interface YarnRange {
   endCol: number;
 }
 
+/** The severity vocabulary a project file's `diagnosticsSeverity` map may
+ * assign (upstream `DiagnosticSeverity`, including `None` = present but
+ * user-hidden). Shared with the validation guard so the union and the
+ * runtime check cannot drift apart. */
+export const DIAGNOSTIC_SEVERITIES = ["error", "warning", "info", "none"] as const;
+
+export function isDiagnosticSeverity(value: unknown): value is DiagnosticSeverity {
+  return typeof value === "string" && (DIAGNOSTIC_SEVERITIES as readonly string[]).includes(value);
+}
+
 export interface Diagnostic {
   code: string;
   severity: DiagnosticSeverity;

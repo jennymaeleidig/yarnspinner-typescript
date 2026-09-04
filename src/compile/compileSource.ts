@@ -253,7 +253,23 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
     }
   }
 
+  // Project-file severity overrides (upstream `CompilerOptions
+  // .DiagnosticsSeverity`): applied as a final pass over the collected
+  // diagnostics in EVERY mode, before the strict throw decision — the
+  // overridden severity is the final severity everywhere. `none` keeps the
+  // diagnostic in the list at severity "none" (upstream
+  // DiagnosticSeverity.None: hidden from user display, still present).
+  const applySeverityOverrides = (): void => {
+    if (opts.diagnosticsSeverity) {
+      for (const d of diagnostics) {
+        const override = opts.diagnosticsSeverity[d.code];
+        if (override) d.severity = override;
+      }
+    }
+  };
+
   if (mode === "stringsOnly") {
+    applySeverityOverrides();
     if (opts.strict) throwOnFirstError(diagnostics);
     return {
       ...empty,
@@ -268,6 +284,7 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
   const checked = typeCheck(combined, { declarations }, (d) => diagnostics.push(d));
 
   if (mode === "typeCheckOnly" || mode === "declarationsOnly") {
+    applySeverityOverrides();
     if (opts.strict) throwOnFirstError(diagnostics);
     return {
       ...empty,
@@ -295,19 +312,8 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
     diagnostics.push(makeDiagnostic("YS0005", `Internal lowering failure: ${e.message}`));
   }
 
+  applySeverityOverrides();
   if (opts.strict) throwOnFirstError(diagnostics);
-  // Project-file severity overrides (upstream `CompilerOptions
-  // .DiagnosticsSeverity`): applied as a final pass over the collected
-  // diagnostics — the observable matches upstream's at-creation override,
-  // since the map is keyed by registry code and uniform across sites.
-  // `none` keeps the diagnostic in the list at severity "none" (upstream
-  // DiagnosticSeverity.None: hidden from user display, still present).
-  if (opts.diagnosticsSeverity) {
-    for (const d of diagnostics) {
-      const override = opts.diagnosticsSeverity[d.code];
-      if (override) d.severity = override;
-    }
-  }
   return {
     program,
     stringTable: manager.stringTable,
