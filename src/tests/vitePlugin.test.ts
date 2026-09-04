@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Dialogue, type DialogueEvent } from "yarn-spinner-runner-ts";
 import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
-import { callHook, importEmitted, viteCtx } from "./pluginHarness.js";
+import { callHook, importEmitted, lineTexts, viteCtx } from "./pluginHarness.js";
 
 const DEMO = `title: Start
 ---
@@ -41,18 +41,14 @@ test("a .yarn import emits a module whose default export is a Program a Dialogue
 
     const mod = await importEmitted(code as string);
     const dialogue = new Dialogue(mod.default, { startAt: "Start" });
-    const lines = (events: DialogueEvent[]) =>
-      events
-        .filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line")
-        .map((e) => e.text);
-    strictEqual(lines(dialogue.continue())[0], "Hi");
+    strictEqual(lineTexts(dialogue.continue())[0], "Hi");
 
     const optionsEvent = dialogue
       .continue()
       .find((e): e is Extract<DialogueEvent, { type: "options" }> => e.type === "options");
     strictEqual(optionsEvent?.options.length, 2);
     dialogue.selectOption(0);
-    ok(lines(dialogue.continue()).includes("A chosen"));
+    ok(lineTexts(dialogue.continue()).includes("A chosen"));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

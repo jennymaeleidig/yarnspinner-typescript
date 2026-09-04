@@ -41,6 +41,9 @@ const _base: string = project.baseLanguage;
 const _trans: Record<string, Record<string, string>> = project.translations;
 const _assets: Record<string, string> = project.assets;
 const _diag: number = project.diagnostics.length;
+// The named load-result type: the .yarnproject default's shape, and the
+// shape a pinned .yarn import emits (client.d.ts documents the deviation).
+const _typed: YarnProjectLoadResult = project;
 `;
 
 const FIXTURE_TSCONFIG = {

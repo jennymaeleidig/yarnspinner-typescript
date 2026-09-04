@@ -17,7 +17,10 @@ import {
   loadYarnProject,
   nodeProjectFs,
 } from "yarn-spinner-runner-ts/node";
-import { loadLocalisations } from "yarn-spinner-runner-ts";
+import {
+  applySeverityOverrides,
+  loadLocalisations,
+} from "yarn-spinner-runner-ts";
 import type { DiagnosticSeverity } from "yarn-spinner-runner-ts";
 import { partitionDiagnostics, type CompileYarnOptions, type CompiledYarnModule } from "./compileModule.js";
 
@@ -33,15 +36,13 @@ export function compileYarnProjectModule(
   // diagnostics: the project file's own map first, then the plugin's
   // top-level option, then the compilerOptions passthrough (most specific
   // wins). The loader applies the project's map internally; this re-pass
-  // layers the plugin's values over it.
+  // layers the plugin's values over it — through the same shared pass the
+  // core uses, so the precedence contract has one implementation.
   const severity: Record<string, DiagnosticSeverity> = {
     ...project?.compilerOptions?.diagnosticsSeverity,
     ...opts.diagnosticsSeverity,
   };
-  for (const d of diagnostics) {
-    const override = severity[d.code];
-    if (override) d.severity = override;
-  }
+  applySeverityOverrides(diagnostics, severity);
   const localisation = loadLocalisations({ project, stringTable }, nodeProjectFs(dirname(projectFilePath)));
   const { errors, warnings } = partitionDiagnostics([...diagnostics, ...localisation.diagnostics]);
   const code =
@@ -49,7 +50,10 @@ export function compileYarnProjectModule(
     `export default ${JSON.stringify({
       program,
       projectName: project?.projectName,
-      baseLanguage: project?.baseLanguage ?? "en",
+      // `baseLanguage` is a required project field (YP0003 fails the build
+      // when absent), so no default is invented here: a load that reaches
+      // the emitted module always had the field.
+      baseLanguage: project?.baseLanguage,
       baseTable: localisation.baseTable,
       translations: localisation.translations,
       assets: localisation.assets,

@@ -25,6 +25,8 @@ const dialogue = new Dialogue(program, { startAt: "Start" });
 - **`.yarn` import** — default export is the compiled
   [Program](https://github.com/oleksii-chekhovskyi/yarn-spinner-runner-ts);
   named exports `stringTable`, `containsImplicitStringTags`, `fileTags`.
+  (With the `project` option pinned, the default is the full project load
+  result instead — see docs/direct-import.md.)
 - **`.yarn?raw`** — the raw source string.
 - **`.yarnproject` import** — the full load result: `program`, project
   metadata, base/translated string tables, assets — shaped for

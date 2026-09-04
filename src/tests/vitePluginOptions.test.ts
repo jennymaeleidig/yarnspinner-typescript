@@ -6,7 +6,7 @@
 // plugin's map over the project file's own, and include/exclude filters
 // layer over extension matching.
 import { test } from "node:test";
-import { ok, strictEqual } from "node:assert";
+import { ok, strictEqual, throws } from "node:assert";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
@@ -103,6 +103,35 @@ test(".ysls.json file definitions behave identically to inline objects", async (
     const fromFile = yarnSpinnerVitePlugin({ definitions: [join(dir, "Commands.ysls.json")] });
     const good = await callHook(fromFile.load, viteCtx(), join(dir, "story.yarn"));
     ok(typeof good === "string", "file definitions pass signature checking like inline ones");
+  } finally {
+    cleanup();
+  }
+});
+
+test("a malformed .ysls.json fails plugin creation naming the file, not a raw SyntaxError", () => {
+  const [dir, cleanup] = fixture({ "Commands.ysls.json": "{ not json" });
+  try {
+    throws(
+      () => yarnSpinnerVitePlugin({ definitions: [join(dir, "Commands.ysls.json")] }),
+      /Commands\.ysls\.json/,
+      "the error identifies the definitions file",
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test("an unreadable pinned project fails the load naming the file", async () => {
+  const [dir, cleanup] = fixture({ "story.yarn": STORY });
+  try {
+    const pinned = yarnSpinnerVitePlugin({ project: join(dir, "missing.yarnproject") });
+    const err = (await (
+      callHook(pinned.load, viteCtx(), join(dir, "story.yarn")) as Promise<unknown>
+    ).then(
+      () => null,
+      (e: { message?: string } | undefined) => e,
+    )) as { message?: string } | null;
+    ok(err && (err.message ?? "").includes("missing.yarnproject"), `error names the file, got ${JSON.stringify(err)}`);
   } finally {
     cleanup();
   }

@@ -36,7 +36,7 @@ export const LITERAL_OPS: ReadonlySet<Instruction["op"]> = new Set(["pushString"
  * other expression bytecode the runtime executes as a slice). Stated here
  * — beside the emitter — so the runtime's bytecode-slice runner gates on
  * an import instead of a hand-copied set that silently lags the codegen
- * (deepening-wave-3 ticket 02; formerly the VM's INITIALIZER_OPS). */
+ * (formerly the VM's INITIALIZER_OPS). */
 export const EXPRESSION_OPS: ReadonlySet<Instruction["op"]> = new Set([
   ...LITERAL_OPS,
   "pushVariable",

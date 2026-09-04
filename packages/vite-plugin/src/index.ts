@@ -7,14 +7,24 @@
 
 import type { Plugin } from "vite";
 import { readFile } from "node:fs/promises";
+import { dirname, isAbsolute, join } from "node:path";
 import { compileYarnModule, type CompiledYarnModule } from "./compileModule.js";
 import { compileYarnProjectModule } from "./compileProjectModule.js";
 import { toDeclarations, type YslsDefinitions } from "./definitions.js";
 import type { Diagnostic, DiagnosticSeverity } from "yarn-spinner-runner-ts";
 
+// The generic-loader seam, made reachable: the compile steps are pure and
+// bundler-agnostic (no Vite types cross their modules), so the documented
+// webpack-loader contract is importable from this package's main entry —
+// a loader author calls the same functions the plugin's load hook calls,
+// instead of reaching past the exports map (which blocks deep imports).
+export { compileYarnModule, compileYarnProjectModule };
+export type { CompiledYarnModule, CompileYarnOptions } from "./compileModule.js";
+
 const YARN_FILE = /\.yarn$/;
 const PROJECT_FILE = /\.yarnproject$/;
-const CONTENT_FILE = /\.yarn(project)?$/;
+/** A content id of either kind: a .yarn story or a .yarnproject. */
+const ANY_YARN_FILE = /\.yarn(project)?$/;
 
 export interface YarnSpinnerVitePluginOptions {
   /**
@@ -103,20 +113,72 @@ function splitQuery(id: string): { file: string; query: string } {
 }
 
 /**
+ * The build-surface error shape (RollupError-ish): a message, the imported
+ * id, a 1-based line / 0-based column location, and a frame quoting the
+ * offending source line with a caret under the column. Hosts catching a
+ * failed load get this shape; `loc`/`frame` are absent when there is no
+ * meaningful location (e.g. a file that could not be read at all).
+ */
+export interface YarnBuildError {
+  message: string;
+  id: string;
+  loc?: { file: string; line: number; column: number };
+  frame?: string;
+}
+
+/**
  * Shape a diagnostic as a RollupError: id, 1-based line / 0-based column
  * location, and a frame quoting the offending source line with a caret
- * under the column — clickable in the terminal and the Vite overlay.
+ * under the column — clickable in the terminal and the Vite overlay. The
+ * diagnostic's own file wins over the imported id (a project-path error
+ * points into the .yarn source that caused it), and the quoted line is
+ * read from that file when the diagnostic carries no context of its own.
+ * Project loads report source paths relative to the .yarnproject, so the
+ * read resolves against `baseDir` — the compilation entry's directory —
+ * making the frame quote the file the loc actually points into.
  */
-function asBuildError(d: Diagnostic, id: string, source: string): object {
+async function asBuildError(
+  d: Diagnostic,
+  id: string,
+  source: string,
+  baseDir: string,
+): Promise<YarnBuildError> {
   const line = (d.range?.startLine ?? 0) + 1;
   const column = d.range?.startCol ?? 0;
-  const context = d.context ?? source.split("\n")[line - 1] ?? "";
+  const file = d.file ?? id;
+  let context = d.context;
+  if (context === undefined) {
+    const text =
+      file === id
+        ? source
+        : await readFile(isAbsolute(file) ? file : join(baseDir, file), "utf8").catch(() => "");
+    context = text.split("\n")[line - 1] ?? "";
+  }
   return {
     message: `${d.code}: ${d.message}`,
     id,
-    loc: { file: id, line, column },
+    loc: { file, line, column },
     frame: `${context}\n${" ".repeat(Math.max(0, column))}^`,
   };
+}
+
+/** An unreadable compilation file as a build error: the failure names the
+ *  file instead of vanishing into an empty frame (a project the plugin
+ *  cannot read must fail the build with its path, not compile as if empty). */
+function fileReadError(file: string, cause: unknown): YarnBuildError {
+  return {
+    message: `Cannot read ${file}: ${cause instanceof Error ? cause.message : String(cause)}`,
+    id: file,
+  };
+}
+
+/** A warning's build-surface text: code, message, and where it points —
+ *  the file whenever it is known, file:line:column when a range rides
+ *  along. */
+function asWarning(d: Diagnostic, id: string): string {
+  const file = d.file ?? id;
+  if (d.range === undefined) return `${d.code}: ${d.message} (${file})`;
+  return `${d.code}: ${d.message} (${file}:${d.range.startLine + 1}:${d.range.startCol})`;
 }
 
 export function yarnSpinnerVitePlugin(
@@ -132,6 +194,9 @@ export function yarnSpinnerVitePlugin(
   // (.ysls.json files are read here, Node side).
   const declarations = opts.definitions ? toDeclarations(opts.definitions) : undefined;
 
+  // Both compile steps take the same derived options — derived once here.
+  const compileOpts = { diagnosticsSeverity, declarations };
+
   // Extension matching first (in load), then the include/exclude layer.
   const filtered = (file: string): boolean => {
     if (matchesAny(opts.exclude, file)) return false;
@@ -139,14 +204,19 @@ export function yarnSpinnerVitePlugin(
     return true;
   };
 
-  const settle = (
+  // Surface the compile outcome: warnings to the sink (with location), the
+  // first error as a build failure, otherwise the emitted module code.
+  const emitModule = async (
     compiled: CompiledYarnModule,
     id: string,
     source: string,
+    baseDir: string,
     warn: (msg: string) => void,
-  ): string => {
-    for (const w of compiled.warnings) warn(`${w.code}: ${w.message}`);
-    if (compiled.errors.length > 0) throw asBuildError(compiled.errors[0], id, source);
+  ): Promise<string> => {
+    for (const w of compiled.warnings) warn(asWarning(w, id));
+    if (compiled.errors.length > 0) {
+      throw await asBuildError(compiled.errors[0], id, source, baseDir);
+    }
     return compiled.code;
   };
 
@@ -155,7 +225,7 @@ export function yarnSpinnerVitePlugin(
     enforce: "pre",
     async load(id) {
       const { file, query } = splitQuery(id);
-      if (!PROJECT_FILE.test(file) && !YARN_FILE.test(file)) return;
+      if (!ANY_YARN_FILE.test(file)) return;
       if (query === "raw") return `export default ${JSON.stringify(await readFile(file, "utf8"))};`;
       if (query !== "") return;
       if (!filtered(file)) return;
@@ -163,29 +233,27 @@ export function yarnSpinnerVitePlugin(
         // The .yarnproject itself, or a .yarn import pinned to a project:
         // the project compiles as one job and the module emits its result.
         const projectFile = opts.project ?? file;
-        return settle(
-          compileYarnProjectModule(projectFile, {
-            diagnosticsSeverity,
-            declarations,
-          }),
+        return emitModule(
+          compileYarnProjectModule(projectFile, compileOpts),
           id,
-          await readFile(projectFile, "utf8").catch(() => ""),
+          await readFile(projectFile, "utf8").catch((e: unknown) => {
+            throw fileReadError(projectFile, e);
+          }),
+          dirname(projectFile),
           (m) => this.warn(m),
         );
       }
       const source = await readFile(file, "utf8");
-      return settle(
-        compileYarnModule(source, file, {
-          diagnosticsSeverity,
-          declarations,
-        }),
+      return emitModule(
+        compileYarnModule(source, file, compileOpts),
         id,
         source,
+        dirname(file),
         (m) => this.warn(m),
       );
     },
     handleHotUpdate(ctx) {
-      if (!CONTENT_FILE.test(ctx.file)) return;
+      if (!ANY_YARN_FILE.test(ctx.file)) return;
       ctx.server.ws.send({ type: "full-reload" });
       return [];
     },

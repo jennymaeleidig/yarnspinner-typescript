@@ -40,7 +40,7 @@ import type { YarnDocument, YarnNode, Statement } from "../model/ast.js";
 import { walkStatements } from "../model/walk.js";
 import { compileDocument, LoweringError } from "./compiler.js";
 import type { Program } from "./program.js";
-import { makeDiagnostic, hasErrors } from "./diagnostics.js";
+import { applySeverityOverrides, makeDiagnostic, hasErrors } from "./diagnostics.js";
 import type { Diagnostic, DiagnosticSeverity, YarnRange } from "./diagnostics.js";
 import { typeCheck } from "./typeCheck.js";
 import type { ExternalDeclarations, VariableDeclaration } from "./typeCheck.js";
@@ -227,18 +227,13 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
   // overridden severity is the final severity everywhere. `none` keeps the
   // diagnostic in the list at severity "none" (upstream
   // DiagnosticSeverity.None: hidden from user display, still present).
-  const applySeverityOverrides = (): void => {
-    if (opts.diagnosticsSeverity) {
-      for (const d of diagnostics) {
-        const override = opts.diagnosticsSeverity[d.code];
-        if (override) d.severity = override;
-      }
-    }
-  };
+  // The shared pass (diagnostics.ts) is called directly, so the plugin
+  // package's compile steps layer their maps over exactly the same
+  // implementation.
 
   const empty = emptyCompileResult(diagnostics);
   if (docs.length === 0) {
-    applySeverityOverrides();
+    applySeverityOverrides(diagnostics, opts.diagnosticsSeverity);
     if (opts.strict) throwOnFirstError(diagnostics);
     return empty;
   }
@@ -285,7 +280,7 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
   }
 
   if (mode === "stringsOnly") {
-    applySeverityOverrides();
+    applySeverityOverrides(diagnostics, opts.diagnosticsSeverity);
     if (opts.strict) throwOnFirstError(diagnostics);
     return {
       ...empty,
@@ -300,7 +295,7 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
   const checked = typeCheck(combined, { declarations }, (d) => diagnostics.push(d));
 
   if (mode === "typeCheckOnly" || mode === "declarationsOnly") {
-    applySeverityOverrides();
+    applySeverityOverrides(diagnostics, opts.diagnosticsSeverity);
     if (opts.strict) throwOnFirstError(diagnostics);
     return {
       ...empty,
@@ -328,7 +323,7 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
     diagnostics.push(makeDiagnostic("YS0005", `Internal lowering failure: ${e.message}`));
   }
 
-  applySeverityOverrides();
+  applySeverityOverrides(diagnostics, opts.diagnosticsSeverity);
   if (opts.strict) throwOnFirstError(diagnostics);
   return {
     program,

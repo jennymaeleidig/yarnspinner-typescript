@@ -49,6 +49,25 @@ function toSignature(entry: YslsEntry, hasReturn: boolean): FunctionSignature {
 }
 
 /**
+ * Read one .ysls.json file into the definitions shape. A missing or malformed
+ * file is an error naming the file — the plugin's error contract — instead of
+ * JSON.parse's raw SyntaxError (which never mentions what it was parsing).
+ */
+function readYslsFile(path: string): YslsDefinitions {
+  let text: string;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch (e) {
+    throw new Error(`Cannot read definitions file ${path}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  try {
+    return JSON.parse(text) as YslsDefinitions;
+  } catch (e) {
+    throw new Error(`${path} is not valid JSON: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/**
  * Derive external declarations from a definitions list: strings are
  * .ysls.json file paths (read here, Node side), objects are the same shape
  * inline. All entries merge into one functions map — later entries win.
@@ -57,9 +76,7 @@ export function toDeclarations(definitions: Array<string | YslsDefinitions>): Ex
   const functions: Record<string, FunctionSignature> = {};
   for (const definition of definitions) {
     const ysls: YslsDefinitions =
-      typeof definition === "string"
-        ? (JSON.parse(readFileSync(definition, "utf8")) as YslsDefinitions)
-        : definition;
+      typeof definition === "string" ? readYslsFile(definition) : definition;
     for (const command of ysls.commands ?? []) functions[command.yarnName] = toSignature(command, false);
     for (const fn of ysls.functions ?? []) functions[fn.yarnName] = toSignature(fn, true);
   }

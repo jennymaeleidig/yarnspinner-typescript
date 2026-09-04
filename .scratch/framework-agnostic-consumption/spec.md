@@ -58,7 +58,7 @@ The package root becomes React-free; React ships behind a `./react` subpath with
 
 **`.yarnproject` import contract:** resolves to the full project-load result — compiled program, per-locale string tables, localisation metadata, diagnostics — shaped for the project text-provider factory. The plugin performs all file access (source globs, strings CSVs) at build time on the Node side; browser hosts never touch the `YarnProjectFileSystem` seam, which remains the SSR hosts' mechanism.
 
-**Query handling:** the plugin compiles real file ids in place (the mdx/svelte/svgr pattern); `virtual:` ids with the `\0` convention are for internal glue only. Requests whose query is `raw`, `url`, `inline`, or `no-inline` bail so Vite core owns them — `?raw` is the sanctioned source-string hatch.
+**Query handling:** the plugin compiles real file ids in place (the mdx/svelte/svgr pattern); `virtual:` ids with the `\0` convention are for internal glue only. `?raw` is the sanctioned source-string hatch, and the plugin owns it: it returns the exact source string as a module itself (implementation deviation from the original bail-to-Vite plan, recorded in ticket 03 — same emitted shape either way). Requests whose query is `url`, `inline`, `no-inline`, or any other query bail so Vite core owns them.
 
 **Diagnostics transport:** error-severity diagnostics fail the build, thrown RollupError-shaped with id, location, and source frame (the vite-plugin-svelte model); warnings log with location and plugin code. The project file's severity map is honored. This is a deliberate divergence from Unity's always-emit-an-asset rule — a bundler has no asset references to preserve — and matches `ysc`'s exit-nonzero semantics.
 

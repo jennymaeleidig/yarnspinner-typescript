@@ -8,9 +8,9 @@ import { deepStrictEqual, ok, strictEqual } from "node:assert";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Dialogue, type DialogueEvent } from "yarn-spinner-runner-ts";
+import { Dialogue } from "yarn-spinner-runner-ts";
 import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
-import { callHook, importEmitted } from "./pluginHarness.js";
+import { callHook, importEmitted, lineTexts } from "./pluginHarness.js";
 
 const STORY = `# title_tag
 
@@ -44,9 +44,7 @@ test("the emitted module carries the named exports beside the default Program", 
     const code = await callHook(plugin.load, { warn: () => {} }, file);
     const mod = await importEmitted(code as string);
     const dialogue = new Dialogue(mod.default, { startAt: "Start" });
-    const lines = (events: DialogueEvent[]) =>
-      events.filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line").map((e) => e.text);
-    strictEqual(lines(dialogue.continue())[0], "Hi");
+    strictEqual(lineTexts(dialogue.continue())[0], "Hi");
 
     ok(mod.stringTable && typeof mod.stringTable === "object", "stringTable named export");
     // "Narrator: Hi" carries no #line: tag — the compiler assigned its ID.
@@ -112,6 +110,10 @@ test("a warning-severity diagnostic is surfaced without failing the load", async
     ok(
       warnings.some((w) => String(w).includes("YS0012")),
       `warning surfaced, got ${JSON.stringify(warnings)}`,
+    );
+    ok(
+      warnings.some((w) => String(w).includes("warny.yarn")),
+      `warning carries its file location, got ${JSON.stringify(warnings)}`,
     );
   } finally {
     cleanup();

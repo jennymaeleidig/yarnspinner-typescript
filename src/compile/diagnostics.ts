@@ -118,3 +118,23 @@ export function makeDiagnostic(
 export function hasErrors(diagnostics: Diagnostic[]): boolean {
   return diagnostics.some((d) => d.severity === "error");
 }
+
+/**
+ * Apply per-code severity overrides as one final pass over the collected
+ * diagnostics — the overridden severity is the final severity everywhere
+ * (upstream `CompilerOptions.DiagnosticsSeverity`; `none` keeps the
+ * diagnostic present but user-hidden). One implementation for every compile
+ * path: the core's own modes and the plugin package's project compile step
+ * layer their maps over this, so the severity-precedence contract cannot
+ * drift between them.
+ */
+export function applySeverityOverrides(
+  diagnostics: Diagnostic[],
+  severityMap: Record<string, DiagnosticSeverity> | undefined,
+): void {
+  if (!severityMap) return;
+  for (const d of diagnostics) {
+    const override = severityMap[d.code];
+    if (override) d.severity = override;
+  }
+}

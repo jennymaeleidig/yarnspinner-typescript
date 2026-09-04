@@ -5,10 +5,10 @@
 // localised dialogue with no runtime file access.
 import { test } from "node:test";
 import { deepStrictEqual, ok, strictEqual } from "node:assert";
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Dialogue, type DialogueEvent } from "yarn-spinner-runner-ts";
+import { Dialogue } from "yarn-spinner-runner-ts";
 import {
   compileSource,
   createProjectTextProvider,
@@ -16,17 +16,11 @@ import {
   stringTableToEntries,
 } from "yarn-spinner-runner-ts";
 import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
-import { callHook, importEmitted } from "./pluginHarness.js";
+import { callHook, firstLine, importEmitted } from "./pluginHarness.js";
 
 const STORY = `title: Start\n---\nMae: Gold {$gold}. #line:gold\n<<set $gold to 5>>\nTake it #line:take\n===\n`;
 
 const plugin = yarnSpinnerVitePlugin();
-
-const firstLine = (events: DialogueEvent[]): string => {
-  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
-  ok(line, "expected a line event");
-  return line.text;
-};
 
 /** A temp project: story.yarn + German.csv + project.yarnproject; returns [projectPath, cleanup]. */
 const projectFixture = (): [string, () => void] => {
@@ -126,10 +120,72 @@ test("an error-severity diagnostic inside a project source fails the load", asyn
     const projectPath = join(dir, "project.yarnproject");
     const err = (await (callHook(plugin.load, { warn: () => {} }, projectPath) as Promise<unknown>).then(
       () => null,
-      (e: { message: string; id?: string; loc?: { line?: number; column?: number }; frame?: string }) => e,
-    )) as { message: string; id?: string; loc?: { line?: number; column?: number }; frame?: string };
+      (e: { message: string; id?: string; loc?: { file?: string; line?: number; column?: number }; frame?: string }) => e,
+    )) as { message: string; id?: string; loc?: { file?: string; line?: number; column?: number }; frame?: string };
     ok(err && err.message.includes("YS"), `fails with a compiler diagnostic, got ${JSON.stringify(err)}`);
     strictEqual(err.id, projectPath);
+    // The diagnostic's own file wins: the loc points into the .yarn source
+    // that caused the failure, not the .yarnproject JSON that was imported.
+    ok(err.loc?.file?.endsWith("broken.yarn"), `loc points into the source, got ${JSON.stringify(err.loc)}`);
+    ok(!err.frame?.includes("projectFileVersion"), `frame quotes the source line, got ${JSON.stringify(err.frame)}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a pinned import whose error is in a .yarn source quotes that source", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "yarn-pin-frame-"));
+  try {
+    writeFileSync(join(dir, "broken.yarn"), "title: Start\n===\n");
+    writeFileSync(
+      join(dir, "project.yarnproject"),
+      JSON.stringify({ projectFileVersion: 4, sourceFiles: ["**/*.yarn"], baseLanguage: "en" }),
+    );
+    const pinned = yarnSpinnerVitePlugin({ project: join(dir, "project.yarnproject") });
+    const err = (await (
+      callHook(pinned.load, { warn: () => {} }, join(dir, "broken.yarn")) as Promise<unknown>
+    ).then(
+      () => null,
+      (e: { message: string; loc?: { file?: string; line?: number; column?: number }; frame?: string }) => e,
+    )) as { message: string; loc?: { file?: string; line?: number; column?: number }; frame?: string } | null;
+    ok(err && err.message.includes("YS"), `fails with a compiler diagnostic, got ${JSON.stringify(err)}`);
+    // The loc points into the .yarn source (project loads report source
+    // paths relative to the .yarnproject), and the frame quotes THAT file
+    // at the loc's line — not the pinned project JSON the import went through.
+    ok(err.loc?.file?.endsWith("broken.yarn"), `loc points into the source, got ${JSON.stringify(err.loc)}`);
+    const frameLines = (err.frame ?? "").split("\n");
+    const quoted = frameLines[0] ?? "";
+    const sourceLines = readFileSync(join(dir, "broken.yarn"), "utf8").split("\n");
+    strictEqual(quoted, sourceLines[(err.loc?.line ?? 0) - 1], "frame quotes the loc's line from the .yarn source");
+    ok(frameLines[1]?.includes("^"), `caret rides under the column, got ${JSON.stringify(err.frame)}`);
+    ok(!err.frame?.includes("projectFileVersion"), "the project JSON is not quoted");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a YP-level error quotes the project JSON", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "yarn-yp-frame-"));
+  try {
+    writeFileSync(join(dir, "story.yarn"), "title: Start\n---\nHi\n===\n");
+    // Valid JSON, missing the required `baseLanguage`: a YP0003 error whose
+    // loc is the project file itself.
+    writeFileSync(
+      join(dir, "project.yarnproject"),
+      JSON.stringify({ projectFileVersion: 4, sourceFiles: ["**/*.yarn"] }),
+    );
+    const pinned = yarnSpinnerVitePlugin({ project: join(dir, "project.yarnproject") });
+    const err = (await (
+      callHook(pinned.load, { warn: () => {} }, join(dir, "story.yarn")) as Promise<unknown>
+    ).then(
+      () => null,
+      (e: { message: string; loc?: { file?: string; line?: number }; frame?: string }) => e,
+    )) as { message: string; loc?: { file?: string; line?: number }; frame?: string } | null;
+    ok(err && err.message.includes("YP"), `fails with a project diagnostic, got ${JSON.stringify(err)}`);
+    ok(err.loc?.file?.endsWith("project.yarnproject"), `loc is the project file, got ${JSON.stringify(err.loc)}`);
+    // The frame quotes the project JSON at the loc's line (here: line 1).
+    const quoted = (err.frame ?? "").split("\n")[0] ?? "";
+    strictEqual(quoted, readFileSync(join(dir, "project.yarnproject"), "utf8").split("\n")[0]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
