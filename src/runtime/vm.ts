@@ -49,7 +49,8 @@
  */
 
 import type { Instruction, Program, ProgramNode } from "../compile/program.js";
-import { compileExpression } from "../compile/expressionCodegen.js";
+import { compileExpression, EXPRESSION_OPS, LITERAL_OPS } from "../compile/expressionCodegen.js";
+import { ForeignOpError, UnbalancedStackError, runBytecode, type BytecodeEnv } from "./bytecode.js";
 import type { MarkupParseResult } from "../markup/types.js";
 import {
   defaultStartNodeName,
@@ -95,43 +96,15 @@ type ReturnFrame = { title: string; ip: number; nodeIndex: number };
 /** An option accumulated by `addOption`, awaiting delivery by `showOptions`. */
 type AccumulatedOption = { text: string; tags?: string[]; destination: number; isAvailable: boolean };
 
-/** The literal-push ops: infallible, so they are not stack *producers* in the failure sense. */
-const LITERAL_OPS: ReadonlySet<Instruction["op"]> = new Set(["pushString", "pushNumber", "pushBool", "pushNull"]);
-
-/**
- * Ops allowed in compiled initializers (`initialValues` / smart variables):
- * exactly the expression subset the front end emits for them.
- */
-const INITIALIZER_OPS: ReadonlySet<Instruction["op"]> = new Set([
-  ...LITERAL_OPS,
-  "pushVariable",
-  "callFunction",
-  "add",
-  "subtract",
-  "multiply",
-  "divide",
-  "modulo",
-  "negate",
-  "equalTo",
-  "notEqualTo",
-  "lessThan",
-  "greaterThan",
-  "lessThanOrEqualTo",
-  "greaterThanOrEqualTo",
-  "and",
-  "or",
-  "xor",
-  "not",
-]);
-
 /** Ops whose execution leaves the operand stack one value richer; on a
  * caught failure the VM pushes `null` so the stream stays balanced.
- */
-const STACK_PRODUCERS: ReadonlySet<Instruction["op"]> = new Set(
-  ([...INITIALIZER_OPS, "selectSaliencyCandidate"] as Instruction["op"][]).filter(
-    (op) => !LITERAL_OPS.has(op),
-  ),
-);
+ * Derived from the emitter's declared expression subset (imported from
+ * `expressionCodegen.ts` — the classification's single home) plus the one
+ * non-expression producer the main loop executes. */
+const STACK_PRODUCERS: ReadonlySet<Instruction["op"]> = new Set([
+  ...[...EXPRESSION_OPS].filter((op) => !LITERAL_OPS.has(op)),
+  "selectSaliencyCandidate",
+]);
 
 export class VirtualMachine {
   private readonly program: Program;
@@ -877,21 +850,18 @@ export class VirtualMachine {
       this.conditionCode.set(expression, code);
     }
     if (!code) return this.evaluator.evaluate(expression);
-    const saved = this.stack.splice(0, this.stack.length);
+    // The slice runner owns the stack save/restore; the condition path's
+    // failure policy stays here: a foreign op (an expression whose compiled
+    // form outlived its semantics) falls back to the string evaluator, any
+    // other failure is a contained diagnostic → false.
     try {
-      for (const ins of code) {
-        if (!INITIALIZER_OPS.has(ins.op)) return this.evaluator.evaluate(expression);
-        this.executeStackOp(ins);
-      }
-      return Boolean(this.stack.pop());
+      return Boolean(runBytecode(code, this.sliceEnv()));
     } catch (e) {
+      if (e instanceof ForeignOpError) return this.evaluator.evaluate(expression);
       this.logError(
         `Failed to evaluate saliency condition "${expression}": ${e instanceof Error ? e.message : String(e)}`,
       );
       return false;
-    } finally {
-      this.stack.length = 0;
-      this.stack.push(...saved);
     }
   }
 
@@ -1129,29 +1099,30 @@ export class VirtualMachine {
 
   /**
    * Run an initializer (an `initialValues` or smart-variable program — the
-   * expression subset) and return the value it leaves. Errors propagate:
-   * the constructor reports them for `initialValues`; a smart variable's
-   * failure surfaces through its reader (the evaluator's condition/
-   * interpolation contracts).
+   * expression subset) and return the value it leaves. The slice runner
+   * owns the stack and the failure modes; this call site adds the
+   * initializer's name context and lets errors propagate: the constructor
+   * reports them for `initialValues`; a smart variable's failure surfaces
+   * through its reader (the evaluator's condition/interpolation
+   * contracts).
    */
   private evaluateInitializer(code: Instruction[], name: string): unknown {
-    const saved = this.stack.splice(0, this.stack.length);
     try {
-      for (const ins of code) {
-        if (!INITIALIZER_OPS.has(ins.op)) {
-          throw new Error(`Instruction "${ins.op}" is not valid in the initializer of "${name}"`);
-        }
-        this.executeStackOp(ins);
+      return runBytecode(code, this.sliceEnv());
+    } catch (e) {
+      if (e instanceof ForeignOpError) {
+        throw new Error(`Instruction "${e.op}" is not valid in the initializer of "${name}"`);
       }
-      const value = this.stack.pop();
-      if (this.stack.length > 0 || value === undefined) {
+      if (e instanceof UnbalancedStackError) {
         throw new Error(`Initializer for "${name}" left the operand stack unbalanced`);
       }
-      return value;
-    } finally {
-      this.stack.length = 0;
-      this.stack.push(...saved);
+      throw e;
     }
+  }
+
+  /** The slice-runner environment over this VM's stack and op executor. */
+  private sliceEnv(): BytecodeEnv {
+    return { stack: this.stack, executeOp: (ins) => this.executeStackOp(ins) };
   }
 
   // ── Text resolution ───────────────────────────────────────────────

@@ -1,7 +1,7 @@
 # Ticket 02 — One bytecode-slice runner inside the VM; op classes move beside their emitter
 
 Type: task
-Status: open
+Status: resolved
 
 ## Question
 
@@ -30,3 +30,14 @@ silently lag `expressionCodegen.ts`.
 
 - New `runBytecode` test table (module-tier): every initializer-subset op executes; a foreign op throws the typed error; unbalanced stack throws; errors propagate with the saved stack restored.
 - Existing pins unchanged: condition fallback (uncompilable `when:` → string evaluator → false), initializer failure surfacing, stack balance on caught main-loop failures.
+
+## Answer
+
+Landed as designed, with two refinements recorded:
+
+- **Module**: `src/runtime/bytecode.ts` — `runBytecode(code, env) → unknown` over `BytecodeEnv = { stack, executeOp }`; typed errors `ForeignOpError` (names the op) and `UnbalancedStackError`; the caller's stack is restored on every exit path (finally). No options knob — the string evaluator stays out of the runner's interface.
+- **Op classes**: `LITERAL_OPS` and the subset moved beside the emitter and renamed `EXPRESSION_OPS` (the old `INITIALIZER_OPS` name was condition-slice-wrong anyway); `vm.ts` imports both. **Refinement on STACK_PRODUCERS**: it stays derived *in* `vm.ts`, not beside the emitter — its `selectSaliencyCandidate` member is a main-loop op the emitter never emits, so the set is main-loop rebalancing policy ("which ops get the null rebalance"), derived from the imported expression subset plus that one op. The grilled recommendation moved it wholesale; reading the code showed its home is the driver.
+- **Call sites**: `evaluateConditionExpression` catches `ForeignOpError` → string-evaluator fallback (exactly the old behavior, stack restore now owned by the runner); other failures → `logError` + false. `evaluateInitializer` catches the typed errors and rethrows with the initializer's name context (the exact historical messages — no pins, but the constructor/reporting contract is preserved) and lets them propagate.
+- **Two pathological-path tightenings, recorded**: the condition slice now also runs the balanced-stack guard (old code popped blindly). Both paths' code comes from `compileExpression`, which always leaves exactly one value, so the guard is unreachable today; if it ever fired, the condition path logs a diagnostic instead of silently `Boolean`-popping — an improvement on an unreachable path, not a behavior change on a reachable one.
+
+New `runBytecode.test.ts` (6 pins: emitter-gate structural pin, end-to-end arithmetic with stack restore, foreign op naming + restore, unbalanced/empty + restore, propagating failure + restore). Suite 612 (611 pass, 1 mirrored skip), lint clean, ts-check clean, demo build green.

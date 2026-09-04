@@ -28,6 +28,37 @@ import type { Instruction } from "./program.js";
 /** Raised when an expression cannot be compiled to bytecode. */
 export class ExpressionCodegenError extends Error {}
 
+/** The literal-push ops: infallible, so they are not stack *producers* in the failure sense. */
+export const LITERAL_OPS: ReadonlySet<Instruction["op"]> = new Set(["pushString", "pushNumber", "pushBool", "pushNull"]);
+
+/** Ops the codegen may emit for an expression slice: exactly the subset
+ * this emitter produces (for `when:` conditions, initializers, and any
+ * other expression bytecode the runtime executes as a slice). Stated here
+ * — beside the emitter — so the runtime's bytecode-slice runner gates on
+ * an import instead of a hand-copied set that silently lags the codegen
+ * (deepening-wave-3 ticket 02; formerly the VM's INITIALIZER_OPS). */
+export const EXPRESSION_OPS: ReadonlySet<Instruction["op"]> = new Set([
+  ...LITERAL_OPS,
+  "pushVariable",
+  "callFunction",
+  "add",
+  "subtract",
+  "multiply",
+  "divide",
+  "modulo",
+  "negate",
+  "equalTo",
+  "notEqualTo",
+  "lessThan",
+  "greaterThan",
+  "lessThanOrEqualTo",
+  "greaterThanOrEqualTo",
+  "and",
+  "or",
+  "xor",
+  "not",
+]);
+
 /** Enum table for member-access folding: enum name → case name → raw value. */
 export type EnumTable = Record<string, Record<string, number | string>>;
 
