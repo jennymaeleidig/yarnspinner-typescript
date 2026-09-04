@@ -142,7 +142,20 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
   const docs: Array<{ name: string; doc: YarnDocument }> = [];
   for (const file of files) {
     try {
-      const doc = parseYarn(file.source);
+      // Recovered (non-fatal) parse errors: upstream's ANTLR listener
+      // reports, recovers, and keeps going, so one file can yield several
+      // syntax diagnostics. Collected here and surfaced as codeless
+      // YS0005-wrapped diagnostics, matching the seam's wrap below.
+      const recovered: ParseError[] = [];
+      const doc = parseYarn(file.source, { onRecoveredError: (e) => recovered.push(e) });
+      for (const e of recovered) {
+        diagnostics.push(
+          makeDiagnostic(e.code ?? "YS0005", e.code ? e.message : `Syntax error: ${e.message}`, {
+            file: file.name,
+            range: e.range as YarnRange | undefined,
+          }),
+        );
+      }
       for (const node of doc.nodes) node.sourceFile = file.name;
       // Soft parser findings: YS0019/YS0020/YS0022 ride the
       // document, not an exception — the parse itself succeeded.
@@ -312,7 +325,15 @@ function validate(doc: YarnDocument, diagnostics: Diagnostic[]): void {
       );
     }
     if (node.body.length === 0) {
-      diagnostics.push(makeDiagnostic("YS0033", `Node "${node.title}" is empty`, { file: node.sourceFile }));
+      // Message sourced from the submodule's Definitions registry template
+      // (YS0033-EmptyNode.md).
+      diagnostics.push(
+        makeDiagnostic(
+          "YS0033",
+          `Node "${node.title}" is empty and will not be included in the compiled output.`,
+          { file: node.sourceFile },
+        ),
+      );
     }
     // YS0027: node titles and subtitles can only contain
     // letters, numbers, and underscores — one diagnostic per invalid

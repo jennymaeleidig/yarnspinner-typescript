@@ -313,18 +313,12 @@ class ExprParser {
   }
 
   private parseOr(): ExprNode {
-    let left = this.parseAnd();
-    while (true) {
-      const op = this.takeOp(["||"]);
-      if (!op) return left;
-      left = { kind: "bin", op, left, right: this.parseAnd() };
-    }
-  }
-
-  private parseAnd(): ExprNode {
+    // Upstream's ExpAndOrXor grammar rule: and/or/xor share ONE
+    // precedence level (left-associative) — deliberately not C's
+    // two-level and/or split. xor maps to `^` via WORD_OPS.
     let left = this.parseComparison();
     while (true) {
-      const op = this.takeOp(["&&"]);
+      const op = this.takeOp(["||", "&&", "^"]);
       if (!op) return left;
       left = { kind: "bin", op, left, right: this.parseComparison() };
     }

@@ -161,4 +161,7 @@ export type Instruction =
   // Logic (both operands are evaluated; results are boolean).
   | { op: "and" }
   | { op: "or" }
+  // Upstream BooleanType.MethodXor: logical exclusive-or over bool
+  // conversions (VirtualMachine Instruction.Xor).
+  | { op: "xor" }
   | { op: "not" };

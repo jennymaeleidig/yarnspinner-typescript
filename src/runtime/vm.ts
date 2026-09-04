@@ -116,6 +116,7 @@ const INITIALIZER_OPS: ReadonlySet<Instruction["op"]> = new Set([
   "greaterThanOrEqualTo",
   "and",
   "or",
+  "xor",
   "not",
 ]);
 
@@ -627,6 +628,7 @@ export class VirtualMachine {
           case "greaterThanOrEqualTo":
           case "and":
           case "or":
+          case "xor":
           case "not":
             this.executeStackOp(ins);
             continue;
@@ -769,6 +771,13 @@ export class VirtualMachine {
         const b = this.pop();
         const a = this.pop();
         this.push(Boolean(a || b));
+        return;
+      }
+      // Upstream BooleanType.MethodXor: ConvertTo<bool>() ^ ConvertTo<bool>().
+      case "xor": {
+        const b = this.pop();
+        const a = this.pop();
+        this.push(Boolean(a) !== Boolean(b));
         return;
       }
       case "not":

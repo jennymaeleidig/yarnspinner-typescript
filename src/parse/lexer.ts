@@ -145,7 +145,10 @@ export function lex(input: string): Token[] {
 
     // Commands like <<...>> (single line); a trailing // comment after the
     // closing >> is not part of the command (upstream lexer skips comments).
-    const cmd = content.match(/^<<(.+?)>>\s*(\/\/.*)?$/);
+    // Empty command content (`<<>>`) is allowed through as an empty COMMAND:
+    // the parser reports it as YS0006 UnclosedCommand, matching upstream's
+    // ParseFailures shape — the lexer must not silently demote it to text.
+    const cmd = content.match(/^<<(.*?)>>\s*(\/\/.*)?$/);
     if (cmd) {
       push("COMMAND", cmd[1].trim(), lineNum, indent.length + 1, cmd[2]);
       continue;

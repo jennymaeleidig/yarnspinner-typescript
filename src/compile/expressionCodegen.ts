@@ -177,21 +177,22 @@ class Parser {
   }
 
   // or → and
+  // Upstream's ExpAndOrXor grammar rule: and/or/xor share ONE precedence
+  // level (left-associative) — deliberately not C's two-level split. xor
+  // lowers to the VM's Xor instruction (BooleanType.MethodXor).
   private parseOr(): Instruction[] {
-    let left = this.parseAnd();
-    while (this.matchOp("or", "||")) {
-      left = [...left, ...this.parseAnd(), { op: "or" } as Instruction];
-    }
-    return left;
-  }
-
-  // and → equality
-  private parseAnd(): Instruction[] {
     let left = this.parseEquality();
-    while (this.matchOp("and", "&&")) {
-      left = [...left, ...this.parseEquality(), { op: "and" } as Instruction];
+    for (;;) {
+      if (this.matchOp("or", "||")) {
+        left = [...left, ...this.parseEquality(), { op: "or" } as Instruction];
+      } else if (this.matchOp("and", "&&")) {
+        left = [...left, ...this.parseEquality(), { op: "and" } as Instruction];
+      } else if (this.matchOp("^")) {
+        left = [...left, ...this.parseEquality(), { op: "xor" } as Instruction];
+      } else {
+        return left;
+      }
     }
-    return left;
   }
 
   // equality → relational: == != = eq is neq (and === !==)

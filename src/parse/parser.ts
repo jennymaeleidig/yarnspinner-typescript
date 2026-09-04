@@ -23,10 +23,24 @@ import type {
   ParserDiagnostic,
 } from "../model/ast";
 
-export function parseYarn(text: string): YarnDocument {
+export function parseYarn(
+  text: string,
+  opts: { onRecoveredError?: (error: ParseError) => void } = {},
+): YarnDocument {
   const tokens = lex(text);
   const p = new Parser(tokens);
-  return p.parseDocument();
+  const doc = p.parseDocument();
+  // Recovered (non-fatal) parse errors: hand them to a collector if the
+  // caller wants them; otherwise rethrow the first so a broken document
+  // still fails loudly through the historical throw-first contract.
+  if (p.recoveredErrors.length > 0) {
+    if (opts.onRecoveredError) {
+      for (const e of p.recoveredErrors) opts.onRecoveredError(e);
+    } else {
+      throw p.recoveredErrors[0];
+    }
+  }
+  return doc;
 }
 
 /**
@@ -526,6 +540,11 @@ class Parser {
       const unclosed = () => new ParseError("Unclosed command: missing >>", this.rangeAt(t), "YS0006");
       const badExpr = () => new ParseError('Unexpected ">>" while reading an expression', this.rangeAt(t));
       if (cmd === "set" || cmd === "declare") throw unclosed();
+      // An empty command — `<<>>` — has no content to parse: upstream's
+      // command_statement rule can't match it, and the error listener
+      // reports the shape as YS0006 UnclosedCommand (its registry template
+      // is exactly "Unclosed command: missing >>").
+      if (cmd.trim() === "") throw unclosed();
       // Shared shape: a clause after the variable that is not `op expression`
       // is an unclosed command; an operator with no expression is YS0005.
       const requireValue = (rest: string, opRe: RegExp): void => {
@@ -864,6 +883,14 @@ class Parser {
     }, { command: "endif", opener: "if" });
     branches.push({ condition: firstCond, body: firstBody });
 
+    // Upstream's ANTLR recovery (ErrorListener.ReportNoViableAlternative):
+    // an `<<else>>` where a statement is expected, inside an if that
+    // already has one, reports "More than one <<else>> statement in an
+    // <<if>> statement isn't allowed" and keeps parsing in a degraded
+    // statement-reading mode — where the chain's closing command then
+    // surfaces as `Unexpected "<cmd>" while reading a statement`. Both
+    // errors are codeless syntax errors (YS0005 at the seam).
+    let sawElse = false;
     while (!this.at("EOF")) {
       if (!this.at("COMMAND")) break;
       const t = this.peek();
@@ -876,14 +903,36 @@ class Parser {
         continue;
       }
       if (txt === "else") {
-        this.take("COMMAND");
-        const body = this.parseStatementsUntilStop(() => this.at("COMMAND") && /^(endif$)/.test(this.peek().text), { command: "endif", opener: "if" });
-        branches.push({ condition: null, body });
-        // require endif after else body
-        if (this.at("COMMAND") && this.peek().text.trim() === "endif") {
+        if (sawElse) {
+          this.recover(new ParseError(
+            "More than one <<else>> statement in an <<if>> statement isn't allowed",
+            this.rangeAt(t),
+          ));
           this.take("COMMAND");
+          // Degraded statement-reading mode: read statements until a
+          // root-level chain command shows up, each of which reports the
+          // upstream fallback message; the if closes at the first `endif`.
+          const degradedStop = () => this.at("COMMAND") && /^(endif$|else$|elseif\s)/.test(this.peek().text);
+          this.parseStatementsUntilStop(degradedStop);
+          while (!this.at("EOF") && this.at("COMMAND") && degradedStop()) {
+            const badTok = this.take("COMMAND");
+            const bad = badTok.text.trim();
+            this.recover(new ParseError(`Unexpected "${bad}" while reading a statement`, this.rangeAt(badTok)));
+            if (bad === "endif") return { type: "If", branches };
+          }
+          return { type: "If", branches };
         }
-        break;
+        sawElse = true;
+        this.take("COMMAND");
+        // Body stops at any chain keyword: a root-level `<<else>>`/`<<elseif>>`
+        // inside an else body is the extra-else error case (handled by the
+        // chain loop above), never legal content — nested ifs open their own
+        // `<<if>>` and are consumed recursively.
+        const body = this.parseStatementsUntilStop(() => this.at("COMMAND") && /^(endif$|else$|elseif\s)/.test(this.peek().text), { command: "endif", opener: "if" });
+        branches.push({ condition: null, body });
+        // Chain loop continues: `endif` closes (below); a second
+        // `<<else>>`/`<<elseif>>` enters the recovery path above.
+        continue;
       }
       if (txt === "endif") {
         this.take("COMMAND");
@@ -894,6 +943,20 @@ class Parser {
 
     return { type: "If", branches };
   }
+
+  /**
+   * Record a recovered parse error and keep parsing (upstream's ANTLR
+   * error-listener shape: report, recover, continue). Recovered errors
+   * surface through `parseYarn`'s `onRecoveredError` hook; a caller that
+   * doesn't collect them gets the first one thrown after the parse, so a
+   * syntactically broken document never passes silently.
+   */
+  private recover(error: ParseError): void {
+    this.recoveredErrors.push(error);
+  }
+
+  /** @internal surfaced to `parseYarn`'s recovery hook. */
+  readonly recoveredErrors: ParseError[] = [];
 
 }
 

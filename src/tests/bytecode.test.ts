@@ -192,16 +192,19 @@ test("expressions compile with sane precedence and upstream word aliases", () =>
 ===
 `);
   assert.deepEqual(streamOf(program, "Start"), [
-    // visited("Start") or ((not $open) and ($n >= 3))
+    // Upstream's ExpAndOrXor grammar rule: and/or/xor share one
+    // left-associative precedence level, so this groups
+    // (visited("Start") or (not $open)) and ($n >= 3) — not C's
+    // and-binds-tighter-than-or.
     { op: "pushString", value: "Start" },
     { op: "callFunction", name: "visited", argc: 1 },
     { op: "pushVariable", name: "open" },
     { op: "not" },
+    { op: "or" },
     { op: "pushVariable", name: "n" },
     { op: "pushNumber", value: 3 },
     { op: "greaterThanOrEqualTo" },
     { op: "and" },
-    { op: "or" },
     { op: "jumpIfFalse", index: 11 },
     { op: "runLine", text: "Yes", tags: ["line:db1929bc"] },
     // <<if $s is "abc">> — `is` is an equality alias.
