@@ -35,6 +35,7 @@ import { createRoot } from "react-dom/client";
 import { compileOk } from "./compileOk.js";
 import {
   useDialogue,
+  type DialogueViewOption,
   type UseDialogueOptions,
   type UseDialogueLive,
   type UseDialogueResult,
@@ -44,6 +45,7 @@ import type { DialogueRunnerProps } from "../react/DialogueRunner.js";
 import { DialogueView } from "../react/DialogueView.js";
 import type { DialogueViewProps } from "../react/DialogueView.js";
 import type { DialogueOptions } from "../runtime/dialogue.js";
+import type { DialogueOption } from "../runtime/events.js";
 import { setupClientDom } from "./clientDomHarness.js";
 import { InMemoryVariableStorage } from "../runtime/variableStorage.js";
 import { StringTableTextProvider } from "../runtime/textProvider.js";
@@ -64,6 +66,18 @@ function captureHook(
   if (!capture.hook) throw new Error("the hook did not run");
   return capture.hook;
 }
+
+// Type-level pin (deepening-wave-2 ticket 02): `DialogueViewOption` is the
+// runtime's `DialogueOption`, derived — not re-declared — so a field added
+// to `DialogueOption` flows to the view instead of silently dropping
+// (the derivation treatment `TranscriptLine` already has).
+type ViewOptionIsRuntimeOption = DialogueViewOption extends DialogueOption
+  ? DialogueOption extends DialogueViewOption
+    ? true
+    : never
+  : never;
+const viewOptionIsRuntimeOption: ViewOptionIsRuntimeOption = true;
+void viewOptionIsRuntimeOption;
 
 // ── variableStorage (the persistence seam) ──────────────────────
 

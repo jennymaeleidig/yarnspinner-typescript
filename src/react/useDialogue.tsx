@@ -5,6 +5,7 @@ import type { YarnFunction, DialogueOptions } from "../runtime/dialogue.js";
 import { EMPTY_TRANSCRIPT, runUntilStopped } from "../runtime/transcript.js";
 import type { StoppingPoint, Transcript } from "../runtime/transcript.js";
 import type { MarkupParseResult } from "../markup/types.js";
+import type { DialogueOption } from "../runtime/events.js";
 import type { Program } from "../compile/program.js";
 
 /**
@@ -51,13 +52,13 @@ export type UseYarnRunnerResult = UseDialogueResult;
  * render is the intended shape).
  */
 
-export interface DialogueViewOption {
-  index: number;
-  text: string;
-  tags?: string[];
-  markup?: MarkupParseResult;
-  isAvailable: boolean;
-}
+/**
+ * The view's option is the runtime's option, derived — not re-declared —
+ * so a field added to `DialogueOption` flows to the view instead of
+ * silently dropping between runtime and view (the derivation treatment
+ * `TranscriptLine` already has). Adapter-side alias; not upstream.
+ */
+export type DialogueViewOption = DialogueOption;
 
 export type DialogueViewResult =
   | {
@@ -177,16 +178,9 @@ function reshapeView(
     }
     case "options": {
       if (!transcript.options) return null;
-      return {
-        type: "options",
-        options: transcript.options.map((o) => ({
-          index: o.index,
-          text: o.text,
-          tags: o.tags,
-          markup: o.markup,
-          isAvailable: o.isAvailable,
-        })),
-      };
+      // The option set passes through: DialogueViewOption is derived from
+      // DialogueOption, so no field copy stands between runtime and view.
+      return { type: "options", options: transcript.options };
     }
     case "command": {
       const command = transcript.commands[transcript.commands.length - 1];

@@ -10,7 +10,7 @@ after, the parity-risky grammar merge last behind a research gate.
 | # | Ticket | Candidate | Status |
 |---|--------|-----------|--------|
 | 01 | [01-events-shaped-drain.md](issues/01-events-shaped-drain.md) | Events-shaped drain in the Transcript module (review #6) | resolved |
-| 02 | [02-derived-view-option.md](issues/02-derived-view-option.md) | Derive DialogueViewOption from DialogueOption (review #7) | open |
+| 02 | [02-derived-view-option.md](issues/02-derived-view-option.md) | Derive DialogueViewOption from DialogueOption (review #7) | resolved |
 | 03 | [03-xor-fallback-parity-fix.md](issues/03-xor-fallback-parity-fix.md) | Standalone xor fallback-path parity fix (review #3, fix half) | open |
 | 04 | [04-operand-semantics-module.md](issues/04-operand-semantics-module.md) | One operand-semantics module (review #3, deepening half) | open, blocked by 03 |
 | 05 | [05-state-statement-grammar.md](issues/05-state-statement-grammar.md) | One grammar module for `<<set>>`/`<<declare>>` (review #2) | open, blocked by 04 |
@@ -22,6 +22,10 @@ Frontier order = ticket number (matches the grilling round: 6→7→3→3→2→
 
 ## Decisions-so-far
 
+- **Ticket 02 (resolved)**: `DialogueViewOption = DialogueOption` (derived,
+  the `TranscriptLine` treatment); `reshapeView`'s options field-copy
+  deleted; `text` branch left explicit (spreading would add `lineId` to
+  the view object). Host builds green — fog discharged. Glossary: none.
 - **Ticket 01 (resolved)**: `runUntilCompleteEvents(dialogue, selectOption?)`
   in the transcript module; one guard policy (1 000 pulls) that **throws**
   past the cap instead of silently returning a partial stream; 12 drain
@@ -71,7 +75,5 @@ Frontier order = ticket number (matches the grilling round: 6→7→3→3→2→
 - **Ticket 08's grammar-diff outcome** — whether the three expression parsers
   can merge without observable divergence, or resolve as recorded-deferred.
   Discharged by ticket 08's gate work item.
-- **Ticket 02's build fallout** — deriving `DialogueViewOption = DialogueOption`
-  is structurally non-breaking, but the demo/next/sveltekit builds must confirm
-  no host depends on the copy's declaration-order or structural quirks.
-  Discharged by ticket 02's build check.
+- **Ticket 02's build fallout** — DISCHARGED (ticket 02 answer):
+  demo/next/sveltekit builds green against the derived alias.
