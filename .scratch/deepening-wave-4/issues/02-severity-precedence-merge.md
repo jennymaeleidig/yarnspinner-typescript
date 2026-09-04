@@ -1,7 +1,7 @@
 # One severity-precedence implementation — loadProject owns the merge
 
 Type: task
-Status: open
+Status: resolved
 
 ## Problem
 
@@ -50,4 +50,22 @@ per-code merge instead of replace-wholesale. Standalone ticket.
 
 ## Answer
 
-(when resolved)
+Landed. `loadProject` (src/compile/yarnProject.ts) composes
+`{...project.compilerOptions?.diagnosticsSeverity, ...opts.diagnosticsSeverity}`
+(per-code, host wins) and applies it once via `compile()`'s shared pass;
+`compileYarnProjectModule` passes `opts.diagnosticsSeverity` straight through
+and its merge + compensating re-pass are deleted (with the now-unused
+`applySeverityOverrides`/`DiagnosticSeverity` imports). `CompileOptions
+.diagnosticsSeverity`'s JSDoc states the host-layer framing. CONTEXT.md
+"Direct import" and docs/direct-import.md now say the per-code merge is the
+loader's own semantics — direct `loadProject` callers get the documented
+precedence without the plugin.
+
+New pin: yarnProject.test.ts "severity precedence: the host option merges
+per-code over the project's own map" — project downgrade alone, host
+re-escalation of the shared code, merged maps composing both ways
+(YS0011/YS0031), host downgrade with no project map. One probe finding
+recorded: a parse-failure file (missing `---`) yields a null program
+regardless of severity, so the pin uses a validate-level code.
+
+Suite 633 pass / 0 fail / 1 skip, lint and ts-check clean.

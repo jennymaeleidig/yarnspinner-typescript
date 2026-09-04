@@ -82,10 +82,12 @@ export interface CompileOptions {
    */
   declarations?: ExternalDeclarations;
   /**
-   * Per-code severity overrides from the project file's
-   * `compilerOptions.diagnosticsSeverity` (upstream `CompilerOptions
+   * Host-supplied per-code severity overrides (upstream `CompilerOptions
    * .DiagnosticsSeverity`): each listed diagnostic's final severity is
-   * replaced, `"none"` keeping it present but user-hidden.
+   * replaced, `"none"` keeping it present but user-hidden. `loadProject`
+   * composes these over the project file's own
+   * `compilerOptions.diagnosticsSeverity` per-code (host entries win —
+   * most specific); a direct `compile()` call applies the map verbatim.
    */
   diagnosticsSeverity?: Record<string, DiagnosticSeverity>;
   /**

@@ -644,12 +644,16 @@ export function loadProject(opts: LoadProjectOptions): LoadProjectResult {
     return failedResult(allDiagnostics, project, resolved.sources);
   }
   const { files, diagnostics: readDiagnostics } = toCompileFiles(resolved.sources, opts.fileSystem);
-  // The project file's `compilerOptions.diagnosticsSeverity` is the source
-  // of truth for project compilations; a host-supplied option applies only
-  // when the project file carries none.
+  // Severity precedence — the one home for layering: the project file's
+  // `compilerOptions.diagnosticsSeverity` first, then the host-supplied
+  // option per-code (most specific wins). Direct callers and the companion
+  // plugin get the same merge; the plugin layers no further pass.
   const result = compile(files, {
     ...opts,
-    diagnosticsSeverity: project.compilerOptions?.diagnosticsSeverity ?? opts.diagnosticsSeverity,
+    diagnosticsSeverity: {
+      ...project.compilerOptions?.diagnosticsSeverity,
+      ...opts.diagnosticsSeverity,
+    },
   });
   return {
     ...result,

@@ -93,7 +93,10 @@ project file's `compilerOptions.diagnosticsSeverity` map first, then the
 plugin's options (top-level `diagnosticsSeverity`, then the
 `compilerOptions` passthrough, most specific winning) — applied before that
 split, so a downgraded error does not fail the build and the plugin can
-escalate a project-downgraded code back.
+escalate a project-downgraded code back. The per-code merge of the project
+map under a host-supplied `diagnosticsSeverity` is `loadProject`'s own
+semantics, so a direct `loadProject` caller gets the same precedence without
+the plugin.
 
 ## Plugin options
 

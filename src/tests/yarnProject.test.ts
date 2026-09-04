@@ -265,6 +265,57 @@ test("a listed source the provider cannot read is diagnosed", () => {
   assert.ok(codesOf(r.diagnostics).includes("YP0008"));
 });
 
+test("severity precedence: the host option merges per-code over the project's own map", () => {
+  // YS0011 (duplicate node title, validate-level) is the toggled code: the
+  // project's own map downgrades it to a warning; the host option layers
+  // per-code (host wins, most specific). The same merge the companion
+  // plugin documents — now pinned at the loader, where the layering lives.
+  const files = {
+    "a.yarn": "title: A\n---\nLine\n===\n",
+    "b.yarn": "title: A\n---\nLine\n===\n", // duplicate node title
+  };
+  const fs = memoryFs(files);
+  const base = { projectFileVersion: 4, sourceFiles: ["**/*.yarn"], baseLanguage: "en" };
+  const code = (d: { code: string; severity: string }) => `${d.code}:${d.severity}`;
+
+  // No host layer: the project's downgrade holds — a warning, not an error.
+  const alone = loadProject({
+    project: { ...base, compilerOptions: { diagnosticsSeverity: { YS0011: "warning" } } },
+    fileSystem: fs,
+  });
+  assert.ok(alone.diagnostics.filter((d) => d.code === "YS0011").every((d) => code(d) === "YS0011:warning"),
+    "project's own downgrade applies on its own");
+
+  // Host layer re-escalates the shared code: per-code merge, host wins —
+  // not the project map winning wholesale.
+  const escalated = loadProject({
+    project: { ...base, compilerOptions: { diagnosticsSeverity: { YS0011: "warning" } } },
+    fileSystem: fs,
+    diagnosticsSeverity: { YS0011: "error" },
+  });
+  assert.ok(escalated.diagnostics.some((d) => code(d) === "YS0011:error"),
+    "host entry wins per-code over the project map");
+
+  // Merged maps compose per-code: the project's entry for YS0011 survives
+  // while the host's entry for YS0031 applies alongside it.
+  const merged = loadProject({
+    project: { ...base, compilerOptions: { diagnosticsSeverity: { YS0011: "warning" } } },
+    fileSystem: fs,
+    diagnosticsSeverity: { YS0031: "warning" },
+  });
+  assert.ok(merged.diagnostics.some((d) => code(d) === "YS0011:warning"), "project entry survives the merge");
+  assert.ok(merged.diagnostics.some((d) => code(d) === "YS0031:warning"), "host entry applies alongside it");
+
+  // The host layer also reaches codes the project never mentions: a
+  // downgrade for a project-error code holds when the project carries no map.
+  const downgraded = loadProject({
+    project: base,
+    fileSystem: fs,
+    diagnosticsSeverity: { YS0011: "warning" },
+  });
+  assert.ok(downgraded.diagnostics.some((d) => code(d) === "YS0011:warning"));
+});
+
 // ── Node provider + the vendored Space fixture (acceptance) ───────────────
 
 test("nodeProjectFs enumerates files (skipping node_modules) with POSIX-relative paths", () => {
