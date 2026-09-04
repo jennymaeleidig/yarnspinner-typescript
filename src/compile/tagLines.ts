@@ -42,6 +42,7 @@
 
 import { parseYarn, ParseError } from "../parse/parser.js";
 import type { Line, Option, Statement, YarnDocument, YarnNode } from "../model/ast.js";
+import { walkStatements } from "../model/walk.js";
 import { crc32Hex } from "./crc32.js";
 import { LineParser } from "../markup/lineParser.js";
 import { characterAttribute, characterAttributeNameProperty } from "../markup/lineParser.js";
@@ -250,36 +251,13 @@ function firstBodyLine(node: YarnNode): number | undefined {
 }
 
 
-/** Every line-bearing statement of a statement list, document order. */
+/** Every line-bearing statement of a statement list, document order — the
+ * shared statement walker (src/model/walk.ts). */
 function collectLines(stmts: Statement[], out: LineTagContext[]): void {
-  for (const s of stmts) {
-    switch (s.type) {
-      case "Line":
-        out.push(lineContext(s));
-        break;
-      case "LineGroup":
-        for (const item of s.items) out.push(lineContext(item));
-        break;
-      case "OptionGroup":
-        for (const option of s.options) {
-          out.push(lineContext(option));
-          collectLines(option.body, out);
-        }
-        break;
-      case "If":
-        for (const b of s.branches) collectLines(b.body, out);
-        break;
-      case "Once":
-        collectLines(s.body, out);
-        if (s.elseBody) collectLines(s.elseBody, out);
-        break;
-      case "Command":
-      case "Jump":
-      case "Detour":
-      case "Enum":
-        break;
-    }
-  }
+  walkStatements(stmts, {
+    onLine: (line) => out.push(lineContext(line)),
+    onOption: (option) => out.push(lineContext(option)),
+  });
 }
 
 function lineContext(line: Line | Option): LineTagContext {

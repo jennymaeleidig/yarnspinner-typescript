@@ -37,6 +37,7 @@
 
 import { parseYarn, ParseError } from "../parse/parser.js";
 import type { YarnDocument, YarnNode, Statement } from "../model/ast.js";
+import { walkStatements } from "../model/walk.js";
 import { compileDocument, LoweringError } from "./compiler.js";
 import type { Program } from "./program.js";
 import { makeDiagnostic, hasErrors } from "./diagnostics.js";
@@ -418,24 +419,11 @@ function validate(doc: YarnDocument, diagnostics: Diagnostic[]): void {
 
 /** Collect every statically-known jump/detour target from a statement tree. */
 function collectTargets(stmts: Statement[], into: string[]): void {
-  for (const s of stmts) {
-    switch (s.type) {
-      case "Jump":
-      case "Detour":
-        into.push(s.target);
-        break;
-      case "If":
-        for (const b of s.branches) collectTargets(b.body, into);
-        break;
-      case "Once":
-        collectTargets(s.body, into);
-        if (s.elseBody) collectTargets(s.elseBody, into);
-        break;
-      case "OptionGroup":
-        for (const o of s.options) collectTargets(o.body, into);
-        break;
-    }
-  }
+  walkStatements(stmts, {
+    onStatement: (s) => {
+      if (s.type === "Jump" || s.type === "Detour") into.push(s.target);
+    },
+  });
 }
 
 /** Jump/detour targets must resolve to a node (upstream YS0012, warning). */
@@ -487,31 +475,10 @@ function validateMarkup(
     );
   };
   const walk = (stmts: Statement[], file: string | undefined): void => {
-    for (const s of stmts) {
-      switch (s.type) {
-        case "Line":
-          check(s.text, file);
-          break;
-        case "LineGroup":
-          for (const item of s.items) check(item.text, file);
-          break;
-        case "OptionGroup":
-          for (const o of s.options) {
-            check(o.text, file);
-            walk(o.body, file);
-          }
-          break;
-        case "If":
-          for (const b of s.branches) walk(b.body, file);
-          break;
-        case "Once":
-          walk(s.body, file);
-          if (s.elseBody) walk(s.elseBody, file);
-          break;
-        default:
-          break;
-      }
-    }
+    walkStatements(stmts, {
+      onLine: (line) => check(line.text, file),
+      onOption: (option) => check(option.text, file),
+    });
   };
   for (const { name, doc } of docs) {
     for (const node of doc.nodes) walk(node.body, name);

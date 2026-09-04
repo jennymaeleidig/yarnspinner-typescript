@@ -60,7 +60,9 @@
  * an uncompilable initializer emits `pushNull`.
  */
 
-import type { YarnDocument, YarnNode, Statement, Line, LineGroup, OnceBlock } from "../model/ast";import type { Instruction, Program, ProgramNode } from "./program.js";
+import type { YarnDocument, YarnNode, Statement, Line, LineGroup, OnceBlock } from "../model/ast";
+import type { Instruction, Program, ProgramNode } from "./program.js";
+import { walkStatements } from "../model/walk.js";
 import { programLanguageVersion } from "./program.js";
 import { compileExpression, ExpressionCodegenError } from "./expressionCodegen.js";
 import { onceVariableKey } from "../runtime/generatedVariables.js";
@@ -721,31 +723,18 @@ function lowerSet(content: string, enums: Program["enums"]): Instruction[] | nul
  * declarations are a compile-time concern the diagnostics channel owns.
  */
 function collectInitialValues(stmts: Statement[], ctx: LoweringContext): void {
-  for (const s of stmts) {
-    switch (s.type) {
-      case "Command": {
-        const declare = parseStateStatement((s as { content: string }).content);
-        if (declare?.kind === "declare") {
-          const compiled =
-            tryCompile(declare.expression, ctx.enums) ?? [{ op: "pushNull" } as Instruction];
-          if (isSmartVariableInitializer(declare.expression)) {
-            if (!(declare.name in ctx.smartVariables)) ctx.smartVariables[declare.name] = compiled;
-          } else if (!(declare.name in ctx.initialValues)) {
-            ctx.initialValues[declare.name] = compiled;
-          }
-        }
-        break;
+  walkStatements(stmts, {
+    onStatement: (s) => {
+      if (s.type !== "Command") return;
+      const declare = parseStateStatement(s.content);
+      if (!declare || declare.kind !== "declare") return;
+      const compiled =
+        tryCompile(declare.expression, ctx.enums) ?? [{ op: "pushNull" } as Instruction];
+      if (isSmartVariableInitializer(declare.expression)) {
+        if (!(declare.name in ctx.smartVariables)) ctx.smartVariables[declare.name] = compiled;
+      } else if (!(declare.name in ctx.initialValues)) {
+        ctx.initialValues[declare.name] = compiled;
       }
-      case "If":
-        for (const b of s.branches) collectInitialValues(b.body, ctx);
-        break;
-      case "Once":
-        collectInitialValues(s.body, ctx);
-        if (s.elseBody) collectInitialValues(s.elseBody, ctx);
-        break;
-      case "OptionGroup":
-        for (const o of s.options) collectInitialValues(o.body, ctx);
-        break;
-    }
-  }
+    },
+  });
 }

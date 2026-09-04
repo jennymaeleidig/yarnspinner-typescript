@@ -14,7 +14,7 @@ after, the parity-risky grammar merge last behind a research gate.
 | 03 | [03-xor-fallback-parity-fix.md](issues/03-xor-fallback-parity-fix.md) | Standalone xor fallback-path parity fix (review #3, fix half) | resolved |
 | 04 | [04-operand-semantics-module.md](issues/04-operand-semantics-module.md) | One operand-semantics module (review #3, deepening half) | resolved |
 | 05 | [05-state-statement-grammar.md](issues/05-state-statement-grammar.md) | One grammar module for `<<set>>`/`<<declare>>` (review #2) | resolved |
-| 06 | [06-statement-walker.md](issues/06-statement-walker.md) | One statement walker for the compile seam (review #1) | open |
+| 06 | [06-statement-walker.md](issues/06-statement-walker.md) | One statement walker for the compile seam (review #1) | resolved |
 | 07 | [07-inline-expression-spans.md](issues/07-inline-expression-spans.md) | One inline-expression span scanner (review #4) | open, blocked by 05 |
 | 08 | [08-expression-grammar-merge.md](issues/08-expression-grammar-merge.md) | One expression grammar, three consumers (review #5) — research-gated | open, blocked by 04, 05 |
 
@@ -22,6 +22,13 @@ Frontier order = ticket number (matches the grilling round: 6→7→3→3→2→
 
 ## Decisions-so-far
 
+- **Ticket 06 (resolved)**: `src/model/walk.ts` — `walkStatements` with
+  onLine/onOption/onStatement + `{ list, index }` context +
+  `includeOnce: false` (upstream LastLineBeforeOptionsVisitor shape).
+  Five traversals folded (stringTable×2, tagLines, compileSource×2,
+  compiler collectInitialValues); lowering and typeCheck walks stay their
+  own contracts (interleaved rewrites are load-bearing) — recorded in the
+  module header. `case "OptionGroup"` restatements 9→5.
 - **Ticket 05 (resolved)**: `src/parse/stateStatement.ts` — one
   `parseStateStatement` + `compoundOperatorToStackOp`; four consumers
   rewired (typeCheck's three regexes, compiler's lowerSet +

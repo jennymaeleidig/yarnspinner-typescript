@@ -32,6 +32,7 @@
  */
 
 import type { YarnDocument, Statement } from "../model/ast.js";
+import { walkStatements } from "../model/walk.js";
 import { makeDiagnostic } from "./diagnostics.js";
 import type { Diagnostic } from "./diagnostics.js";
 import { crc32Hex } from "./crc32.js";
@@ -182,7 +183,7 @@ export function assignLineIds(
         emit,
         lastLineFlags,
       };
-      walkStatements(node.body, ctx);
+      registerAllLines(node.body, ctx);
     }
   }
   validateShadowLines(manager, emit);
@@ -199,37 +200,14 @@ interface WalkContext {
 /**
  * Upstream registration order, per statement list: depth-first document
  * order. Options register their line before walking their body (upstream's
- * parse-tree visit); line-group items register in order.
+ * parse-tree visit); line-group items register in order. The traversal is
+ * the shared statement walker (src/model/walk.ts).
  */
-function walkStatements(stmts: Statement[], ctx: WalkContext): void {
-  for (const s of stmts) {
-    switch (s.type) {
-      case "Line":
-        registerLine(s, ctx);
-        break;
-      case "LineGroup":
-        for (const item of s.items) registerLine(item, ctx);
-        break;
-      case "OptionGroup":
-        for (const option of s.options) {
-          registerLine(option, ctx);
-          walkStatements(option.body, ctx);
-        }
-        break;
-      case "If":
-        for (const b of s.branches) walkStatements(b.body, ctx);
-        break;
-      case "Once":
-        walkStatements(s.body, ctx);
-        if (s.elseBody) walkStatements(s.elseBody, ctx);
-        break;
-      case "Command":
-      case "Jump":
-      case "Detour":
-      case "Enum":
-        break;
-    }
-  }
+function registerAllLines(stmts: Statement[], ctx: WalkContext): void {
+  walkStatements(stmts, {
+    onLine: (line) => registerLine(line, ctx),
+    onOption: (option) => registerLine(option, ctx),
+  });
 }
 
 /**
@@ -237,27 +215,19 @@ function walkStatements(stmts: Statement[], ctx: WalkContext): void {
  * statement immediately before an options block in its own statement list
  * (a command or block in between means no flag). Recursed into if-bodies
  * and option bodies; `<<once>>` blocks are not visited (upstream's visitor
- * has no once case). The flag joins the registered entry's metadata as the
- * `lastline` tag, always — even when the line already carries one.
+ * has no once case — the walker's `includeOnce: false`). The flag joins
+ * the registered entry's metadata as the `lastline` tag, always — even
+ * when the line already carries one.
  */
 function flagLastLines(stmts: Statement[], flags: Set<LineBearing>): void {
-  for (let i = 0; i < stmts.length; i++) {
-    const s = stmts[i];
-    switch (s.type) {
-      case "If":
-        for (const b of s.branches) flagLastLines(b.body, flags);
-        break;
-      case "OptionGroup":
-        for (const option of s.options) flagLastLines(option.body, flags);
-        if (i > 0) {
-          const prev = stmts[i - 1];
-          if (prev.type === "Line") flags.add(prev);
-        }
-        break;
-      default:
-        break;
-    }
-  }
+  walkStatements(stmts, {
+    onStatement: (s, at) => {
+      if (s.type === "OptionGroup" && at.index > 0) {
+        const prev = (at.list as Statement[])[at.index - 1];
+        if (prev.type === "Line") flags.add(prev);
+      }
+    },
+  }, { includeOnce: false });
 }
 
 /**
