@@ -1,7 +1,7 @@
 # One load-and-emit path in the plugin's load hook
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 04
 
 ## Problem
@@ -34,4 +34,19 @@ split query → filter → load-and-emit.
 
 ## Answer
 
-(when resolved)
+Landed. One `loadAndCompile(id, file, warn)` in packages/vite-plugin/src/index.ts
+owns the read (fileReadError shaping on both branches), the compile-step
+choice by file kind + pin, and the single warn closure; `emitModule` is folded
+into it and the five-positional-parameter signature is gone. The `load` hook
+shrinks to split query → filter → load-and-emit. The now-unused `YARN_FILE`
+regex and `CompiledYarnModule` type import died with the branch split. The
+compile steps (`compileYarnModule`/`compileYarnProjectModule`) are untouched —
+bundler-agnostic per ADR 0006. One deliberate evaluation-order note: the
+project branch now reads before compiling (previously the args evaluated
+compile first, read second) — same observable outcome, the read failure wins
+in both orders.
+
+All plugin suites green unchanged (the seam suite drives load/
+handleHotUpdate the way Vite does; ticket 04's read-error pin covers both
+branches post-collapse). Suite 634 pass / 0 fail / 1 skip, lint and ts-check
+clean.

@@ -8,7 +8,7 @@
 import type { Plugin } from "vite";
 import { readFile } from "node:fs/promises";
 import { dirname, isAbsolute, join } from "node:path";
-import { compileYarnModule, type CompiledYarnModule } from "./compileModule.js";
+import { compileYarnModule } from "./compileModule.js";
 import { compileYarnProjectModule } from "./compileProjectModule.js";
 import { toDeclarations, type YslsDefinitions } from "./definitions.js";
 import type { Diagnostic, DiagnosticSeverity } from "yarn-spinner-runner-ts";
@@ -21,7 +21,6 @@ import type { Diagnostic, DiagnosticSeverity } from "yarn-spinner-runner-ts";
 export { compileYarnModule, compileYarnProjectModule };
 export type { CompiledYarnModule, CompileYarnOptions } from "./compileModule.js";
 
-const YARN_FILE = /\.yarn$/;
 const PROJECT_FILE = /\.yarnproject$/;
 /** A content id of either kind: a .yarn story or a .yarnproject. */
 const ANY_YARN_FILE = /\.yarn(project)?$/;
@@ -204,18 +203,37 @@ export function yarnSpinnerVitePlugin(
     return true;
   };
 
-  // Surface the compile outcome: warnings to the sink (with location), the
-  // first error as a build failure, otherwise the emitted module code.
-  const emitModule = async (
-    compiled: CompiledYarnModule,
+  // One load-and-emit path: the read (with `fileReadError` shaping on both
+  // branches), the compile-step choice by file kind + pin, and the single
+  // warn closure — the plumbing a new plugin option would otherwise be
+  // pasted into twice. The compile steps themselves are the
+  // bundler-agnostic seam (ADR 0006) — their interfaces are untouched.
+  const loadAndCompile = async (
     id: string,
-    source: string,
-    baseDir: string,
+    file: string,
     warn: (msg: string) => void,
   ): Promise<string> => {
+    if (PROJECT_FILE.test(file) || opts.project !== undefined) {
+      // The .yarnproject itself, or a .yarn import pinned to a project:
+      // the project compiles as one job and the module emits its result.
+      const projectFile = opts.project ?? file;
+      const projectText = await readFile(projectFile, "utf8").catch((e: unknown) => {
+        throw fileReadError(projectFile, e);
+      });
+      const compiled = compileYarnProjectModule(projectFile, compileOpts);
+      for (const w of compiled.warnings) warn(asWarning(w, id));
+      if (compiled.errors.length > 0) {
+        throw await asBuildError(compiled.errors[0], id, projectText, dirname(projectFile));
+      }
+      return compiled.code;
+    }
+    const source = await readFile(file, "utf8").catch((e: unknown) => {
+      throw fileReadError(file, e);
+    });
+    const compiled = compileYarnModule(source, file, compileOpts);
     for (const w of compiled.warnings) warn(asWarning(w, id));
     if (compiled.errors.length > 0) {
-      throw await asBuildError(compiled.errors[0], id, source, baseDir);
+      throw await asBuildError(compiled.errors[0], id, source, dirname(file));
     }
     return compiled.code;
   };
@@ -229,30 +247,7 @@ export function yarnSpinnerVitePlugin(
       if (query === "raw") return `export default ${JSON.stringify(await readFile(file, "utf8"))};`;
       if (query !== "") return;
       if (!filtered(file)) return;
-      if (PROJECT_FILE.test(file) || (opts.project !== undefined && YARN_FILE.test(file))) {
-        // The .yarnproject itself, or a .yarn import pinned to a project:
-        // the project compiles as one job and the module emits its result.
-        const projectFile = opts.project ?? file;
-        return emitModule(
-          compileYarnProjectModule(projectFile, compileOpts),
-          id,
-          await readFile(projectFile, "utf8").catch((e: unknown) => {
-            throw fileReadError(projectFile, e);
-          }),
-          dirname(projectFile),
-          (m) => this.warn(m),
-        );
-      }
-      const source = await readFile(file, "utf8").catch((e: unknown) => {
-        throw fileReadError(file, e);
-      });
-      return emitModule(
-        compileYarnModule(source, file, compileOpts),
-        id,
-        source,
-        dirname(file),
-        (m) => this.warn(m),
-      );
+      return loadAndCompile(id, file, (m) => this.warn(m));
     },
     handleHotUpdate(ctx) {
       if (!ANY_YARN_FILE.test(ctx.file)) return;
