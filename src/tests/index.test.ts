@@ -24,9 +24,10 @@ test("compileDocument and its error types are not package surface", () => {
 });
 
 // The headless split: the wired container is
-// package surface alongside the presentational view.
-test("DialogueRunner is exported from the package root", () => {
-  strictEqual(typeof (pkg as Record<string, unknown>).DialogueRunner, "function");
+// package surface alongside the presentational view — but behind the
+// "./react" subpath, never the root: the root must stay React-free.
+test("DialogueRunner is exported from ./react, not the package root", () => {
+  strictEqual("DialogueRunner" in pkg, false);
 });
 
 test("basic dialogue with options", () => {

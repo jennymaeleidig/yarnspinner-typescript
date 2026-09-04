@@ -29,10 +29,8 @@ export * from "./runtime/dialogue.js";
 export * from "./runtime/transcript.js";
 export * from "./types.js";
 export * from "./scene/types.js";
-export * from "./react/useDialogue.js";
-export * from "./react/DialogueView.js";
-export * from "./react/DialogueRunner.js";
-export * from "./react/DialogueExample.js";
-export * from "./react/DialogueScene.js";
-export * from "./react/MarkupRenderer.js";
+// The React adapter is NOT package-root surface: it ships behind the
+// "./react" subpath export so non-React consumers never pull in
+// react/jsx-runtime. Import { useDialogue, DialogueView, ... } from
+// "yarn-spinner-runner-ts/react".
 
