@@ -122,6 +122,24 @@ export interface YarnProject {
   projectName?: string;
   /** Per-locale string-table CSV paths and asset directories; resolved by `projectLocalisation.ts`. */
   localisation?: Record<string, { strings?: string; assets?: string }>;
+  /**
+   * `compilerOptions` the loader recognises and carries (upstream
+   * `Project.CompilerOptions`). `allowLanguagePreviewFeatures` is parsed
+   * and surfaced; this compiler currently gates no preview features on it.
+   * `diagnosticsSeverity` flows into `compile()` as per-code severity
+   * overrides. `requireVariableDeclarations` stays reported-ignored
+   * (YP0005): the loader cannot honour it.
+   */
+  compilerOptions?: {
+    allowLanguagePreviewFeatures?: boolean;
+    diagnosticsSeverity?: Record<string, DiagnosticSeverity>;
+  };
+  /**
+   * `definitions` (.ysls.json paths) normalised to a list — the v3 schema
+   * spells it a string, v4 an array (upstream `Project.Definitions`).
+   * Carried for tooling; this loader does not read the files' contents.
+   */
+  definitions?: string[];
 }
 
 /** Options for {@link loadProject} and {@link listSources}. */
@@ -429,15 +447,59 @@ export function parseYarnProject(
   // equivalent for anything it doesn't recognise, so every key either maps
   // or is diagnosed. Nothing is silently dropped (no-silent-option-drops).
   const compilerOptions = raw.compilerOptions;
+  let carriedCompilerOptions: YarnProject["compilerOptions"] | undefined;
   if (compilerOptions !== undefined) {
     if (typeof compilerOptions !== "object" || compilerOptions === null || Array.isArray(compilerOptions)) {
       return fail(
         projectDiagnostic("YP0003", "`compilerOptions` must be an object", projectFile),
       );
     }
+    const carried: NonNullable<YarnProject["compilerOptions"]> = {};
     for (const key of Object.keys(compilerOptions)) {
-      const knownUpstream =
-        key === "requireVariableDeclarations" || key === "allowPreviewFeatures";
+      const value = (compilerOptions as Record<string, unknown>)[key];
+      if (key === "allowPreviewFeatures") {
+        // Upstream `CompilerOptions.AllowLanguagePreviewFeatures` — parsed
+        // and carried; this compiler gates no preview features on it (so
+        // the flag is currently inert, recorded here and on the ticket).
+        if (typeof value !== "boolean") {
+          diagnostics.push(
+            projectDiagnostic("YP0003", "`compilerOptions.allowPreviewFeatures` must be a boolean", projectFile, "compilerOptions.allowPreviewFeatures"),
+          );
+          continue;
+        }
+        carried.allowLanguagePreviewFeatures = value;
+        continue;
+      }
+      if (key === "diagnosticsSeverity") {
+        // Upstream `CompilerOptions.DiagnosticsSeverity`: a map of
+        // diagnostic code → severity, honoured by `compile()`.
+        if (typeof value !== "object" || value === null || Array.isArray(value)) {
+          diagnostics.push(
+            projectDiagnostic("YP0003", "`compilerOptions.diagnosticsSeverity` must be an object", projectFile, "compilerOptions.diagnosticsSeverity"),
+          );
+          continue;
+        }
+        const overrides: Record<string, DiagnosticSeverity> = {};
+        let valid = true;
+        for (const [code, severity] of Object.entries(value as Record<string, unknown>)) {
+          if (severity !== "error" && severity !== "warning" && severity !== "info" && severity !== "none") {
+            diagnostics.push(
+              projectDiagnostic(
+                "YP0003",
+                `\`compilerOptions.diagnosticsSeverity.${code}\` must be one of "error" | "warning" | "info" | "none", got ${JSON.stringify(severity)}`,
+                projectFile,
+                `compilerOptions.diagnosticsSeverity.${code}`,
+              ),
+            );
+            valid = false;
+            continue;
+          }
+          overrides[code] = severity;
+        }
+        if (valid) carried.diagnosticsSeverity = overrides;
+        continue;
+      }
+      const knownUpstream = key === "requireVariableDeclarations";
       diagnostics.push(
         projectDiagnostic(
           "YP0005",
@@ -449,6 +511,23 @@ export function parseYarnProject(
         ),
       );
     }
+    if (Object.keys(carried).length > 0) carriedCompilerOptions = carried;
+  }
+
+  // `definitions`: v3 spells it a string, v4 an array of strings — both
+  // normalise to a list (upstream `Project.Definitions`; the contents are
+  // editor tooling this loader does not read).
+  let definitions: string[] | undefined;
+  if (raw.definitions !== undefined) {
+    if (typeof raw.definitions === "string") {
+      definitions = [raw.definitions];
+    } else if (Array.isArray(raw.definitions) && raw.definitions.every((d) => typeof d === "string")) {
+      definitions = raw.definitions as string[];
+    } else {
+      diagnostics.push(
+        projectDiagnostic("YP0003", "`definitions` must be a string or an array of strings", projectFile, "definitions"),
+      );
+    }
   }
 
   const project0: YarnProject = {
@@ -458,6 +537,8 @@ export function parseYarnProject(
     ...(excludeFiles !== undefined ? { excludeFiles: excludeFiles as string[] } : {}),
     ...(typeof raw.projectName === "string" ? { projectName: raw.projectName } : {}),
     ...(localisation !== undefined ? { localisation } : {}),
+    ...(carriedCompilerOptions !== undefined ? { compilerOptions: carriedCompilerOptions } : {}),
+    ...(definitions !== undefined ? { definitions } : {}),
   };
   return { project: project0, diagnostics };
 }
@@ -565,7 +646,13 @@ export function loadProject(opts: LoadProjectOptions): LoadProjectResult {
     return failedResult(allDiagnostics, project, resolved.sources);
   }
   const { files, diagnostics: readDiagnostics } = toCompileFiles(resolved.sources, opts.fileSystem);
-  const result = compile(files, opts);
+  // The project file's `compilerOptions.diagnosticsSeverity` is the source
+  // of truth for project compilations; a host-supplied option applies only
+  // when the project file carries none.
+  const result = compile(files, {
+    ...opts,
+    diagnosticsSeverity: project.compilerOptions?.diagnosticsSeverity ?? opts.diagnosticsSeverity,
+  });
   return {
     ...result,
     diagnostics: [...allDiagnostics, ...readDiagnostics, ...result.diagnostics],

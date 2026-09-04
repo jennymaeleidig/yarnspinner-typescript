@@ -40,7 +40,7 @@ import type { YarnDocument, YarnNode, Statement } from "../model/ast.js";
 import { compileDocument, LoweringError } from "./compiler.js";
 import type { Program } from "./program.js";
 import { makeDiagnostic, hasErrors } from "./diagnostics.js";
-import type { Diagnostic, YarnRange } from "./diagnostics.js";
+import type { Diagnostic, DiagnosticSeverity, YarnRange } from "./diagnostics.js";
 import { typeCheck } from "./typeCheck.js";
 import type { ExternalDeclarations, VariableDeclaration } from "./typeCheck.js";
 import type { EnumType } from "./enums.js";
@@ -79,6 +79,13 @@ export interface CompileOptions {
    * YS0039 (variables) / YS0040 (types).
    */
   declarations?: ExternalDeclarations;
+  /**
+   * Per-code severity overrides from the project file's
+   * `compilerOptions.diagnosticsSeverity` (upstream `CompilerOptions
+   * .DiagnosticsSeverity`): each listed diagnostic's final severity is
+   * replaced, `"none"` keeping it present but user-hidden.
+   */
+  diagnosticsSeverity?: Record<string, DiagnosticSeverity>;
   /**
    * A compile-time Library: registered functions' signatures
    * feed signature checking (upstream `CompilationJob.Library`). Explicit
@@ -289,6 +296,18 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
   }
 
   if (opts.strict) throwOnFirstError(diagnostics);
+  // Project-file severity overrides (upstream `CompilerOptions
+  // .DiagnosticsSeverity`): applied as a final pass over the collected
+  // diagnostics — the observable matches upstream's at-creation override,
+  // since the map is keyed by registry code and uniform across sites.
+  // `none` keeps the diagnostic in the list at severity "none" (upstream
+  // DiagnosticSeverity.None: hidden from user display, still present).
+  if (opts.diagnosticsSeverity) {
+    for (const d of diagnostics) {
+      const override = opts.diagnosticsSeverity[d.code];
+      if (override) d.severity = override;
+    }
+  }
   return {
     program,
     stringTable: manager.stringTable,

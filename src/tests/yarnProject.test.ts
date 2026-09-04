@@ -156,25 +156,33 @@ test("every compilerOptions key is either mapped or diagnosed — never silently
       ...baseProject,
       compilerOptions: {
         requireVariableDeclarations: true,
-        allowPreviewFeatures: true,
         someFutureFlag: true,
       },
     },
     fileSystem: memoryFs({ "a.yarn": "title: A\n---\n===\n" }),
   });
-  assert.deepEqual(ypCodes(r.diagnostics).sort(), ["YP0005", "YP0005", "YP0005"]);
+  assert.deepEqual(ypCodes(r.diagnostics).sort(), ["YP0005", "YP0005"]);
   // known upstream options get the "no equivalent" message; unknown ones the
   // "not recognised" variant — both keyed to the offending option. YP-filtered:
   // the compile result also carries compiler diagnostics (YSxxxx).
+  // `allowPreviewFeatures` and `diagnosticsSeverity` are no longer diagnosed:
+  // they are mapped onto the project (upstream-submodule ticket 09 port),
+  // covered by the upstreamUnitPorts ports of ProjectFileTests.
   assert.deepEqual(
     r.diagnostics.filter((d) => d.code.startsWith("YP")).map((d) => d.context).sort(),
     [
-      "compilerOptions.allowPreviewFeatures",
       "compilerOptions.requireVariableDeclarations",
       "compilerOptions.someFutureFlag",
     ],
   );
   assert.ok(r.program);
+  // ...and the mapped flag is carried, not dropped:
+  const mapped = loadProject({
+    project: { ...baseProject, compilerOptions: { allowPreviewFeatures: true } },
+    fileSystem: memoryFs({ "a.yarn": "title: A\n---\n===\n" }),
+  });
+  assert.equal(mapped.project?.compilerOptions?.allowLanguagePreviewFeatures, true);
+  assert.equal(ypCodes(mapped.diagnostics).length, 0);
 });
 
 test("referenced-but-missing strings files are diagnosed; present ones are not", () => {

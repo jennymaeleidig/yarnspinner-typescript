@@ -13,7 +13,7 @@
  * file; multi-file compiles carry it).
  */
 
-export type DiagnosticSeverity = "error" | "warning" | "info";
+export type DiagnosticSeverity = "error" | "warning" | "info" | "none";
 
 export interface YarnRange {
   startLine: number; // 0-based

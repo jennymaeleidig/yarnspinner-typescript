@@ -215,6 +215,106 @@ test("port: the same operator matrix on an undeclared $var warns, never errors",
 
 // ── DialogueTests.cs ─────────────────────────────────────────────────────────
 
+// ── ProjectFileTests.cs ──────────────────────────────────────────────────
+
+import { loadProject } from "../compile/yarnProject.js";
+import type { YarnProjectFileSystem } from "../compile/yarnProject.js";
+
+function memoryFs(files: Record<string, string>): YarnProjectFileSystem {
+  const names = Object.keys(files).sort();
+  return {
+    listFiles: () => [...names],
+    read: (p: string) => (p in files ? files[p] : null),
+  };
+}
+
+const YP_CODE = (d: { code: string }) => d.code.startsWith("YP");
+
+test("port: TestProjectFilesCanAllowPreviewFeatures — the flag loads and is carried", () => {
+  const result = loadProject({
+    project: {
+      projectFileVersion: 2,
+      sourceFiles: ["**/*.yarn"],
+      baseLanguage: "en",
+      compilerOptions: { allowPreviewFeatures: true },
+    },
+    fileSystem: memoryFs({}),
+  });
+  assert.ok(result.project, "project failed to load");
+  assert.equal(result.project.compilerOptions?.allowLanguagePreviewFeatures, true);
+  // Upstream loads the known option silently — no "not recognised" warning.
+  assert.ok(
+    !result.diagnostics.some((d) => YP_CODE(d) && /allowPreviewFeatures/.test(d.message)),
+    result.diagnostics.map((d) => d.message).join(" | "),
+  );
+});
+
+test("port: TestProjectFilesCanSpecifyDefinitionsAsStringOrList — v3 string and v4 list normalise equal", () => {
+  const load = (project: Record<string, unknown>) =>
+    loadProject({ project, fileSystem: memoryFs({}) });
+  const v3 = load({
+    projectFileVersion: 4,
+    sourceFiles: ["**/*.yarn"],
+    baseLanguage: "en",
+    definitions: "A.ysls.json",
+  });
+  const v4 = load({
+    projectFileVersion: 4,
+    sourceFiles: ["**/*.yarn"],
+    baseLanguage: "en",
+    definitions: ["A.ysls.json"],
+  });
+  assert.ok(v3.project && v4.project);
+  assert.deepEqual(v3.project.definitions, ["A.ysls.json"]);
+  assert.deepEqual(v4.project.definitions, ["A.ysls.json"]);
+});
+
+test("port: TestProjectFilesCanSpecifyDiagnosticSeverityOverrides — four overrides load and are honoured", () => {
+  const result = loadProject({
+    project: {
+      projectFileVersion: 4,
+      sourceFiles: ["**/*.yarn"],
+      baseLanguage: "en",
+      compilerOptions: {
+        diagnosticsSeverity: {
+          YS0001: "error",
+          YS0002: "warning",
+          YS0003: "info",
+          YS0004: "none",
+        },
+      },
+    },
+    fileSystem: memoryFs({}),
+  });
+  assert.ok(result.project);
+  const overrides = result.project.compilerOptions?.diagnosticsSeverity;
+  assert.ok(overrides);
+  assert.equal(Object.keys(overrides).length, 4);
+  assert.equal(overrides.YS0001, "error");
+  assert.equal(overrides.YS0002, "warning");
+  assert.equal(overrides.YS0003, "info");
+  assert.equal(overrides.YS0004, "none");
+
+  // Beyond upstream's load-shape pin: the overrides are HONOURED by the
+  // compiler — an undeclared-variable use's registry-default warning
+  // surfaces at the overridden severity.
+  const fs: YarnProjectFileSystem = memoryFs({
+    "a.yarn": "title: Start\n---\n<<set $undeclared = 1>>\n===\n",
+  });
+  const overridden = loadProject({
+    project: {
+      projectFileVersion: 4,
+      sourceFiles: ["**/*.yarn"],
+      baseLanguage: "en",
+      compilerOptions: { diagnosticsSeverity: { YS0003: "info" } },
+    },
+    fileSystem: fs,
+  });
+  const ys0003 = overridden.diagnostics.find((d) => d.code === "YS0003");
+  assert.ok(ys0003, "expected YS0003 in the overridden compile");
+  assert.equal(ys0003.severity, "info");
+});
+
 test("port: TestVariadicFunctionsMustAllBeSameType — mixed-type variadic calls error on both lines", () => {
   const result = compileSource(
     'title: Start\n---\n{variadic_add(1,true,3)}\n{variadic_string_add("s",1,true,3)}\n===\n',
