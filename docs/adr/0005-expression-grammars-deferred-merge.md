@@ -28,7 +28,7 @@ values) was proposed. Ticket 08 gated the merge on a careful diff.
 | --- | --- | --- | --- |
 | and/or/xor level | one level, left-assoc (`|| && ^`) | one level, left-assoc (`or and xor`) | one flat level via `evaluateLogical` |
 | equality vs relational | merged into ONE left-assoc comparison level | separate: equality ABOVE relational | comparison dispatch before logical; regex splits at the FIRST comparison operator |
-| mixed `a == b && c` | `(a == b) && c` | `(a == b) && c` | `a == ((b) && (c…))` — comparison splits before logical |
+| mixed `a == b && c` | `(a == b) && c` | `(a == b) && c` | ~~`a == ((b) && (c…))`~~ **fixed** by ticket 09 (logical level now splits first, quote/paren-aware; primary parens unwrap; negation reachable) |
 | `=` tolerance | alias of `==` | alias of equality | alias of `==` |
 | word aliases | tokenizer maps to symbols (10 incl. `xor`) | parser matches words (9 — **no `xor`**: word-xor content never compiles, rides the fallback; found in ticket 03) | regex preprocess to symbols (10 incl. `xor`) |
 | string escapes | none (raw text to closing quote) | `\x` → literal char; unterminated throws | quoted strings stripped by regex heuristics |
@@ -83,8 +83,9 @@ The merge stops being deferrable when any of these holds:
 
 - Ticket 08 resolves recorded-deferred; future architecture reviews
   should read this ADR before re-proposing the merge.
-- The known live divergence is tracked as its own ticket (tracker:
-  `09-evaluator-mixed-precedence.md`) — a standalone parity fix against
-  the checker's layering, not a step toward the merge.
+- The known live divergence was fixed as its own standalone ticket (tracker:
+  `09-evaluator-mixed-precedence.md`, the ticket-03 pattern) — the fix
+  landed; it was never a step toward the merge, and the deferral above
+  stands.
 - The three grammars' operators stay pinned by their respective suites;
   the conformance corpus and golden bytecode remain the net.

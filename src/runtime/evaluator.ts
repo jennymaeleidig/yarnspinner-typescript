@@ -39,6 +39,16 @@ export class ExpressionEvaluator {
 
   /**
    * Evaluate an expression that can return any value (not just boolean).
+   *
+   * The dispatch follows the checker/codegen grammar layering (upstream's
+   * single expression grammar) — loosest first, so a mixed expression
+   * parses against the same tree the type checker validated:
+   * and/or/xor level → comparison → negation → arithmetic → value.
+   * (The old order — comparison dispatch before logical — parsed
+   * `$a == 1 && $b > 2` as `$a == ((1 && $b) > 2)`; a leading `!` claimed
+   * the comparison dispatcher and threw on any negated expression; and a
+   * fully parenthesized logical `(1 && 0)` recursed infinitely. All fixed
+   * here — deepening-wave-2 ticket 09.)
    */
   evaluateExpression(expr: string): unknown {
     const trimmed = this.preprocess(expr.trim());
@@ -49,18 +59,34 @@ export class ExpressionEvaluator {
       return this.evaluateFunctionCall(trimmed);
     }
 
-    // Handle comparisons
+    // A fully parenthesized expression is a primary (the checker's
+    // parsePrimary unwraps it): strip the outer parens and re-enter, so
+    // `(1 && 0)` evaluates instead of degrading to a value lookup (the
+    // old dispatcher recursed infinitely here).
+    const unwrapped = this.unwrapParens(trimmed);
+    if (unwrapped !== null) {
+      return this.evaluateExpression(unwrapped);
+    }
+
+    // Logical level FIRST — the loosest operators split before anything
+    // claims their operands (the checker's parseOr is the layering).
+    const logicalParts = this.splitLogical(trimmed);
+    if (logicalParts) {
+      return this.evaluateLogical(logicalParts);
+    }
+
+    // Handle comparisons. Every comparison operator contains `=`, `<`, or
+    // `>` — a leading `!` that isn't `!=`/`!==` must not claim this
+    // dispatcher (that made `!true` throw). A leading `!` over a
+    // comparison expression still lands here: `!x == y` parses as
+    // `(!x) == y` (upstream unary), and evaluateComparison's left side
+    // recurses into the negation.
     if (this.containsComparison(trimmed)) {
       return this.evaluateComparison(trimmed);
     }
 
-    // Handle logical operators (and/or/xor — xor's word alias preprocesses
-    // to `^`; see evaluateLogical)
-    if (trimmed.includes("&&") || trimmed.includes("||") || trimmed.includes("^")) {
-      return this.evaluateLogical(trimmed);
-    }
-
-    // Handle negation
+    // Handle negation (unary `!` binds tightest — after the comparison
+    // level, matching the checker's parseUnary placement).
     if (trimmed.startsWith("!")) {
       return !this.evaluateExpression(trimmed.slice(1).trim());
     }
@@ -124,7 +150,10 @@ export class ExpressionEvaluator {
   }
 
   private containsComparison(expr: string): boolean {
-    return /[<>=!]/.test(expr);
+    // Every comparison operator contains `=`, `<`, or `>` (including the
+    // `!=`/`!==` spellings) — a bare leading `!` must not claim the
+    // comparison dispatcher, or any negated expression throws.
+    return /[<>=]/.test(expr);
   }
 
   private looksLikeFunctionCall(expr: string): boolean {
@@ -308,51 +337,83 @@ export class ExpressionEvaluator {
     }
   }
 
-  private evaluateLogical(expr: string): boolean {
-    // Split by &&, ||, or ^, respecting parentheses
+  /** The whole expression wrapped in one balanced paren pair (a primary's
+   * parens): the inner text, or null. Quote-aware. */
+  private unwrapParens(expr: string): string | null {
+    if (!expr.startsWith("(") || !expr.endsWith(")")) return null;
+    let depth = 0;
+    let quote: string | null = null;
+    for (let i = 0; i < expr.length; i++) {
+      const char = expr[i];
+      if (quote) {
+        if (char === quote) quote = null;
+        continue;
+      }
+      if (char === '"' || char === "'") {
+        quote = char;
+        continue;
+      }
+      if (char === "(") depth++;
+      else if (char === ")") {
+        depth--;
+        if (depth === 0 && i !== expr.length - 1) return null; // closes early — not one wrapper
+      }
+    }
+    return depth === 0 ? expr.slice(1, -1).trim() : null;
+  }
+
+  /**
+   * The and/or/xor level (upstream ExpAndOrXor): ONE flat left-associative
+   * level, paren- and quote-aware. Splitting here happens BEFORE the
+   * comparison dispatcher can claim the chain's operands — the layering
+   * the checker's parseOr and the codegen's parseOr both implement.
+   * Returns the operand/op chain, or null when the expression has no
+   * top-level logical operator (the caller falls through the layering).
+   */
+  private splitLogical(expr: string): Array<{ expr: string; op: "&&" | "||" | "^" | null }> | null {
     const parts: Array<{ expr: string; op: "&&" | "||" | "^" | null }> = [];
     let depth = 0;
     let current = "";
     let lastOp: "&&" | "||" | "^" | null = null;
+    let quote: string | null = null; // the open quote character, if inside a string literal
+    let found = false;
 
-    for (const char of expr) {
+    for (let i = 0; i < expr.length; i++) {
+      const char = expr[i];
+      if (quote) {
+        if (char === quote) quote = null;
+        current += char;
+        continue;
+      }
+      if (char === '"' || char === "'") {
+        quote = char;
+        current += char;
+        continue;
+      }
       if (char === "(") depth++;
       else if (char === ")") depth--;
-      else if (depth === 0 && (char === "&" ? expr.includes("&&") : char === "|" ? expr.includes("||") : true)) {
-        // Check for &&, ||, or ^
-        const remaining = expr.slice(expr.indexOf(char));
-        if (remaining.startsWith("&&")) {
-          if (current.trim()) {
-            parts.push({ expr: current.trim(), op: lastOp });
-            current = "";
-          }
-          lastOp = "&&";
-          // skip &&
-          continue;
-        } else if (remaining.startsWith("||")) {
-          if (current.trim()) {
-            parts.push({ expr: current.trim(), op: lastOp });
-            current = "";
-          }
-          lastOp = "||";
-          // skip ||
-          continue;
-        } else if (remaining.startsWith("^")) {
-          if (current.trim()) {
-            parts.push({ expr: current.trim(), op: lastOp });
-            current = "";
-          }
-          lastOp = "^";
+      if (depth === 0) {
+        const two = expr.slice(i, i + 2);
+        const op = two === "&&" || two === "||" ? two : char === "^" ? "^" : null;
+        if (op) {
+          found = true;
+          parts.push({ expr: current.trim(), op: lastOp });
+          current = "";
+          lastOp = op;
+          if (op !== "^") i++; // skip the second char of && / ||
           continue;
         }
       }
       current += char;
     }
+    if (!found) return null;
     if (current.trim()) parts.push({ expr: current.trim(), op: lastOp });
+    return parts;
+  }
 
-    // Simple case: single expression
-    if (parts.length === 0) return !!this.evaluateExpression(expr);
-
+  private evaluateLogical(
+    parts: Array<{ expr: string; op: "&&" | "||" | "^" | null }>,
+  ): boolean {
     // Evaluate parts — and/or/xor share one flat left-associative level
     // (upstream ExpAndOrXor), applied through the operand-semantics module
     // (the same rules the VM's stack ops execute).

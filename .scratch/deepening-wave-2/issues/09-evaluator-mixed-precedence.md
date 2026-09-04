@@ -1,7 +1,7 @@
 # Ticket 09 — Fallback evaluator: mixed comparison+logical precedence
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 08
 
 ## Question
@@ -66,3 +66,54 @@ and only the logical/comparison order changes.
 - Standalone parity fix — must not share a commit with any grammar-merge
   work (ADR 0005).
 - Suite green, lint clean, ts-check clean per CODING_STANDARDS.
+
+## Answer
+
+One dispatch reorder fixes all three failure modes (they share the root
+cause — the layering):
+
+- **Logical level first** (the headline): `evaluateExpression` now splits
+  `&&`/`||`/`^` (paren- AND quote-aware, via a new `splitLogical`) before
+  the comparison dispatcher can claim the chain's operands — the layering
+  the checker's `parseOr` and the codegen's `parseOr` both implement.
+  `$a == 1 && $b > 2` now parses `($a == 1) && ($b > 2)` — pre-fix it
+  evaluated `$a == ((1 && $b) > 2)` and composed `True` (verified).
+- **Negation reachable**: `containsComparison` drops `!` from its class —
+  every comparison operator contains `=`/`<`/`>` anyway, and the bare `!`
+  was claiming the dispatcher, making ANY negated expression throw
+  (`!true`, `!$x` → "Invalid comparison"). `!x == y` still lands on the
+  comparison split, whose left side recurses into the negation —
+  `(!x) == y`, the checker's unary binding, now explicit rather than
+  accidental.
+- **Primary parens unwrapped**: a fully parenthesized expression
+  (`(1 && 0)`) re-enters the layering after stripping its wrapper — the
+  old dispatcher recursed infinitely there (stack overflow → compose as
+  empty). The unwrap is quote-aware and only fires when the paren closes
+  at the last character.
+- The splitter is quote-aware, so `x && "a && b"` no longer splits inside
+  the string literal.
+
+The old `evaluateLogical` also had a latent infinite-recursion path
+(`parts.length === 0` → re-evaluate the same expression) — the new
+splitter returns null instead, falling through the layering cleanly.
+
+Pins in vm-runtime.test.ts (the fallback path's home, per ticket 03's
+pattern), all stash-proven to fail pre-fix and pass post-fix:
+- inline-text layering `{$a == 1 && $b > 2} / {$a == 1 && $b > 0}` →
+  "False / True";
+- negation reachability `{!true} / {!$flag} / {!$flag == true}` →
+  "False / True / True" (the third checks the checker's unary binding:
+  `(!flag) == true`);
+- parens `(1 && 0)` → False (was: stack overflow) and a `&&` inside a
+  string literal → no wrong split.
+
+Full suite, conformance corpus, and golden bytecode unchanged otherwise:
+suite 602 (601 pass, 1 mirrored skip), lint clean, ts-check clean, demo
+build green. Ticket 08's ADR 0005 diff table stays as the record; the
+"logical-level-first" row of that table is now fixed for the evaluator
+(the ADR's table described the pre-fix state — the deferral itself stands:
+no merge, no shared parser, this was a standalone parity fix).
+
+**Glossary proposal (per the grilling round):** none — the layering is
+already CONTEXT.md's expression entries (and/or/xor one-level rule); this
+fix aligns the fallback mechanism to it.

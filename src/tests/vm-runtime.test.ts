@@ -410,3 +410,64 @@ Narrator: never eligible
     .map((e) => e.text);
   assert.deepEqual(lines, ["xor member"]);
 });
+
+// --- mixed comparison+logical layering in the fallback (ticket 09) ---
+// The fallback evaluator dispatched comparison splitting BEFORE the
+// logical level, so `$a == 1 && $b > 2` evaluated as
+// `$a == ((1 && $b) > 2)` — the opposite of the checker's parse, the
+// codegen's parse, and upstream's single grammar. A leading `!` claimed
+// the comparison dispatcher too (`!true` threw), and a fully
+// parenthesized logical `(1 && 0)` recursed infinitely. All through the
+// same dispatch — one fix, these pins on the inline-text path (inline
+// `{expr}` composes through the string evaluator at delivery, ADR 0005).
+
+test("inline text: comparison and logical levels layer like the checker parses them", () => {
+  // Checker/codegen parse ($a == 1) && ($b > 2). The old evaluator parsed
+  // $a == ((1 && $b) > 2) and composed "True" here (verified pre-fix:
+  // and(1,1) folded to true, true > 2 to false via number coercion, and
+  // 1 == false collapsed to 1 == 1).
+  const dialogue = makeDialogue(`
+title: Start
+---
+<<set $a to 1>>
+<<set $b to 1>>
+Narrator: {$a == 1 && $b > 2} / {$a == 1 && $b > 0}
+===
+`);
+  const events = runUntilCompleteEvents(dialogue);
+  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  assert.ok(line);
+  assert.equal(line.text, "False / True");
+});
+
+test("fallback evaluator: negation is reachable and binds like unary", () => {
+  // `!true` used to throw ("Invalid comparison") — the bare `!` claimed
+  // the comparison dispatcher. `!$flag == true` parses as (!flag) == true
+  // upstream (unary binds to the first operand) → true == true → True.
+  const dialogue = makeDialogue(`
+title: Start
+---
+<<set $flag to false>>
+Narrator: {!true} / {!$flag} / {!$flag == true}
+===
+`);
+  const events = runUntilCompleteEvents(dialogue);
+  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  assert.ok(line);
+  assert.equal(line.text, "False / True / True");
+});
+
+test("fallback evaluator: parens and quotes no longer crash or split wrong", () => {
+  // `(1 && 0)` used to recurse infinitely (stack overflow); `&&` inside a
+  // string literal used to split at the wrong place.
+  const dialogue = makeDialogue(`
+title: Start
+---
+Narrator: {(1 && 0)} / {1 < 2 && "&&" != ""}
+===
+`);
+  const events = runUntilCompleteEvents(dialogue);
+  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  assert.ok(line);
+  assert.equal(line.text, "False / True");
+});

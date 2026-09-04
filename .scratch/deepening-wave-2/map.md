@@ -17,12 +17,21 @@ after, the parity-risky grammar merge last behind a research gate.
 | 06 | [06-statement-walker.md](issues/06-statement-walker.md) | One statement walker for the compile seam (review #1) | resolved |
 | 07 | [07-inline-expression-spans.md](issues/07-inline-expression-spans.md) | One inline-expression span scanner (review #4) | resolved |
 | 08 | [08-expression-grammar-merge.md](issues/08-expression-grammar-merge.md) | One expression grammar, three consumers (review #5) — research-gated | resolved (recorded-deferred; ADR 0005) |
-| 09 | [09-evaluator-mixed-precedence.md](issues/09-evaluator-mixed-precedence.md) | Fallback evaluator: mixed comparison+logical precedence (gate outcome) | open, blocked by 08 |
+| 09 | [09-evaluator-mixed-precedence.md](issues/09-evaluator-mixed-precedence.md) | Fallback evaluator: mixed comparison+logical precedence (gate outcome) | resolved |
 
 Frontier order = ticket number (matches the grilling round: 6→7→3→3→2→1→4→5).
 
 ## Decisions-so-far
 
+- **Ticket 09 (resolved)**: one dispatch reorder fixes three failure
+  modes in the fallback evaluator — mixed comparison+logical layering
+  (`$a == 1 && $b > 2` now `($a == 1) && ($b > 2)`, pre-fix composed
+  `True`), negation reachability (bare `!` no longer claims the
+  comparison dispatcher — `!true` used to throw), and primary-paren
+  unwrap (`(1 && 0)` was infinite recursion). Splitter now quote-aware.
+  Three stash-proven pins in vm-runtime.test.ts. Suite 602 (601 pass,
+  1 skip). ADR 0005's divergence row updated to "fixed by ticket 09";
+  the deferral stands.
 - **Ticket 08 (resolved, recorded-deferred)**: the grammar-diff gate
   found a live parity-relevant divergence — the fallback evaluator parses
   `$a == 1 && $b > 2` as `$a == ((1 && $b) > 2)` (comparison splits
@@ -123,8 +132,6 @@ Frontier order = ticket number (matches the grilling round: 6→7→3→3→2→
 
 ## Fog
 
-- **Ticket 08's grammar-diff outcome** — whether the three expression parsers
-  can merge without observable divergence, or resolve as recorded-deferred.
-  Discharged by ticket 08's gate work item.
+- **Ticket 08's grammar-diff outcome** — whether the three expression parsers differ in parity-relevant ways. **Discharged**: they do — ADR 0005 records the diff; the live divergence fixed as ticket 09; merge deferred with reopening conditions.
 - **Ticket 02's build fallout** — DISCHARGED (ticket 02 answer):
   demo/next/sveltekit builds green against the derived alias.
