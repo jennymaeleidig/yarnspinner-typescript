@@ -16,12 +16,24 @@ after, the parity-risky grammar merge last behind a research gate.
 | 05 | [05-state-statement-grammar.md](issues/05-state-statement-grammar.md) | One grammar module for `<<set>>`/`<<declare>>` (review #2) | resolved |
 | 06 | [06-statement-walker.md](issues/06-statement-walker.md) | One statement walker for the compile seam (review #1) | resolved |
 | 07 | [07-inline-expression-spans.md](issues/07-inline-expression-spans.md) | One inline-expression span scanner (review #4) | resolved |
-| 08 | [08-expression-grammar-merge.md](issues/08-expression-grammar-merge.md) | One expression grammar, three consumers (review #5) — research-gated | open, blocked by 04, 05 |
+| 08 | [08-expression-grammar-merge.md](issues/08-expression-grammar-merge.md) | One expression grammar, three consumers (review #5) — research-gated | resolved (recorded-deferred; ADR 0005) |
+| 09 | [09-evaluator-mixed-precedence.md](issues/09-evaluator-mixed-precedence.md) | Fallback evaluator: mixed comparison+logical precedence (gate outcome) | open, blocked by 08 |
 
 Frontier order = ticket number (matches the grilling round: 6→7→3→3→2→1→4→5).
 
 ## Decisions-so-far
 
+- **Ticket 08 (resolved, recorded-deferred)**: the grammar-diff gate
+  found a live parity-relevant divergence — the fallback evaluator parses
+  `$a == 1 && $b > 2` as `$a == ((1 && $b) > 2)` (comparison splits
+  before logical; verified against dist), where checker/codegen/upstream
+  layering gives `($a == 1) && ($b > 2)`. A shared parser would change
+  fallback behavior — a parity fix, not a refactor — so the merge is
+  deferred: **ADR 0005** carries the diff table, the deferral, and three
+  reopening conditions; the divergence is filed as **ticket 09**
+  (standalone parity fix). Codegen's missing `xor` word alias recorded in
+  the ADR table (masked today; fix alongside a parity ticket, never
+  bundled with merge work). No code changed in 08.
 - **Ticket 07 (resolved)**: `inlineExpressionSpans` in
   src/runtime/interpolate.ts — the runtime escape contract stated once
   (`\{`/`\}` only; `\\{` is literal-backslash-then-escaped-brace; span

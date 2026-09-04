@@ -1,7 +1,7 @@
 # Ticket 08 — One expression grammar, three consumers (research-gated)
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 04, 05
 
 ## Question
@@ -62,3 +62,50 @@ modes — and record the table in this ticket's Answer. Verdict:
 - If resolving as recorded-deferred with a load-bearing reason, offer an ADR
   per the grilling-round rule so future reviews don't re-suggest the merge.
 - Suite green, lint clean, ts-check clean per CODING_STANDARDS.
+
+## Answer
+
+**Gate verdict: parity-relevant divergence → recorded-deferred**, per the
+ticket's own rule. The full diff table lives in **ADR 0005**
+(`docs/adr/0005-expression-grammars-deferred-merge.md`), written per the
+grilling-round rule so future reviews don't re-suggest the merge blind.
+Highlights:
+
+| Rule | checker | codegen | evaluator |
+| --- | --- | --- | --- |
+| and/or/xor | one level, left-assoc | one level, left-assoc | one flat level (evaluateLogical) |
+| equality vs relational | merged into one level | separate, equality above relational | comparison dispatch before logical; regex splits at the first comparison op |
+| mixed `a == b && c` | `(a == b) && c` | `(a == b) && c` | `a == ((b) && (c…))` — **live divergence** |
+| word aliases | 10 incl. `xor` | 9 — **no `xor`** (word-xor never compiles; rides fallback; found in ticket 03) | 10 incl. `xor` |
+| unknown chars | skipped silently | throw | degrades to value lookup |
+| trailing garbage | unchecked | throw | regexes match substrings |
+
+The decisive divergence is live and verified: the fallback evaluator
+returns `true` for `$a == 1 && $b > 2` (inline `{expr}` text composes
+through it) where the checker's layering and upstream give `false`. A
+shared parser could only *fix* that — i.e. change fallback behavior —
+which is a parity fix, not a refactor. Per the wave's rule (ticket 03's
+precedent) parity fixes never bundle with refactor work, and wiring three
+structurally-divergent backends under one parser is a multi-session
+rewrite. Deferred.
+
+Outcomes:
+- **ADR 0005** records the diff table, the deferral, and three reopening
+  conditions (fourth consumer appears; divergence class grows past the
+  known fix; fixtures cover mixed-precedence inline expressions).
+- The live divergence is filed as its own standalone ticket in this
+  tracker: **ticket 09** (`09-evaluator-mixed-precedence.md`, blocked by
+  this one), the ticket-03 pattern — standalone parity fix against the
+  checker's layering, no merge work attached.
+- The codegen word-alias gap (`xor` missing from WORD_OPS — word-xor
+  content never compiles and always rides the fallback) is recorded in
+  the ADR's table. It is *masked* by correct behavior today (the fallback
+  handles it) but is a checker/codegen asymmetry; folding it into ticket
+  09's parity scope would tangle two grammars in one commit — it is
+  recorded in ADR 0005's diff table instead, to be fixed alongside the
+  merge or as its own parity ticket if it ever observably diverges.
+- No code changed in this ticket — the gate's product is the record.
+
+**Glossary proposal (per the grilling round):** none — the grammars stay
+three (deferred); ADR 0005 carries the vocabulary (the reopening
+conditions are the ADR's load-bearing content, not a domain term).
