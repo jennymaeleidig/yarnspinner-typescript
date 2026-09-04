@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: CC0-1.0
 // The bundler-agnostic compile step: no Vite types cross this module, so the
 // future webpack loader (Next.js webpack mode / Turbopack rules) reuses it
-// verbatim. Contract (ticket 04 grows the project path; ticket 05 the option
-// surface): .yarn source in, a CompiledYarnModule out — the emitted ESM text
-// plus the diagnostics partitioned by final severity. The partitioning is
-// bundler-neutral; turning each bucket into build failure or a warning is
-// the host bundler's job (a webpack loader maps errors to this.emitError).
+// verbatim. Contract: .yarn source in, a CompiledYarnModule out — the emitted
+// ESM text plus the diagnostics partitioned by final severity. The
+// partitioning is bundler-neutral; turning each bucket into build failure or
+// a warning is the host bundler's job (a webpack loader maps errors to
+// this.emitError). The project path lives beside it in compileProjectModule.
 //
 // Severity "none" means present but user-hidden (upstream DiagnosticSeverity
 // .None): it reaches neither bucket, so it produces no build signal.
@@ -32,6 +32,22 @@ export interface CompiledYarnModule {
   warnings: Diagnostic[];
 }
 
+/**
+ * Split a diagnostic list into the two build-relevant buckets by final
+ * severity: errors must fail the build, warnings surface without failing,
+ * and "none" (present but user-hidden) produces no build signal. Shared by
+ * every compile step — one partition, one contract.
+ */
+export function partitionDiagnostics(diagnostics: Diagnostic[]): {
+  errors: Diagnostic[];
+  warnings: Diagnostic[];
+} {
+  return {
+    errors: diagnostics.filter((d) => d.severity === "error"),
+    warnings: diagnostics.filter((d) => d.severity === "warning" || d.severity === "info"),
+  };
+}
+
 export function compileYarnModule(
   source: string,
   filename: string,
@@ -42,8 +58,7 @@ export function compileYarnModule(
       file: filename,
       diagnosticsSeverity: opts.diagnosticsSeverity,
     });
-  const errors = diagnostics.filter((d) => d.severity === "error");
-  const warnings = diagnostics.filter((d) => d.severity === "warning" || d.severity === "info");
+  const { errors, warnings } = partitionDiagnostics(diagnostics);
   const code =
     `// ${filename} — compiled at build time by yarn-spinner-vite-plugin\n` +
     `export default ${JSON.stringify(program)};\n` +

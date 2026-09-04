@@ -50,7 +50,7 @@ const storyFile = (name: string, source: string): [string, () => void] => {
 test("the emitted module carries the named exports beside the default Program", async () => {
   const [file, cleanup] = storyFile("story.yarn", STORY);
   try {
-    const code = await callHook(plugin.load, {}, file);
+    const code = await callHook(plugin.load, { warn: () => {} }, file);
     const mod = await importEmitted(code as string);
     const dialogue = new Dialogue(mod.default, { startAt: "Start" });
     const lines = (events: DialogueEvent[]) =>
@@ -70,7 +70,7 @@ test("the emitted module carries the named exports beside the default Program", 
 test("?raw yields the exact source string", async () => {
   const [file, cleanup] = storyFile("story.yarn", STORY);
   try {
-    const code = await callHook(plugin.load, {}, `${file}?raw`);
+    const code = await callHook(plugin.load, { warn: () => {} }, `${file}?raw`);
     const mod = await importEmitted(code as string);
     strictEqual(mod.default, STORY);
   } finally {
@@ -82,7 +82,7 @@ test("the Vite-core bail set passes through: ?url, ?inline, ?no-inline", async (
   const [file, cleanup] = storyFile("story.yarn", STORY);
   try {
     for (const q of ["url", "inline", "no-inline"]) {
-      strictEqual(await callHook(plugin.load, {}, `${file}?${q}`), undefined, `?${q}`);
+      strictEqual(await callHook(plugin.load, { warn: () => {} }, `${file}?${q}`), undefined, `?${q}`);
     }
   } finally {
     cleanup();
@@ -93,7 +93,7 @@ test("an error-severity diagnostic fails the load with id, location, and frame",
   const [file, cleanup] = storyFile("broken.yarn", BROKEN);
   try {
     await strictEqual(
-      await (callHook(plugin.load, {}, file) as Promise<unknown>).then(
+      await (callHook(plugin.load, { warn: () => {} }, file) as Promise<unknown>).then(
         () => "no throw",
         (e: { message: string; id?: string; loc?: { line?: number; column?: number }; frame?: string }) => {
           ok(e.message.length > 0, "error message present");

@@ -2,21 +2,18 @@
 // The Vite plugin surface. Real-file ids are compiled in place (the mdx/svelte
 // precedent) — no virtual modules, hence no resolveId: Vite hands the plugin
 // the on-disk id and load answers it. The query contract: ?raw is the raw
-// source string; ?url/?inline/?no-inline bail so Vite core owns them, as does
-// any other query. Content edits to .yarn — and, once ticket 04 makes them
-// modules, .yarnproject — full-reload in dev: a rebuilt Program means a
-// rebuilt Dialogue, and variable storage resets regardless (map decision,
-// ticket 03 of the wayfinder effort).
+// source string; ?url/?inline/?no-inline — and any other query — bail so Vite
+// core owns them. Content edits to .yarn and .yarnproject full-reload in dev:
 
 import type { Plugin } from "vite";
 import { readFile } from "node:fs/promises";
-import { compileYarnModule } from "./compileModule.js";
+import { compileYarnModule, type CompiledYarnModule } from "./compileModule.js";
+import { compileYarnProjectModule } from "./compileProjectModule.js";
 import type { Diagnostic, DiagnosticSeverity } from "yarn-spinner-runner-ts";
 
 const YARN_FILE = /\.yarn$/;
+const PROJECT_FILE = /\.yarnproject$/;
 const CONTENT_FILE = /\.yarn(project)?$/;
-/** Queries Vite core owns; the plugin must not touch them. */
-const BAIL_QUERIES = new Set(["url", "inline", "no-inline"]);
 
 export interface YarnSpinnerVitePluginOptions {
   /**
@@ -53,21 +50,42 @@ function asBuildError(d: Diagnostic, id: string, source: string): object {
 export function yarnSpinnerVitePlugin(
   opts: YarnSpinnerVitePluginOptions = {},
 ): Plugin {
+  const settle = (
+    compiled: CompiledYarnModule,
+    id: string,
+    source: string,
+    warn: (msg: string) => void,
+  ): string => {
+    for (const w of compiled.warnings) warn(`${w.code}: ${w.message}`);
+    if (compiled.errors.length > 0) throw asBuildError(compiled.errors[0], id, source);
+    return compiled.code;
+  };
+
   return {
     name: "yarn-spinner-vite-plugin",
     enforce: "pre",
     async load(id) {
       const { file, query } = splitQuery(id);
-      if (!YARN_FILE.test(file)) return;
+      if (!PROJECT_FILE.test(file) && !YARN_FILE.test(file)) return;
       if (query === "raw") return `export default ${JSON.stringify(await readFile(file, "utf8"))};`;
-      if (BAIL_QUERIES.has(query) || query !== "") return;
+      if (query !== "") return;
+      if (PROJECT_FILE.test(file)) {
+        return settle(
+          compileYarnProjectModule(file, { diagnosticsSeverity: opts.diagnosticsSeverity }),
+          id,
+          await readFile(file, "utf8").catch(() => ""),
+          (m) => this.warn(m),
+        );
+      }
       const source = await readFile(file, "utf8");
-      const { code, errors, warnings } = compileYarnModule(source, file, {
-        diagnosticsSeverity: opts.diagnosticsSeverity,
-      });
-      for (const w of warnings) this.warn(`${w.code}: ${w.message}`);
-      if (errors.length > 0) throw asBuildError(errors[0], id, source);
-      return code;
+      return settle(
+        compileYarnModule(source, file, {
+          diagnosticsSeverity: opts.diagnosticsSeverity,
+        }),
+        id,
+        source,
+        (m) => this.warn(m),
+      );
     },
     handleHotUpdate(ctx) {
       if (!CONTENT_FILE.test(ctx.file)) return;

@@ -24,11 +24,13 @@ Narrator: Hi
 const plugin = yarnSpinnerVitePlugin();
 
 // Vite wraps hooks as {handler} | fn; call them the way Vite would.
-const callHook = (hook: unknown, ...args: unknown[]): unknown => {
+const callHook = (hook: unknown, thisArg: unknown, ...args: unknown[]): unknown => {
   const fn = typeof hook === "function" ? hook : (hook as { handler?: unknown }).handler;
   ok(typeof fn === "function", "hook missing");
-  return (fn as (...a: unknown[]) => unknown)(...args);
+  return (fn as (...a: unknown[]) => unknown).call(thisArg, ...args);
 };
+// Vite always supplies a plugin context on hook calls; the seam mirrors that.
+const viteCtx = (): { warn: () => void } => ({ warn: () => {} });
 
 const importEmitted = async (code: string) =>
   import(`data:text/javascript,${encodeURIComponent(code)}`);
@@ -46,7 +48,7 @@ test("a .yarn import emits a module whose default export is a Program a Dialogue
   try {
     const story = join(dir, "story.yarn");
     writeFileSync(story, DEMO);
-    const code = await callHook(plugin.load, story);
+    const code = await callHook(plugin.load, viteCtx(), story);
     ok(typeof code === "string" && code.length > 0, "load produced no module code");
 
     const mod = await importEmitted(code as string);
@@ -73,8 +75,8 @@ test("load bails on query-carrying ids and non-.yarn ids", async () => {
   try {
     const story = join(dir, "story.yarn");
     writeFileSync(story, DEMO);
-    strictEqual(await callHook(plugin.load, `${story}?url`), undefined);
-    strictEqual(await callHook(plugin.load, join(dir, "notes.txt")), undefined);
+    strictEqual(await callHook(plugin.load, viteCtx(), `${story}?url`), undefined);
+    strictEqual(await callHook(plugin.load, viteCtx(), join(dir, "notes.txt")), undefined);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -82,20 +84,20 @@ test("load bails on query-carrying ids and non-.yarn ids", async () => {
 
 test("a content edit triggers a full page reload in dev", () => {
   const sent: unknown[] = [];
-  const result = callHook(plugin.handleHotUpdate, makeHotCtx("/proj/story.yarn", sent));
+  const result = callHook(plugin.handleHotUpdate, {}, makeHotCtx("/proj/story.yarn", sent));
   deepStrictEqual(result, []);
   deepStrictEqual(sent, [{ type: "full-reload" }]);
 });
 
 test("a .yarnproject edit reloads too, before its import contract exists", () => {
   const sent: unknown[] = [];
-  const result = callHook(plugin.handleHotUpdate, makeHotCtx("/proj/project.yarnproject", sent));
+  const result = callHook(plugin.handleHotUpdate, {}, makeHotCtx("/proj/project.yarnproject", sent));
   deepStrictEqual(result, []);
   deepStrictEqual(sent, [{ type: "full-reload" }]);
 });
 
 test("handleHotUpdate ignores files the plugin does not own", () => {
   const sent: unknown[] = [];
-  strictEqual(callHook(plugin.handleHotUpdate, makeHotCtx("/proj/story.txt", sent)), undefined);
+  strictEqual(callHook(plugin.handleHotUpdate, {}, makeHotCtx("/proj/story.txt", sent)), undefined);
   deepStrictEqual(sent, []);
 });
