@@ -5,10 +5,10 @@ const tsPlugin = require("@typescript-eslint/eslint-plugin");
 
 module.exports = [
   {
-    ignores: ["dist/**", "node_modules/**", "examples/**", "src/examples/**", "src/tests/**"],
+    ignores: ["dist/**", "node_modules/**", "examples/**", "src/examples/**", "src/tests/**", "packages/**/dist/**"],
   },
   {
-    files: ["src/**/*.ts", "src/**/*.tsx"],
+    files: ["src/**/*.ts", "src/**/*.tsx", "packages/*/src/**/*.ts"],
     languageOptions: {
       parser: tsParser,
       ecmaVersion: "latest",

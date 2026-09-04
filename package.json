@@ -5,6 +5,9 @@
   "description": "TypeScript parser, compiler, and runtime for Yarn Spinner 3.x with React adapter [NPM package](https://www.npmjs.com/package/yarn-spinner-runner-ts)",
   "license": "CC0-1.0",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "browserslist": [
     ">0.5%",
     "last 2 versions",
@@ -17,10 +20,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "build:cjs": "tsc -p tsconfig.cjs.json && node scripts/postprocess-cjs.mjs",
-    "build:all": "npm run build && npm run build:cjs",
+    "build:all": "npm run build && npm run build:cjs && npm run build -w yarn-spinner-vite-plugin",
     "clean": "rimraf dist",
     "dev": "tsc -w -p tsconfig.json",
-    "lint": "eslint \"src/**/*.ts\" \"src/**/*.tsx\"",
+    "lint": "eslint \"src/**/*.ts\" \"src/**/*.tsx\" \"packages/*/src/**/*.ts\"",
     "ts-check": "tsc -p tsconfig.json",
     "pretest": "npm run build:all",
     "test": "node scripts/run-tests.js",

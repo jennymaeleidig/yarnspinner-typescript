@@ -1,0 +1,29 @@
+{
+  "name": "yarn-spinner-vite-plugin",
+  "version": "0.2.0",
+  "description": "Vite plugin: import .yarn files as compiled Yarn Spinner 3.x programs at build time",
+  "type": "module",
+  "license": "CC0-1.0",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "vite": "^5.0.0 || ^6.0.0 || ^7.0.0",
+    "yarn-spinner-runner-ts": "^0.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.3",
+    "yarn-spinner-runner-ts": "file:../.."
+  }
+}
