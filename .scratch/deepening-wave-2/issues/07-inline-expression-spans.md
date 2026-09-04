@@ -114,3 +114,12 @@ they pin the same contract through *independent* observable seams
 all pass unchanged against the folded consumers. "Replaces" is realized
 as: the scanner module is now the single contract home; the other suites
 keep their seam-level pins.
+
+**Correction (final reviewer pass):** the note above overstated which
+suites hold retained escape pins. The accurate record: the lineIds/shadow
+YS0043 pins (lineIds.test.ts) are the retained seam-level escape pins;
+markupLineParser's escaped-character pins cover `\`-attribute escaping (a
+different contract, not the `\{` brace contract), and
+invariant-formatting.test.ts holds no brace pins. The scanner module
+(src/runtime/interpolate.ts `inlineExpressionSpans` +
+inlineExpressionSpans.test.ts) is the contract's single home.

@@ -523,6 +523,10 @@ test("uncompilable <<set>> with trailing garbage lands best-effort, not crash", 
   // grammar parse → best-effort evaluation (the evaluator yields no value;
   // no diagnostic channel fires — the fallback path's documented
   // collect-don't-throw shape). The line composes and $m stays empty.
+  // RECORDED LIMITATION (tracker ticket 10): an undefined evaluation
+  // result silently clobbers a prior value — the fallback cannot yet
+  // distinguish "evaluation failed" from a legitimate void result, so
+  // this pin pins the no-crash contract, not the storage outcome.
   const dialogue = makeDialogue(`
 title: Start
 ---

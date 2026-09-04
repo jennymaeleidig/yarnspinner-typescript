@@ -20,7 +20,7 @@ Problems are data: diagnostics with stable codes, severities, and ranges, return
 
 *Case study: the fixture corpus asserts expected diagnostic codes — impossible if the first problem throws.*
 
-*Sanctioned exception: the Transcript orchestration helper `runUntilCompleteEvents` throws past its pull cap (a stalled drain). Its caller is a test harness — a program driving story execution, not story execution itself — and the silent-cap alternative (returning a partial stream) is the documented anti-pattern the helper exists to replace. Story execution itself still never throws.*
+*Sanctioned exception: the Transcript orchestration helper `runUntilCompleteEvents` throws past its pull cap (a stalled drain) — a documented, bounded guard whose contract is stated on the function. The silent-cap alternative (returning a partial stream) is the documented anti-pattern the helper exists to replace, so the guard throws a named, self-describing error instead. Story execution itself still never throws.*
 
 ## 4. Resettable state lives in variable storage
 

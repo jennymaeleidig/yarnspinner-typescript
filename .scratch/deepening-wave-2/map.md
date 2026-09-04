@@ -18,11 +18,22 @@ after, the parity-risky grammar merge last behind a research gate.
 | 07 | [07-inline-expression-spans.md](issues/07-inline-expression-spans.md) | One inline-expression span scanner (review #4) | resolved |
 | 08 | [08-expression-grammar-merge.md](issues/08-expression-grammar-merge.md) | One expression grammar, three consumers (review #5) — research-gated | resolved (recorded-deferred; ADR 0005) |
 | 09 | [09-evaluator-mixed-precedence.md](issues/09-evaluator-mixed-precedence.md) | Fallback evaluator: mixed comparison+logical precedence (gate outcome) | resolved |
+| 10 | [10-fallback-set-undefined-clobber.md](issues/10-fallback-set-undefined-clobber.md) | Fallback `<<set>>`: undefined evaluation silently clobbers storage (final reviewer pass) | open |
 
 Frontier order = ticket number (matches the grilling round: 6→7→3→3→2→1→4→5).
 
 ## Decisions-so-far
 
+- **Final reviewer pass**: evaluator refactor verified behavior-preserving
+  edge-by-edge; pins verified spec-encoding (discriminators, not
+  implementation echoes). Three accuracy fixes applied: §3 clause
+  reworded to sanction by contract (caller identity was false as an API
+  fact — the helper is public surface); ticket 07's note corrected
+  (invariant-formatting holds no brace pins; markupLineParser's pins are
+  attribute-escaping, a different contract); the trailing-garbage pin's
+  silent-clobber limitation recorded and filed as **ticket 10** (the
+  fallback cannot yet distinguish "evaluation failed" from a legitimate
+  void result).
 - **Ticket 09 (resolved)**: one dispatch reorder fixes three failure
   modes in the fallback evaluator — mixed comparison+logical layering
   (`$a == 1 && $b > 2` now `($a == 1) && ($b > 2)`, pre-fix composed
