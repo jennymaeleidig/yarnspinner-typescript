@@ -20,6 +20,8 @@ Problems are data: diagnostics with stable codes, severities, and ranges, return
 
 *Case study: the fixture corpus asserts expected diagnostic codes — impossible if the first problem throws.*
 
+*Sanctioned exception: the Transcript orchestration helper `runUntilCompleteEvents` throws past its pull cap (a stalled drain). Its caller is a test harness — a program driving story execution, not story execution itself — and the silent-cap alternative (returning a partial stream) is the documented anti-pattern the helper exists to replace. Story execution itself still never throws.*
+
 ## 4. Resettable state lives in variable storage
 
 All story state — once-seen content, visit counts, saliency history — is stored as generated variables in the pluggable variable storage. Module-level mutable state is forbidden.

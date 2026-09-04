@@ -12,6 +12,42 @@ import { applyBinaryOp, applyUnaryOp } from "./operands.js";
 // package's public surface (index.ts `export *`) — unchanged.
 export { stringifyOperand, toNumberOperand, deepEqualsOperands } from "./operands.js";
 
+/** One character's structural position in an expression: the open-paren
+ * depth once the character is consumed, and whether it sits inside a
+ * string literal (opening and closing quote characters included). The
+ * shared scan both the logical splitter and the paren unwrapper walk —
+ * quote/depth tracking stated once (the standards review's Duplicated
+ * Code finding: two hand-rolled copies of the same loop). */
+interface ScanChar {
+  char: string;
+  index: number;
+  depth: number;
+  inString: boolean;
+}
+
+function scanStructure(expr: string): ScanChar[] {
+  const chars: ScanChar[] = [];
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = 0; i < expr.length; i++) {
+    const char = expr[i];
+    if (quote) {
+      chars.push({ char, index: i, depth, inString: true });
+      if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      chars.push({ char, index: i, depth, inString: true });
+      quote = char;
+      continue;
+    }
+    if (char === "(") depth++;
+    else if (char === ")") depth--;
+    chars.push({ char, index: i, depth, inString: false });
+  }
+  return chars;
+}
+
 export class ExpressionEvaluator {
   /** variable name → recomputing read (compiled bytecode). */
   private smartVariables: Record<string, () => unknown> = {}; // variable name -> read
@@ -341,25 +377,14 @@ export class ExpressionEvaluator {
    * parens): the inner text, or null. Quote-aware. */
   private unwrapParens(expr: string): string | null {
     if (!expr.startsWith("(") || !expr.endsWith(")")) return null;
-    let depth = 0;
-    let quote: string | null = null;
-    for (let i = 0; i < expr.length; i++) {
-      const char = expr[i];
-      if (quote) {
-        if (char === quote) quote = null;
-        continue;
-      }
-      if (char === '"' || char === "'") {
-        quote = char;
-        continue;
-      }
-      if (char === "(") depth++;
-      else if (char === ")") {
-        depth--;
-        if (depth === 0 && i !== expr.length - 1) return null; // closes early — not one wrapper
+    const chars = scanStructure(expr);
+    for (const sc of chars) {
+      if (sc.char === ")" && sc.depth === 0 && sc.index !== expr.length - 1) {
+        return null; // closes early — not one wrapper
       }
     }
-    return depth === 0 ? expr.slice(1, -1).trim() : null;
+    const last = chars[chars.length - 1];
+    return last && last.depth === 0 ? expr.slice(1, -1).trim() : null;
   }
 
   /**
@@ -371,42 +396,27 @@ export class ExpressionEvaluator {
    * top-level logical operator (the caller falls through the layering).
    */
   private splitLogical(expr: string): Array<{ expr: string; op: "&&" | "||" | "^" | null }> | null {
+    const chars = scanStructure(expr);
     const parts: Array<{ expr: string; op: "&&" | "||" | "^" | null }> = [];
-    let depth = 0;
     let current = "";
     let lastOp: "&&" | "||" | "^" | null = null;
-    let quote: string | null = null; // the open quote character, if inside a string literal
-    let found = false;
 
-    for (let i = 0; i < expr.length; i++) {
-      const char = expr[i];
-      if (quote) {
-        if (char === quote) quote = null;
-        current += char;
-        continue;
-      }
-      if (char === '"' || char === "'") {
-        quote = char;
-        current += char;
-        continue;
-      }
-      if (char === "(") depth++;
-      else if (char === ")") depth--;
-      if (depth === 0) {
-        const two = expr.slice(i, i + 2);
-        const op = two === "&&" || two === "||" ? two : char === "^" ? "^" : null;
+    for (let k = 0; k < chars.length; k++) {
+      const sc = chars[k];
+      if (sc.depth === 0 && !sc.inString) {
+        const two = expr.slice(sc.index, sc.index + 2);
+        const op = two === "&&" || two === "||" ? two : sc.char === "^" ? "^" : null;
         if (op) {
-          found = true;
           parts.push({ expr: current.trim(), op: lastOp });
           current = "";
           lastOp = op;
-          if (op !== "^") i++; // skip the second char of && / ||
+          if (op !== "^") k++; // skip the second char of && / ||
           continue;
         }
       }
-      current += char;
+      current += sc.char;
     }
-    if (!found) return null;
+    if (parts.length === 0) return null;
     if (current.trim()) parts.push({ expr: current.trim(), op: lastOp });
     return parts;
   }

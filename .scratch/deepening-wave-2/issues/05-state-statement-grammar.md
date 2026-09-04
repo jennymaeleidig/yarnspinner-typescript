@@ -115,3 +115,13 @@ ts-check clean, demo build green.
 `parseStateStatement` is implementation (the state-statement grammar is
 already covered by CONTEXT.md's language entries; the module is its
 mechanism).
+
+**Wave-end review addition (spec axis):** the Tests item "the fallback
+path gains explicit pins: all four consumers structurally agree" was
+flagged partial — agreement was only indirect (ticket 03's xor pin). Two
+explicit pins now live in vm-runtime.test.ts: an uncompilable `<<set>>
+with a word alias (`$n xor true` — checker validates, codegen defers per
+ADR 0005's recorded gap, stateStatement parses, evaluator applies) and an
+uncompilable `<<set>>` with trailing garbage (best-effort landing, no
+crash). The declare branch needs no fallback pin: declares hoist to
+initial values and never reach the runtime through the compile seam.

@@ -31,9 +31,11 @@
 
 import type { Line, LineGroup, Option, Statement } from "./ast.js";
 
-/** Where a callback's node sits: its enclosing list and position in it. */
+/** Where a callback's node sits: its enclosing list and position in it.
+ * One union type — narrowing on `type` decides Line vs Option without a
+ * cast at the consumer. */
 export interface WalkContext {
-  list: Statement[] | Option[];
+  list: readonly (Statement | Option)[];
   index: number;
 }
 

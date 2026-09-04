@@ -229,15 +229,31 @@ export function inlineExpressionSpans(text: string): InlineExpressionSpan[] {
  * transform (`\\{` → `{`) stays here — it is this function's output
  * shape, not a classification.
  */
+/** The compose-side escape transform (`\\{` → `{`, `\\}` → `}`): the
+ * output shape of expansion, applied to the text between spans. Other
+ * backslashes compose literally. */
+function unescapeBraces(text: string): string {
+  return text.replace(/\\([{}])/g, "$1");
+}
+
+/**
+ * Upstream `LineParser.ExpandSubstitutions`, index-based: replaces each
+ * inline span with its evaluated substitution (the runtime's expression
+ * evaluation supplies the values). An expression that fails composes as
+ * the empty string; escaped braces compose as literal braces. The scan
+ * rides the span scanner's contract (above); the compose-side escape
+ * transform (via `unescapeBraces`) stays here — it is this function's
+ * output shape, not a classification.
+ */
 export function expandSubstitutions(text: string, evaluate: (expr: string) => string): string {
   let out = "";
   let pos = 0;
   for (const span of inlineExpressionSpans(text)) {
-    out += text.slice(pos, span.start).replace(/\\([{}])/g, "$1");
+    out += unescapeBraces(text.slice(pos, span.start));
     out += evaluate(span.source);
     pos = span.end;
   }
-  return out + text.slice(pos).replace(/\\([{}])/g, "$1");
+  return out + unescapeBraces(text.slice(pos));
 }
 
 /** Upstream composed text (C# `ToString`): booleans as "True"/"False". */

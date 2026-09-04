@@ -104,3 +104,13 @@ pass, 1 mirrored skip), lint clean, ts-check clean, demo build green.
 section gains **Inline-expression spans**, named alongside the line
 parser's substitution stage, with the scan contract and the
 "compile-side classifiers consume the same spans" clause.
+
+**Wave-end review note (spec axis):** the ticket said the new pin table
+"replaces the escape-contract pins currently scattered across three
+suites". The old scattered pins (markupLineParser/invariant-formatting
+runtime pins, lineIds/shadow YS0043 pins) are retained deliberately —
+they pin the same contract through *independent* observable seams
+(composition, blanking/diagnostics), not duplicates of the scanner table;
+all pass unchanged against the folded consumers. "Replaces" is realized
+as: the scanner module is now the single contract home; the other suites
+keep their seam-level pins.

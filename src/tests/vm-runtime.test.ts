@@ -471,3 +471,67 @@ Narrator: {(1 && 0)} / {1 < 2 && "&&" != ""}
   assert.ok(line);
   assert.equal(line.text, "False / True");
 });
+
+test("inline text: the || branch layers like the checker parses them too", () => {
+  // The ticket-09 pin table's named case (`a || b == c`): the checker and
+  // the codegen parse $a || ($b == $c); the pre-fix evaluator parsed
+  // ($a || $b) == $c (comparison split first) and composed "False" here.
+  const dialogue = makeDialogue(`
+title: Start
+---
+<<set $a to true>>
+<<set $b to false>>
+Narrator: {$a || $b == $b} / {$b || $a == $b}
+===
+`);
+  const events = runUntilCompleteEvents(dialogue);
+  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  assert.ok(line);
+  // true || (false == false) → True; false || (true == false) → False.
+  assert.equal(line.text, "True / False");
+});
+
+// --- the four-consumer agreement through the fallback (ticket 05) ---
+// The review's spec axis flagged ticket 05's Tests item as partial: the
+// fallback path's structural agreement was pinned only indirectly. These
+// pins walk one statement through all four consumers: the checker
+// validates the word alias, the codegen defers (word-xor is not in its
+// alias table — ADR 0005's recorded gap), the raw command rides
+// runCommand, the state-statement grammar parses the same shape the
+// checker validated, and the evaluator applies the operand-semantics
+// module's rules.
+
+test("uncompilable <<set>> with a word alias agrees structurally across the consumers", () => {
+  // `xor` fails codegen → the raw command → parseStateStatement → the
+  // string evaluator applies bool-xor. $n starts false; $n xor true → true.
+  const dialogue = makeDialogue(`
+title: Start
+---
+<<set $n to false>>
+<<set $n to $n xor true>>
+Narrator: {$n}
+===
+`);
+  const events = runUntilCompleteEvents(dialogue);
+  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  assert.ok(line);
+  assert.equal(line.text, "True");
+});
+
+test("uncompilable <<set>> with trailing garbage lands best-effort, not crash", () => {
+  // `1 2` fails codegen (trailing input) → the raw command → the same
+  // grammar parse → best-effort evaluation (the evaluator yields no value;
+  // no diagnostic channel fires — the fallback path's documented
+  // collect-don't-throw shape). The line composes and $m stays empty.
+  const dialogue = makeDialogue(`
+title: Start
+---
+<<set $m to 1 2>>
+Narrator: value={$m}
+===
+`);
+  const events = runUntilCompleteEvents(dialogue);
+  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  assert.ok(line);
+  assert.equal(line.text, "value=");
+});

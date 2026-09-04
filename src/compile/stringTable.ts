@@ -224,7 +224,7 @@ function flagLastLines(stmts: Statement[], flags: Set<LineBearing>): void {
   walkStatements(stmts, {
     onStatement: (s, at) => {
       if (s.type === "OptionGroup" && at.index > 0) {
-        const prev = (at.list as Statement[])[at.index - 1];
+        const prev = at.list[at.index - 1];
         if (prev.type === "Line") flags.add(prev);
       }
     },
