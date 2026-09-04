@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: CC0-1.0
-// The full .yarn import contract (ticket 03): named exports beside the
+// The full .yarn import contract as implemented: named exports beside the
 // default Program, ?raw passthrough, the Vite-core bail set, and diagnostics
 // as build errors — errors fail with a RollupError-shaped object, warnings
 // surface without failing, and severity overrides apply before that split.
@@ -8,9 +8,9 @@ import { deepStrictEqual, ok, strictEqual } from "node:assert";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Dialogue } from "../runtime/dialogue.js";
-import type { DialogueEvent } from "../runtime/dialogue.js";
+import { Dialogue, type DialogueEvent } from "yarn-spinner-runner-ts";
 import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
+import { callHook, importEmitted } from "./pluginHarness.js";
 
 const STORY = `# title_tag
 
@@ -27,15 +27,6 @@ const BROKEN = `title: Start
 `;
 
 const plugin = yarnSpinnerVitePlugin();
-
-const callHook = (hook: unknown, thisArg: unknown, ...args: unknown[]): unknown => {
-  const fn = typeof hook === "function" ? hook : (hook as { handler?: unknown }).handler;
-  ok(typeof fn === "function", "hook missing");
-  return (fn as (...a: unknown[]) => unknown).call(thisArg, ...args);
-};
-
-const importEmitted = async (code: string): Promise<any> =>
-  import(`data:text/javascript,${encodeURIComponent(code)}`);
 
 const makeCtx = (warn: unknown[] = []) => ({ warn: (msg: unknown) => warn.push(msg) });
 

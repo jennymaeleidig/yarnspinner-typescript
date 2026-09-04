@@ -18,23 +18,30 @@ import {
   nodeProjectFs,
 } from "yarn-spinner-runner-ts/node";
 import { loadLocalisations } from "yarn-spinner-runner-ts";
-import type { DiagnosticSeverity, ExternalDeclarations } from "yarn-spinner-runner-ts";
-import { partitionDiagnostics, type CompiledYarnModule } from "./compileModule.js";
+import type { DiagnosticSeverity } from "yarn-spinner-runner-ts";
+import { partitionDiagnostics, type CompileYarnOptions, type CompiledYarnModule } from "./compileModule.js";
 
 export function compileYarnProjectModule(
   projectFilePath: string,
-  opts: {
-    diagnosticsSeverity?: Record<string, DiagnosticSeverity>;
-    declarations?: ExternalDeclarations;
-  } = {},
+  opts: CompileYarnOptions = {},
 ): CompiledYarnModule {
   const { project, stringTable, program, diagnostics } = loadYarnProject(
     projectFilePath,
-    {
-      diagnosticsSeverity: opts.diagnosticsSeverity,
-      declarations: opts.declarations,
-    },
+    { declarations: opts.declarations },
   );
+  // Severity precedence, applied as one final pass over the returned
+  // diagnostics: the project file's own map first, then the plugin's
+  // top-level option, then the compilerOptions passthrough (most specific
+  // wins). The loader applies the project's map internally; this re-pass
+  // layers the plugin's values over it.
+  const severity: Record<string, DiagnosticSeverity> = {
+    ...project?.compilerOptions?.diagnosticsSeverity,
+    ...opts.diagnosticsSeverity,
+  };
+  for (const d of diagnostics) {
+    const override = severity[d.code];
+    if (override) d.severity = override;
+  }
   const localisation = loadLocalisations({ project, stringTable }, nodeProjectFs(dirname(projectFilePath)));
   const { errors, warnings } = partitionDiagnostics([...diagnostics, ...localisation.diagnostics]);
   const code =

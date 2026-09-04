@@ -87,9 +87,12 @@ dialogue.setLanguage("de"); // localised delivery; missing lines fall back
 An error-severity diagnostic anywhere in the compiled content fails the build
 with a RollupError-shaped error (`id`, `loc`, `frame` — clickable in the
 terminal and the Vite overlay); warnings surface through Vite's warning
-channel without failing. The project file's own
-`compilerOptions.diagnosticsSeverity` applies before that split — an error
-downgraded to a warning does not fail the build.
+channel without failing. Severity overrides merge in a fixed order — the
+project file's `compilerOptions.diagnosticsSeverity` map first, then the
+plugin's options (top-level `diagnosticsSeverity`, then the
+`compilerOptions` passthrough, most specific winning) — applied before that
+split, so a downgraded error does not fail the build and the plugin can
+escalate a project-downgraded code back.
 
 ## Plugin options
 
@@ -105,7 +108,8 @@ yarnSpinnerVitePlugin({
   definitions: ["./Commands.ysls.json"],
 
   // Compiler-options passthrough, merged over the pinned project's own
-  // compilerOptions (these win).
+  // compilerOptions: the project's map first, then the top-level
+  // diagnosticsSeverity option, then these (most specific wins).
   compilerOptions: { diagnosticsSeverity: { YS0012: "none" } },
 
   // Unanchored glob-or-RegExp filters layered over extension matching.

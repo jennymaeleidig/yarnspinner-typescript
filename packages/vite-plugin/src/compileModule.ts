@@ -16,9 +16,9 @@ import type { Diagnostic, DiagnosticSeverity, ExternalDeclarations } from "yarn-
 export interface CompileYarnOptions {
   /**
    * Per-code severity overrides — the project file's
-   * `compilerOptions.diagnosticsSeverity` map once ticket 04 wires project
-   * context in. Applied before the error/warning split, so an error
-   * downgraded to a warning no longer fails the build.
+   * `compilerOptions.diagnosticsSeverity` map layers under these (the
+   * plugin's values win), per the merge precedence. Applied before the
+   * error/warning split, so a downgraded error no longer fails the build.
    */
   diagnosticsSeverity?: Record<string, DiagnosticSeverity>;
   /**

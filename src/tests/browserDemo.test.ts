@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: CC0-1.0
-// The browser demo as acceptance harness (ticket 08): the demo builds
+// The browser demo as acceptance harness: the demo builds
 // end-to-end through the real plugin — package name resolved through the
 // published surface (no source aliasing), shared content compiled by the
 // plugin's direct-import contract — and the built bundle proves it.

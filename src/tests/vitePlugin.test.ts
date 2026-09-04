@@ -7,9 +7,9 @@ import { deepStrictEqual, ok, strictEqual } from "node:assert";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Dialogue } from "../runtime/dialogue.js";
-import type { DialogueEvent } from "../runtime/dialogue.js";
+import { Dialogue, type DialogueEvent } from "yarn-spinner-runner-ts";
 import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
+import { callHook, importEmitted, viteCtx } from "./pluginHarness.js";
 
 const DEMO = `title: Start
 ---
@@ -22,18 +22,6 @@ Narrator: Hi
 `;
 
 const plugin = yarnSpinnerVitePlugin();
-
-// Vite wraps hooks as {handler} | fn; call them the way Vite would.
-const callHook = (hook: unknown, thisArg: unknown, ...args: unknown[]): unknown => {
-  const fn = typeof hook === "function" ? hook : (hook as { handler?: unknown }).handler;
-  ok(typeof fn === "function", "hook missing");
-  return (fn as (...a: unknown[]) => unknown).call(thisArg, ...args);
-};
-// Vite always supplies a plugin context on hook calls; the seam mirrors that.
-const viteCtx = (): { warn: () => void } => ({ warn: () => {} });
-
-const importEmitted = async (code: string) =>
-  import(`data:text/javascript,${encodeURIComponent(code)}`);
 
 const makeHotCtx = (file: string, sent: unknown[]) => ({
   file,

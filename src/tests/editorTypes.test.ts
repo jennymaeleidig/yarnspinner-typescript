@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: CC0-1.0
-// The ./client types subpath (ticket 06): all three import shapes type-check
+// The ./client types subpath: all three import shapes type-check
 // in an editor — via the triple-slash reference path and via the zero-
 // dependency paste-in snippet (the shipped client.d.ts references only the
 // core package, so pasting it verbatim works without this package).

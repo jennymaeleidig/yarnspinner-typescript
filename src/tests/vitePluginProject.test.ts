@@ -8,36 +8,19 @@ import { deepStrictEqual, ok, strictEqual } from "node:assert";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Dialogue } from "../runtime/dialogue.js";
-import type { DialogueEvent } from "../runtime/dialogue.js";
-import { StringTableTextProvider } from "../runtime/textProvider.js";
-import { compileSource, stringTableToEntries, createCSV } from "yarn-spinner-runner-ts";
+import { Dialogue, type DialogueEvent } from "yarn-spinner-runner-ts";
+import {
+  compileSource,
+  createProjectTextProvider,
+  createCSV,
+  stringTableToEntries,
+} from "yarn-spinner-runner-ts";
 import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
+import { callHook, importEmitted } from "./pluginHarness.js";
 
 const STORY = `title: Start\n---\nMae: Gold {$gold}. #line:gold\n<<set $gold to 5>>\nTake it #line:take\n===\n`;
 
 const plugin = yarnSpinnerVitePlugin();
-
-const callHook = (hook: unknown, thisArg: unknown, ...args: unknown[]): unknown => {
-  const fn = typeof hook === "function" ? hook : (hook as { handler?: unknown }).handler;
-  ok(typeof fn === "function", "hook missing");
-  return (fn as (...a: unknown[]) => unknown).call(thisArg, ...args);
-};
-
-const importEmitted = async (code: string): Promise<any> =>
-  import(`data:text/javascript,${encodeURIComponent(code)}`);
-
-const createProvider = (localisation: {
-  baseTable: Record<string, string>;
-  translations: Record<string, Record<string, string>>;
-}): StringTableTextProvider => {
-  const provider = new StringTableTextProvider();
-  provider.extendBaseLanguage(localisation.baseTable);
-  for (const [lang, table] of Object.entries(localisation.translations)) {
-    provider.extendTranslation(lang, table);
-  }
-  return provider;
-};
 
 const firstLine = (events: DialogueEvent[]): string => {
   const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
@@ -88,13 +71,17 @@ test("a project import emits the full load result and drives localised dialogue"
 
     // Fresh Dialogue per language: delivery is once-per-line, so setLanguage
     // affects subsequent lines only (the core loader test's pattern).
-    const base = new Dialogue(mod.default.program, { textProvider: createProvider(mod.default) });
+    const base = new Dialogue(mod.default.program, {
+      textProvider: createProjectTextProvider(mod.default),
+    });
     strictEqual(
       firstLine(base.continue()),
       "Gold .",
       "base-language text (speaker prefix stripped, {$gold} unset)",
     );
-    const de = new Dialogue(mod.default.program, { textProvider: createProvider(mod.default) });
+    const de = new Dialogue(mod.default.program, {
+      textProvider: createProjectTextProvider(mod.default),
+    });
     de.setLanguage("de");
     strictEqual(firstLine(de.continue()), "Gold . (DE)", "localised text");
   } finally {

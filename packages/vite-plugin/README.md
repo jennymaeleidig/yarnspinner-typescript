@@ -31,7 +31,8 @@ const dialogue = new Dialogue(program, { startAt: "Start" });
   `createProjectTextProvider` and localised `Dialogue` playback.
 - **Diagnostics as build errors** — an error-severity diagnostic fails the
   build with a RollupError (`id`, `loc`, `frame`); warnings surface without
-  failing; the project's `diagnosticsSeverity` map applies first.
+  failing. Severity maps merge in a fixed order — the project file's own
+  first, then the plugin's (most specific wins) — before the split.
 - **Dev reload** — content edits full-reload: a rebuilt program means a
   rebuilt dialogue.
 

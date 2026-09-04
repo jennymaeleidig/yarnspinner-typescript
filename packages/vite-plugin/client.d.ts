@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: CC0-1.0
-// Ambient declarations for the plugin's import contracts (the implemented
-// runtime shapes — ticket 03's .yarn module, its ?raw form, and ticket 04's
-// .yarnproject module). Enable with one triple-slash reference in an ambient
-// types file:
+// Ambient declarations for the plugin's import contracts — the implemented
+// runtime shapes: the .yarn module (default Program + named string table,
+// implicit-tag flag, file tags), its ?raw form, and the .yarnproject module
+// (the full load result). Enable with one triple-slash reference in an
+// ambient types file:
 //
 //   /// <reference types="yarn-spinner-vite-plugin/client" />
 //
