@@ -169,37 +169,75 @@ export class LineComposer {
 }
 
 /**
- * Upstream `LineParser.ExpandSubstitutions`, index-based: replaces `{0}`,
- * `{1}`, … with the evaluated substitutions (the runtime's expression
- * evaluation supplies the values). An expression that fails composes as
- * the empty string; escaped braces compose as literal braces.
+ * The inline-expression span scanner — the one home for "where are the
+ * inline `{expr}` spans in this text?" (deepening-wave-2 ticket 07). The
+ * escape contract is the runtime composer's, stated here once:
+ *
+ * - `\{` and `\}` are escapes — the brace composes literally and never
+ *   opens a span; any other backslash composes literally (there is no
+ *   `\\` escape — `\\{expr}` composes a literal backslash, then an
+ *   escaped brace);
+ * - a span runs from `{` to the *next* `}` (expressions are not
+ *   brace-balanced — a `}` inside a string literal closes the span,
+ *   exactly as the runtime expansion reads it);
+ * - an unclosed `{` composes as a literal character — not a span.
+ *
+ * Every compile-side classifier (markup validation's blanking, the string
+ * table's detection, the type checker's variable collection) previously
+ * re-derived these rules by hand and had already drifted from the runtime
+ * (blanking skipped two chars after *any* backslash); they now consume
+ * these spans, so compile-time classification cannot disagree with
+ * delivery.
  */
-function expandSubstitutions(text: string, evaluate: (expr: string) => string): string {
-  let out = "";
+export interface InlineExpressionSpan {
+  /** Index of the opening `{`. */
+  start: number;
+  /** Index just past the closing `}`. */
+  end: number;
+  /** The expression source between the braces. */
+  source: string;
+}
+
+export function inlineExpressionSpans(text: string): InlineExpressionSpan[] {
+  const spans: InlineExpressionSpan[] = [];
   let i = 0;
   while (i < text.length) {
     const char = text[i];
     if (char === "\\" && (text[i + 1] === "{" || text[i + 1] === "}")) {
-      // Escaped brace: compose the literal brace character.
-      out += text[i + 1];
       i += 2;
       continue;
     }
     if (char === "{") {
       const close = text.indexOf("}", i + 1);
-      if (close === -1) {
-        out += char;
-        i += 1;
+      if (close !== -1) {
+        spans.push({ start: i, end: close + 1, source: text.slice(i + 1, close) });
+        i = close + 1;
         continue;
       }
-      out += evaluate(text.slice(i + 1, close));
-      i = close + 1;
-      continue;
     }
-    out += char;
     i += 1;
   }
-  return out;
+  return spans;
+}
+
+/**
+ * Upstream `LineParser.ExpandSubstitutions`, index-based: replaces each
+ * inline span with its evaluated substitution (the runtime's expression
+ * evaluation supplies the values). An expression that fails composes as
+ * the empty string; escaped braces compose as literal braces. The scan
+ * rides the span scanner's contract (above); the compose-side escape
+ * transform (`\\{` → `{`) stays here — it is this function's output
+ * shape, not a classification.
+ */
+export function expandSubstitutions(text: string, evaluate: (expr: string) => string): string {
+  let out = "";
+  let pos = 0;
+  for (const span of inlineExpressionSpans(text)) {
+    out += text.slice(pos, span.start).replace(/\\([{}])/g, "$1");
+    out += evaluate(span.source);
+    pos = span.end;
+  }
+  return out + text.slice(pos).replace(/\\([{}])/g, "$1");
 }
 
 /** Upstream composed text (C# `ToString`): booleans as "True"/"False". */

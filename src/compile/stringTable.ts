@@ -36,6 +36,7 @@ import { walkStatements } from "../model/walk.js";
 import { makeDiagnostic } from "./diagnostics.js";
 import type { Diagnostic } from "./diagnostics.js";
 import { crc32Hex } from "./crc32.js";
+import { inlineExpressionSpans } from "../runtime/interpolate.js";
 
 /** Information about one string in the string table (upstream `StringInfo`). */
 export interface StringInfo {
@@ -359,19 +360,5 @@ function validateShadowLines(manager: StringTableManager, emit: (d: Diagnostic) 
  * rules — so they are not expressions.
  */
 function hasInlineExpression(text: string): boolean {
-  let i = 0;
-  while (i < text.length) {
-    const char = text[i];
-    if (char === "\\" && (text[i + 1] === "{" || text[i + 1] === "}")) {
-      i += 2;
-      continue;
-    }
-    if (char === "{") {
-      const close = text.indexOf("}", i + 1);
-      if (close !== -1) return true;
-      return false;
-    }
-    i += 1;
-  }
-  return false;
+  return inlineExpressionSpans(text).length > 0;
 }

@@ -72,6 +72,7 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 - **Visit tracking**: per-node view counts recorded on node return; `tracking: never` suppresses, `tracking: always` equals default; node-group visits aggregate under the shared title.
 - **Saliency strategy**: the pluggable selection policy for node groups and line groups; four built-ins with Random Best-Least-Recently-Viewed as default.
 - **Line parser**: the runtime stage that expands `{expr}` substitutions, then parses markup into structured attributes; composed text flows from here.
+- **Inline-expression spans**: the `{expr}` spans the line parser's substitution stage evaluates — scan contract owned by the runtime composer (`\{`/`\}` are the only escapes; any other backslash is literal; a span runs from `{` to the next `}`; an unclosed `{` composes literally). Compile-side classifiers (markup validation, string-table detection, type checking) consume the same spans, so compile-time classification cannot disagree with delivery.
 - **Replacement marker**: built-in value-driven text selection markup — `[select]`, `[plural]`, `[ordinal]`.
 - **Character marker**: the implicit `[character name=]` markup generated from a line's character-name prefix, before other processing.
 - **Text provider**: injectable resolver from line ID to text for the current language; the runtime is string-table-unaware.

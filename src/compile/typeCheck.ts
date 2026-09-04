@@ -34,6 +34,7 @@ import type { Diagnostic } from "./diagnostics.js";
 import { isSmartVariableInitializer } from "./smartVariables.js";
 import { parseStateStatement } from "../parse/stateStatement.js";
 import type { DeclaredValueType, FunctionSignature } from "../runtime/library.js";
+import { inlineExpressionSpans } from "../runtime/interpolate.js";
 
 // Re-exported so the declarations surface keeps its historical home in the
 // public API (the runtime Library owns the definition).
@@ -894,51 +895,42 @@ function checkCondition(expr: string, ctx: CheckContext): { type: ExprType; rewr
   return checked;
 }
 
-/** Collect variable references from a text's inline `{expr}` substitutions
- *  (skipping the runtime-owned `\{` / `\}` escapes). */
+/** Collect variable references from a text's inline `{expr}` spans and
+ *  type-check each as an expression — the spans come from the runtime's
+ *  scanner (src/runtime/interpolate.ts), so the checker classifies exactly
+ *  what delivery will evaluate (its own loop had already drifted: it
+ *  skipped two chars after any backslash, where the runtime only escapes
+ *  `\{` / `\}`). */
 function collectInlineExpressionVars(text: string, ctx: CheckContext): void {
-  let i = 0;
-  while (i < text.length) {
-    const ch = text[i];
-    if (ch === "\\") {
-      i += 2;
-      continue;
-    }
-    if (ch === "{") {
-      const close = text.indexOf("}", i + 1);
-      if (close === -1) break;
-      const exprSrc = text.slice(i + 1, close);
-      const parsed = parseExpression(exprSrc);
-      const collect = (node: ExprNode): void => {
-        switch (node.kind) {
-          case "var":
-            ctx.inlineVarUses.add(node.name);
-            break;
-          case "un":
-            collect(node.operand);
-            break;
-          case "bin":
-            collect(node.left);
-            collect(node.right);
-            break;
-          case "call":
-            node.args.forEach(collect);
-            break;
-          default:
-            break;
-        }
-      };
-      if (parsed) collect(parsed);
+  for (const span of inlineExpressionSpans(text)) {
+    const exprSrc = span.source;
+    const parsed = parseExpression(exprSrc);
+    const collect = (node: ExprNode): void => {
+      switch (node.kind) {
+        case "var":
+          ctx.inlineVarUses.add(node.name);
+          break;
+        case "un":
+          collect(node.operand);
+          break;
+        case "bin":
+          collect(node.left);
+          collect(node.right);
+          break;
+        case "call":
+          node.args.forEach(collect);
+          break;
+        default:
+          break;
+      }
+    };
+    if (parsed) collect(parsed);
       // Type-check the inline span too: the runtime evaluates
       // every `{...}` span as an expression, so the checker validates them
       // as expressions — YS0028 for a variable inside a conversion that
       // still can't be inferred, YS0005 for a malformed span. Rewrites are
       // discarded: inline-text `.Case` resolution happens in lowering.
       checkExpression(exprSrc, ctx);
-      i = close + 1;
-      continue;
-    }
-    i++;
   }
 }
 

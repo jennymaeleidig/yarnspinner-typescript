@@ -49,6 +49,7 @@ import { assignLineIds, StringTableManager } from "./stringTable.js";
 import type { StringTable } from "./stringTable.js";
 import { LineParser } from "../markup/lineParser.js";
 import { builtinSignatures } from "../runtime/builtins.js";
+import { inlineExpressionSpans } from "../runtime/interpolate.js";
 import type { Library } from "../runtime/library.js";
 
 /** One input of a compilation (upstream `CompilationJob.File`). */
@@ -485,23 +486,13 @@ function validateMarkup(
   }
 }
 
-/** Replace the contents of unescaped `{expr}` spans with spaces. */
+/** Replace the contents of unescaped `{expr}` spans with spaces — the
+ * spans come from the runtime's scanner (src/runtime/interpolate.ts), so
+ * compile-time markup validation classifies exactly what delivery will. */
 function blankInlineExpressions(text: string): string {
   const out = text.split("");
-  let i = 0;
-  while (i < text.length) {
-    if (text[i] === "\\") {
-      i += 2;
-      continue;
-    }
-    if (text[i] === "{") {
-      const close = text.indexOf("}", i + 1);
-      if (close === -1) break;
-      for (let j = i + 1; j < close; j++) out[j] = " ";
-      i = close + 1;
-      continue;
-    }
-    i++;
+  for (const span of inlineExpressionSpans(text)) {
+    for (let j = span.start + 1; j < span.end - 1; j++) out[j] = " ";
   }
   return out.join("");
 }

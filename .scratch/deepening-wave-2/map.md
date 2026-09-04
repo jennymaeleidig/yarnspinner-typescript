@@ -15,13 +15,23 @@ after, the parity-risky grammar merge last behind a research gate.
 | 04 | [04-operand-semantics-module.md](issues/04-operand-semantics-module.md) | One operand-semantics module (review #3, deepening half) | resolved |
 | 05 | [05-state-statement-grammar.md](issues/05-state-statement-grammar.md) | One grammar module for `<<set>>`/`<<declare>>` (review #2) | resolved |
 | 06 | [06-statement-walker.md](issues/06-statement-walker.md) | One statement walker for the compile seam (review #1) | resolved |
-| 07 | [07-inline-expression-spans.md](issues/07-inline-expression-spans.md) | One inline-expression span scanner (review #4) | open, blocked by 05 |
+| 07 | [07-inline-expression-spans.md](issues/07-inline-expression-spans.md) | One inline-expression span scanner (review #4) | resolved |
 | 08 | [08-expression-grammar-merge.md](issues/08-expression-grammar-merge.md) | One expression grammar, three consumers (review #5) — research-gated | open, blocked by 04, 05 |
 
 Frontier order = ticket number (matches the grilling round: 6→7→3→3→2→1→4→5).
 
 ## Decisions-so-far
 
+- **Ticket 07 (resolved)**: `inlineExpressionSpans` in
+  src/runtime/interpolate.ts — the runtime escape contract stated once
+  (`\{`/`\}` only; `\\{` is literal-backslash-then-escaped-brace; span
+  ends at the next `}`; unclosed `{` composes literally). All four
+  consumers folded (expandSubstitutions keeps only the compose-side
+  escape transform; blanking/detection/checker consume the spans). Drift
+  fixed: `\\{expr}` was classified as an expression by the old compile
+  scanners but never evaluated by the runtime; checker's early-break at
+  an unclosed `{` gone. CONTEXT.md gains the Inline-expression spans
+  glossary entry (the one pre-agreed domain-facing term of the wave).
 - **Ticket 06 (resolved)**: `src/model/walk.ts` — `walkStatements` with
   onLine/onOption/onStatement + `{ list, index }` context +
   `includeOnce: false` (upstream LastLineBeforeOptionsVisitor shape).
