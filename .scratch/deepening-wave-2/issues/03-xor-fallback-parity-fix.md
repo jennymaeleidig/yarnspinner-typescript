@@ -1,7 +1,7 @@
 # Ticket 03 — Standalone xor fallback-path parity fix
 
 Type: task
-Status: open
+Status: resolved
 
 ## Question
 
@@ -47,3 +47,35 @@ dispatch) the xor rule, mirroring the VM's `MethodXor` semantics exactly.
   consumer).
 - Ticket 04 (blocked by this one) then deletes the duplication that caused the
   miss.
+
+## Answer
+
+Fixed in `src/runtime/evaluator.ts`: `evaluateExpression`'s dispatch now
+routes `^` (and the preprocessed `xor` word) to `evaluateLogical`, whose
+split now includes `^` as a third operator, applied as
+`Boolean(result) !== Boolean(val)` — the same bool-xor the VM's xor op
+applies (upstream `BooleanType.MethodXor`, mirroring vm.ts's
+case "xor" comment). The and/or/xor evaluation stays one flat
+left-associative loop, matching upstream's `ExpAndOrXor` level.
+
+**Reachability finding (input to ticket 08's grammar diff):** the
+fallback is not a dead path for xor — codegen's `WORD_OPS`
+(expressionCodegen.ts:41) has no `xor` word alias, while the type
+checker's table (typeCheck.ts:185) has it. So content authored with
+`xor` (e.g. `when: $a xor $b`) type-checks, fails codegen, and rides the
+string evaluator as its primary delivery path — the bug was live for
+word-xor content, not merely hypothetical. The evaluator fix restores
+correctness end-to-end; codegen's missing alias costs only the
+consistency/performance gap, which ticket 08's three-grammar diff owns
+(along with the checker/codegen alias tables generally).
+
+Two regression pins in `vm-runtime.test.ts`, both through the public
+compile → run seam and both verified to fail against the pre-fix
+evaluator (stash-proven): the uncompilable `<<set>>` fallback
+(`$x = $a xor $b` → True) and the `when:` saliency fallback (a node
+group whose only eligible member is selected by `$a xor $b`, with the
+`$a xor $a` member never eligible). Suite 574 (573 pass, 1 mirrored
+skip), lint clean, ts-check clean.
+
+**Glossary proposal (per the grilling round):** none — parity
+restoration, no new concept.

@@ -107,8 +107,9 @@ export class ExpressionEvaluator {
       return this.evaluateComparison(trimmed);
     }
 
-    // Handle logical operators
-    if (trimmed.includes("&&") || trimmed.includes("||")) {
+    // Handle logical operators (and/or/xor — xor's word alias preprocesses
+    // to `^`; see evaluateLogical)
+    if (trimmed.includes("&&") || trimmed.includes("||") || trimmed.includes("^")) {
       return this.evaluateLogical(trimmed);
     }
 
@@ -387,17 +388,17 @@ export class ExpressionEvaluator {
   }
 
   private evaluateLogical(expr: string): boolean {
-    // Split by && or ||, respecting parentheses
-    const parts: Array<{ expr: string; op: "&&" | "||" | null }> = [];
+    // Split by &&, ||, or ^, respecting parentheses
+    const parts: Array<{ expr: string; op: "&&" | "||" | "^" | null }> = [];
     let depth = 0;
     let current = "";
-    let lastOp: "&&" | "||" | null = null;
+    let lastOp: "&&" | "||" | "^" | null = null;
 
     for (const char of expr) {
       if (char === "(") depth++;
       else if (char === ")") depth--;
-      else if (depth === 0 && expr.includes(char === "&" ? "&&" : char === "|" ? "||" : "")) {
-        // Check for && or ||
+      else if (depth === 0 && (char === "&" ? expr.includes("&&") : char === "|" ? expr.includes("||") : true)) {
+        // Check for &&, ||, or ^
         const remaining = expr.slice(expr.indexOf(char));
         if (remaining.startsWith("&&")) {
           if (current.trim()) {
@@ -415,6 +416,13 @@ export class ExpressionEvaluator {
           lastOp = "||";
           // skip ||
           continue;
+        } else if (remaining.startsWith("^")) {
+          if (current.trim()) {
+            parts.push({ expr: current.trim(), op: lastOp });
+            current = "";
+          }
+          lastOp = "^";
+          continue;
         }
       }
       current += char;
@@ -424,7 +432,8 @@ export class ExpressionEvaluator {
     // Simple case: single expression
     if (parts.length === 0) return !!this.evaluateExpression(expr);
 
-    // Evaluate parts (supports &&, ||, ^ as xor)
+    // Evaluate parts — and/or/xor share one flat left-associative level
+    // (upstream ExpAndOrXor; the VM's stack ops apply the same order).
     let result = this.evaluateExpression(parts[0].expr);
     for (let i = 1; i < parts.length; i++) {
       const part = parts[i];
@@ -433,6 +442,11 @@ export class ExpressionEvaluator {
         result = result && val;
       } else if (part.op === "||") {
         result = result || val;
+      } else if (part.op === "^") {
+        // Upstream BooleanType.MethodXor: ConvertTo<bool>() ^
+        // ConvertTo<bool>() — the same bool-xor the VM's xor op applies
+        // (vm.ts executeStackOp case "xor").
+        result = Boolean(result) !== Boolean(val);
       }
     }
 

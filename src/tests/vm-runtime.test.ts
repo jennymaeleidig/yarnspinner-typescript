@@ -351,3 +351,62 @@ test("logical operators produce booleans", () => {
   assert.equal(dialogue.getVariable("x"), true);
   assert.equal(dialogue.getVariable("y"), false);
 });
+
+// --- xor in the string-evaluator fallback (deepening-wave-2 ticket 03) ---
+// The `xor` word alias is not in codegen's word-alias table (ticket 08's
+// grammar diff), so expressions authored with it fail codegen and ride the
+// fallback paths — where 850d579's xor fix missed the string evaluator
+// (`true xor false` evaluated to false). These pins exercise xor through
+// both fallback consumers, the paths no earlier test evaluated.
+
+test("uncompilable <<set>> with xor evaluates bool-xor through the fallback", () => {
+  // `xor` fails codegen (word-alias gap) → the raw-command fallback →
+  // the string evaluator. Upstream BooleanType.MethodXor: bool ^ bool.
+  const dialogue = makeDialogue(`
+title: Start
+---
+<<set $a to true>>
+<<set $b to false>>
+<<set $x to $a xor $b>>
+<<set $y to $a xor $a>>
+Narrator: {$x} / {$y}
+===
+`);
+  const events = runUntilCompleteEvents(dialogue);
+  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  assert.ok(line);
+  assert.equal(line.text, "True / False");
+});
+
+test("a when: condition with xor selects saliency through the fallback", () => {
+  // Node-group conditions compile lazily; the `xor` word fails codegen and
+  // the string evaluator decides. $a xor $b with (true, false) → true, so
+  // the xor member is the only eligible one and the jump lands there.
+  const dialogue = makeDialogue(`
+title: Start
+---
+<<set $a to true>>
+<<set $b to false>>
+<<jump Group>>
+===
+title: Group
+---
+Narrator: plain member
+===
+title: Group
+when: $a xor $b
+---
+Narrator: xor member
+===
+title: Group
+when: $a xor $a
+---
+Narrator: never eligible
+===
+`);
+  const events = runUntilCompleteEvents(dialogue);
+  const lines = events
+    .filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line")
+    .map((e) => e.text);
+  assert.deepEqual(lines, ["xor member"]);
+});

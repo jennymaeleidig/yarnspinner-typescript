@@ -11,7 +11,7 @@ after, the parity-risky grammar merge last behind a research gate.
 |---|--------|-----------|--------|
 | 01 | [01-events-shaped-drain.md](issues/01-events-shaped-drain.md) | Events-shaped drain in the Transcript module (review #6) | resolved |
 | 02 | [02-derived-view-option.md](issues/02-derived-view-option.md) | Derive DialogueViewOption from DialogueOption (review #7) | resolved |
-| 03 | [03-xor-fallback-parity-fix.md](issues/03-xor-fallback-parity-fix.md) | Standalone xor fallback-path parity fix (review #3, fix half) | open |
+| 03 | [03-xor-fallback-parity-fix.md](issues/03-xor-fallback-parity-fix.md) | Standalone xor fallback-path parity fix (review #3, fix half) | resolved |
 | 04 | [04-operand-semantics-module.md](issues/04-operand-semantics-module.md) | One operand-semantics module (review #3, deepening half) | open, blocked by 03 |
 | 05 | [05-state-statement-grammar.md](issues/05-state-statement-grammar.md) | One grammar module for `<<set>>`/`<<declare>>` (review #2) | open, blocked by 04 |
 | 06 | [06-statement-walker.md](issues/06-statement-walker.md) | One statement walker for the compile seam (review #1) | open |
@@ -22,6 +22,12 @@ Frontier order = ticket number (matches the grilling round: 6→7→3→3→2→
 
 ## Decisions-so-far
 
+- **Ticket 03 (resolved)**: the string evaluator's `evaluateLogical` now
+  splits on `^` and applies VM-mirroring bool-xor; xor in content is
+  correct end-to-end again. Reachability finding recorded for ticket 08:
+  codegen's `WORD_OPS` lacks the `xor` word alias (the checker's has it),
+  so word-xor content always rides the fallback path. Both regression
+  pins stash-proven to fail pre-fix.
 - **Ticket 02 (resolved)**: `DialogueViewOption = DialogueOption` (derived,
   the `TranscriptLine` treatment); `reshapeView`'s options field-copy
   deleted; `text` branch left explicit (spreading would add `lineId` to
