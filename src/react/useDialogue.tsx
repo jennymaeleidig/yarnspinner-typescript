@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { Dialogue, Library } from "../runtime/dialogue.js";
 import type { YarnFunction, DialogueOptions } from "../runtime/dialogue.js";
-import { EMPTY_TRANSCRIPT, runUntilStopped } from "../runtime/transcript.js";
+import { mergeEvents, pullUntilStopped } from "../runtime/transcript.js";
 import type { StoppingPoint, Transcript } from "../runtime/transcript.js";
 import type { MarkupParseResult } from "../markup/types.js";
 import type { DialogueOption } from "../runtime/events.js";
@@ -215,25 +215,25 @@ export function useDialogue(
     liveRef.current = live;
   });
 
-  /** Pull to the next stopping point and reshape the transcript into the
+  /** Pull to the next stopping point and reshape the run's tail into the
    *  view state; flags the completion callback for post-commit delivery.
    *  The scene name rides on the transcript's `NodeStartEvent`; the hook
-   *  carries it forward across pulls (the hook pulls from the empty
-   *  transcript each time — only the tail events matter for the view).
+   *  carries it forward across pulls (the hook reduces the tail events of
+   *  each pull only — no accumulation).
    *
-   *  The pending-selection guard here mirrors the module's at-rest
-   *  contract: `runUntilStopped` returns `prior` unchanged while a
-   *  selection is pending because "the pending set is already on `prior`"
-   *  — which is false for the hook, whose pull input is the empty
-   *  transcript (only tail events matter). Unguarded, such a pull would
-   *  reshape to `null` and blank the live option set, so the hook stops
-   *  before the module and leaves the view exactly as it is (two-axis
-   *  review of the deepening wave, spec axis). */
+   *  The pull is the transcript module's stateless member: the at-rest
+   *  states are *data* on the result — an empty `events` with its stopping
+   *  point means the dialogue was pending a selection or already complete,
+   *  so there is nothing new to reshape and the view stays exactly as it
+   *  is. The hook reads the module's contract instead of pre-empting it
+   *  (deepening-wave-3 ticket 04; the old shape hand-copied the
+   *  pending-selection guard before the pull). */
   const applyPull = useCallback((): void => {
     const dialogue = dialogueRef.current;
     if (!dialogue) return;
-    if (dialogue.isWaitingForOptionSelection) return;
-    const { transcript, stopped } = runUntilStopped(dialogue, EMPTY_TRANSCRIPT);
+    const { events, stopped } = pullUntilStopped(dialogue);
+    if (events.length === 0) return;
+    const transcript = mergeEvents(events);
     if (transcript.scene !== undefined) sceneNameRef.current = transcript.scene;
     viewRef.current = reshapeView(transcript, stopped);
     if (stopped === "complete" && !dialogueCompleteFiredRef.current) {

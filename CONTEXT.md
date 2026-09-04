@@ -86,11 +86,16 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 - **Stopping point**: where the runtime pauses a `continue()` batch for the
   consumer — a delivered line, an option set, or a command, with node
   lifecycle and line-hint events riding through; completion is the
-  terminal stopping point. `runUntilStopped` pulls to the next stopping
-  point and names it; `runUntilComplete` drains through line and command
-  stops to the terminal one, and `runUntilCompleteEvents` returns the raw
-  event stream to that terminal (the runtime/scripts drain), so no
-  consumer re-derives the contract.
+  terminal stopping point. `pullUntilStopped` is the family's stateless
+  member — one pull to the next stopping point as raw events, the at-rest
+  states delivered as data (empty events + the stopping point), and
+  `mergeEvents` reduces events into a Transcript — so a stateless consumer
+  reads "nothing new" off the result instead of pre-empting the contract;
+  `runUntilStopped` pulls to the next stopping point, names it, and merges
+  into `prior`; `runUntilComplete` drains through line and command stops to
+  the terminal one, and `runUntilCompleteEvents` returns the raw event
+  stream to that terminal (the runtime/scripts drain), so no consumer
+  re-derives the contract.
 - **Config / live split**: the hook's input shape, `useDialogue(program,
   config, live)` — one rule, **config identity = dialogue identity**: a
   new config object rebuilds the dialogue even with identical values

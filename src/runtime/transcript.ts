@@ -104,28 +104,32 @@ export function runUntilStopped(
   dialogue: Dialogue,
   prior: Transcript = EMPTY_TRANSCRIPT,
 ): { transcript: Transcript; stopped: StoppingPoint } {
-  if (dialogue.isWaitingForOptionSelection) {
-    return { transcript: prior, stopped: "options" };
+  const { events, stopped } = pullUntilStopped(dialogue);
+  // At-rest (pending selection or complete): no pull happened — `prior`
+  // returns unchanged, the accumulating shape of `{ events: [], stopped }`.
+  if (events.length === 0) {
+    return { transcript: prior, stopped };
   }
-  if (dialogue.isComplete) {
-    return { transcript: prior, stopped: "complete" };
-  }
-  let transcript = prior.options !== null ? { ...prior, options: null } : prior;
-  for (;;) {
-    const batch = dialogue.continue();
-    transcript = mergeBatch(transcript, batch);
-    const stopped = stoppingPointOf(batch);
-    if (stopped) return { transcript, stopped };
-  }
+  // A resolved option set leaves the transcript here: once the dialogue is
+  // no longer waiting, the set is settled history, not live UI.
+  const atRest = prior.options !== null ? { ...prior, options: null } : prior;
+  return { transcript: mergeEvents(events, atRest), stopped };
 }
 
-/** Merge one delivered batch into `prior` (fresh arrays; `prior` untouched). */
-function mergeBatch(prior: Transcript, batch: DialogueEvent[]): Transcript {
+/**
+ * Merge delivered events into `prior` (fresh arrays; `prior` untouched).
+ * The reduction half of the transcript family's interface: `pullUntilStopped`
+ * hands back events, this reduces them — a stateless consumer (the React
+ * hook reshapes a run's tail) uses the pair; the accumulators use it too.
+ * Lifecycle events carry through (`nodeStart`'s scene header lands on the
+ * transcript), lines/options/commands accumulate.
+ */
+export function mergeEvents(events: DialogueEvent[], prior: Transcript = EMPTY_TRANSCRIPT): Transcript {
   let lines: TranscriptLine[] | null = null;
   let options: DialogueOption[] | null = null;
   let commands: string[] | null = null;
   let scene = prior.scene;
-  for (const event of batch) {
+  for (const event of events) {
     if (event.type === "line") {
       // TranscriptLine is derived from LineEvent (Omit "type"), so a new
       // required line field fails this literal at compile time.
@@ -174,6 +178,40 @@ function stoppingPointOf(batch: DialogueEvent[]): StoppingPoint | null {
     }
   }
   return null;
+}
+
+/**
+ * The family's stateless member: pull `dialogue` until the next stopping
+ * point and return the raw events, no accumulation, no `prior`. The
+ * stopping-point contract is owned entirely here — a pending option set or
+ * a complete dialogue is *data* (`{ events: [], stopped }`), not a contract
+ * a caller must pre-empt: a consumer that must distinguish "nothing new"
+ * from "a fresh tail" reads `events.length` instead of hand-copying the
+ * at-rest guards before calling (the React hook's old shape —
+ * deepening-wave-3 ticket 04).
+ *
+ * Lifecycle-only batches accumulate into `events` (a node's scene header
+ * can ride a batch of its own) — the run's events arrive in delivery order
+ * across all pulls made. The internal loop cannot run away for the same
+ * reason `runUntilStopped`'s could not: the VM's batch contract delivers
+ * one stopping point per `continue()`.
+ */
+export function pullUntilStopped(
+  dialogue: Dialogue,
+): { events: DialogueEvent[]; stopped: StoppingPoint } {
+  if (dialogue.isWaitingForOptionSelection) {
+    return { events: [], stopped: "options" };
+  }
+  if (dialogue.isComplete) {
+    return { events: [], stopped: "complete" };
+  }
+  const events: DialogueEvent[] = [];
+  for (;;) {
+    const batch = dialogue.continue();
+    events.push(...batch);
+    const stopped = stoppingPointOf(batch);
+    if (stopped) return { events, stopped };
+  }
 }
 
 /**
@@ -233,19 +271,27 @@ export function runUntilCompleteEvents(
     if (pulls === MAX_DRAIN_PULLS) {
       throw new Error(`runUntilCompleteEvents: stalled after ${MAX_DRAIN_PULLS} pulls without reaching a terminal stopping point`);
     }
-    // An option set pending on entry (the caller already pulled its batch)
-    // has no channel back here — the drain stops, leaving the pending state
-    // for the caller's selectOption.
-    if (dialogue.isComplete || dialogue.isWaitingForOptionSelection) break;
-    const batch = dialogue.continue();
-    if (batch.length === 0) break;
-    events.push(...batch);
-    const optionsEvent = batch.find((event): event is Extract<DialogueEvent, { type: "options" }> => event.type === "options");
-    if (optionsEvent) {
-      if (!selectOption) break;
+    const { events: pulled, stopped } = pullUntilStopped(dialogue);
+    // Empty pull: the dialogue was at rest on entry (an option set pending
+    // without a policy, or already complete) — or the belt for an empty
+    // batch (unreachable per the VM's batch contract, kept as the loop's
+    // belt: a stopping point requires an event, so an empty `pulled` can
+    // only mean the guard fired).
+    if (pulled.length === 0) break;
+    events.push(...pulled);
+    if (stopped === "options") {
+      if (!selectOption) {
+        // The set is the stream's last options event; the dialogue stays
+        // pending, exactly as a pull-API consumer would.
+        break;
+      }
+      const optionsEvent = pulled.find((event): event is Extract<DialogueEvent, { type: "options" }> => event.type === "options");
+      // The stopping point came from this pull's options event — find is
+      // total here, but the guard keeps the type honest.
+      if (!optionsEvent) break;
       dialogue.selectOption(selectOption(optionsEvent.options));
     }
-    if (batch[batch.length - 1].type === "dialogueComplete") break;
+    if (stopped === "complete") break;
   }
   return events;
 }

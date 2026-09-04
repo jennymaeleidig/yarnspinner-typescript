@@ -1,7 +1,7 @@
 # Ticket 04 — The transcript family's missing member: the stateless pull
 
 Type: task
-Status: open
+Status: resolved
 
 ## Question
 
@@ -27,6 +27,17 @@ clearly has.
 2. Rebuild the three accumulators over it; export from index alongside the family.
 3. Migrate `applyPull` in `src/react/useDialogue.tsx`; delete the guard and the module-docstring concession.
 4. Update CONTEXT.md's stopping-point entry.
+
+## Answer
+
+Landed as designed, with one interface refinement recorded: the transcript family's interface grows by **two** members, not one — `pullUntilStopped(dialogue) → { events, stopped }` plus `mergeEvents(events, prior?)`, the reduction half. The hook's reshape needs a `Transcript`, and without the exported merge it would have to keep pulling through the accumulating interface (reproducing the contract problem) or re-derive the reduction. `mergeEvents` is the old private `mergeBatch` promoted, with `runUntilStopped` its first consumer and the hook its second — a real seam, not a hypothetical one.
+
+- **`pullUntilStopped`**: guards first (pending selection / complete → `{ events: [], stopped }`, no pull); the pull loop accumulates lifecycle-only batches into `events` (a scene header can ride its own batch) and returns at the first stopping point.
+- **Accumulators rebuilt over it**: `runUntilStopped` = one `pullUntilStopped` + one `mergeEvents` (the at-rest path returns `prior` unchanged — the empty-events shape, so a pending pull never clears a resolved set off `prior`); `runUntilCompleteEvents` = the drain loop over the primitive, same cap policy, same terminal/pending-policy semantics. `runUntilComplete` unchanged (built over `runUntilStopped`). Both new members are package surface via the root's `export *` — no index.ts edit needed (the file was concurrently held by another agent's work; the seam made the question moot).
+- **Hook migration**: `applyPull` calls `pullUntilStopped` + `mergeEvents`; the hand-copied pending-selection guard and the module-docstring concession are deleted — "nothing new" is now read off `events.length`, the contract consumed instead of pre-empted.
+- CONTEXT.md's stopping-point entry extended with the stateless member + `mergeEvents`.
+
+New pins in `transcript.test.ts`: one pull's events (lifecycle riding in delivery order), both at-rest states as data, lifecycle-only-batch accumulation, and the `mergeEvents` reduction. Suite 630 (629 pass, 1 mirrored skip), lint clean, ts-check clean, demo build green.
 
 ## Tests
 

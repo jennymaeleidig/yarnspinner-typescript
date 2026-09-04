@@ -29,7 +29,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compileOk } from "./compileOk.js";
 import { Dialogue, noOptionSelected } from "../index.js";
-import { EMPTY_TRANSCRIPT, runUntilComplete, runUntilCompleteEvents, runUntilStopped } from "../index.js";
+import { EMPTY_TRANSCRIPT, mergeEvents, pullUntilStopped, runUntilComplete, runUntilCompleteEvents, runUntilStopped } from "../index.js";
 import type { Transcript } from "../index.js";
 
 function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
@@ -442,4 +442,90 @@ Narrator: Looping
   assert.throws(() => runUntilCompleteEvents(dialogue), /stalled after 1000 pulls/);
   // The cap is the stated policy, not dialogue state: a run stopped before
   // the drain starts is the caller's pending/complete state, not a stall.
+});
+
+// ── The stateless pull (deepening-wave-3 ticket 04) ────────────────────
+
+test("pullUntilStopped returns the events of one pull to the next stopping point", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+Narrator: One
+Narrator: Two
+<<set $n to 1>>
+===
+`);
+  const first = pullUntilStopped(dialogue);
+  assert.equal(first.stopped, "line");
+  assert.equal(first.events.filter((e) => e.type === "line").length, 1);
+  // Lifecycle events ride in the same pull: nodeStart rides with the line.
+  assert.ok(first.events.some((e) => e.type === "nodeStart"));
+  const second = pullUntilStopped(dialogue);
+  assert.equal(second.stopped, "line");
+  assert.deepEqual(
+    second.events.filter((e) => e.type === "line").map((e) => (e as { text: string }).text),
+    ["Two"],
+  );
+});
+
+test("the at-rest states are data: an empty events list with its stopping point", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+Narrator: Choose
+-> A
+-> B
+===
+`);
+  pullUntilStopped(dialogue); // the line "Choose"
+  pullUntilStopped(dialogue); // the option set (non-empty)
+  const pending = pullUntilStopped(dialogue);
+  assert.deepEqual(pending.events, []);
+  assert.equal(pending.stopped, "options");
+  dialogue.selectOption(0);
+  pullUntilStopped(dialogue); // the option body's line
+  pullUntilStopped(dialogue); // the DialogueComplete event
+  const done = pullUntilStopped(dialogue);
+  assert.deepEqual(done.events, []);
+  assert.equal(done.stopped, "complete");
+});
+
+test("pullUntilStopped accumulates lifecycle-only batches into the same pull's events", () => {
+  // A node whose first batch rides nodeStart (and line hints) before the
+  // line: the events arrive in delivery order across the internal pulls.
+  const dialogue = makeDialogue(`
+title: Start
+---
+===
+title: Second
+scene: hall
+---
+Narrator: Arrived
+===
+`, { startAt: "Second" });
+  const { events, stopped } = pullUntilStopped(dialogue);
+  assert.equal(stopped, "line");
+  const kinds = events.map((e) => e.type);
+  assert.ok(kinds.indexOf("nodeStart") < kinds.indexOf("line"), "nodeStart rides before the line");
+});
+
+test("mergeEvents reduces events into a transcript — the stateless pair", () => {
+  const dialogue = makeDialogue(`
+title: Start
+---
+Narrator: Hello
+<<wave>>
+===
+`);
+  const first = pullUntilStopped(dialogue); // the line
+  const second = pullUntilStopped(dialogue); // the command
+  assert.equal(second.stopped, "command");
+  const transcript = mergeEvents([...first.events, ...second.events]);
+  assert.equal(transcript.lines.length, 1);
+  assert.equal(transcript.lines[0].text, "Hello");
+  assert.deepEqual(transcript.commands, ["wave"]);
+  // mergeEvents is the reduction over any events; prior is never mutated.
+  const withPrior = mergeEvents([...first.events, ...second.events], { lines: [], options: [{ index: 0, text: "x", isAvailable: true }], commands: [] });
+  assert.equal(withPrior.lines.length, 1);
+  assert.equal(withPrior.commands.length, 1);
 });
