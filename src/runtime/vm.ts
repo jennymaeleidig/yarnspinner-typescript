@@ -31,11 +31,14 @@
  *   never surface as `Command` events; lines and commands keep authored
  *   text and compose at delivery through the shared line parser
  *   (`interpolate`).
- * - Stack-op semantics mirror the runtime evaluator: `add` concatenates
- *   when either operand is a string (rendering operands the upstream way),
- *   equality is `deepEqualsOperands` (unset variables compare against
- *   their typed default), relational ops coerce through `Number()`, and
- *   branch ops branch on truthiness (conditions compile to booleans).
+ * - Stack-op semantics are the operand-semantics module (`./operands.ts`,
+ *   also home to the string evaluator's copies of these rules — one
+ *   statement of every operator rule for both drivers' event streams):
+ *   `add` concatenates when either operand is a string (rendering operands
+ *   the upstream way), equality is `deepEqualsOperands` (unset variables
+ *   compare against their typed default), relational ops coerce through
+ *   `Number()`, and branch ops branch on truthiness (conditions compile to
+ *   booleans).
  * - Runtime failures are diagnostics, not throws (coding standards §3):
  *   they surface through `logError`, the operand stack is re-balanced with
  *   a `null`, and execution continues.
@@ -56,7 +59,8 @@ import {
   lineIdFromTags,
 } from "./events.js";
 import { Library, type YarnFunction } from "./library.js";
-import { ExpressionEvaluator, deepEqualsOperands, stringifyOperand, toNumberOperand } from "./evaluator.js";
+import { ExpressionEvaluator } from "./evaluator.js";
+import { applyBinaryOp, applyUnaryOp } from "./operands.js";
 import { executeStateStatement, parseCommand, stripQuotes, type ParsedCommand } from "./commands.js";
 import { LineComposer } from "./interpolate.js";
 import { LineParser } from "../markup/lineParser.js";
@@ -686,102 +690,31 @@ export class VirtualMachine {
         this.push(fn(...args));
         return;
       }
-      case "add": {
+      case "add":
+      case "subtract":
+      case "multiply":
+      case "divide":
+      case "modulo":
+      case "equalTo":
+      case "notEqualTo":
+      case "lessThan":
+      case "greaterThan":
+      case "lessThanOrEqualTo":
+      case "greaterThanOrEqualTo":
+      case "and":
+      case "xor":
+      case "or": {
+        // The operand semantics live in one module (./operands.ts) — the
+        // string evaluator dispatches through the same applyBinaryOp, so a
+        // rule stated there holds for both drivers' event streams.
         const b = this.pop();
         const a = this.pop();
-        this.push(
-          typeof a === "string" || typeof b === "string"
-            ? stringifyOperand(a) + stringifyOperand(b) // upstream rendering
-            : toNumberOperand(a) + toNumberOperand(b),
-        );
-        return;
-      }
-      case "subtract": {
-        const b = this.pop();
-        const a = this.pop();
-        this.push(toNumberOperand(a) - toNumberOperand(b));
-        return;
-      }
-      case "multiply": {
-        const b = this.pop();
-        const a = this.pop();
-        this.push(toNumberOperand(a) * toNumberOperand(b));
-        return;
-      }
-      case "divide": {
-        const b = this.pop();
-        const a = this.pop();
-        this.push(toNumberOperand(a) / toNumberOperand(b));
-        return;
-      }
-      case "modulo": {
-        const b = this.pop();
-        const a = this.pop();
-        this.push(toNumberOperand(a) % toNumberOperand(b));
+        this.push(applyBinaryOp(ins.op, a, b));
         return;
       }
       case "negate":
-        this.push(-toNumberOperand(this.pop()));
-        return;
-      case "equalTo": {
-        const b = this.pop();
-        const a = this.pop();
-        this.push(deepEqualsOperands(a, b));
-        return;
-      }
-      case "notEqualTo": {
-        const b = this.pop();
-        const a = this.pop();
-        this.push(!deepEqualsOperands(a, b));
-        return;
-      }
-      case "lessThan": {
-        const b = this.pop();
-        const a = this.pop();
-        this.push(Number(a) < Number(b));
-        return;
-      }
-      case "greaterThan": {
-        const b = this.pop();
-        const a = this.pop();
-        this.push(Number(a) > Number(b));
-        return;
-      }
-      case "lessThanOrEqualTo": {
-        const b = this.pop();
-        const a = this.pop();
-        this.push(Number(a) <= Number(b));
-        return;
-      }
-      case "greaterThanOrEqualTo": {
-        const b = this.pop();
-        const a = this.pop();
-        this.push(Number(a) >= Number(b));
-        return;
-      }
-      case "and": {
-        const b = this.pop();
-        const a = this.pop();
-        // Booleans, like the evaluator's logical evaluator — the drivers'
-        // event streams must stay identical for non-bool operands too.
-        this.push(Boolean(a && b));
-        return;
-      }
-      case "or": {
-        const b = this.pop();
-        const a = this.pop();
-        this.push(Boolean(a || b));
-        return;
-      }
-      // Upstream BooleanType.MethodXor: ConvertTo<bool>() ^ ConvertTo<bool>().
-      case "xor": {
-        const b = this.pop();
-        const a = this.pop();
-        this.push(Boolean(a) !== Boolean(b));
-        return;
-      }
       case "not":
-        this.push(!this.pop());
+        this.push(applyUnaryOp(ins.op, this.pop()));
         return;
       default:
         throw new Error(`Instruction "${ins.op}" is not a stack operation`);

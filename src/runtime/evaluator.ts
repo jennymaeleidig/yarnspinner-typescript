@@ -5,65 +5,12 @@
  */
 
 import { InMemoryVariableStorage, type VariableStorage } from "./variableStorage.js";
+import { applyBinaryOp, applyUnaryOp } from "./operands.js";
 
-/**
- * Render a value for string concatenation and composed text, the way upstream
- * does (C# value.ToString()): booleans as "True"/"False". This is the
- * observable text contract the upstream conformance corpus asserts.
- */
-export function stringifyOperand(value: unknown): string {
-  if (typeof value === "boolean") return value ? "True" : "False";
-  return String(value ?? "");
-}
-
-/**
- * The implicit default a variable has when compared against a typed value.
- */
-function defaultValueFor(value: unknown): unknown {
-  switch (typeof value) {
-    case "boolean": return false;
-    case "number": return 0;
-    case "string": return "";
-    default: return undefined;
-  }
-}
-
-/**
- * Coerce an operand to a number the way the runtime's arithmetic does
- * (upstream C# conversions): booleans are 1/0, null and the empty string
- * are 0, anything else goes through `Number()` — and a non-numeric result
- * is an error, which callers surface as a runtime diagnostic.
- */
-export function toNumberOperand(value: unknown): number {
-  if (typeof value === "number") return value;
-  if (typeof value === "boolean") return value ? 1 : 0;
-  if (value == null || value === "") return 0;
-  const num = Number(value);
-  if (Number.isNaN(num)) {
-    throw new Error(`Cannot convert ${String(value)} to number`);
-  }
-  return num;
-}
-
-/**
- * The equality contract of the runtime's `==`/`!=` (shared with the VM's
- * `equalTo`/`notEqualTo` ops): deep equality, where an unset variable
- * carries its implicit default (upstream: bool→false, number→0,
- * string→"") inferred from the other side of the comparison.
- */
-export function deepEqualsOperands(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  // Unset variables carry their implicit default (upstream: bool→false,
-  // number→0, string→"") inferred from the other side of the comparison.
-  if (a === undefined && b !== undefined) return deepEqualsOperands(b, defaultValueFor(b));
-  if (b === undefined && a !== undefined) return deepEqualsOperands(a, defaultValueFor(a));
-  if (a == null || b == null) return a === b;
-  if (typeof a !== typeof b) return false;
-  if (typeof a === "object") {
-    return JSON.stringify(a) === JSON.stringify(b);
-  }
-  return false;
-}
+// The operand primitives moved to ./operands.ts (the one operand-semantics
+// module); this re-export keeps their historical import path — and the
+// package's public surface (index.ts `export *`) — unchanged.
+export { stringifyOperand, toNumberOperand, deepEqualsOperands } from "./operands.js";
 
 export class ExpressionEvaluator {
   /** variable name → recomputing read (compiled bytecode). */
@@ -199,17 +146,6 @@ export class ExpressionEvaluator {
       }
     };
 
-    const toNumber = (value: unknown): number => {
-      if (typeof value === "number") return value;
-      if (typeof value === "boolean") return value ? 1 : 0;
-      if (value == null || value === "") return 0;
-      const num = Number(value);
-      if (Number.isNaN(num)) {
-        throw new Error(`Cannot convert ${String(value)} to number`);
-      }
-      return num;
-    };
-
     const readToken = (): string => {
       skipWhitespace();
       const start = index;
@@ -295,7 +231,7 @@ export class ExpressionEvaluator {
       }
       if (input[index] === "-") {
         index++;
-        return -toNumber(parsePrimary());
+        return applyUnaryOp("negate", parsePrimary());
       }
       return parsePrimary();
     };
@@ -307,15 +243,8 @@ export class ExpressionEvaluator {
         const char = input[index];
         if (char === "*" || char === "/" || char === "%") {
           index++;
-          const right = toNumber(parseUnary());
-          const left = toNumber(value);
-          if (char === "*") {
-            value = left * right;
-          } else if (char === "/") {
-            value = left / right;
-          } else {
-            value = left % right;
-          }
+          const op = char === "*" ? "multiply" : char === "/" ? "divide" : "modulo";
+          value = applyBinaryOp(op, value, parseUnary());
           continue;
         }
         break;
@@ -330,18 +259,10 @@ export class ExpressionEvaluator {
         const char = input[index];
         if (char === "+" || char === "-") {
           index++;
-          const right = parseMulDiv();
-          if (char === "+") {
-            // String addition concatenates (upstream: string + anything);
-            // booleans render as upstream's C# ToString ("True"/"False").
-            if (typeof value === "string" || typeof right === "string") {
-              value = stringifyOperand(value) + stringifyOperand(right);
-            } else {
-              value = toNumber(value) + toNumber(right);
-            }
-          } else {
-            value = toNumber(value) - toNumber(right);
-          }
+          // applyBinaryOp owns the rule (string concat with upstream
+          // rendering, else numeric) — the same statement the VM's add
+          // applies.
+          value = applyBinaryOp(char === "+" ? "add" : "subtract", value, parseMulDiv());
           continue;
         }
         break;
@@ -370,18 +291,18 @@ export class ExpressionEvaluator {
     switch (op) {
       case "===":
       case "==":
-        return this.deepEquals(leftVal, rightVal);
+        return !!applyBinaryOp("equalTo", leftVal, rightVal);
       case "!==":
       case "!=":
-        return !this.deepEquals(leftVal, rightVal);
+        return !!applyBinaryOp("notEqualTo", leftVal, rightVal);
       case "<":
-        return Number(leftVal) < Number(rightVal);
+        return !!applyBinaryOp("lessThan", leftVal, rightVal);
       case ">":
-        return Number(leftVal) > Number(rightVal);
+        return !!applyBinaryOp("greaterThan", leftVal, rightVal);
       case "<=":
-        return Number(leftVal) <= Number(rightVal);
+        return !!applyBinaryOp("lessThanOrEqualTo", leftVal, rightVal);
       case ">=":
-        return Number(leftVal) >= Number(rightVal);
+        return !!applyBinaryOp("greaterThanOrEqualTo", leftVal, rightVal);
       default:
         throw new Error(`Unknown operator: ${op}`);
     }
@@ -433,20 +354,18 @@ export class ExpressionEvaluator {
     if (parts.length === 0) return !!this.evaluateExpression(expr);
 
     // Evaluate parts — and/or/xor share one flat left-associative level
-    // (upstream ExpAndOrXor; the VM's stack ops apply the same order).
+    // (upstream ExpAndOrXor), applied through the operand-semantics module
+    // (the same rules the VM's stack ops execute).
     let result = this.evaluateExpression(parts[0].expr);
     for (let i = 1; i < parts.length; i++) {
       const part = parts[i];
       const val = this.evaluateExpression(part.expr);
       if (part.op === "&&") {
-        result = result && val;
+        result = applyBinaryOp("and", result, val);
       } else if (part.op === "||") {
-        result = result || val;
+        result = applyBinaryOp("or", result, val);
       } else if (part.op === "^") {
-        // Upstream BooleanType.MethodXor: ConvertTo<bool>() ^
-        // ConvertTo<bool>() — the same bool-xor the VM's xor op applies
-        // (vm.ts executeStackOp case "xor").
-        result = Boolean(result) !== Boolean(val);
+        result = applyBinaryOp("xor", result, val);
       }
     }
 
@@ -500,10 +419,6 @@ export class ExpressionEvaluator {
     return this.variables.get(key);
   }
   
-  private deepEquals(a: unknown, b: unknown): boolean {
-    return deepEqualsOperands(a, b);
-  }
-
   /**
    * Update variables. Can be used to mutate state during dialogue.
    *

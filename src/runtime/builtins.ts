@@ -15,7 +15,7 @@ import type { Library } from "./library.js";
 import type { FunctionSignature } from "./library.js";
 import { visitCountVariableKey } from "./generatedVariables.js";
 import type { VariableStorage } from "./variableStorage.js";
-import { stringifyOperand } from "./evaluator.js";
+import { stringifyOperand } from "./operands.js";
 
 /** Register the built-in functions into `library`. */
 export function registerBuiltinFunctions(

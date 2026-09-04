@@ -12,7 +12,7 @@ after, the parity-risky grammar merge last behind a research gate.
 | 01 | [01-events-shaped-drain.md](issues/01-events-shaped-drain.md) | Events-shaped drain in the Transcript module (review #6) | resolved |
 | 02 | [02-derived-view-option.md](issues/02-derived-view-option.md) | Derive DialogueViewOption from DialogueOption (review #7) | resolved |
 | 03 | [03-xor-fallback-parity-fix.md](issues/03-xor-fallback-parity-fix.md) | Standalone xor fallback-path parity fix (review #3, fix half) | resolved |
-| 04 | [04-operand-semantics-module.md](issues/04-operand-semantics-module.md) | One operand-semantics module (review #3, deepening half) | open, blocked by 03 |
+| 04 | [04-operand-semantics-module.md](issues/04-operand-semantics-module.md) | One operand-semantics module (review #3, deepening half) | resolved |
 | 05 | [05-state-statement-grammar.md](issues/05-state-statement-grammar.md) | One grammar module for `<<set>>`/`<<declare>>` (review #2) | open, blocked by 04 |
 | 06 | [06-statement-walker.md](issues/06-statement-walker.md) | One statement walker for the compile seam (review #1) | open |
 | 07 | [07-inline-expression-spans.md](issues/07-inline-expression-spans.md) | One inline-expression span scanner (review #4) | open, blocked by 05 |
@@ -22,6 +22,13 @@ Frontier order = ticket number (matches the grilling round: 6→7→3→3→2→
 
 ## Decisions-so-far
 
+- **Ticket 04 (resolved)**: `src/runtime/operands.ts` — applyBinaryOp/
+  applyUnaryOp own every operator rule; VM's 14 binary cases collapsed to
+  one dispatch; the evaluator's private `toNumber` duplicate and unused
+  `deepEquals` deleted; commands.ts's third compound-op copy replaced
+  (deliberate alignment: non-numeric `+=` now surfaces a runtime
+  diagnostic per toNumberOperand, not silent NaN — recorded). Public
+  surface unchanged via evaluator.ts re-export. Operator table test added.
 - **Ticket 03 (resolved)**: the string evaluator's `evaluateLogical` now
   splits on `^` and applies VM-mirroring bool-xor; xor in content is
   correct end-to-end again. Reachability finding recorded for ticket 08:

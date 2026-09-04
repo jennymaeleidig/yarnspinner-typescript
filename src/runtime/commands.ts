@@ -6,7 +6,7 @@
  */
 
 import type { ExpressionEvaluator } from "./evaluator.js";
-import { stringifyOperand } from "./evaluator.js";
+import { applyBinaryOp, type BinaryOperator } from "./operands.js";
 import type { VariableStorage } from "./variableStorage.js";
 
 export interface ParsedCommand {
@@ -136,24 +136,17 @@ export function executeStateStatement(host: StateStatementHost, content: string,
 
       const compoundOp = exprParts[0];
       if (compoundOp === "+=" || compoundOp === "-=" || compoundOp === "*=" || compoundOp === "/=" || compoundOp === "%=") {
+        // The compound assignment applies the base operator through the
+        // operand-semantics module — the same add/concat rule the VM's add
+        // op applies (one statement, not a third copy).
+        const op: BinaryOperator =
+          compoundOp === "+=" ? "add"
+          : compoundOp === "-=" ? "subtract"
+          : compoundOp === "*=" ? "multiply"
+          : compoundOp === "/=" ? "divide"
+          : "modulo";
         const rhs = evaluator.evaluateExpression(exprParts.slice(1).join(" "));
-        const current = variables.get(key);
-        let value: unknown;
-        if (compoundOp === "+=" && (typeof current === "string" || typeof rhs === "string")) {
-          // String concat renders operands the upstream way (C# ToString:
-          // booleans as "True"/"False").
-          value = stringifyOperand(current) + stringifyOperand(rhs);
-        } else {
-          const left = Number(current ?? 0);
-          const right = Number(rhs ?? 0);
-          switch (compoundOp) {
-            case "+=": value = left + right; break;
-            case "-=": value = left - right; break;
-            case "*=": value = left * right; break;
-            case "/=": value = left / right; break;
-            case "%=": value = left % right; break;
-          }
-        }
+        const value = applyBinaryOp(op, variables.get(key), rhs);
         setVariable(key, value);
         return;
       }
