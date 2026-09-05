@@ -38,7 +38,7 @@
 import { parseYarn, ParseError } from "../parse/parser.js";
 import type { YarnDocument, YarnNode, Statement } from "../model/ast.js";
 import { walkStatements } from "../model/walk.js";
-import { compileDocument, LoweringError } from "./compiler.js";
+import { compileDocument, LoweringError, type OnceIdContext, type OnceLineMap } from "./compiler.js";
 import type { Program } from "./program.js";
 import { applySeverityOverrides, makeDiagnostic, hasErrors } from "./diagnostics.js";
 import type { Diagnostic, DiagnosticSeverity, YarnRange } from "./diagnostics.js";
@@ -99,7 +99,7 @@ export interface CompileOptions {
    * own Library instance.
    */
   library?: Library;
-  generateOnceIds?: (ctx: { node: string; index: number; file?: string; line?: number }) => string;
+  generateOnceIds?: (ctx: OnceIdContext) => string;
 }
 
 /**
@@ -367,18 +367,26 @@ function throwOnFirstError(diagnostics: Diagnostic[]): void {
  * default once-statement key derivation needs (upstream
  * TypeCheckerListener.ExitOnce_primary_clause checksums the statement's
  * location). The AST's command statements carry no positions, so this
- * scans each file's raw source for `<<once` introducers and consumes them
- * in document order with a monotone cursor per node: a statement list
- * visits in source order, so the k-th `<<once` match at/after the cursor
- * belongs to the k-th block encountered. Line- and option-level `<<once>>`
- * modifiers don't need the map (their once keys derive from the line ID).
+ * scans each file's raw source for line-initial `<<once` command statements
+ * and consumes them in document order with a monotone cursor per node: a
+ * statement list visits in source order, so the k-th match at/after the
+ * cursor belongs to the k-th block encountered. The match is anchored to a
+ * command statement position (`^\s*<<\s*once\b` — the parser lowers one
+ * command per line, indentation transparent), so a `<<once` mention inside
+ * dialogue text can never claim a block's line; a terminated `<<once>>` in
+ * dialogue parses as that line's line-level once modifier, which the
+ * onLine/onOption handlers consume instead. Line- and option-level
+ * `<<once>>` modifiers don't need the map (their once keys derive from the
+ * line ID). Residual limit (recorded, ticket 10): a parse where a block
+ * opener is not line-initial would mis-align — unreachable under the
+ * line-oriented parser; an AST with statement positions retires the scan.
  */
 function buildOnceLineMap(
   docs: Array<{ name: string; doc: YarnDocument }>,
   sources: Map<string, string>,
-): Map<object, number> {
-  const map = new Map<object, number>();
-  const oncePattern = /<<\s*once\b/;
+): OnceLineMap {
+  const map: OnceLineMap = new Map();
+  const oncePattern = /^\s*<<\s*once\b/;
   for (const { name, doc } of docs) {
     const lines = (sources.get(name) ?? "").split("\n");
     for (const node of doc.nodes) {
