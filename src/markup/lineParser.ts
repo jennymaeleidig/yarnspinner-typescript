@@ -33,6 +33,12 @@
 // Citation: adapted from YarnSpinner v3.2.2 LineParser.cs and
 // MarkupParseResult.cs, https://github.com/YarnSpinnerTool/YarnSpinner
 // (MIT). The upstream license survives this adaptation.
+// Modified by Jenny Mae LEIDIG on 2026-09-04 — markup parity edges:
+// duplicate property names now throw like upstream's Dictionary.Add
+// (MarkupAttribute ctor); the escaped-quote string lexer falls back to
+// .NET's failed-Match Index-0 semantics (LineParser.cs string-value
+// branch); the invalid-name diagnostic range excludes the offending
+// character (LineParser.cs [ ID ERROR branch).
 
 import {
   StringBuilder,
@@ -210,10 +216,15 @@ export function lexMarkup(input: string): LexerToken[] {
         } else if (c === '"') {
           const token: LexerToken = { type: "stringValue", start: currentPosition, end: currentPosition };
           if (peekChar() !== null) {
-            // The next quote that isn't preceded by a backslash.
+            // The next quote that isn't preceded by a backslash. When no
+            // unescaped quote exists, upstream still searches — .NET's
+            // failed Regex.Match carries Index 0, so the fallback IndexOf
+            // starts right after the opening quote and lands on the
+            // ESCAPED quote, terminating the string there (LineParser.cs
+            // string-value branch).
             const rest = input.slice(currentPosition + 1);
             const match = /(?<!\\)"/.exec(rest);
-            const nextQuote = match ? input.indexOf('"', currentPosition + 1 + match.index) : -1;
+            const nextQuote = input.indexOf('"', currentPosition + 1 + (match ? match.index : 0));
             if (nextQuote === -1) {
               token.type = "error";
             } else {
@@ -719,7 +730,16 @@ export class LineParser {
 
 function propertiesToRecord(properties: MarkupProperty[]): Record<string, MarkupValue> {
   const record: Record<string, MarkupValue> = {};
+  const seen = new Set<string>();
   for (const property of properties) {
+    // Upstream builds the attribute's property dictionary with
+    // Dictionary.Add (MarkupAttribute ctor, MarkupParseResult.cs), which
+    // throws on a repeated name: duplicate property names in one tag are
+    // an authoring error that surfaces as a throw, not last-wins.
+    if (seen.has(property.name)) {
+      throw new Error(`An item with the same key has already been added. [Key: ${property.name}]`);
+    }
+    seen.add(property.name);
     record[property.name] = property.value;
   }
   return record;
@@ -949,7 +969,11 @@ function buildMarkupTreeFromTokens(
         // Either [ ID (ID = Value)+ ], [ (ID = Value)+ ], or the [ ID ERROR
         // edge case.
         if (stream.lookAhead(2).type === "error") {
-          const invalidName = og.slice(idToken.start, stream.lookAhead(2).end + 1);
+          // Upstream's range stops BEFORE the offending character:
+          // `OG.Substring(idToken.Start, stream.LookAhead(2).End -
+          // idToken.Start)` — not the token Range used elsewhere, so the
+          // offending character is excluded from the message.
+          const invalidName = og.slice(idToken.start, stream.lookAhead(2).end);
           diagnostics.push({
             message: `Error parsing markup, invalid name: "${invalidName}"`,
             column: idToken.start,

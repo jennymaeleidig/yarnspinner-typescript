@@ -60,8 +60,12 @@ export class LineComposer {
     private localeCode = "en",
   ) {
     // The built-in replacement markers ride the same processor registry as
-    // any host-registered processor (upstream Dialogue registers
-    // BuiltInMarkupReplacer for select/plural/ordinal).
+    // any host-registered processor. Upstream 3.2.2 leaves that
+    // registration to the host — its own test harness registers
+    // BuiltInMarkupReplacer for select/plural/ordinal
+    // (YarnSpinner.Tests TestBase.GetComposedTextForLine); the runtime's
+    // Dialogue never does. The port registers them per parser so composed
+    // text matches what a registered host gets upstream.
     this.parser.registerMarkerProcessor("select", this.builtInReplacer);
     this.parser.registerMarkerProcessor("plural", this.builtInReplacer);
     this.parser.registerMarkerProcessor("ordinal", this.builtInReplacer);
