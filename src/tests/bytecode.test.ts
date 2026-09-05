@@ -95,11 +95,14 @@ Done
 ===
 `);
   assert.deepEqual(program, {
-    languageVersion: 1,
+    languageVersion: programLanguageVersion,
     enums: {},
     nodes: {
       Start: {
         title: "Start",
+        headers: { title: "Start" },
+        sourceFile: "input",
+        startLine: 1,
         instructions: [
           // <<set $gold += 5>>: compound assignment is read/operate/write.
           { op: "pushVariable", name: "gold" },
@@ -377,7 +380,10 @@ Side line
 <<return>>
 ===
 `);
-  const onceKey = "$Yarn.Internal.Once.Start#once#0";
+  // Upstream's once-statement key: the CRC32 of the statement's location
+  // description — here file "input", node Start, line 3 (the `<<once>>`
+  // line) — under the once-state namespace.
+  const onceKey = "$Yarn.Internal.Once.bc028f9b";
   assert.deepEqual(streamOf(program, "Start"), [
     { op: "pushVariable", name: onceKey },
     { op: "jumpIfTrue", index: 5 }, // already seen → skip the block
@@ -410,23 +416,36 @@ when: $x > 0
 B
 ===
 `);
+  // Node-group members adopt upstream's unique names (crc32 of
+  // file+title+startLine — title headers on lines 1 and 6) and carry all
+  // raw headers; each member is also registered in `nodes` under its
+  // unique name (jump-addressable), alongside the group under the source
+  // title (the port's hub).
   assert.deepEqual(program.nodes.Start, {
     title: "Start",
     nodes: [
       {
-        title: "Start",
+        title: "Start.4d292ecb",
+        headers: { title: "Start.4d292ecb", when: "always", scene: "Kitchen", tracking: "never" },
+        sourceFile: "input",
+        startLine: 1,
         instructions: [{ op: "runLine", text: "A", tags: ["line:db1929bc"] }],
         when: ["always"],
         scene: "Kitchen",
         tracking: "never",
       },
       {
-        title: "Start",
+        title: "Start.e991f2b2",
+        headers: { title: "Start.e991f2b2", when: "$x > 0" },
+        sourceFile: "input",
+        startLine: 8,
         instructions: [{ op: "runLine", text: "B", tags: ["line:4d292ecb"] }],
         when: ["$x > 0"],
       },
     ],
   });
+  // Members are individually jump-addressable by their unique names.
+  assert.ok(program.nodes["Start.4d292ecb"] && program.nodes["Start.e991f2b2"]);
 });
 
 // ── Codegen failure fallbacks ────────────────────────────────────────────

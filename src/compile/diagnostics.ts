@@ -95,6 +95,7 @@ export const DIAGNOSTIC_REGISTRY: Record<string, DiagnosticDescriptor> = {
   YS0050: { name: "TypeCheckerError", defaultSeverity: "error" },
   YS0051: { name: "NodeMissingTitle", defaultSeverity: "error" },
   YS0052: { name: "NodeHasMoreThanOneTitle", defaultSeverity: "error" },
+  YS0053: { name: "DeclarationValueDoesntMatchType", defaultSeverity: "error" },
   YS0062: { name: "MultipleLineOrShadowIDsOnALine", defaultSeverity: "error" },
   YS0063: { name: "MarkupFailedToParse", defaultSeverity: "warning" },
 };

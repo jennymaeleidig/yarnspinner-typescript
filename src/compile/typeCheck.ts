@@ -30,7 +30,7 @@ import type { YarnDocument, Statement, Line } from "../model/ast.js";
 import { EnumTypeBuilder, buildEnumTypes, collectEnumBlocks } from "./enums.js";
 import type { EnumRawValue, EnumType } from "./enums.js";
 import { makeDiagnostic } from "./diagnostics.js";
-import type { Diagnostic } from "./diagnostics.js";
+import type { Diagnostic, YarnRange } from "./diagnostics.js";
 import { isSmartVariableInitializer } from "./smartVariables.js";
 import { parseStateStatement } from "../parse/stateStatement.js";
 import type { DeclaredValueType, FunctionSignature } from "../runtime/library.js";
@@ -62,6 +62,12 @@ export interface VariableDeclaration {
    * access.
    */
   isSmartVariable?: boolean;
+  /**
+   * True when the declaration was inferred from usage rather than authored
+   * (upstream `Declaration.IsImplicit`): the variable never carried a
+   * `<<declare>>`, so its initial value is the type's default.
+   */
+  isImplicit?: boolean;
 }
 
 /**
@@ -124,7 +130,7 @@ interface CheckContext {
   enumTypes: Map<string, EnumType>;
   variableTypes: Map<string, string>;
   functionSignatures: Map<string, FunctionSignature>;
-  emit: (code: string, message: string, file?: string) => void;
+  emit: (code: string, message: string, file?: string, range?: YarnRange) => void;
   rewrites: Rewrite[];
   declarations: VariableDeclaration[];
   /** Every `<<declare>>`d variable: smart flag + initializer expression (first declaration wins). */
@@ -133,6 +139,15 @@ interface CheckContext {
   externalVariables: Set<string>;
   /** Source file of the node being walked (diagnostic attribution). */
   currentFile?: string;
+  /**
+   * File position (0-based line/column) where the expression currently
+   * being checked begins — set by the caller that knows the expression's
+   * source site (inline `{expr}` spans carry their line's position). When
+   * absent, signature-mismatch diagnostics carry no range (the AST's
+   * statement nodes don't record command/header positions — a parser-side
+   * gap noted on the ticket).
+   */
+  currentRange?: { line: number; col: number };
   /**
    * Implicit function inferences (the upstream Inference-* fixtures): the
    * first call to an unknown function in a typed context pins its return
@@ -284,7 +299,18 @@ type ExprNode =
   | { kind: "num" | "str" | "bool"; value: unknown }
   | { kind: "var"; name: string }
   | { kind: "member"; typeName?: string; member: string; shorthand: boolean; start: number; end: number }
-  | { kind: "call"; name: string; args: ExprNode[]; argTexts: string[] }
+  | {
+      kind: "call";
+      name: string;
+      args: ExprNode[];
+      argTexts: string[];
+      /** The call node's token offsets in the source expression (YS0014's range). */
+      nameStart: number;
+      nameEnd: number;
+      /** Per-argument token offsets in the source expression (YS0050's range). */
+      argStarts: number[];
+      argEnds: number[];
+    }
   | { kind: "un"; op: string; operand: ExprNode }
   | { kind: "bin"; op: string; left: ExprNode; right: ExprNode }
   | { kind: "bad" };
@@ -429,10 +455,10 @@ class ExprParser {
         const inner = this.toks.slice(this.i, close);
         const args: ExprNode[] = [];
         const argTexts: string[] = [];
+        const groups: Tok[][] = [];
         if (inner.length > 0) {
           let argDepth = 0;
           let startIdx = 0;
-          const groups: Tok[][] = [];
           inner.forEach((tok, idx) => {
             if (tok.kind === "lparen") argDepth++;
             if (tok.kind === "rparen") argDepth--;
@@ -442,16 +468,25 @@ class ExprParser {
             }
           });
           groups.push(inner.slice(startIdx));
-          for (const g of groups) {
-            if (g.length === 0) return { kind: "bad" };
-            const sub = new ExprParser(g, this.expr).parse();
-            if (!sub) return { kind: "bad" };
-            args.push(sub);
-            argTexts.push(this.expr.slice(g[0].start, g[g.length - 1].end).trim());
-          }
+        }
+        for (const g of groups) {
+          if (g.length === 0) return { kind: "bad" };
+          const sub = new ExprParser(g, this.expr).parse();
+          if (!sub) return { kind: "bad" };
+          args.push(sub);
+          argTexts.push(this.expr.slice(g[0].start, g[g.length - 1].end).trim());
         }
         this.i = close + 1;
-        return { kind: "call", name: t.text, args, argTexts };
+        return {
+          kind: "call",
+          name: t.text,
+          args,
+          argTexts,
+          nameStart: t.start,
+          nameEnd: t.end,
+          argStarts: groups.map((g) => g[0].start),
+          argEnds: groups.map((g) => g[g.length - 1].end),
+        };
       }
       if (next && next.kind === "dot") {
         const member = this.toks[this.i + 1];
@@ -543,6 +578,20 @@ function checkMember(
   return ERROR_TYPE;
 }
 
+/** The source range of a diagnostic anchored at an expression offset: the
+ *  current expression's file position plus the offending token's offset
+ *  within it. Upstream pins signature-mismatch ranges to the argument's /
+ *  function-name's token range (ErrorHandlingTests). */
+function rangeAt(ctx: CheckContext, start: number, end: number): YarnRange | undefined {
+  if (!ctx.currentRange) return undefined;
+  return {
+    startLine: ctx.currentRange.line,
+    startCol: ctx.currentRange.col + start,
+    endLine: ctx.currentRange.line,
+    endCol: ctx.currentRange.col + end,
+  };
+}
+
 /**
  * Check call arguments against a known signature (shared by expression
  * calls and `<<call>>` statements): arity (YS0014) and enum-argument
@@ -554,19 +603,28 @@ function checkArgsAgainstSignature(
   args: Array<{ text: string; type: ExprType }>,
   signature: FunctionSignature,
   ctx: CheckContext,
+  offsets?: { nameStart: number; nameEnd: number; argStarts: number[]; argEnds: number[] },
 ): void {
   const expected = signature.params.length;
   const variadic = signature.variadic === true;
   if (args.length !== expected && !variadic) {
-    // YS0014's registry template is "Invalid function call: {0}".
+    // YS0014's registry template is "Invalid function call: {0}"; upstream
+    // pins the range to the function-name token.
     ctx.emit(
       "YS0014",
       `Invalid function call: ${fnName} expects ${expected} ${expected === 1 ? "parameter" : "parameters"}, not ${args.length}`,
+      ctx.currentFile,
+      rangeAt(ctx, offsets?.nameStart ?? 0, offsets?.nameEnd ?? 0),
     );
     return;
   }
   if (variadic && args.length < Math.max(expected - 1, 0)) {
-    ctx.emit("YS0014", `Invalid function call: ${fnName} expects at least ${Math.max(expected - 1, 0)} parameters`);
+    ctx.emit(
+      "YS0014",
+      `Invalid function call: ${fnName} expects at least ${Math.max(expected - 1, 0)} parameters`,
+      ctx.currentFile,
+      rangeAt(ctx, offsets?.nameStart ?? 0, offsets?.nameEnd ?? 0),
+    );
     return;
   }
   args.forEach((arg, i) => {
@@ -579,10 +637,15 @@ function checkArgsAgainstSignature(
       (paramType === "string" && argEnum?.rawValueType === "string") ||
       (paramType === "number" && argEnum?.rawValueType === "number");
     if (!compatible) {
-      ctx.emit("YS0050", `${arg.text} (${arg.type.enumName}) is not convertible to ${PRIM_NAME[paramType]}`);
+      ctx.emit(
+        "YS0050",
+        `${arg.text} (${arg.type.enumName}) is not convertible to ${PRIM_NAME[paramType]}`,
+        ctx.currentFile,
+        rangeAt(ctx, offsets?.argStarts[i] ?? 0, offsets?.argEnds[i] ?? 0),
+      );
     }
   });
-  checkPrimitiveArgTypes(fnName, args, signature, ctx);
+  checkPrimitiveArgTypes(fnName, args, signature, ctx, offsets);
 }
 
 /**
@@ -596,6 +659,7 @@ function checkPrimitiveArgTypes(
   args: Array<{ text: string; type: ExprType }>,
   signature: FunctionSignature,
   ctx: CheckContext,
+  offsets?: { argStarts: number[]; argEnds: number[] },
 ): void {
   const expected = signature.params.length;
   args.forEach((arg, i) => {
@@ -605,10 +669,13 @@ function checkPrimitiveArgTypes(
     if (arg.type.enumName || arg.type.error) return;
     if (arg.type.base === "unknown") return;
     if (arg.type.base === paramType) return;
+    // Upstream's message carries no function-name prefix (upstream
+    // TypeCheckerListener's convertible-constraint failure text).
     ctx.emit(
       "YS0050",
-      `${fnName}: ${arg.text} (${PRIM_NAME[arg.type.base]}) is not convertible to ${PRIM_NAME[paramType]}`,
+      `${arg.text} (${PRIM_NAME[arg.type.base]}) is not convertible to ${PRIM_NAME[paramType]}`,
       ctx.currentFile,
+      rangeAt(ctx, offsets?.argStarts[i] ?? 0, offsets?.argEnds[i] ?? 0),
     );
   });
 }
@@ -667,7 +734,7 @@ function checkCall(node: Extract<ExprNode, { kind: "call" }>, ctx: CheckContext,
     }
     return UNKNOWN_TYPE;
   }
-  checkArgsAgainstSignature(node.name, args, signature, ctx);
+  checkArgsAgainstSignature(node.name, args, signature, ctx, node);
   return signature.returns === "number" || signature.returns === "string" || signature.returns === "bool"
     ? { base: signature.returns }
     : UNKNOWN_TYPE;
@@ -901,8 +968,15 @@ function checkCondition(expr: string, ctx: CheckContext): { type: ExprType; rewr
  *  scanner (src/runtime/interpolate.ts), so the checker classifies exactly
  *  what delivery will evaluate (its own loop had already drifted: it
  *  skipped two chars after any backslash, where the runtime only escapes
- *  `\{` / `\}`). */
-function collectInlineExpressionVars(text: string, ctx: CheckContext): void {
+ *  `\{` / `\}`). `base` is the text's file position when known (a line's
+ *  1-based `lineNumber` — column 0 of the text is taken as column 0 of the
+ *  source line; indented lines shift, an approximation noted on the
+ *  ticket). */
+function collectInlineExpressionVars(
+  text: string,
+  ctx: CheckContext,
+  base?: { line: number; col: number },
+): void {
   for (const span of inlineExpressionSpans(text)) {
     const exprSrc = span.source;
     const parsed = parseExpression(exprSrc);
@@ -931,7 +1005,10 @@ function collectInlineExpressionVars(text: string, ctx: CheckContext): void {
       // as expressions — YS0028 for a variable inside a conversion that
       // still can't be inferred, YS0005 for a malformed span. Rewrites are
       // discarded: inline-text `.Case` resolution happens in lowering.
+      // The span's expression starts one column past the opening brace.
+      ctx.currentRange = base ? { line: base.line, col: base.col + span.start + 1 } : undefined;
       checkExpression(exprSrc, ctx);
+      ctx.currentRange = undefined;
   }
 }
 
@@ -986,6 +1063,23 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
             ctx.variableTypes.set(name, type.enumName);
           } else if (type.base !== "unknown") {
             ctx.variableTypes.set(name, type.base);
+          }
+          // YS0053 (upstream ExitDeclare_statement's DeclarationValueDoesntMatchType
+          // constraint): an explicit `as` type must match the initial value's
+          // type. Upstream's message template (Definitions/YS0053):
+          // "{0} is declared to be a {1}, but its initial value '{2}' is a {3}".
+          if (declaredType && !type.error && (type.base !== "unknown" || type.enumName)) {
+            const declaredDisplay = ctx.enumTypes.has(declaredType)
+              ? declaredType
+              : (PRIM_NAME[declaredType.toLowerCase()] ?? declaredType);
+            const valueDisplay = describeUpstream(type);
+            if (valueDisplay && valueDisplay !== declaredDisplay) {
+              ctx.emit(
+                "YS0053",
+                `$${name} is declared to be a ${declaredDisplay}, but its initial value '${expr.trim()}' is a ${valueDisplay}`,
+                ctx.currentFile,
+              );
+            }
           }
           ctx.declarations.push({
             name,
@@ -1091,15 +1185,23 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
         break;
       case "OptionGroup":
         for (const o of s.options) {
+          const optionBase =
+            o.lineNumber !== undefined ? { line: o.lineNumber - 1, col: 0 } : undefined;
           if (o.condition) {
+            const at = optionBase ? locateCondition(o.text, o.condition) : undefined;
+            ctx.currentRange = at ? { line: optionBase!.line, col: optionBase!.col + at } : undefined;
             const { rewritten } = checkCondition(o.condition, ctx);
+            ctx.currentRange = undefined;
             if (rewritten !== o.condition) o.condition = rewritten;
           }
           if (o.once?.condition) {
+            const at = optionBase ? locateCondition(o.text, o.once.condition) : undefined;
+            ctx.currentRange = at ? { line: optionBase!.line, col: optionBase!.col + at } : undefined;
             const { rewritten } = checkCondition(o.once.condition, ctx);
+            ctx.currentRange = undefined;
             if (rewritten !== o.once.condition) o.once.condition = rewritten;
           }
-          collectInlineExpressionVars(o.text, ctx);
+          collectInlineExpressionVars(o.text, ctx, optionBase);
           walkStatements(o.body, ctx);
         }
         break;
@@ -1150,15 +1252,31 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
 /** Collect inline-expression uses and bool-constrain a line's conditions
  *  (lines and line-group items share the shape). */
 function checkLineStatement(line: Line, ctx: CheckContext): void {
-  collectInlineExpressionVars(line.text, ctx);
+  // The line's file position (0-based) anchors signature-mismatch ranges;
+  // conditions are located inside the line text when present (upstream pins
+  // `when:`/condition ranges to the expression's columns).
+  const base =
+    line.lineNumber !== undefined ? { line: line.lineNumber - 1, col: 0 } : undefined;
+  collectInlineExpressionVars(line.text, ctx, base);
   for (const condition of [line.condition, line.once?.condition]) {
     if (!condition) continue;
+    const at = base ? locateCondition(line.text, condition) : undefined;
+    ctx.currentRange = at ? { line: base!.line, col: base!.col + at } : undefined;
     const { rewritten } = checkCondition(condition, ctx);
+    ctx.currentRange = undefined;
     if (rewritten !== condition) {
       if (line.condition === condition) line.condition = rewritten;
       else if (line.once) line.once.condition = rewritten;
     }
   }
+}
+
+/** A condition expression's column within its line's text (the expression
+ *  appears verbatim after its `<<if`/`<<once if` introducer); undefined
+ *  when it can't be located. */
+function locateCondition(text: string, condition: string): number | undefined {
+  const at = text.indexOf(condition);
+  return at >= 0 ? at : undefined;
 }
 
 /** Split an argument list on top-level commas (quote- and paren-aware). */
@@ -1311,7 +1429,7 @@ export function typeCheck(
     enumTypes,
     variableTypes,
     functionSignatures,
-    emit: (code, message, file) => emitDiagnostic(makeDiagnostic(code, message, { file })),
+    emit: (code, message, file, range) => emitDiagnostic(makeDiagnostic(code, message, { file, range })),
     rewrites: [],
     declarations,
     declaredVariables: new Map(),
@@ -1364,6 +1482,28 @@ export function typeCheck(
     if (!ctx.variableTypes.has(name) && !ctx.declaredVariables.has(name)) {
       emitUndetermined(`$${name}`, ctx);
     }
+  }
+
+  // Implicit declarations (upstream TypeCheckerListener.AddDeclaration's
+  // implicit declarations + Compiler.Compile's declaration surface): every
+  // variable whose type the checker pinned without an authored
+  // `<<declare>>` — from a `<<set>>` target, a Boolean-constrained
+  // condition, an inline use, or a plain read — is surfaced in the
+  // artifact with the implicit flag and the type's default value (upstream:
+  // `decl.DefaultValue = typeLiteral.DefaultValue`). Variables whose type
+  // never resolved report YS0029/YS0028 above and carry no declaration, and
+  // enum-typed variables have no default to seed (upstream reports an
+  // internal error for those; here they're simply omitted).
+  for (const [name, type] of ctx.variableTypes) {
+    if (type !== "number" && type !== "string" && type !== "bool") continue;
+    if (ctx.declaredVariables.has(name) || ctx.externalVariables.has(name)) continue;
+    if (ctx.inferenceFailures.has(name)) continue;
+    ctx.declarations.push({
+      name,
+      type,
+      defaultValue: type === "number" ? 0 : type === "bool" ? false : "",
+      isImplicit: true,
+    });
   }
 
   // Smart-variable validation: reference loops across the

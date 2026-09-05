@@ -99,7 +99,7 @@ export interface CompileOptions {
    * own Library instance.
    */
   library?: Library;
-  generateOnceIds?: (ctx: { node: string; index: number }) => string;
+  generateOnceIds?: (ctx: { node: string; index: number; file?: string; line?: number }) => string;
 }
 
 /**
@@ -324,11 +324,14 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
   // its label in the same node's lowering), so catching one here means a
   // compiler bug, not user content — reported as a diagnostic, with no
   // program (coding standards §3).
+  const sourceByName = new Map(files.map((f) => [f.name, f.source]));
   let program: Program | null = null;
   try {
     program = compileDocument(combined, {
       generateOnceIds: opts.generateOnceIds,
       enumTypes: checked.enumTypes,
+      declarations: checked.declarations,
+      onceLines: buildOnceLineMap(docs, sourceByName),
     });
   } catch (e) {
     if (!(e instanceof LoweringError)) throw e;
@@ -338,7 +341,6 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
   // Debug output (upstream `ProjectDebugInfo`): per-node instruction →
   // source ranges, reconstructed from the lowered program against the
   // parsed documents (src/compile/debugInfo.ts).
-  const sourceByName = new Map(files.map((f) => [f.name, f.source]));
   const debugInfo = buildProjectDebugInfo(
     docs.map(({ name, doc }) => ({ name, doc, source: sourceByName.get(name) ?? "" })),
     program,
@@ -360,6 +362,59 @@ function throwOnFirstError(diagnostics: Diagnostic[]): void {
   if (firstError) throw new Error(`${firstError.code}: ${firstError.message}`);
 }
 
+/**
+ * Map each `<<once>>` block to its 1-based source line — the input the
+ * default once-statement key derivation needs (upstream
+ * TypeCheckerListener.ExitOnce_primary_clause checksums the statement's
+ * location). The AST's command statements carry no positions, so this
+ * scans each file's raw source for `<<once` introducers and consumes them
+ * in document order with a monotone cursor per node: a statement list
+ * visits in source order, so the k-th `<<once` match at/after the cursor
+ * belongs to the k-th block encountered. Line- and option-level `<<once>>`
+ * modifiers don't need the map (their once keys derive from the line ID).
+ */
+function buildOnceLineMap(
+  docs: Array<{ name: string; doc: YarnDocument }>,
+  sources: Map<string, string>,
+): Map<object, number> {
+  const map = new Map<object, number>();
+  const oncePattern = /<<\s*once\b/;
+  for (const { name, doc } of docs) {
+    const lines = (sources.get(name) ?? "").split("\n");
+    for (const node of doc.nodes) {
+      let cursor = node.startLine ?? 1;
+      walkStatements(node.body, {
+        onLine: (line) => {
+          // A line/option's `<<once>>` modifier shares its statement's line;
+          // it consumes that line's match so a later block doesn't claim it.
+          if (line.once && line.lineNumber !== undefined) {
+            cursor = Math.max(cursor, line.lineNumber + 1);
+          }
+        },
+        onOption: (option) => {
+          if (option.once && option.lineNumber !== undefined) {
+            cursor = Math.max(cursor, option.lineNumber + 1);
+          }
+        },
+        onStatement: (stmt) => {
+          if (stmt.type !== "Once") return;
+          for (let i = Math.max(cursor, 1); i <= lines.length; i++) {
+            if (oncePattern.test(lines[i - 1])) {
+              map.set(stmt, i);
+              // The claimed line is consumed: the next once clause (a
+              // sibling block or one nested in this block's body) starts
+              // scanning after it.
+              cursor = i + 1;
+              return;
+            }
+          }
+        },
+      });
+    }
+  }
+  return map;
+}
+
 /** Node-structure validations derivable from the parsed documents. */
 function validate(doc: YarnDocument, diagnostics: Diagnostic[]): void {
   const byTitle = new Map<string, YarnNode[]>();
@@ -371,13 +426,9 @@ function validate(doc: YarnDocument, diagnostics: Diagnostic[]): void {
 
   for (const node of doc.nodes) {
     if (node.duplicateTitleHeaders) {
-      diagnostics.push(
-        makeDiagnostic(
-          "YS0052",
-          `Node ${JSON.stringify(node.title)} has more than one title header; keeping the first`,
-          { file: node.sourceFile },
-        ),
-      );
+      // Message sourced from the submodule's Definitions registry template
+      // (YS0052-NodeHasMoreThanOneTitle.md).
+      diagnostics.push(makeDiagnostic("YS0052", "Nodes must have a single title header", { file: node.sourceFile }));
     }
     if (node.body.length === 0) {
       // Message sourced from the submodule's Definitions registry template
@@ -427,34 +478,49 @@ function validate(doc: YarnDocument, diagnostics: Diagnostic[]): void {
 
   for (const [title, nodes] of byTitle) {
     if (nodes.length > 1) {
-      // Duplicated titles form a node group (YS0011's own definition: not
-      // emitted when members share a title but have different when: clauses).
-      // Every member needs a when: clause (YS0031) and subtitles must be
-      // unique within the group (YS0032).
-      const membersWithoutWhen = nodes.filter((n) => !n.when || n.when.length === 0);
-      if (membersWithoutWhen.length > 0) {
-        diagnostics.push(makeDiagnostic("YS0011", `Duplicate node title: '${title}'`, { file: nodes[0].sourceFile }));
-        membersWithoutWhen.forEach(() => {
+      // Duplicated titles follow upstream AddErrorsForInvalidNodeNames's
+      // emission pattern: if ANY member carries a when: header, the shared
+      // title is a node group — every memberless member reports YS0031
+      // (registry template text) and duplicate subtitles report YS0032, one
+      // per group member; a group with no memberless members reports
+      // nothing. When NO member carries when:, the duplication is plain
+      // YS0011 — one per member, each attributed to its member's file — and
+      // no YS0031 at all (upstream's YS0011 definition: not emitted for
+      // groups whose members share a title but differ in when: clauses).
+      const hasWhen = (n: YarnNode): boolean => Boolean(n.when && n.when.length > 0);
+      if (nodes.some(hasWhen)) {
+        for (const member of nodes) {
+          if (hasWhen(member)) continue;
           diagnostics.push(
-            makeDiagnostic("YS0031", `Node '${title}' is part of a node group but has no when: clause`, {
-              file: nodes[0].sourceFile,
-            }),
+            makeDiagnostic(
+              "YS0031",
+              `All nodes in the group '${title}' must have a 'when' clause (use 'when: always' if you want this node to not have any conditions).`,
+              { file: member.sourceFile },
+            ),
           );
-        });
-      }
-      const subtitles = new Map<string, number>();
-      for (const node of nodes) {
-        const subtitle = node.headers["subtitle"]?.trim();
-        if (!subtitle) continue;
-        subtitles.set(subtitle, (subtitles.get(subtitle) ?? 0) + 1);
-      }
-      for (const [subtitle, count] of subtitles) {
-        if (count > 1) {
-          diagnostics.push(
-            makeDiagnostic("YS0032", `Node group ${title} has subtitle ${subtitle} ${count} times`, {
-              file: nodes[0].sourceFile,
-            }),
-          );
+        }
+        // Subtitles must be unique within the group (YS0032): for each
+        // duplicated subtitle, one diagnostic per member of the group
+        // (upstream iterates every member of the group).
+        const subtitleCounts = new Map<string, number>();
+        for (const node of nodes) {
+          const subtitle = node.headers["subtitle"]?.trim();
+          if (!subtitle) continue;
+          subtitleCounts.set(subtitle, (subtitleCounts.get(subtitle) ?? 0) + 1);
+        }
+        for (const [subtitle, count] of subtitleCounts) {
+          if (count <= 1) continue;
+          for (const member of nodes) {
+            diagnostics.push(
+              makeDiagnostic("YS0032", `More than one node in group ${title} has subtitle ${subtitle}.`, {
+                file: member.sourceFile,
+              }),
+            );
+          }
+        }
+      } else {
+        for (const member of nodes) {
+          diagnostics.push(makeDiagnostic("YS0011", `Duplicate node title: '${title}'`, { file: member.sourceFile }));
         }
       }
     }
@@ -479,9 +545,9 @@ function validateJumps(doc: YarnDocument, diagnostics: Diagnostic[]): void {
     for (const target of targets) {
       // Braced targets ({expr}) resolve at runtime — nothing to check statically.
       if (target.startsWith("{") || titles.has(target)) continue;
-      diagnostics.push(
-        makeDiagnostic("YS0012", `Jump to undefined node '${target}'`, { file: node.sourceFile }),
-      );
+      // Message sourced from the submodule's Definitions registry template
+      // (YS0012-UndefinedNode.md).
+      diagnostics.push(makeDiagnostic("YS0012", `Jump to undefined node: '${target}'`, { file: node.sourceFile }));
     }
   }
 }

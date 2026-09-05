@@ -150,6 +150,9 @@ function matchProgramNode(
   node: YarnNode,
   counters: Map<string, number>,
 ): ProgramNode | undefined {
+  // Empty nodes are excluded from the program (upstream NodesToSkip) —
+  // skipping them here also keeps the positional group-member match aligned.
+  if (node.body.length === 0) return undefined;
   const entry = program.nodes[node.title];
   if (!entry) return undefined;
   if ("instructions" in entry) return entry;

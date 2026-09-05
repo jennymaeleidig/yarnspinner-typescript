@@ -119,7 +119,7 @@ Body
   assert.equal(result.program!.nodes["AlsoStart"], undefined);
 });
 
-test("YS0011 + YS0031: duplicate titles whose members lack when: clauses", () => {
+test("YS0011: duplicate titles whose members lack when: clauses (upstream TestDuplicateNonNodeGroups…)", () => {
   const diagnostics = compile(`title: Start
 ---
 One
@@ -129,13 +129,19 @@ title: Start
 Two
 ===
 `);
-  const codes = codesOf(diagnostics);
-  assert.ok(codes.includes("YS0011"), `expected YS0011 in ${codes}`);
-  assert.ok(codes.includes("YS0031"), `expected YS0031 in ${codes}`);
-  assert.match(diagnostics.find((d) => d.code === "YS0011")!.message, /Duplicate node title: 'Start'/);
+  // Upstream AddErrorsForInvalidNodeNames: a duplicate group with no when:
+  // headers at all is a plain duplicate-title duplication — one YS0011 per
+  // member, and no YS0031 (that code is reserved for mixed groups).
+  const dupes = diagnostics.filter((d) => d.code === "YS0011");
+  assert.equal(dupes.length, 2, `one YS0011 per member: ${codesOf(diagnostics)}`);
+  assert.ok(
+    !diagnostics.some((d) => d.code === "YS0031"),
+    `memberless duplicates report no YS0031: ${codesOf(diagnostics)}`,
+  );
+  assert.match(dupes[0]!.message, /Duplicate node title: 'Start'/);
 });
 
-test("YS0032: duplicate subtitle within a node group", () => {
+test("YS0032: duplicate subtitle within a node group (one per member, upstream)", () => {
   const diagnostics = compile(`title: NodeName
 subtitle: SharedSubtitle
 when: always
@@ -149,8 +155,11 @@ when: always
 Two
 ===
 `);
-  assert.deepEqual(codesOf(diagnostics), ["YS0032"]);
-  assert.match(diagnostics[0].message, /group NodeName has subtitle SharedSubtitle/);
+  // Upstream emits one YS0032 per member of the group with a duplicated
+  // subtitle (it iterates every member of the group).
+  const dupes = diagnostics.filter((d) => d.code === "YS0032");
+  assert.equal(dupes.length, 2, `one per member: ${codesOf(diagnostics)}`);
+  assert.match(dupes[0]!.message, /group NodeName has subtitle SharedSubtitle/);
 });
 
 test("YS0033: empty node compiles with a warning (EmptyNode)", () => {

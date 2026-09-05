@@ -48,8 +48,12 @@
  *   node-group naming) and its saliency content ID.
  */
 
-/** The program format's language version (ADR 0003). Bump on schema changes. */
-export const programLanguageVersion = 1;
+/** The program format's language version (ADR 0003). Bump on schema changes.
+ *  Version 2 added per-node header retention (`headers`) and source
+ *  provenance (`sourceFile`/`startLine`), and adopted upstream's unique
+ *  names for node-group members (members registered in `nodes` under
+ *  `Title.Subtitle` / `Title.<crc32>`). */
+export const programLanguageVersion = 2;
 
 /**
  * The compiled, serializable artifact of a set of `.yarn` sources (the
@@ -83,8 +87,25 @@ export type Program = {
 
 /** A compiled node: one instruction stream plus its headers. */
 export type ProgramNode = {
+  /**
+   * The node's name in the program: the source `title:` for plain nodes,
+   * the upstream unique name (`Title.Subtitle` / `Title.<crc32>`) for
+   * node-group members.
+   */
   title: string;
   instructions: Instruction[];
+  /**
+   * The node's raw headers, key → value as authored (upstream `Node
+   * .Headers`): every header survives — `title` (the program name, trimmed),
+   * `tags` raw text, and the rest. Host-side header queries read this.
+   */
+  headers: Record<string, string>;
+  /** The source file the node was lowered from (provenance for unique-name
+   *  derivation and diagnostics); absent when unknown. */
+  sourceFile?: string;
+  /** 1-based source line of the node's first header (upstream
+   *  `nodeContext.Start.Line` — the unique-name checksum seed). */
+  startLine?: number;
   /** `when:` header conditions, verbatim (saliency compilation). */
   when?: string[];
   /** `scene:` header (adapter-side concern). */
@@ -95,7 +116,10 @@ export type ProgramNode = {
   subtitle?: string;
 };
 
-/** Multiple same-titled nodes; saliency picks a member at entry. */
+/** Multiple same-titled nodes; saliency picks a member at entry (the port's
+ *  representation of upstream's hub node — the group entry carries the
+ *  source title, its members their unique names, which are also registered
+ *  in `nodes` so each member is jump-addressable). */
 export type ProgramNodeGroup = {
   title: string;
   nodes: ProgramNode[];

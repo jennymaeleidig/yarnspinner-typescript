@@ -20,6 +20,8 @@
  *   operator count (`and`/`or`/`xor`) plus 1.
  */
 
+import { crc32Hex } from "../compile/crc32.js";
+
 /** The kind of content a saliency option represents (upstream `ContentSaliencyContentType`). */
 export type ContentSaliencyContentType = "node" | "line";
 
@@ -327,15 +329,39 @@ export function saliencyConditionComplexity(raw: string): number {
 /**
  * A node-group member's unique name (upstream `Utility.GetNodeUniqueName`):
  * `Title.Subtitle` when the member carries a `subtitle:` header, otherwise
- * `Title.<index>` — this project's deterministic scheme standing in for
- * upstream's `Title.<crc32 of file+title+line>` checksum, whose inputs
- * (source file name, line number) the instruction-stream program does not
- * carry. It qualifies the member's saliency content ID and once-state key.
+ * `Title.<crc32(fileName + title + startLine)>` — the member's unique,
+ * jump-addressable name in the compiled program (the compile seam renames
+ * `when:`-bearing members to it; see `src/compile/compiler.ts`).
+ */
+export function nodeGroupUniqueName(
+  groupTitle: string,
+  subtitle: string | undefined,
+  sourceFile: string | undefined,
+  startLine: number,
+): string {
+  if (subtitle) return `${groupTitle}.${subtitle}`;
+  // Upstream seeds the checksum with the node's first source line:
+  // CRC32 of (sourceFileName ?? "") + title + startLine.
+  return `${groupTitle}.${crc32Hex(`${sourceFile ?? ""}${groupTitle}${startLine}`)}`;
+}
+
+/**
+ * A node-group member's saliency content ID and once-state key source: the
+ * member's upstream unique name (see `nodeGroupUniqueName`), replacing the
+ * pre-upgrade `Title.<index>` fallback — which survives only for programs
+ * whose members carry no source provenance (hand-built or pre-wave-2
+ * artifacts). The VM derives member keys through this function
+ * (`src/runtime/vm.ts`), so the compiled names and the runtime keys cannot
+ * drift apart.
  */
 export function nodeGroupMemberId(
   groupTitle: string,
-  member: { subtitle?: string },
+  member: { subtitle?: string; sourceFile?: string; startLine?: number },
   index: number,
 ): string {
-  return member.subtitle ? `${groupTitle}.${member.subtitle}` : `${groupTitle}.${index}`;
+  if (member.subtitle) return `${groupTitle}.${member.subtitle}`;
+  if (member.sourceFile !== undefined && member.startLine !== undefined) {
+    return nodeGroupUniqueName(groupTitle, undefined, member.sourceFile, member.startLine);
+  }
+  return `${groupTitle}.${index}`;
 }
