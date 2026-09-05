@@ -75,12 +75,17 @@ test("port: TestExtraneousElse — two <<else>> clauses yield two errors", () =>
   );
 });
 
-test("port: TestEmptyCommand — an empty <<>> command is an unclosed-command error", () => {
+test("port: TestEmptyCommand — an empty <<>> command errors with upstream's 'Command text expected'", () => {
   const result = compileSource("title: Start\n---\n<<>>\n===\n");
   checkAgainstDefinitions(result);
+  // Upstream's TestEmptyCommand asserts the message contains "Command text
+  // expected" (ErrorListener ReportNoViableAlternative on <<>>); no keyword
+  // matches, so GetDiagnosticForParserError's default applies: YS0005.
   assert.ok(
-    result.diagnostics.some((d) => d.severity === "error" && /Unclosed command: missing >>/.test(d.message)),
-    `expected the unclosed-command error, got ${show(result)}`,
+    result.diagnostics.some(
+      (d) => d.code === "YS0005" && /Command text expected/.test(d.message),
+    ),
+    `expected YS0005 'Command text expected', got ${show(result)}`,
   );
 });
 
