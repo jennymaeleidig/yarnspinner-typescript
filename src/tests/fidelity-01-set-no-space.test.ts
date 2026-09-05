@@ -21,21 +21,21 @@ import { runUntilCompleteEvents } from "../runtime/transcript.js";
 
 const drain = runUntilCompleteEvents;
 
-function instructionsOf(source: string): unknown {
-  const { program } = compileSource(source);
-  const node = (program as { nodes: Record<string, unknown> }).nodes["Start"] as {
-    instructions: unknown[];
-  };
-  return node.instructions;
-}
-
-test("<<set $x= 1>> lowers to the same bytecode as the spaced form", () => {
-  const attached = instructionsOf("title: Start\n---\n<<set $x= 1>>\n===");
-  const spaced = instructionsOf("title: Start\n---\n<<set $x = 1>>\n===");
-  assert.deepEqual(attached, spaced);
+test("<<set $x= 1>> compiles to the identical program as the spaced form", () => {
+  const attached = compileSource("title: Start\n---\n<<set $x= 1>>\n===");
+  const spaced = compileSource("title: Start\n---\n<<set $x = 1>>\n===");
   assert.ok(
-    JSON.stringify(attached).includes('"popVariable","name":"x"'),
-    "the attached form must lower to an assignment, not a runCommand",
+    !attached.diagnostics.some((d) => d.severity === "error"),
+    `attached form must compile clean, got ${JSON.stringify(attached.diagnostics)}`,
+  );
+  assert.ok(
+    !spaced.diagnostics.some((d) => d.severity === "error"),
+    `spaced form must compile clean, got ${JSON.stringify(spaced.diagnostics)}`,
+  );
+  assert.deepEqual(
+    attached.program,
+    spaced.program,
+    "the attached form must compile to the identical program artifact as the spaced form",
   );
 });
 
