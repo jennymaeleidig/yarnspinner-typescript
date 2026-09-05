@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: CC0-1.0
-import { lex, Token } from "./lexer.js";
+import { lex, Token, readHashtagText } from "./lexer.js";
 import { ParseError } from "./parseError.js";
 
 // Historical home of ParseError (now in ./parseError.js so the lexer can
@@ -160,6 +160,38 @@ function unescapeMainGrammar(text: string): string {
   return out;
 }
 
+/**
+ * An if/elseif/once-if condition with an unbalanced `(` outside strings is
+ * the upstream `ErrorHandlingTests.TestInvalidFunctionCall` shape
+ * (`<<if someFunction(>><<endif>>`): the command's expression was cut off
+ * by the closing `>>`, and the error listener reports YS0006
+ * UnclosedCommand — its registry message "Unclosed command: missing >>".
+ */
+function throwIfUnclosedConditionExpression(condition: string, token: Token): void {
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = 0; i < condition.length; i++) {
+    const ch = condition[i];
+    if (quote) {
+      if (ch === "\\") {
+        i++;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+  }
+  if (depth !== 0) {
+    throw new ParseError("Unclosed command: missing >>", rangeOf(token), "YS0006");
+  }
+}
+
 function rangeOf(token: Token): ParseError["range"] {
   return {
     startLine: token.line - 1,
@@ -294,6 +326,21 @@ class Parser {
     }
     const embedded = this.scanCommandSpans(text, 0, true, record);
     if (embedded) return;
+    // YS0048 (upstream CheckMalformedCommandsInText's SingularCommandWrap
+    // shape): the line opens with exactly one `<` and closes with exactly
+    // one `>` — almost certainly a command missing its second chevron on
+    // each side.
+    const trimmed = text.trim();
+    const leadingChevrons = /^<+/.exec(trimmed)?.[0].length ?? 0;
+    let trailingChevrons = 0;
+    for (let i = trimmed.length - 1; i >= 0 && trimmed[i] === ">"; i--) trailingChevrons++;
+    if (leadingChevrons === 1 && trailingChevrons === 1) {
+      record(
+        "YS0048",
+        `Line ${trimmed} has single '<' and '>' wrapping it. Did you mean to make this a command?`,
+      );
+      return;
+    }
     const keyword = /^(set|declare|jump|detour|wait|stop)\s/.exec(text);
     if (keyword) {
       record(
@@ -509,16 +556,53 @@ class Parser {
     if (t.type === "COMMAND") {
       const cmdTok = this.take("COMMAND");
       const cmd = cmdTok.text;
+      // Upstream's SyntaxValidationListener tracks command_statement lines
+      // only — the flow-control keywords (if/set/declare/jump/… ) are their
+      // own grammar statements, not command_statements. Around an arbitrary
+      // command: a line_statement on the same line warns YS0019, and a
+      // command_statement after a line_statement on the same line errors
+      // YS0020.
+      const isKeywordCommand =
+        /^(if|elseif|else|endif|set|declare|call|jump|detour|return|enum|endenum|case|once|endonce|local)(\s|$)/.test(cmd);
+      if (!isKeywordCommand) {
+        const prev = this.tokens[this.i - 2];
+        if (prev && prev.type === "TEXT" && prev.line === cmdTok.line && prev.text.trim() !== "") {
+          this.soft.push({
+            code: "YS0020",
+            message: `Command "<<${cmd}>>" found following a line of dialogue. Commands should start on a new line.`,
+            line: cmdTok.line,
+            column: cmdTok.column,
+          });
+        }
+        const next = this.peek();
+        if (next && next.type === "TEXT" && next.line === cmdTok.line && next.text.trim() !== "") {
+          this.soft.push({
+            code: "YS0019",
+            message: `Dialogue "${next.text.trim()}" content found following a command. Commands should be on their own line.`,
+            line: next.line,
+            column: next.column,
+          });
+        }
+      }
+      // A flow-control keyword where command text is expected — a stray
+      // `<<endif>>`/`<<else>>`/`<<elseif ...>>`/bare `<<if>>` outside its
+      // owning chain. The chain closers are consumed by their owning
+      // statements, so a standalone one is the parser failure the upstream
+      // error listener maps to YS0006 UnclosedCommand (registry message:
+      // "Unclosed command: missing >>").
+      if (cmd === "if" || cmd === "elseif" || cmd === "else" || cmd === "endif") {
+        throw new ParseError("Unclosed command: missing >>", this.rangeAt(t), "YS0006");
+      }
+      if (cmd.startsWith("jump ")) return { type: "Jump", target: cmd.slice(5).trim() } as Jump;
+      if (cmd.startsWith("detour ")) return { type: "Detour", target: cmd.slice(7).trim() } as Detour;
+      if (cmd.startsWith("if ")) return this.parseIfCommandBlock(cmd);
+      if (cmd === "once" || cmd.startsWith("once ")) return this.parseOnceBlock(cmd);
       // A `///` comment on the same line after a declaration overrides the
       // preceding doc lines (upstream Compiler.GetDocumentComments'
       // allowCommentsAfter parity-completeness item).
       const trailingDoc = cmdTok.trailingComment?.startsWith("///")
         ? cmdTok.trailingComment.replace(/^\/\/\/ ?/, "").trim() || undefined
         : undefined;
-      if (cmd.startsWith("jump ")) return { type: "Jump", target: cmd.slice(5).trim() } as Jump;
-      if (cmd.startsWith("detour ")) return { type: "Detour", target: cmd.slice(7).trim() } as Detour;
-      if (cmd.startsWith("if ")) return this.parseIfCommandBlock(cmd);
-      if (cmd === "once" || cmd.startsWith("once ")) return this.parseOnceBlock(cmd);
       if (cmd.startsWith("enum ")) {
         const enumName = cmd.slice(5).trim();
         return this.parseEnumBlock(enumName);
@@ -542,10 +626,11 @@ class Parser {
       const badExpr = () => new ParseError('Unexpected ">>" while reading an expression', this.rangeAt(t));
       if (cmd === "set" || cmd === "declare") throw unclosed();
       // An empty command — `<<>>` — has no content to parse: upstream's
-      // command_statement rule can't match it, and the error listener
-      // reports the shape as YS0006 UnclosedCommand (its registry template
-      // is exactly "Unclosed command: missing >>").
-      if (cmd.trim() === "") throw unclosed();
+      // ReportNoViableAlternative maps a `<<` immediately followed by `>>`
+      // to "Command text expected" (ErrorHandlingTests.TestEmptyCommand),
+      // which GetDiagnosticForParserError's default branch reports as
+      // YS0005 — not the unclosed-command shape.
+      if (cmd.trim() === "") throw new ParseError("Command text expected", this.rangeAt(t));
       // Shared shape: a clause after the variable that is not `op expression`
       // is an unclosed command; an operator with no expression is YS0005.
       const requireValue = (rest: string, opRe: RegExp): void => {
@@ -554,7 +639,7 @@ class Parser {
         if (!value[1].trim()) throw badExpr();
       };
       const declareCmd = cmd.match(/^declare\s+\$[A-Za-z_]\w*\s*([\s\S]*)$/);
-      if (declareCmd) requireValue(declareCmd[1], /^=\s*([\s\S]*)$/);
+      if (declareCmd) requireValue(declareCmd[1], /^(?:=|to)\s*([\s\S]*)$/);
       const setCmd = cmd.match(/^set\s+\$[A-Za-z_]\w*\s*([\s\S]*)$/);
       if (setCmd) requireValue(setCmd[1], /^(?:=|to|\+=|-=|\*=|\/=|%=)\s*([\s\S]*)$/);
       // The grammar's call_statement requires a function_call: a bare
@@ -572,6 +657,7 @@ class Parser {
       return {
         type: "Command",
         content: cmd,
+        ...(cmdTok.tags ? { tags: cmdTok.tags } : {}),
         ...(stateCmd?.[1] === "declare" && (trailingDoc ?? docComment)
           ? { docComment: trailingDoc ?? docComment }
           : {}),
@@ -704,19 +790,37 @@ class Parser {
   }
 
   private extractTags(input: string): { cleanText: string; tags?: string[] } {
+    // Upstream hashtag extraction (YarnSpinnerLexer.g4 TextMode): any
+    // unescaped `#` ends the line's text (TEXT_FRAG excludes `#`); the tag
+    // is the run of non-delimiter characters after it (HASHTAG_TEXT is
+    // `~[ \t\r\n#$<]+`, so `#cool-tag` keeps its hyphen and `#1st` is a
+    // tag), with optional whitespace between `#` and the text (upstream
+    // HashtagMode's HASHTAG_WS). A backslash-escaped `\#` is literal text
+    // (upstream TextEscapedMode), skipped below by the escape-aware scan.
+    // Extraction is lossless: the text keeps everything before the first
+    // hashtag span, uncorrupted.
     const tags: string[] = [];
-    // Match tags that are space-separated and not part of hex colors or CSS.
-    // Tag names may contain ':' (reserved tags: #line:, #shadow:).
-    const re = /\s#([a-zA-Z_][a-zA-Z0-9_:]*)(?![\w:])/g;
-    let text = input;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(input))) {
-      tags.push(m[1]);
+    let textEnd = input.length;
+    let i = 0;
+    while (i < input.length) {
+      const ch = input[i];
+      if (ch === "\\") {
+        i += 2;
+        continue;
+      }
+      if (ch === "#") {
+        const tag = readHashtagText(input, i);
+        if (tag) {
+          tags.push(tag.text);
+          textEnd = Math.min(textEnd, i);
+          i = tag.end;
+          continue;
+        }
+      }
+      i++;
     }
     if (tags.length > 0) {
-      // Only remove tags that match the pattern (not hex colors in CSS)
-      text = input.replace(/\s#([a-zA-Z_][a-zA-Z0-9_:]*)(?![\w:])/g, "").trimEnd();
-      return { cleanText: text, tags };
+      return { cleanText: input.slice(0, textEnd).trimEnd(), tags };
     }
     return { cleanText: input };
   }
@@ -821,6 +925,7 @@ class Parser {
       if (!condition) {
         throw new ParseError("<<once if>> requires an expression (Yarn Spinner 3.x syntax)", this.rangeAt(this.peek()));
       }
+      throwIfUnclosedConditionExpression(condition, this.peek());
     }
     // Body until <<else>> or <<endonce>> at the same level (indentation is
     // transparent here, as in if-blocks).
@@ -887,6 +992,9 @@ class Parser {
   private parseIfCommandBlock(firstCmd: string): IfBlock {
     const branches: IfBlock["branches"] = [];
     const firstCond = firstCmd.slice(3).trim();
+    // An unbalanced `(` in the condition is the cut-off-expression shape
+    // (`<<if someFunction(>><<endif>>`): upstream YS0006, not YS0007.
+    throwIfUnclosedConditionExpression(firstCond, this.peek());
     // Body until next elseif/else/endif command (check at root level, not inside indented blocks)
     const firstBody = this.parseStatementsUntilStop(() => {
       // Only stop at root level commands, not inside indented blocks
@@ -909,6 +1017,7 @@ class Parser {
       if (txt.startsWith("elseif ")) {
         this.take("COMMAND");
         const cond = txt.slice(7).trim();
+        throwIfUnclosedConditionExpression(cond, t);
         const body = this.parseStatementsUntilStop(() => this.at("COMMAND") && /^(elseif\s|else$|endif$)/.test(this.peek().text), { command: "endif", opener: "if" });
         branches.push({ condition: cond, body });
         continue;

@@ -28,7 +28,7 @@ title: Start
 ---
 <<declare $gold = 0>>
 <<set $gold to 5>>
-<<once>> Mae: cameo
+Mae: cameo <<once>>
 Mae: end
 ===
 `;

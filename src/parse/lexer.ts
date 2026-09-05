@@ -25,9 +25,72 @@ export interface Token {
    * plain `//` trails are ignored.
    */
   trailingComment?: string;
+  /**
+   * Hashtags on the same line directly after the closing `>>` (upstream
+   * `command_statement`'s `hashtag*`): `<<cmd>> #color:red`. Full tag text
+   * (`#cool-tag` keeps its hyphen; HASHTAG_TEXT is `~[ \t\r\n#$<]+`).
+   */
+  tags?: string[];
 }
 
 // Minimal indentation-sensitive lexer to support options and their bodies.
+
+/**
+ * The index of a command's closing `>>` in a line whose command span starts
+ * at `<<` (index 0 assumed): the FIRST `>>` outside quoted strings. The
+ * expression-bearing command keywords push ExpressionMode, whose STRING
+ * rule shields quotes — `<<set $x to "a>>b">>` ends after the real closing
+ * quote. Arbitrary commands (CommandTextMode) have no string mode, so their
+ * scan is the same quote-aware walk (it only ever moves the end LATER than
+ * the raw first `>>`, and only when a quote precedes it).
+ *
+ * Citation: adapted from upstream's YarnSpinnerLexer.g4 STRING /
+ * EXPRESSION_COMMAND_END / COMMAND_END rules —
+ * YarnSpinner 3.2.2 (YarnSpinner.Compiler/Grammars/YarnSpinnerLexer.g4),
+ * https://github.com/YarnSpinnerTool/YarnSpinner (MIT).
+ */
+function commandEndIndex(line: string): number {
+  let i = 2;
+  let quote: string | null = null;
+  while (i < line.length) {
+    const ch = line[i];
+    if (quote) {
+      if (ch === "\\") {
+        i += 2;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      i++;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      i++;
+      continue;
+    }
+    if (ch === ">" && line[i + 1] === ">") return i;
+    i++;
+  }
+  return -1;
+}
+
+/**
+ * A hashtag's text at `#`: the run of non-delimiter characters after it
+ * (upstream HASHTAG_TEXT: `~[ \t\r\n#$<]+` — `#cool-tag` keeps its hyphen,
+ * digit-start tags extract, `$` and `<` end the tag), with optional
+ * whitespace between `#` and the text (upstream HashtagMode's HASHTAG_WS).
+ * Returns the tag text and the index past it, or null when `#` opens no
+ * hashtag.
+ */
+export function readHashtagText(line: string, at: number): { text: string; end: number } | null {
+  let j = at + 1;
+  while (j < line.length && (line[j] === " " || line[j] === "\t")) j++;
+  if (j >= line.length || /[\s#$<]/.test(line[j])) return null;
+  let end = j;
+  while (end < line.length && !/[\s#$<]/.test(line[end])) end++;
+  return { text: line.slice(j, end), end };
+}
+
 export function lex(input: string): Token[] {
   const lines = input.replace(/\r\n?/g, "\n").split("\n");
   const tokens: Token[] = [];
@@ -120,12 +183,17 @@ export function lex(input: string): Token[] {
       continue;
     }
 
-    // Header: key: value (only valid while inHeaders)
+    // Header: key: value (only valid while inHeaders). Upstream
+    // HeaderMode's HEADER_COMMENT strips a `//` comment from the value
+    // (comments go to the COMMENTS channel; the value text ends there).
     if (inHeaders) {
       const m = content.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$/);
       if (m) {
+        let value = m[2];
+        const comment = value.indexOf("//");
+        if (comment !== -1) value = value.slice(0, comment).trimEnd();
         push("HEADER_KEY", m[1], lineNum, indent.length + 1);
-        push("HEADER_VALUE", m[2], lineNum, indent.length + 1 + m[0].indexOf(m[2]));
+        push("HEADER_VALUE", value, lineNum, indent.length + 1 + m[0].indexOf(m[2]));
         continue;
       }
     }
@@ -143,29 +211,84 @@ export function lex(input: string): Token[] {
       continue;
     }
 
-    // Commands like <<...>> (single line); a trailing // comment after the
-    // closing >> is not part of the command (upstream lexer skips comments).
-    // Empty command content (`<<>>`) is allowed through as an empty COMMAND:
-    // the parser reports it as YS0006 UnclosedCommand, matching upstream's
-    // ParseFailures shape — the lexer must not silently demote it to text.
-    const cmd = content.match(/^<<(.*?)>>\s*(\/\/.*)?$/);
-    if (cmd) {
-      push("COMMAND", cmd[1].trim(), lineNum, indent.length + 1, cmd[2]);
+    // Commands like <<...>>. A command ends at the FIRST `>>` (upstream
+    // CommandMode's COMMAND_END), so a second command or a hashtag on the
+    // same line stays out of the command's content (upstream grammar:
+    // `command_statement : COMMAND_START command_formatted_text COMMAND_END
+    // (hashtag*)`). Inside the expression-bearing command keywords (`if`,
+    // `elseif`, `set`, `declare`, `call`, `case` — the ones that push
+    // ExpressionMode), quoted strings shield `>>` (the ExpressionMode
+    // STRING rule); arbitrary commands (CommandTextMode) have no string
+    // mode and end at the first `>>`. A trailing `//` comment is not part
+    // of the command (upstream lexer skips comments). Empty command content
+    // (`<<>>`) is allowed through as an empty COMMAND: the parser reports
+    // it with upstream's "Command text expected" (TestEmptyCommand) — the
+    // lexer must not silently demote it to text.
+    if (content.startsWith("<<")) {
+      let remaining = content;
+      for (;;) {
+        const close = commandEndIndex(remaining);
+        if (close === -1) {
+          // A line opening a command but never closing it (upstream
+          // ParseFailures case "NewlinesNotPermittedInCommands"): upstream's
+          // lexer hits the newline while still in command mode and reports
+          // YS0006 UnclosedCommand. Only the truly unclosed shape is
+          // rejected; closed spans continue below.
+          throw new ParseError(
+            "Unclosed command: missing >>",
+            { startLine: lineNum - 1, startCol: indent.length, endLine: lineNum - 1, endCol: indent.length + content.length },
+            "YS0006",
+          );
+        }
+        const inner = remaining.slice(2, close);
+        const tail = remaining.slice(close + 2);
+        const tags: string[] = [];
+        let trailingComment: string | undefined;
+        let textStart = -1;
+        let resumeCommandAt = -1;
+        let k = 0;
+        while (k < tail.length) {
+          const ch = tail[k];
+          if (ch === " " || ch === "\t") {
+            k++;
+            continue;
+          }
+          if (ch === "/" && tail[k + 1] === "/") {
+            trailingComment = tail.slice(k);
+            k = tail.length;
+            break;
+          }
+          if (ch === "#") {
+            const tag = readHashtagText(tail, k);
+            if (tag) {
+              tags.push(tag.text);
+              k = tag.end;
+              continue;
+            }
+          }
+          if (ch === "<" && tail[k + 1] === "<") {
+            resumeCommandAt = k;
+            break;
+          }
+          textStart = k;
+          break;
+        }
+        push("COMMAND", inner.trim(), lineNum, indent.length + 1, trailingComment);
+        if (tags.length > 0) tokens[tokens.length - 1].tags = tags;
+        if (resumeCommandAt >= 0) {
+          remaining = tail.slice(resumeCommandAt);
+          continue;
+        }
+        if (textStart >= 0) {
+          // Trailing dialogue after a command re-enters text mode (upstream
+          // lexes a line_statement after the command_statement on the same
+          // line; the parser reports YS0019 for the shape).
+          const textPart = tail.slice(textStart);
+          push("TEXT", textPart, lineNum, indent.length + 1 + (content.length - textPart.length));
+        }
+        break;
+      }
       continue;
-    }
-
-    // A line opening a command but never closing it (upstream
-    // ParseFailures case "NewlinesNotPermittedInCommands"): upstream's
-    // lexer hits the newline while still in command mode and reports
-    // YS0006 UnclosedCommand. Lines whose `>>` closes but carries text
-    // after it are line-level `<<if>>`/`<<once>>` modifier lines (legal
-    // here), so only the truly unclosed shape is rejected.
-    if (content.startsWith("<<") && !content.includes(">>")) {
-      throw new ParseError(
-        "Unclosed command: missing >>",
-        { startLine: lineNum - 1, startCol: indent.length, endLine: lineNum - 1, endCol: indent.length + content.length },
-        "YS0006",
-      );
     }
 
     // Plain text line

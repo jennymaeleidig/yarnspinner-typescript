@@ -92,6 +92,7 @@ export const DIAGNOSTIC_REGISTRY: Record<string, DiagnosticDescriptor> = {
   YS0043: { name: "ShadowLinesCantHaveExpressions", defaultSeverity: "error" },
   YS0044: { name: "ShadowLinesMustHaveSameTextAsSource", defaultSeverity: "error" },
   YS0045: { name: "SmartVariableLoop", defaultSeverity: "error" },
+  YS0048: { name: "SingularCommandWrap", defaultSeverity: "warning" },
   YS0050: { name: "TypeCheckerError", defaultSeverity: "error" },
   YS0051: { name: "NodeMissingTitle", defaultSeverity: "error" },
   YS0052: { name: "NodeHasMoreThanOneTitle", defaultSeverity: "error" },
