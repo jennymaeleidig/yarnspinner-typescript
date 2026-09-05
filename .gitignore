@@ -65,3 +65,8 @@ examples/sveltekit-host/tsconfig.tsbuildinfo
 # package-lock.json
 # yarn.lock
 # pnpm-lock.yaml
+
+.scratch/
+
+# Generated test artifact: sveltekitHost.test.ts compiles the Svelte host here, then removes it
+src/.svelte-ssr-harness/

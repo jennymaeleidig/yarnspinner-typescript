@@ -54,7 +54,7 @@ The full suite is the verdict. Note the current baseline test count before
 judging deltas (it moves only when tests are added/removed in this repo, not
 by the pin).
 
-## 4. Triage every failure — exactly one of three verdicts
+## 4. Triage every failure
 
 - **Real parity gap**: the new fixtures/behavior expose something this
   compiler/runtime doesn't do yet. File a gap ticket under `.scratch/` (per
@@ -69,26 +69,41 @@ by the pin).
   must-fail now compiles). Clean the entry — the suite self-reports stale
   entries — and note the fix in the gap ticket it closed.
 
-**Coverage diff (same step, after the verdicts):** upstream's test suite is
-not only its fixture sweep — `YarnSpinner.Tests/*.cs` pins behaviors the
-testplans never touch (parser recovery, type matrices, initial values,
-project-file schema features). After moving the pin, diff the upstream suite
-across the bump:
+Anything that fits none of these (e.g. an upstream harness semantic we never
+ported) is still a **parity gap**: file it, allowlist it, and let the parity
+roadmap absorb it.
+
+**Test bump (same step, after the verdicts) — the fixture sweep is not the
+whole upstream suite:** the upstream test project at
+`test/fixtures/upstream/YarnSpinner/YarnSpinner.Tests/` (GitHub mirror:
+https://github.com/YarnSpinnerTool/YarnSpinner/tree/main/YarnSpinner.Tests)
+pins behaviors the testplans never touch: parser recovery, the type matrix,
+initial values, project-file schema features, smart variables, saliency. A
+pin bump that moves those C# tests is a behavior change this repo must
+**replicate in its own test suite**, not just survive. After moving the pin,
+diff the upstream test project across the bump:
 
 ```bash
-git diff <old-pin>..<new-pin> --stat -- YarnSpinner.Tests/   # inside the submodule
+git -C test/fixtures/upstream/YarnSpinner diff --stat <old-pin>..<new-pin> -- YarnSpinner.Tests/
 ```
 
-Every new or changed upstream test area gets a verdict: **port it now**
-(small, parity-critical), **file a coverage-gap ticket** citing the upstream
-test file/method (per the tracker conventions), or **N/A** (Unity/editor,
-debugger, analysis, language-server, upgrader — recorded out-of-scope
-surfaces). The baseline matrix is the standing coverage audit in the
-tracker; each bump's diff keeps it current.
+Every new or changed upstream test area gets exactly one verdict:
 
-Anything that is none of these (e.g. an upstream harness semantic we never
-ported) is still a parity gap: file it, allowlist it, and let the parity
-roadmap absorb it.
+- **Port it now** — small and parity-critical: add a mirrored test in this
+  repo following the established port pattern
+  (`src/tests/upstreamUnitPorts.test.ts` — expectation mirrors the upstream
+  test, messages quoted from upstream source, severities from the Definitions
+  registry). A port is a first-class test and asserts exactly the upstream
+  expectation.
+- **File a coverage-gap ticket** — larger or lower-priority: cite the
+  upstream test file/method (per the tracker conventions), record it in the
+  tracker's coverage matrix, and port it when the ticket lands.
+- **N/A** — out-of-scope surfaces (Unity/editor, debugger, analysis,
+  language-server, upgrader); record why so the next bump doesn't
+  re-litigate it.
+
+Each bump's diff keeps the tracker's coverage matrix — the standing audit of
+which upstream behaviors this repo pins — current.
 
 ## 5. Record the bump
 
@@ -96,7 +111,9 @@ Append one line to the **Pin history** section of
 `test/fixtures/upstream/PROVENANCE.md`:
 
 ```
-- <date>: <old pin> → <new pin> — <tag or branch, triage outcome: green / N gap tickets filed (links) / harness fixes>
+- <date>: <old pin> → <new pin> — <tag or branch, triage outcome: green / N gap
+tickets filed (links) / harness fixes, plus test-diff outcome: ports added /
+tickets filed / all N/A>
 ```
 
 If the bump revealed corrections to this skill (a wrong step, a missing
@@ -106,5 +123,6 @@ routine; it must stay the tested truth.
 ## 6. Done when
 
 The pin is staged (or committed) at the new ref, the suite is green with
-allowlists reconciled, PROVENANCE.md carries the new history line, and every
-failure has a ticket or a fix.
+allowlists reconciled, the `YarnSpinner.Tests/` diff is fully triaged (ports
+added or tickets filed), PROVENANCE.md carries the new history line, and
+every failure has a ticket or a fix.
