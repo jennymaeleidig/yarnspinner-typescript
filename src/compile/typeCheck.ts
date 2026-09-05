@@ -33,6 +33,7 @@ import { makeDiagnostic } from "./diagnostics.js";
 import type { Diagnostic, YarnRange } from "./diagnostics.js";
 import { isSmartVariableInitializer } from "./smartVariables.js";
 import { parseStateStatement } from "../parse/stateStatement.js";
+import { parseSaliencyCondition } from "../runtime/saliency.js";
 import type { DeclaredValueType, FunctionSignature } from "../runtime/library.js";
 import { inlineExpressionSpans } from "../runtime/interpolate.js";
 import { describeError } from "../describeError.js";
@@ -226,9 +227,22 @@ function tokenize(expr: string): Tok[] {
       continue;
     }
     if (c === '"' || c === "'") {
+      // Upstream lexer STRING: `\"` and `\\` are the escapes — a
+      // backslash keeps the literal next character so `"a\"b"` lexes one
+      // string. LOCKSTEP: the codegen tokenizer (expressionCodegen.ts
+      // tokenize) implements the same escape walk — change both together.
       let j = i + 1;
-      while (j < expr.length && expr[j] !== c) j++;
-      toks.push({ kind: "str", text: expr.slice(i + 1, j), start: i, end: Math.min(j + 1, expr.length) });
+      let value = "";
+      while (j < expr.length && expr[j] !== c) {
+        if (expr[j] === "\\" && j + 1 < expr.length) {
+          value += expr[j + 1]; // escaped quote/backslash: keep the literal char
+          j += 2;
+          continue;
+        }
+        value += expr[j];
+        j++;
+      }
+      toks.push({ kind: "str", text: value, start: i, end: Math.min(j + 1, expr.length) });
       i = j + 1;
       continue;
     }
@@ -348,27 +362,45 @@ class ExprParser {
     // LOCKSTEP: the codegen parser (expressionCodegen.ts parseOr) mirrors
     // this rule and its operator order — change both together (one
     // upstream grammar, two hand-rolled parsers).
-    let left = this.parseComparison();
+    let left = this.parseEquality();
     while (true) {
       const op = this.takeOp(["||", "&&", "^"]);
       if (!op) return left;
+      left = { kind: "bin", op, left, right: this.parseEquality() };
+    }
+  }
+
+  private parseEquality(): ExprNode {
+    // Upstream's ExpEquality level (the ANTLR precedence ladder binds
+    // comparison TIGHTER than equality: expComparison sits below
+    // expEquality). A single `=` is the runtime's tolerated equality
+    // spelling (the evaluator and codegen accept it), so the checker's
+    // mini-parser must mirror that tolerance instead of reporting trailing
+    // garbage (ADR 0005; recorded in docs/compatibility.md).
+    // LOCKSTEP: the codegen parser (expressionCodegen.ts parseEquality)
+    // mirrors this level and its operator order — change both together.
+    let left = this.parseComparison();
+    while (true) {
+      const op = this.takeOp(["==", "!="]);
+      if (!op) {
+        const eq = this.takeOp(["="]);
+        if (!eq) return left;
+        left = { kind: "bin", op: "==", left, right: this.parseComparison() };
+        continue;
+      }
       left = { kind: "bin", op, left, right: this.parseComparison() };
     }
   }
 
   private parseComparison(): ExprNode {
+    // Upstream's ExpComparison level: < > <= >= (and word aliases via
+    // WORD_OPS), binding tighter than equality.
+    // LOCKSTEP: the codegen parser (expressionCodegen.ts parseRelational)
+    // mirrors this level — change both together.
     let left = this.parseAdditive();
     while (true) {
-      // A single `=` is the runtime's tolerated equality spelling (the
-      // evaluator and codegen accept it), so the checker's mini-parser must
-      // mirror that tolerance instead of reporting trailing garbage.
-      const op = this.takeOp(["==", "!=", "<=", ">=", "<", ">"]);
-      if (!op) {
-        const eq = this.takeOp(["="]);
-        if (!eq) return left;
-        left = { kind: "bin", op: "==", left, right: this.parseAdditive() };
-        continue;
-      }
+      const op = this.takeOp(["<=", ">=", "<", ">"]);
+      if (!op) return left;
       left = { kind: "bin", op, left, right: this.parseAdditive() };
     }
   }
@@ -1443,6 +1475,17 @@ export function typeCheck(
 
   for (const node of doc.nodes) {
     ctx.currentFile = node.sourceFile;
+    // `when:` headers carry expressions (upstream `header_when_expression`
+    // is a grammar rule: an expression, `always`, or `once [if expr]` — a
+    // malformed expression never parses, so `when: foo bar` / `when: $x &&`
+    // are compile errors). Validate each header's expression with the same
+    // checker the statements use, and bool-constrain its variables like
+    // every other condition site.
+    for (const raw of node.when ?? []) {
+      const parsed = parseSaliencyCondition(raw);
+      if (parsed.kind === "always" || parsed.kind === "once") continue;
+      checkCondition(parsed.expression, ctx);
+    }
     walkStatements(node.body, ctx);
   }
 
