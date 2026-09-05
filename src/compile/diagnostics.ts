@@ -66,6 +66,7 @@ export const DIAGNOSTIC_REGISTRY: Record<string, DiagnosticDescriptor> = {
   YS0005: { name: "SyntaxError", defaultSeverity: "error" },
   YS0006: { name: "UnclosedCommand", defaultSeverity: "error" },
   YS0007: { name: "UnclosedScope", defaultSeverity: "error" },
+  YS0010: { name: "UnusedVariable", defaultSeverity: "info" },
   YS0011: { name: "DuplicateNodeTitle", defaultSeverity: "error" },
   YS0012: { name: "UndefinedNode", defaultSeverity: "warning" },
   YS0014: { name: "WrongFunctionParameters", defaultSeverity: "error" },

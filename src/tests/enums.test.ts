@@ -46,6 +46,9 @@ const FOOD_SCRIPT = `title: Start
     <<case Pear>>
 <<endenum>>
 <<declare $favouriteFood = Food.Apple as Food>>
+// The read keeps the compile diagnostics-clean: a declared-but-never-read
+// variable reports YS0010 (upstream's unused-variable analysis, ticket 12).
+Your favourite is {$favouriteFood}.
 ===
 `;
 
@@ -119,6 +122,9 @@ test(".Case shorthand resolves when the enum can be inferred", () => {
 <<endenum>>
 <<declare $secondFavouriteFood = Food.Orange>>
 <<declare $thirdFavouriteFood = .Pear>>
+// Both variables are read so the compile stays diagnostic-free (YS0010
+// reports a declared-but-never-read variable — ticket 12).
+You like {$secondFavouriteFood} or {$thirdFavouriteFood}.
 ===
 `);
   assert.deepEqual(result.diagnostics, []);

@@ -50,6 +50,7 @@ import type { StringTable } from "./stringTable.js";
 import { buildProjectDebugInfo } from "./debugInfo.js";
 import type { ProjectDebugInfo } from "./debugInfo.js";
 import { LineParser } from "../markup/lineParser.js";
+import { collectVariableReferences, addUnusedVariableDiagnostics } from "./unusedVariables.js";
 import { builtinSignatures } from "../runtime/builtins.js";
 import { inlineExpressionSpans } from "../runtime/interpolate.js";
 import type { Library } from "../runtime/library.js";
@@ -308,6 +309,20 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
   // member access, enforces the same-enum comparison restriction, resolves
   // `.Case` shorthand in place, and collects declarations.
   const checked = typeCheck(combined, { declarations }, (d) => diagnostics.push(d));
+
+  // YS0010 UnusedVariable — the compile-end unused-declared-variable
+  // analysis (upstream's pass after type checking, before the TypeCheck
+  // stop): declarations never referenced anywhere in the content report at
+  // info. External (host-declared) variables are excluded — they enter
+  // through `opts.declarations.variables` and belong to the host's store,
+  // not the script. Runs in every mode that carries declarations
+  // (typeCheckOnly and full), like upstream; stringsOnly stops earlier.
+  addUnusedVariableDiagnostics(
+    checked.declarations,
+    collectVariableReferences(combined),
+    new Set(Object.keys(opts.declarations?.variables ?? {})),
+    (d) => diagnostics.push(d),
+  );
 
   if (mode === "typeCheckOnly" || mode === "declarationsOnly") {
     return finalize({
