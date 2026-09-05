@@ -51,7 +51,7 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 - **YS-code**: the stable diagnostic identifier shared with upstream's registry (the upstream per-code registry is authoritative, not the docs errors page).
 - **Conformance corpus**: the submodule's testplan-driven fixture sweep — `Tests/TestCases/*.yarn` with sibling `.testplan` plans, plus `Tests/Example.yarn` — the only fixtures carrying upstream's own pinned expectations; the harness mirrors them 1:1.
 - **Demo projects**: upstream's `Tests/Projects/` (Space, Basic) — real-world material inside the submodule that upstream itself pins no expectations against (upstream uses Space as demo scripts, `Test.json` is Unity editor metadata). Used as realistic inputs only (acceptance tests, declarations-path material); never a conformance surface — expectations for our project-file surface come from purpose-built in-repo fixtures.
-- **String table**: mapping of line ID → text, file, node, line number, metadata; interchange format is the upstream 8-column CSV.
+- **String table**: mapping of line ID → text (each inline expression as its positional placeholder `{0}`, `{1}`, … — upstream's `StringTableEntry` contract; localisation rows substitute them positionally), file, node, line number, metadata; interchange format is the upstream 8-column CSV.
 - **Line ID**: stable identifier for a line — implicit (upstream CRC32 scheme) or explicit `#line:`.
 - **Line-tag generator**: pluggable generator of implicit line IDs (random default, descriptive built-in).
 

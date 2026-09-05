@@ -101,6 +101,22 @@ export class LineComposer {
   }
 
   /**
+   * The substitution values for `authored` text: each inline expression
+   * evaluated in source order (upstream's substitutions list — the VM pops
+   * the `RunLine` instruction's expression values in source order). A
+   * failed evaluation composes as the empty string, like `substitute`.
+   */
+  private positionalSubstitutions(authored: string): string[] {
+    return inlineExpressionSpans(authored).map((span) => {
+      try {
+        return stringifyValue(this.evaluateExpression(span.source));
+      } catch {
+        return "";
+      }
+    });
+  }
+
+  /**
    * Expand `{expr}` substitutions only — no markup parsing, no character
    * resolution. Upstream runs commands through `ExpandSubstitutions` alone
    * (they never pass through the markup parser).
@@ -117,8 +133,11 @@ export class LineComposer {
    * attribute marks the prefix region without being sliced off.
    */
   composeOption(text: string): { text: string; markup?: MarkupParseResult } {
-    const substituted = this.substitute(text);
+    return this.composeOptionFrom(this.substitute(text));
+  }
 
+  /** The option-shape compose over already-substituted text. */
+  private composeOptionFrom(substituted: string): { text: string; markup?: MarkupParseResult } {
     const { markup, diagnostics } = this.parser.parseStringWithDiagnostics(substituted, this.localeCode);
     if (diagnostics.length > 0) {
       return { text: substituted };
@@ -127,15 +146,28 @@ export class LineComposer {
   }
 
   /**
-   * Compose one line: expand `{expr}` substitutions, then parse markup
-   * (including the implicit `character` attribute that replaces the old
-   * regex speaker slice). A markup parse failure composes as the raw text
-   * with no speaker (the diagnostics ride the parser result, not the
-   * event).
+   * Compose one line whose text came from the text provider (a
+   * localisation row): the row is in upstream's placeholder form (`{0}`),
+   * so the substitutions are evaluated from the program's authored line
+   * text and expanded positionally (upstream `GetComposedTextForLine` —
+   * `ExpandSubstitutions` before the markup parse). Everything else —
+   * markup, character resolution — composes exactly like `composeLine`.
    */
-  composeLine(text: string): ComposedLine {
-    const substituted = this.substitute(text);
+  composeLocalisedLine(text: string, authored: string): ComposedLine {
+    return this.composeSubstituted(expandPositionalSubstitutions(text, this.positionalSubstitutions(authored)));
+  }
 
+  /**
+   * Compose one option from a localisation row — the option-shape twin of
+   * `composeLocalisedLine` (full text, speaker prefix intact).
+   */
+  composeLocalisedOption(text: string, authored: string): { text: string; markup?: MarkupParseResult } {
+    return this.composeOptionFrom(expandPositionalSubstitutions(text, this.positionalSubstitutions(authored)));
+  }
+
+  /** The shared substituted-text compose: markup parse, character slicing
+   * (the `composeLine` shape). */
+  private composeSubstituted(substituted: string): ComposedLine {
     const { markup, diagnostics } = this.parser.parseStringWithDiagnostics(substituted, this.localeCode);
     if (diagnostics.length > 0) {
       // The module composes failed parses as the input text with no
@@ -169,6 +201,17 @@ export class LineComposer {
       speaker,
       markup: messageMarkup.attributes.length > 0 ? messageMarkup : undefined,
     };
+  }
+
+  /**
+   * Compose one line: expand `{expr}` substitutions, then parse markup
+   * (including the implicit `character` attribute that replaces the old
+   * regex speaker slice). A markup parse failure composes as the raw text
+   * with no speaker (the diagnostics ride the parser result, not the
+   * event).
+   */
+  composeLine(text: string): ComposedLine {
+    return this.composeSubstituted(this.substitute(text));
   }
 }
 
@@ -249,6 +292,22 @@ export function expandSubstitutions(text: string, evaluate: (expr: string) => st
     pos = span.end;
   }
   return out + unescapeBraces(text.slice(pos));
+}
+
+/**
+ * Upstream `LineParser.ExpandSubstitutions` over the string-table contract:
+ * the text carries positional placeholders (`{0}`, `{1}`, …) and each is
+ * replaced by the substitution at that index — every occurrence, all of
+ * them (C# `string.Replace` ordinal semantics, so the replacement is
+ * literal: no `$` patterns, no re-scan of inserted text). A marker whose
+ * index has no substitution composes literally (upstream: the loop runs
+ * out before reaching it).
+ */
+export function expandPositionalSubstitutions(text: string, substitutions: string[]): string {
+  for (let i = 0; i < substitutions.length; i++) {
+    text = text.split(`{${i}}`).join(substitutions[i]);
+  }
+  return text;
 }
 
 /** Upstream composed text (C# `ToString`): booleans as "True"/"False". */

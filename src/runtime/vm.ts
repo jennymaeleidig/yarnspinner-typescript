@@ -474,8 +474,16 @@ export class VirtualMachine {
             // canonical ID wins; without a provider — or a line it lacks —
             // the program's own text is the base language. Composition
             // (substitutions + markup) runs on whatever text resolved.
+            // Provider-resolved text is in upstream's placeholder form
+            // (`{0}`), so its substitutions expand positionally against the
+            // authored line's expressions (upstream
+            // `GetComposedTextForLine`); the program's authored text keeps
+            // the span-based expansion (ADR 0005's internal mechanism).
             const lineId = lineIdFromTags(ins.tags);
-            const composed = this.compose(this.resolveLineText(ins.tags, ins.text));
+            const resolved = this.resolveLineText(ins.tags, ins.text);
+            const composed = resolved.fromProvider
+              ? this.getOrCreateComposer().composeLocalisedLine(resolved.text, ins.text)
+              : this.compose(resolved.text);
             batch.push({
               type: "line",
               lineId,
@@ -1024,10 +1032,12 @@ export class VirtualMachine {
       // still applies — and compose like lines (substitutions + markup,
       // implicit character attribute enabled — upstream
       // GetComposedTextForLine) but deliver the full text with the speaker
-      // prefix intact.
-      const composed = this.getOrCreateComposer().composeOption(
-        this.resolveLineText(option.tags, option.text),
-      );
+      // prefix intact. Provider-resolved rows are in the placeholder form
+      // (`{0}`) and expand positionally against the authored option text.
+      const resolved = this.resolveLineText(option.tags, option.text);
+      const composed = resolved.fromProvider
+        ? this.getOrCreateComposer().composeLocalisedOption(resolved.text, option.text)
+        : this.getOrCreateComposer().composeOption(resolved.text);
       return {
         index,
         isAvailable: option.isAvailable,
@@ -1134,17 +1144,21 @@ export class VirtualMachine {
   // ── Text resolution ───────────────────────────────────────────────
 
   /**
-   * The provider's text for the canonical line ID in `tags`, or `fallback`
-   * — the program's own text, the base language — when there is no
-   * provider or the provider has no text for the line.
+   * The text for the line: the provider's text for the canonical line ID in
+   * `tags` when it has one (fromProvider — a localisation row, in
+   * upstream's placeholder form), or `fallback` — the program's own text,
+   * the base language (authored `{expr}` form).
    */
-  private resolveLineText(tags: string[] | undefined, fallback: string): string {
+  private resolveLineText(
+    tags: string[] | undefined,
+    fallback: string,
+  ): { text: string; fromProvider: boolean } {
     const lineId = lineIdFromTags(tags);
     if (lineId !== undefined && this.textProvider !== null) {
       const resolved = this.textProvider.getText(lineId);
-      if (resolved !== undefined) return resolved;
+      if (resolved !== undefined) return { text: resolved, fromProvider: true };
     }
-    return fallback;
+    return { text: fallback, fromProvider: false };
   }
 
   // ── Line composition (substitutions + markup) ─────────────────────

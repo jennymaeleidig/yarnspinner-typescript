@@ -5,6 +5,14 @@
  * mapping of line ID → string info, covering every line and option line of
  * the compiled sources.
  *
+ * Entry text follows upstream's `StringTableEntry` contract: each inline
+ * expression is replaced by its positional placeholder (`{0}`, `{1}`, … in
+ * source order — upstream `GenerateFormattedText`), so upstream-produced
+ * CSV rows and locks interoperate; the runtime expands the values against
+ * the line's evaluated expressions positionally (the compose side rides
+ * `interpolate.ts`). Authored text is kept alongside for shadow
+ * validation, whose expression check reads the authored form.
+ *
  * The upstream ID scheme — implicit line IDs are
  * `line:` + CRC32(fileName + nodeName + running table count) in
  * little-endian hex (`sh_`-prefixed for shadow lines, numeric suffix
@@ -64,6 +72,26 @@ export interface StringInfo {
 /** The string table: line ID → string info (upstream `CompilationResult.StringTable`). */
 export type StringTable = Record<string, StringInfo>;
 
+/**
+ * Upstream `StringTableGeneratorVisitor.GenerateFormattedText`: each inline
+ * expression span is replaced by its positional placeholder — `{` + the
+ * expression's index + `}`, in source order — and every other character
+ * (including escaped braces and unclosed `{`, which are not expressions
+ * under the runtime composer's scan contract) survives verbatim.
+ */
+export function composePlaceholderText(text: string): string {
+  let out = "";
+  let pos = 0;
+  let expressionCount = 0;
+  for (const span of inlineExpressionSpans(text)) {
+    out += text.slice(pos, span.start);
+    out += `{${expressionCount}}`;
+    expressionCount += 1;
+    pos = span.end;
+  }
+  return out + text.slice(pos);
+}
+
 /** A line-bearing AST item (a line, line-group item, or option). */
 interface LineBearing {
   text: string;
@@ -75,6 +103,13 @@ export class StringTableManager {
   readonly stringTable: StringTable = {};
   /** Entries registered so far (upstream seeds implicit IDs off this count). */
   private registeredCount = 0;
+  /**
+   * The authored (pre-placeholder) text per registered line ID — the shadow
+   * validation's expression check reads the authored form (upstream reads
+   * the source line's parse-tree expressions, not the composed text, so a
+   * `{0}` placeholder in the entry must not read as an expression).
+   */
+  private readonly authoredTexts = new Map<string, string>();
 
   constructor(private readonly emit?: (d: Diagnostic) => void) {}
 
@@ -89,6 +124,8 @@ export class StringTableManager {
    */
   registerString(info: {
     text: string | null;
+    /** The authored text, when `text` is the placeholder-composed form. */
+    authoredText?: string;
     fileName: string;
     nodeName: string;
     lineNumber: number;
@@ -134,8 +171,15 @@ export class StringTableManager {
       metadata: info.metadata,
       shadowLineID: info.shadowID ?? null,
     };
+    this.authoredTexts.set(lineID, info.authoredText ?? info.text ?? "");
     this.registeredCount += 1;
     return lineID;
+  }
+
+  /** The authored text registered for `lineID`, when it differed from the
+   * entry's stored (placeholder) text. */
+  authoredText(lineID: string): string | undefined {
+    return this.authoredTexts.get(lineID);
   }
 
   hasLineID(lineID: string): boolean {
@@ -164,7 +208,10 @@ export class StringTableManager {
  *
  * Emits YS0017/YS0062 for lines with multiple content-ID tags, YS0018 for
  * duplicate explicit `#line:` tags (both occurrences), and YS0042/43/44
- * for invalid shadow lines.
+ * for invalid shadow lines. Entry text is the placeholder-composed form
+ * (`composePlaceholderText`); the authored text rides along for shadow
+ * validation's expression check (YS0044's equality compares the composed
+ * forms, as upstream's composed strings do).
  */
 export function assignLineIds(
   docs: Array<{ name: string; doc: YarnDocument }>,
@@ -276,8 +323,12 @@ function registerLine(line: LineBearing, ctx: WalkContext): void {
   const metadata = [...tags];
   if (ctx.lastLineFlags.has(line)) metadata.push("lastline");
 
+  // The entry stores the placeholder-composed form (upstream's
+  // `StringTableEntry` contract); the authored text rides alongside for
+  // shadow validation.
   const entry = {
-    text: line.text,
+    text: composePlaceholderText(line.text),
+    authoredText: line.text,
     fileName: ctx.fileName,
     nodeName: ctx.nodeName,
     lineNumber: line.lineNumber ?? 0,
@@ -343,7 +394,11 @@ function validateShadowLines(manager: StringTableManager, emit: (d: Diagnostic) 
       );
       continue;
     }
-    if (hasInlineExpression(source.text)) {
+    // Upstream checks the source line's PARSED expressions — not the
+    // composed text — so the placeholder form (`{0}`) must not read as one:
+    // the check reads the authored text recorded at registration.
+    const sourceAuthored = manager.authoredText(info.shadowLineID) ?? source.text ?? "";
+    if (hasInlineExpression(sourceAuthored)) {
       emit(makeDiagnostic("YS0043", "Shadow lines must not have expressions", { file: info.fileName }));
     }
     if (source.text !== info.text) {
@@ -354,10 +409,10 @@ function validateShadowLines(manager: StringTableManager, emit: (d: Diagnostic) 
 }
 
 /**
- * Whether a line's text carries an inline `{expr}` substitution (upstream
- * checks the source line's parsed expressions). Escaped braces (`\{`) and
- * unclosed braces compose as literal characters — the runtime's expansion
- * rules — so they are not expressions.
+ * Whether a line's authored text carries an inline `{expr}` substitution
+ * (upstream checks the source line's parsed expressions). Escaped braces
+ * (`\{`) and unclosed braces compose as literal characters — the runtime's
+ * expansion rules — so they are not expressions.
  */
 function hasInlineExpression(text: string): boolean {
   return inlineExpressionSpans(text).length > 0;
