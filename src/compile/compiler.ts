@@ -72,7 +72,7 @@ import { commandKind, parseCommand, type ParsedCommand } from "../runtime/comman
 import { isSmartVariableInitializer } from "./smartVariables.js";
 import { compoundOperatorToStackOp, parseStateStatement } from "../parse/stateStatement.js";
 import { buildEnumTypes, collectEnumBlocks } from "./enums.js";
-import type { EnumType } from "./enums.js";
+import type { EnumRawValue, EnumType } from "./enums.js";
 
 /**
  * Group nodes by title: titles by first occurrence, members in document
@@ -121,7 +121,7 @@ export interface CompileDocumentOptions {
    * compiled into `initialValues` (upstream Compiler.Compile's final
    * initial-values pass over every declaration).
    */
-  declarations?: VariableDeclarations;
+  declarations?: VariableDeclarationSlice[];
   /**
    * `<<once>>` block → 1-based source line, built by the compile seam from
    * the raw sources (the AST's command statements carry no positions). The
@@ -134,10 +134,11 @@ export interface CompileDocumentOptions {
 
 /** The declaration shape the lowering consumes (a structural slice of the
  *  type checker's VariableDeclaration, avoiding a compile→typeCheck cycle). */
-export interface VariableDeclarations {
+export interface VariableDeclarationSlice {
   name: string;
   type: string;
   isSmartVariable?: boolean;
+  defaultValue?: EnumRawValue | boolean;
 }
 
 /**
