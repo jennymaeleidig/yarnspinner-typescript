@@ -23,6 +23,10 @@
 // Citation: adapted from YarnSpinner v3.2.2 LineParser.cs (BuiltInMarkupReplacer),
 // https://github.com/YarnSpinnerTool/YarnSpinner (MIT). The upstream license
 // survives this adaptation.
+// Modified by Jenny Mae LEIDIG on 2026-09-04 — the plural/ordinal `%`
+// placeholder now renders with the current culture, matching upstream's
+// `numericValue.ToString(CultureInfo.CurrentCulture)` (LineParser.cs
+// PluralReplace); select stays invariant as upstream.
 
 import type {
   AttributeMarkerProcessor,
@@ -72,6 +76,44 @@ export function languageSubtag(localeCode: string): string {
   } catch {
     return localeCode;
   }
+}
+
+/**
+ * The host environment's current culture (BCP-47, or `undefined` for the
+ * JS runtime default) — the port's analogue of .NET's process-wide
+ * `CultureInfo.CurrentCulture` that upstream reads when rendering the
+ * `%` placeholder in plural/ordinal replacement text. Environment
+ * configuration, not story state: upstream's CurrentCulture is likewise
+ * process-global mutable state (`CultureInfo.CurrentCulture = ...`).
+ */
+let currentCulture: string | undefined = undefined;
+
+/** The current culture `%` substitution renders under. */
+export function getCurrentCulture(): string | undefined {
+  return currentCulture;
+}
+
+/** Overrides the current culture `%` substitution renders under (upstream `CultureInfo.CurrentCulture`). */
+export function setCurrentCulture(culture: string | undefined): void {
+  currentCulture = culture;
+}
+
+/**
+ * Renders a number the way upstream `PluralReplace` renders the `%`
+ * placeholder: `numericValue.ToString(System.Globalization.CultureInfo
+ * .CurrentCulture)` — the host environment's current culture, not the
+ * line's locale code and not the invariant culture. In JS the current
+ * culture is the runtime default locale, so this formats with no explicit
+ * locale unless a host pinned one through `setCurrentCulture`. No
+ * grouping (C# `double.ToString` never groups) and full precision, to
+ * match the rest of the port's numeric rendering.
+ */
+export function formatNumberInCurrentCulture(numericValue: number): string {
+  if (!Number.isFinite(numericValue)) return String(numericValue);
+  return numericValue.toLocaleString(getCurrentCulture(), {
+    useGrouping: false,
+    maximumFractionDigits: 20,
+  });
 }
 
 /**
@@ -222,11 +264,11 @@ function pluralReplace(
       },
     ];
     const input = markupValueToString(replacementValue);
-    childBuilder.append(input.replace(VALUE_PLACEHOLDER_REGEX, String(numericValue)));
+    childBuilder.append(input.replace(VALUE_PLACEHOLDER_REGEX, formatNumberInCurrentCulture(numericValue)));
     return diagnostics;
   }
 
   const input = markupValueToString(replacementValue);
-  childBuilder.append(input.replace(VALUE_PLACEHOLDER_REGEX, String(numericValue)));
+  childBuilder.append(input.replace(VALUE_PLACEHOLDER_REGEX, formatNumberInCurrentCulture(numericValue)));
   return [];
 }

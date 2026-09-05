@@ -28,12 +28,20 @@ references:
       (Utility.TagLines) and the LineTaggers/ generators (ILineTagGenerator,
       RandomLineTagGenerator, DescriptiveLineTagGenerator) at v3.2.2 —
       including the Descriptive insertion/generation algorithm and message
-      texts (the fork keeps the preceeding-dialogue typo verbatim). Other
+      texts (the fork keeps the preceeding-dialogue typo verbatim).
+      src/markup/lineParser.ts and src/markup/builtInReplacer.ts adapt
+      YarnSpinner/YarnSpinner.Markup/LineParser.cs at v3.2.2 (markup
+      parity edges, 2026-09-04: duplicate-property throw per
+      MarkupAttribute's Dictionary.Add, the escaped-quote string lexer's
+      failed-Match fallback, the invalid-name diagnostic range, and the
+      plural/ordinal `%` current-culture rendering); src/markup/types.ts
+      adapts MarkupAttribute.Shift (MarkupParseResult.cs).
+      Other
       compiler and runtime behavior is a parity-driven reimplementation of
       the documented upstream algorithms (string table, shadow-line
       validation, diagnostics registry), not a code borrow.
       Accessed 2026-09-02 (crc32.ts), 2026-09-03 (tagLines.ts, submodule
-      mount).
+      mount), 2026-09-04 (markup parity edges).
   - type: software
     title: YarnSpinner-Unity
     authors:

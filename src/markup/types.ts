@@ -273,3 +273,23 @@ export class StringBuilder {
     return this.parts.join("");
   }
 }
+/**
+ * Returns a copy of `attribute` whose position is shifted toward the end
+ * of the text by `shift` (upstream `MarkupAttribute.Shift`): the tool for
+ * marker-processor hosts that insert text before the attribute's range —
+ * upstream's contract is "it is up to you to fix any attributes if you
+ * modify them", and this is how a child attribute's position is fixed
+ * after an insert. Everything but `position` (source position, length,
+ * name, and the properties — copied, not aliased) is carried over.
+ *
+ * Citation: adapted from YarnSpinner v3.2.2 MarkupParseResult.cs
+ * (MarkupAttribute.Shift), https://github.com/YarnSpinnerTool/YarnSpinner
+ * (MIT). The upstream license survives this adaptation.
+ */
+export function shiftAttribute(attribute: MarkupAttribute, shift: number): MarkupAttribute {
+  return {
+    ...attribute,
+    position: attribute.position + shift,
+    properties: { ...attribute.properties },
+  };
+}
