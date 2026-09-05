@@ -62,7 +62,7 @@
  */
 
 import type { YarnDocument, YarnNode, Statement, Line, LineGroup, OnceBlock } from "../model/ast";
-import type { Instruction, Program, ProgramNode } from "./program.js";
+import type { Instruction, Program, ProgramNode, ProgramNodeGroup } from "./program.js";
 import { walkStatements } from "../model/walk.js";
 import { programLanguageVersion } from "./program.js";
 import { compileExpression, ExpressionCodegenError } from "./expressionCodegen.js";
@@ -195,6 +195,11 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
   const nodesByTitle = groupNodesByTitle([doc]);
 
   const nodes: Program["nodes"] = {};
+  // Node-group hub entries, registered after every source node (upstream
+  // Compiler.cs: file nodes compile first, then the NodeGroupCompiler's hub
+  // nodes are appended — so Program.Nodes' insertion order is source-order
+  // members under their unique names, then the hubs).
+  const hubs: [string, ProgramNodeGroup][] = [];
   for (const [title, nodesWithSameTitle] of nodesByTitle) {
     // Empty nodes are excluded from the program (upstream
     // AddDiagnosticsForEmptyNodes + FileCompiler.NodesToSkip: they warn
@@ -205,7 +210,7 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
     const members = nodesWithSameTitle.filter((n) => n.body.length > 0);
     const isNodeGroup = nodesWithSameTitle.some((n) => n.when && n.when.length > 0);
     if (members.length === 0) {
-      if (isNodeGroup) nodes[title] = { title, nodes: [] };
+      if (isNodeGroup) hubs.push([title, { title, nodes: [] }]);
       continue;
     }
     const groupPath = isNodeGroup || members.length > 1;
@@ -239,9 +244,10 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
       for (const member of lowered) {
         if (member.title !== title) nodes[member.title] = member;
       }
-      nodes[title] = { title, nodes: lowered };
+      hubs.push([title, { title, nodes: lowered }]);
     }
   }
+  for (const [title, group] of hubs) nodes[title] = group;
 
   // Implicit declarations (upstream Compiler.cs: an undeclared variable used
   // in a Boolean-constrained context is implicitly declared with the type's
