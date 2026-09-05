@@ -38,8 +38,8 @@ title: Start
   Injecting a pre-populated `VariableStorage` is the persistence seam: restore
   by re-injecting a storage whose `entries()` mirror the host's saved state;
   declare-default seeding skips names it already holds. Generated keys (the
-  reserved `Yarn.Internal.` namespace) appear in `entries()` but not in
-  `Dialogue.getVariables()` snapshots.
+  reserved `$Yarn.Internal.` namespace, upstream's exact shape) appear in
+  `entries()` but not in `Dialogue.getVariables()` snapshots.
 - Booleans interpolate as upstream's C# `ToString`: `True`/`False`.
 - String `+` concatenates; comparing against an unset variable uses the
   implicit type default (bool→false, number→0, string→"") — a deliberate

@@ -42,6 +42,24 @@ export function toNumberOperand(value: unknown): number {
 }
 
 /**
+ * Convert a number to an int the way upstream's `Value.ConvertTo<int>()`
+ * does (C# `Convert.ChangeType` → `IConvertible.ToInt32`): the midpoint
+ * rounds to even (banker's rounding), so 7.5 converts to 8 and 2.5 to 2 —
+ * not a truncating `(int)` cast. The `%` operator and the int-parameter
+ * built-ins (`dice`) route through this.
+ */
+export function convertToInt32(value: number): number {
+  const truncated = Math.trunc(value);
+  const fraction = value - truncated;
+  if (Math.abs(fraction) === 0.5) {
+    return truncated % 2 === 0 ? truncated : truncated + Math.sign(value);
+  }
+  if (fraction > 0.5) return truncated + 1;
+  if (fraction < -0.5) return truncated - 1;
+  return truncated;
+}
+
+/**
  * The implicit default a variable has when compared against a typed value.
  */
 function defaultValueFor(value: unknown): unknown {
@@ -103,7 +121,9 @@ export type UnaryOperator = "negate" | "not";
  * - `add`: string concatenation when either side is a string, rendering
  *   operands the upstream way (C# `ToString`: booleans as "True"/"False");
  *   otherwise numeric addition;
- * - `subtract`…`modulo`: numeric via `toNumberOperand`;
+ * - `subtract`…`divide`: numeric via `toNumberOperand`; `modulo` converts
+ *   both operands to int (upstream `ConvertTo<int>`, midpoint-to-even) and
+ *   errors on a zero divisor;
  * - `equalTo`/`notEqualTo`: `deepEqualsOperands`;
  * - relationals: numeric via plain `Number()` (NaN comparisons yield false,
  *   never throw);
@@ -124,8 +144,19 @@ export function applyBinaryOp(op: BinaryOperator, a: unknown, b: unknown): unkno
       return toNumberOperand(a) * toNumberOperand(b);
     case "divide":
       return toNumberOperand(a) / toNumberOperand(b);
-    case "modulo":
-      return toNumberOperand(a) % toNumberOperand(b);
+    case "modulo": {
+      // Upstream `NumberType.MethodModulus`: `a.ConvertTo<int>() %
+      // b.ConvertTo<int>()` — both operands convert to int (C#
+      // `Convert.ToInt32`: midpoint-to-even), and the remainder is C#'s int
+      // remainder (sign follows the dividend, which JS `%` matches). A zero
+      // divisor is a runtime error (upstream DivideByZeroException), never
+      // NaN.
+      const divisor = convertToInt32(toNumberOperand(b));
+      if (divisor === 0) {
+        throw new Error("Cannot divide by zero");
+      }
+      return convertToInt32(toNumberOperand(a)) % divisor;
+    }
     case "equalTo":
       return deepEqualsOperands(a, b);
     case "notEqualTo":

@@ -52,10 +52,12 @@ Narrator: Inside Aside
   strictEqual(lineTexts(c)[0], "Inside Aside", "Expect detour content");
   okTypes(c, ["nodeStart", "line"]);
 
-  // Aside ends: node-complete fires and the detour returns to Next.
+  // Aside ends: node-complete fires and the detour returns to Next —
+  // re-entering it (upstream's return path runs through SetNode, which
+  // re-fires nodeStart for the resumed caller).
   const d = dialogue.continue();
   strictEqual(lineTexts(d)[0], "Back from Aside", "Expect return from detour");
-  okTypes(d, ["nodeComplete", "line"]);
+  okTypes(d, ["nodeComplete", "nodeStart", "line"]);
 
   // Next ends: the dialogue completes.
   const e = dialogue.continue();

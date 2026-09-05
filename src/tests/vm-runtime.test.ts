@@ -208,7 +208,7 @@ Narrator: You have {$gold} ({$doubled} doubled)
   const visible = dialogue.getVariables();
   assert.equal(visible["gold"], 7);
   for (const key of Object.keys(visible)) {
-    assert.ok(!key.startsWith("Yarn.Internal."), "generated variables are not story variables");
+    assert.ok(!key.startsWith("$Yarn.Internal."), "generated variables are not story variables");
   }
 });
 
@@ -271,9 +271,10 @@ Narrator: One
 `;
   const withHints = makeDialogue(source, { lineHints: true });
   const first = withHints.continue();
-  assert.equal(first[0].type, "lineHints", "hints precede the node start");
-  assert.equal(first[1].type, "nodeStart");
-  const hintIds = first[0].type === "lineHints" ? first[0].lineIds : [];
+  // Upstream SetNode: nodeStart fires before the line-hint delivery.
+  assert.equal(first[0].type, "nodeStart");
+  assert.equal(first[1].type, "lineHints", "hints follow the node start");
+  const hintIds = first[1].type === "lineHints" ? first[1].lineIds : [];
   assert.ok(hintIds.length >= 2, "line and option text IDs are hinted");
 
   const withoutHints = makeDialogue(source);

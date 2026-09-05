@@ -185,7 +185,7 @@ title: Start
   assert.equal(command.command, "hello world");
 });
 
-test("node lifecycle: jump fires NodeComplete then NodeStart; detour returns without a second NodeStart", () => {
+test("node lifecycle: jump unwinds with NodeComplete per frame; a detour return re-fires NodeStart", () => {
   const dialogue = makeDialogue(`
 title: Start
 ---
@@ -216,6 +216,7 @@ Narrator: Inside
     "nodeStart", // Aside (detour)
     "line", // Inside
     "nodeComplete", // Aside (natural end returns from the detour)
+    "nodeStart", // Start re-entered by the detour return (upstream SetNode)
     "line", // Back
     "nodeComplete", // Next
     "dialogueComplete",
@@ -287,7 +288,7 @@ Narrator: Run {$runCount}
   assert.ok(secondLine && secondLine.text === "Run 2", "variables persist across setNode");
 });
 
-test("setNode queues nodeStart for the next batch; unknown node is a diagnostic and changes nothing", () => {
+test("setNode queues nodeStart for the next batch; an unknown node makes the dialogue inactive", () => {
   const errors: string[] = [];
   const dialogue = makeDialogue(
     `
@@ -300,12 +301,12 @@ Narrator: Only line
   );
 
   dialogue.setNode("Nope");
-  assert.equal(dialogue.currentNode, "Start");
+  // Upstream SetNode stops the dialogue before throwing; the port keeps the
+  // stop and the diagnostic.
+  assert.equal(dialogue.currentNode, null);
+  assert.equal(dialogue.isActive, false);
   assert.equal(errors.length, 1);
   assert.match(errors[0], /No node named "Nope"/);
-
-  const first = dialogue.continue();
-  assert.equal(first[0].type, "nodeStart");
 });
 
 test("continue() while awaiting a selection is a diagnostic, not an event", () => {
@@ -367,7 +368,7 @@ test("Library: host functions participate; built-ins remain; hosts may override 
 title: Start
 ---
 <<declare $doubled = multiply(2, 3)>>
-Result: {$doubled} {random_check()} {min(3, 1, 2)}
+Result: {$doubled} {random_check()} {min(3, 1)}
 ===
 `,
     {
@@ -468,9 +469,10 @@ Narrator: One
 
   const withHints = makeDialogue(source, { lineHints: true });
   const first = withHints.continue();
-  assert.equal(first[0].type, "lineHints", "hints precede the node start");
-  assert.ok(first[1].type === "nodeStart");
-  const hintIds = first[0].type === "lineHints" ? first[0].lineIds : [];
+  // Upstream SetNode fires nodeStart before the line-hint delivery.
+  assert.equal(first[0].type, "nodeStart");
+  assert.ok(first[1].type === "lineHints", "hints follow the node start");
+  const hintIds = first[1].type === "lineHints" ? first[1].lineIds : [];
   assert.ok(hintIds.length >= 2, "line and option text IDs are hinted");
 
   const withoutHints = makeDialogue(source);
@@ -493,7 +495,7 @@ Narrator: Gold {$gold}
   assert.equal(dialogue.getVariable("gold"), 25);
   assert.deepEqual(dialogue.getVariables()["gold"], 25);
   for (const key of Object.keys(dialogue.getVariables())) {
-    assert.ok(!key.startsWith("Yarn.Internal."), "generated variables are not story variables");
+    assert.ok(!key.startsWith("$Yarn.Internal."), "generated variables are not story variables");
   }
 });
 

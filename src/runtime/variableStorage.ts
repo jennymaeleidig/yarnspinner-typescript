@@ -16,8 +16,9 @@
  *
  * Keys are bare variable names (no `$` prefix), matching
  * `Dialogue.getVariable`/`setVariable`; generated keys carry the reserved
- * `Yarn.Internal.` namespace (see generatedVariables.ts) and appear in
- * `entries()` but not in `Dialogue.getVariables()` snapshots.
+ * `$Yarn.Internal.` namespace (upstream's exact shape — see
+ * generatedVariables.ts) and appear in `entries()` but not in
+ * `Dialogue.getVariables()` snapshots.
  */
 
 /** The storage contract the runtime drives (upstream `VariableStorage` role). */

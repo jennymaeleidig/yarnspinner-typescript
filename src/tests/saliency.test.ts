@@ -291,7 +291,7 @@ test("node-group saliency history lives as generated variables in variable stora
   // the first selection is reproduced from a clean store (view counts are
   // not module state — coding standards §4).
   assert.ok(
-    !Object.keys(dialogue.getVariables()).some((k) => k.startsWith("Yarn.Internal.")),
+    !Object.keys(dialogue.getVariables()).some((k) => k.startsWith("$Yarn.Internal.")),
   );
   const fresh = new Dialogue(compile(NODE_GROUP_SOURCE));
   fresh.setSaliencyStrategy("best_least_recently_seen");

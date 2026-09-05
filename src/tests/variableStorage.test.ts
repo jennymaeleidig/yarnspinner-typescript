@@ -68,12 +68,12 @@ test("story writes and generated state land in the injected storage", () => {
   // Generated variables (the <<once>> flag) live in the same storage under
   // the reserved namespace (resetting storage resets all
   // story state together).
-  const generated = [...storage.entries()].filter(([key]) => key.startsWith("Yarn.Internal."));
+  const generated = [...storage.entries()].filter(([key]) => key.startsWith("$Yarn.Internal."));
   ok(generated.length > 0, "once-state should be a generated variable in the injected storage");
 
   // Snapshots stay story-only: generated keys are not host-visible state.
   deepStrictEqual(
-    Object.keys(dialogue.getVariables()).filter((key) => key.startsWith("Yarn.Internal.")),
+    Object.keys(dialogue.getVariables()).filter((key) => key.startsWith("$Yarn.Internal.")),
     [],
   );
 });
