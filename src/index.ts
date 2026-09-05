@@ -14,6 +14,7 @@ export * from "./compile/stringTable.js";
 export * from "./compile/stringsFile.js";
 export * from "./compile/tagLines.js";
 export * from "./compile/declarationFile.js";
+export * from "./compile/upgrader.js";
 export * from "./compile/debugInfo.js";
 export * from "./compile/diagnostics.js";
 export * from "./compile/enums.js";
