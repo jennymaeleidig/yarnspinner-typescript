@@ -74,8 +74,19 @@ export type { YarnFunction, CommandHandler } from "./library.js";
  */
 export class Dialogue {
   private readonly engine: VirtualMachine;
+  /**
+   * The program this dialogue executes (upstream `Dialogue.Program`). Held
+   * here for the host-side query API — the queries read the compiled
+   * program's node table without touching the execution engine.
+   */
+  private readonly program: Program;
+  /** Runtime error diagnostics for the query API (upstream
+   *  `Dialogue.LogErrorMessage`); the same option the engine uses. */
+  private readonly logError: (message: string) => void;
 
   constructor(program: Program, opts: DialogueOptions = {}) {
+    this.program = program;
+    this.logError = opts.logError ?? ((message) => console.error(message));
     this.engine = new VirtualMachine(program, opts);
   }
 
@@ -221,6 +232,61 @@ export class Dialogue {
   /** Upstream `Dialogue.HasSalientContent`. */
   hasSalientContent(nodeGroup: string): boolean {
     return this.engine.hasSalientContent(nodeGroup);
+  }
+
+  // ── Program queries ─────────────────────────────────────────────────────
+
+  // Citation: Yarn Spinner Pty. Ltd., Secret Lab Pty. Ltd., and contributors —
+  // YarnSpinner (v3.2.2 @ 5b3a4ff2d) [MIT]
+  // Source: https://github.com/YarnSpinnerTool/YarnSpinner/blob/main/YarnSpinner/Dialogue.cs
+  // Accessed: 2026-12-20
+  // The three queries adapt upstream `Dialogue.NodeNames` (line 939),
+  // `Dialogue.GetStringIDForNode` (lines 1014–1060), and
+  // `Dialogue.NodeExists` (lines 1113–1129), including their diagnostic
+  // messages verbatim. Divergence (recorded): upstream's `UnloadAll`/
+  // `SetProgram` lifecycle has no counterpart — this `Dialogue` receives its
+  // program at construction (ADR 0002), so the "no program loaded" path
+  // cannot arise and only the empty-node-table rules apply.
+
+  /**
+   * Upstream `Dialogue.NodeExists`: whether a node with this name exists in
+   * the program. True for plain nodes, node groups (the hub node), and
+   * individually-addressable node-group members alike.
+   */
+  nodeExists(nodeName: string): boolean {
+    // Upstream logs "Tried to call NodeExists, but no program has been
+    // loaded!" when no program is set — unreachable here (the program is
+    // constructor-injected). An empty node table means no node exists.
+    return this.program.nodes[nodeName] !== undefined;
+  }
+
+  /**
+   * Upstream `Dialogue.NodeNames`: the names of the nodes in the program —
+   * the node table's insertion order (hub title first, then its members'
+   * unique names). Empty when the program has no nodes.
+   */
+  nodeNames(): string[] {
+    return Object.keys(this.program.nodes);
+  }
+
+  /**
+   * Upstream `Dialogue.GetStringIDForNode`: the string ID that would contain
+   * a node's original, uncompiled source text (`line:` + node name). Like
+   * upstream, this does not consult the string table — a node's source text
+   * is only present when its `tags:` header contains `rawText` — so the ID
+   * is returned for any existing node, and a diagnostic is logged with a
+   * `null` return when it is not.
+   */
+  getStringIDForNode(nodeName: string): string | null {
+    if (Object.keys(this.program.nodes).length === 0) {
+      this.logError("No nodes are loaded!");
+      return null;
+    } else if (this.program.nodes[nodeName] !== undefined) {
+      return "line:" + nodeName;
+    } else {
+      this.logError("No node named " + nodeName);
+      return null;
+    }
   }
 
   // ── Markup / locale ──────────────────────────────────────────────────────

@@ -40,10 +40,13 @@ passes.
   `subtitle:` values must be unique within the group (YS0032).
 - A single node with `when:` headers is a one-member node group (upstream:
   the NodeGroupVisitor processes any node with `when:` headers).
-- A member with a `subtitle:` header is qualified as `Title.Subtitle`
-  (its visit-tracking key and saliency content ID); members without one get
-  `Title.<index>` in this project's program format (upstream uses a
-  CRC32-derived name — see `runtime/saliency.ts`).
+- A member with a `subtitle:` header is qualified as `Title.Subtitle`;
+  members without one get `Title.<crc32(fileName + title + startLine)>`
+  (upstream `Utility.GetNodeUniqueName`). Every `when:`-bearing member is
+  renamed to its unique name and registered in the program's node table
+  under it — individually jump-addressable — while the hub node keeps the
+  source title (see `runtime/saliency.ts`; program format version 2,
+  ADR 0003).
 - If no member is salient when the group runs, the group produces no
   content: the dialogue completes (upstream's hub node returns).
 - Runtime queries: `isNodeGroup`, `getSaliencyOptionsForNodeGroup`,

@@ -62,7 +62,7 @@
  */
 
 import type { YarnDocument, YarnNode, Statement, Line, LineGroup, OnceBlock } from "../model/ast";
-import type { Instruction, Program, ProgramNode } from "./program.js";
+import type { Instruction, Program, ProgramNode, ProgramNodeGroup } from "./program.js";
 import { walkStatements } from "../model/walk.js";
 import { programLanguageVersion } from "./program.js";
 import { compileExpression, ExpressionCodegenError } from "./expressionCodegen.js";
@@ -108,7 +108,7 @@ function subtitleHeader(headers: Record<string, string>): string | undefined {
 }
 
 export interface CompileDocumentOptions {
-  generateOnceIds?: (ctx: { node: string; index: number; file?: string; line?: number }) => string;
+  generateOnceIds?: (ctx: OnceIdContext) => string;
   /**
    * Pre-validated enum types (from the type-checking pass). When omitted,
    * the program's `<<enum>>` blocks are resolved best-effort without
@@ -129,8 +129,27 @@ export interface CompileDocumentOptions {
    * (upstream TypeCheckerListener.ExitOnce_primary_clause's location
    * checksum); blocks missing from the map fall back to the node+index key.
    */
-  onceLines?: Map<object, number>;
+  onceLines?: OnceLineMap;
 }
+
+/** The context a `<<once>>` statement's ID derives from — the data clump
+ *  the compile seam's `generateOnceIds` hook and the lowering's `genOnce`
+ *  share: the node title, the block's per-node index, and, when known, the
+ *  source file and 1-based statement line the upstream once-state key
+ *  checksums (`TypeCheckerListener.ExitOnce_primary_clause`). */
+export interface OnceIdContext {
+  node: string;
+  index: number;
+  file?: string;
+  line?: number;
+}
+
+/** The `<<once>>` block → 1-based source-line alignment map the compile
+ *  seam builds (`buildOnceLineMap` in compileSource.ts). Keyed by the
+ *  parsed `OnceBlock` statement object itself — the lowerer visits the
+ *  same objects, so the contract is object identity, stated in the key
+ *  type rather than a bare `Map<object, number>`. */
+export type OnceLineMap = Map<OnceBlock, number>;
 
 /** The declaration shape the lowering consumes (a structural slice of the
  *  type checker's VariableDeclaration, avoiding a compile→typeCheck cycle). */
@@ -162,7 +181,7 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
 
   const genOnce =
     opts.generateOnceIds ??
-    ((x: { node: string; index: number; file?: string; line?: number }) =>
+    ((x: OnceIdContext) =>
       x.file !== undefined && x.line !== undefined
         ? // Upstream's once-statement key (TypeCheckerListener
           // ExitOnce_primary_clause): the CRC32 of the statement's location
@@ -195,6 +214,11 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
   const nodesByTitle = groupNodesByTitle([doc]);
 
   const nodes: Program["nodes"] = {};
+  // Node-group hub entries, registered after every source node (upstream
+  // Compiler.cs: file nodes compile first, then the NodeGroupCompiler's hub
+  // nodes are appended — so Program.Nodes' insertion order is source-order
+  // members under their unique names, then the hubs).
+  const hubs: [string, ProgramNodeGroup][] = [];
   for (const [title, nodesWithSameTitle] of nodesByTitle) {
     // Empty nodes are excluded from the program (upstream
     // AddDiagnosticsForEmptyNodes + FileCompiler.NodesToSkip: they warn
@@ -205,7 +229,7 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
     const members = nodesWithSameTitle.filter((n) => n.body.length > 0);
     const isNodeGroup = nodesWithSameTitle.some((n) => n.when && n.when.length > 0);
     if (members.length === 0) {
-      if (isNodeGroup) nodes[title] = { title, nodes: [] };
+      if (isNodeGroup) hubs.push([title, { title, nodes: [] }]);
       continue;
     }
     const groupPath = isNodeGroup || members.length > 1;
@@ -239,9 +263,10 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
       for (const member of lowered) {
         if (member.title !== title) nodes[member.title] = member;
       }
-      nodes[title] = { title, nodes: lowered };
+      hubs.push([title, { title, nodes: lowered }]);
     }
   }
+  for (const [title, group] of hubs) nodes[title] = group;
 
   // Implicit declarations (upstream Compiler.cs: an undeclared variable used
   // in a Boolean-constrained context is implicitly declared with the type's
@@ -348,11 +373,11 @@ function collectImplicitConditionVariables(stmts: Statement[], into: Set<string>
 interface LoweringContext {
   enums: Program["enums"];
   ensureLineId: (tags?: string[]) => { tags: string[] | undefined; lineId: string };
-  genOnce: (ctx: { node: string; index: number; file?: string; line?: number }) => string;
+  genOnce: (ctx: OnceIdContext) => string;
   initialValues: Program["initialValues"];
   smartVariables: Program["smartVariables"];
   /** `<<once>>` block → 1-based source line (see CompileDocumentOptions). */
-  onceLines?: Map<object, number>;
+  onceLines?: OnceLineMap;
 }
 
 /**
