@@ -90,6 +90,15 @@ Parity here means the observable contract upstream's own test suite pins:
     a void host function still writes `undefined`), so a garbage statement
     never silently clobbers storage (coding standards §3; the
     `continue()`-while-pending precedent).
+  - Debug output (`projectDebugInfo`, upstream `ProjectDebugInfo`) carries
+    per-instruction source ranges reconstructed from the lowered program
+    against the parsed documents, not recorded during code generation like
+    upstream's (`CodeGenerationVisitor`). Line, option, and saliency-candidate
+    instructions (and the gate bytecode in front of them) resolve exactly to
+    their statement's source line; command/jump instructions locate their
+    authored text in the node's region. Instructions after the last locatable
+    anchor carry no range — `getLineInfo` throws for them, mirroring
+    upstream's `ArgumentOutOfRangeException`.
 
 ## Historical fork syntax
 

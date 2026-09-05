@@ -28,12 +28,15 @@ references:
       (Utility.TagLines) and the LineTaggers/ generators (ILineTagGenerator,
       RandomLineTagGenerator, DescriptiveLineTagGenerator) at v3.2.2 —
       including the Descriptive insertion/generation algorithm and message
-      texts (the fork keeps the preceeding-dialogue typo verbatim). Other
+      texts (the fork keeps the preceeding-dialogue typo verbatim).
+      src/compile/declarationFile.ts adapts the same file's
+      Utility.GenerateYarnFileWithDeclarations at v3.2.2 over the port's
+      VariableDeclaration shape. Other
       compiler and runtime behavior is a parity-driven reimplementation of
       the documented upstream algorithms (string table, shadow-line
       validation, diagnostics registry), not a code borrow.
       Accessed 2026-09-02 (crc32.ts), 2026-09-03 (tagLines.ts, submodule
-      mount).
+      mount), 2026-09-04 (declarationFile.ts).
   - type: software
     title: YarnSpinner-Unity
     authors:
