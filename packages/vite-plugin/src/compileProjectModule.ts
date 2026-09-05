@@ -46,7 +46,7 @@ export function compileYarnProjectModule(
     ...localisation.diagnostics,
   ]);
   const code =
-    `// ${projectFilePath} — loaded at build time by yarn-spinner-vite-plugin\n` +
+    `// ${projectFilePath} — loaded at build time by yarnspinner-vite-plugin\n` +
     `export default ${JSON.stringify({
       program,
       projectName: project?.projectName,

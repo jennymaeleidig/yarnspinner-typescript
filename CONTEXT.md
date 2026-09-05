@@ -1,6 +1,6 @@
 # yarnspinner-typescript
 
-TypeScript parser, compiler, and runtime for Yarn Spinner 3.x, in language-and-behavior parity with upstream Yarn Spinner 3.2.x. Framework-agnostic: no UI layer ships — hosts own their UI against `Dialogue`/`Transcript` directly (ADR 0006, amended); `.yarn`/`.yarnproject` content imports as build-time modules via the companion `yarn-spinner-vite-plugin` package.
+TypeScript parser, compiler, and runtime for Yarn Spinner 3.x, in language-and-behavior parity with upstream Yarn Spinner 3.2.x. Framework-agnostic: no UI layer ships — hosts own their UI against `Dialogue`/`Transcript` directly (ADR 0006, amended); `.yarn`/`.yarnproject` content imports as build-time modules via the companion `yarnspinner-vite-plugin` package.
 
 ## Overview
 
@@ -71,7 +71,7 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 ### Packaging & consumption
 
 - **Framework-agnostic core**: the package has no UI layer and no framework surface — no React, no adapter, no subpath for one (ADR 0006, amended); hosts own their UI against `Dialogue`/`Transcript` directly.
-- **Companion plugin**: the workspace package `yarn-spinner-vite-plugin` (npm name of the same shape) — the Vite integration that makes direct import work. Vite-only by design, with the compile step extracted as pure, bundler-agnostic functions (`compileYarnModule`, `compileYarnProjectModule`) so a future thin webpack loader reuses them verbatim; core and Vite are peer dependencies (ADR 0006 records the npm constraint that forces this).
+- **Companion plugin**: the workspace package `yarnspinner-vite-plugin` (npm name of the same shape) — the Vite integration that makes direct import work. Vite-only by design, with the compile step extracted as pure, bundler-agnostic functions (`compileYarnModule`, `compileYarnProjectModule`) so a future thin webpack loader reuses them verbatim; core and Vite are peer dependencies (ADR 0006 records the npm constraint that forces this).
 - **Direct import**: consuming `.yarn` and `.yarnproject` files as build-time modules through the companion plugin — content compiles at build time, the compiled program rides the bundle, and a compile error fails the build. Import shapes: a `.yarn` file yields the Program (plus named `stringTable`/`containsImplicitStringTags`/`fileTags`), `?raw` yields the source string, a `.yarnproject` yields the full load result (program, project name, base language, per-locale tables, assets, diagnostics) ready for a text provider. Full surface: [docs/direct-import.md](docs/direct-import.md).
 - **Editor types**: the plugin's types-only `./client` subpath — one file declaring all three import shapes for TypeScript, served both as a triple-slash reference and as a zero-dependency paste-in.
 

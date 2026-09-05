@@ -20,7 +20,7 @@ Inspired by [yarn-spinner-runner-ts](https://github.com/oleksii-chekhovskyi/yarn
 - ✅ Parser for `.yarn` files → AST
 - ✅ Compiler: AST → instruction-stream program (versioned JSON bytecode, ADR 0001)
 - ✅ Runtime with `Dialogue` class (pull-based event stream)
-- ✅ Direct import: `.yarn` / `.yarnproject` files as build-time modules via [yarn-spinner-vite-plugin](https://www.npmjs.com/package/yarn-spinner-vite-plugin) — see [Direct import](./docs/direct-import.md)
+- ✅ Direct import: `.yarn` / `.yarnproject` files as build-time modules via [yarnspinner-vite-plugin](https://www.npmjs.com/package/yarnspinner-vite-plugin) — see [Direct import](./docs/direct-import.md)
 - ✅ Markup parsing into structured attributes
 - ✅ Expression evaluator for conditions
 - ✅ Command system with built-in handlers (`<<set>>`, `<<declare>>`, etc.)
@@ -229,7 +229,7 @@ Loads upstream-style `.yarnproject` files (format v4, legacy v2 accepted; schema
 - `loadLocalisations({ project, stringTable }, fileSystem)` — Resolve the project's `localisation` map: each declared locale's strings CSV becomes a per-locale id → text table, the compile result's string table becomes the base table (shadow lines excluded), and `assets` directories surface as configured language → path entries for the host (never loaded). Unreadable strings files warn (YP0006) and drop that locale's table
 - `createProjectTextProvider(localisation)` — Glue the localisation tables into a `StringTableTextProvider` for `Dialogue`'s `textProvider` option; switch locales with `Dialogue.setLanguage`
 - Node hosts: `import { loadYarnProject, nodeProjectFs } from "yarnspinner-typescript/node"` — `loadYarnProject("path/to/MyProject.yarnproject")` loads and compiles from disk in one call; `nodeProjectFs(dir)` is the default `YarnProjectFileSystem` (skips `node_modules`/`.git`)
-- Frontend bundles: `import story from "./story.yarn"` — the companion [yarn-spinner-vite-plugin](https://www.npmjs.com/package/yarn-spinner-vite-plugin) compiles `.yarn`/`.yarnproject` files at build time; all import shapes, options, editor types, and the webpack-loader/SSR guidance are in [docs/direct-import.md](./docs/direct-import.md)
+- Frontend bundles: `import story from "./story.yarn"` — the companion [yarnspinner-vite-plugin](https://www.npmjs.com/package/yarnspinner-vite-plugin) compiles `.yarn`/`.yarnproject` files at build time; all import shapes, options, editor types, and the webpack-loader/SSR guidance are in [docs/direct-import.md](./docs/direct-import.md)
 
 ### Runtime
 

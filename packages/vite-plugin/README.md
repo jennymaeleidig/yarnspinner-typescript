@@ -1,4 +1,4 @@
-# yarn-spinner-vite-plugin
+# yarnspinner-vite-plugin
 
 Import Yarn Spinner content as build-time modules: `.yarn` files become
 compiled programs, `.yarnproject` files become full load results with baked-in
@@ -6,7 +6,7 @@ localisation. No runtime compilation, no runtime file access.
 
 ```js
 // vite.config.ts
-import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
+import { yarnSpinnerVitePlugin } from "yarnspinner-vite-plugin";
 
 export default {
   plugins: [yarnSpinnerVitePlugin()],
@@ -53,7 +53,7 @@ yarnSpinnerVitePlugin({
 ## Editor types
 
 ```ts
-/// <reference types="yarn-spinner-vite-plugin/client" />
+/// <reference types="yarnspinner-vite-plugin/client" />
 ```
 
 in an ambient types file (or paste `client.d.ts` — it references only

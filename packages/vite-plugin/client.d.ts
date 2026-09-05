@@ -5,7 +5,7 @@
 // (the full load result). Enable with one triple-slash reference in an
 // ambient types file:
 //
-//   /// <reference types="yarn-spinner-vite-plugin/client" />
+//   /// <reference types="yarnspinner-vite-plugin/client" />
 //
 // This file doubles as the zero-dependency paste-in snippet: it references
 // only yarnspinner-typescript types (which the host has installed), never

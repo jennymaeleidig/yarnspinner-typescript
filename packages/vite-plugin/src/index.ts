@@ -268,7 +268,7 @@ export function yarnSpinnerVitePlugin(
   };
 
   return {
-    name: "yarn-spinner-vite-plugin",
+    name: "yarnspinner-vite-plugin",
     enforce: "pre",
     async load(id) {
       const { file, query } = splitQuery(id);

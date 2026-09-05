@@ -77,7 +77,7 @@ export function compileYarnModule(
   });
   const { errors, warnings } = partitionDiagnostics(diagnostics);
   const code =
-    `// ${filename} — compiled at build time by yarn-spinner-vite-plugin\n` +
+    `// ${filename} — compiled at build time by yarnspinner-vite-plugin\n` +
     `export default ${JSON.stringify(program)};\n` +
     `export const stringTable = ${JSON.stringify(stringTable ?? {})};\n` +
     `export const containsImplicitStringTags = ${containsImplicitStringTags};\n` +

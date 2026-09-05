@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Dialogue, type DialogueEvent } from "yarnspinner-typescript";
-import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
+import { yarnSpinnerVitePlugin } from "yarnspinner-vite-plugin";
 import {
   callHook,
   importEmitted,

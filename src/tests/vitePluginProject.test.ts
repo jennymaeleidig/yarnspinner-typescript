@@ -21,7 +21,7 @@ import {
   createCSV,
   stringTableToEntries,
 } from "yarnspinner-typescript";
-import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
+import { yarnSpinnerVitePlugin } from "yarnspinner-vite-plugin";
 import { callHook, firstLine, importEmitted } from "./pluginHarness.js";
 
 const STORY = `title: Start\n---\nMae: Gold {$gold}. #line:gold\n<<set $gold to 5>>\nTake it #line:take\n===\n`;

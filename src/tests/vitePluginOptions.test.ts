@@ -10,7 +10,7 @@ import { ok, strictEqual, throws } from "node:assert";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
-import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
+import { yarnSpinnerVitePlugin } from "yarnspinner-vite-plugin";
 import { callHook, importEmitted, viteCtx } from "./pluginHarness.js";
 
 const STORY = `title: Start

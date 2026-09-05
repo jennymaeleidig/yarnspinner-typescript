@@ -1,6 +1,6 @@
 # Framework-agnostic package boundary
 
-The root package shipped React imports on its main surface, forcing non-React consumers to install `react`/`react-dom` and pull `react/jsx-runtime` into their bundles. We decided the root stays React-free: React moves behind a `./react` subpath export with `react`/`react-dom` as optional peer dependencies, and build-time content compilation moves to a separate companion package, `yarn-spinner-vite-plugin`, which compiles `.yarn`/`.yarnproject` imports at build time via bundler-neutral compile functions (`compileYarnModule`, `compileYarnProjectModule`) so a webpack loader can reuse them verbatim.
+The root package shipped React imports on its main surface, forcing non-React consumers to install `react`/`react-dom` and pull `react/jsx-runtime` into their bundles. We decided the root stays React-free: React moves behind a `./react` subpath export with `react`/`react-dom` as optional peer dependencies, and build-time content compilation moves to a separate companion package, `yarnspinner-vite-plugin`, which compiles `.yarn`/`.yarnproject` imports at build time via bundler-neutral compile functions (`compileYarnModule`, `compileYarnProjectModule`) so a webpack loader can reuse them verbatim.
 
 ## Considered Options
 

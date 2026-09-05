@@ -20,7 +20,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "build:cjs": "tsc -p tsconfig.cjs.json && node scripts/postprocess-cjs.mjs",
-    "build:all": "npm run build && npm run build:cjs && npm run build -w yarn-spinner-vite-plugin",
+    "build:all": "npm run build && npm run build:cjs && npm run build -w yarnspinner-vite-plugin",
     "clean": "rimraf dist",
     "dev": "tsc -w -p tsconfig.json",
     "lint": "eslint \"src/**/*.ts\" \"packages/*/src/**/*.ts\"",

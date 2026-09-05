@@ -1,6 +1,6 @@
 # Direct import: `.yarn` and `.yarnproject` as build-time modules
 
-With [yarn-spinner-vite-plugin](https://www.npmjs.com/package/yarn-spinner-vite-plugin), Yarn Spinner
+With [yarnspinner-vite-plugin](https://www.npmjs.com/package/yarnspinner-vite-plugin), Yarn Spinner
 content participates in the frontend build like any other asset: content is
 compiled at build time, nothing compiles or reads files at runtime, and a
 type error in your story fails the build like any other error. Vite is the
@@ -10,13 +10,13 @@ loader contract below.
 ## Setup
 
 ```bash
-npm install yarnspinner-typescript yarn-spinner-vite-plugin
+npm install yarnspinner-typescript yarnspinner-vite-plugin
 ```
 
 ```ts
 // vite.config.ts
 import { defineConfig } from "vite";
-import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
+import { yarnSpinnerVitePlugin } from "yarnspinner-vite-plugin";
 
 export default defineConfig({
   plugins: [yarnSpinnerVitePlugin()],
@@ -126,7 +126,7 @@ Either reference the shipped file (one line in an ambient types file, e.g.
 `src/vite-env.d.ts`):
 
 ```ts
-/// <reference types="yarn-spinner-vite-plugin/client" />
+/// <reference types="yarnspinner-vite-plugin/client" />
 ```
 
 or paste [`packages/vite-plugin/client.d.ts`](https://github.com/jennymaeleidig/yarnspinner-typescript/blob/main/packages/vite-plugin/client.d.ts)
@@ -162,7 +162,7 @@ harness.
 exports `compileYarnModule` (`.yarn` source → emitted module text +
 errors/warnings partition) and `compileYarnProjectModule` (`.yarnproject` →
 same) from its main entry: both import no Vite types. A webpack loader is a
-thin shim: import the same functions from `yarn-spinner-vite-plugin`, map
+thin shim: import the same functions from `yarnspinner-vite-plugin`, map
 `errors` to `this.emitError` and `warnings` to `this.warn`. For Next.js:
 a loader covers **webpack mode**; **Turbopack** has no loader API yet — use
 `webpack: (config) => { ... }` config escape or, until then, the SSR path

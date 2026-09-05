@@ -14,7 +14,7 @@ import {
   compileYarnProjectModule,
   type CompiledYarnModule,
   type CompileYarnOptions,
-} from "yarn-spinner-vite-plugin";
+} from "yarnspinner-vite-plugin";
 import { importEmitted, lineTexts } from "./pluginHarness.js";
 
 const STORY = `title: Start\n---\nNarrator: Hi\n===\n`;

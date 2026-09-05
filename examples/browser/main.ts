@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: CC0-1.0
 // The browser demo: two vanilla tabs over the framework-agnostic runtime.
 // The demo consumes the built package through the workspace (dist/, the
-// package root) and loads content via yarn-spinner-vite-plugin's direct
+// package root) and loads content via yarnspinner-vite-plugin's direct
 // import — the shared examples/content projects, compiled at build time,
 // no inline template strings.
 import { el } from "./dom.js";

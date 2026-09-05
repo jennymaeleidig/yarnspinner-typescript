@@ -74,8 +74,8 @@ function runTsc(fixtureDir: string): void {
 function readClient(): string {
   const source = readFileSync(CLIENT_DTS, "utf8");
   assert(
-    !/from ["']yarn-spinner-vite-plugin/.test(source) &&
-      !/import\("yarn-spinner-vite-plugin/.test(source),
+    !/from ["']yarnspinner-vite-plugin/.test(source) &&
+      !/import\("yarnspinner-vite-plugin/.test(source),
     "client.d.ts must reference only the core package (zero-dependency snippet)",
   );
   return source;
@@ -88,7 +88,7 @@ function makeFixture(enableVia: "reference" | "snippet"): string {
   writeFileSync(
     join(dir, "vite-env.d.ts"),
     enableVia === "reference"
-      ? '/// <reference types="yarn-spinner-vite-plugin/client" />\n'
+      ? '/// <reference types="yarnspinner-vite-plugin/client" />\n'
       : // The snippet path: the shipped file pasted verbatim — it must carry
         // no reference to this package to qualify as zero-dependency.
         readClient(),

@@ -39,7 +39,7 @@ The entry point (`main.ts`) hosts two tabs:
 
 - **Dialogue** (`dialogueDemo.ts`) — the shared Wayside project
   (`../content/project.yarnproject`, compiled at build time by
-  yarn-spinner-vite-plugin) on the pull-based runtime: lines, option
+  yarnspinner-vite-plugin) on the pull-based runtime: lines, option
   selection, and a manual continue button over the crossroads → night-market
   chain.
 

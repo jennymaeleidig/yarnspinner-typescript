@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 import { defineConfig } from "vite";
-import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
+import { yarnSpinnerVitePlugin } from "yarnspinner-vite-plugin";
 
 export default defineConfig({
   plugins: [yarnSpinnerVitePlugin()],

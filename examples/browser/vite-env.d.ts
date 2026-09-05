@@ -1,1 +1,1 @@
-/// <reference types="yarn-spinner-vite-plugin/client" />
+/// <reference types="yarnspinner-vite-plugin/client" />
