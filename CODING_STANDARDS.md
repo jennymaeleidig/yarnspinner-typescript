@@ -6,27 +6,27 @@ Standing rules for this repository — binding for human and agent contributors 
 
 Behavior divergences from Yarn Spinner 3.x require a deliberate, recorded decision (ticket, ADR, or spec note) — never silent drift. When docs and upstream disagree, the upstream source (grammar, per-code diagnostic registry, changelog) is authoritative, not the docs site, and not our own `docs/` transcriptions.
 
-*Case study: the docs errors page lists severities and codes that diverge from the 3.2.2 source registry; our old README documented a ternary that never existed.*
+_Case study: the docs errors page lists severities and codes that diverge from the 3.2.2 source registry; our old README documented a ternary that never existed._
 
 ## 2. No I/O in the library
 
 The library never reads files, globs, clocks, or networks. Hosts provide sources, text, and time. This keeps the package browser-safe by construction. The only permitted dependency style is pure data in, pure data out.
 
-*Case study: the compile API takes `{ name, source }` entries precisely so no glob/filesystem code can leak in.*
+_Case study: the compile API takes `{ name, source }` entries precisely so no glob/filesystem code can leak in._
 
 ## 3. Collect, don't throw
 
 Problems are data: diagnostics with stable codes, severities, and ranges, returned with results. Throwing is an explicit opt-in (strict mode). No bare `throw` crosses the public API boundary.
 
-*Case study: the fixture corpus asserts expected diagnostic codes — impossible if the first problem throws.*
+_Case study: the fixture corpus asserts expected diagnostic codes — impossible if the first problem throws._
 
-*Sanctioned exception: the Transcript orchestration helper `runUntilCompleteEvents` throws on a stalled drain — past its pull cap, or on a broken stopping-point invariant — a documented, bounded guard whose contract is stated on the function. The silent alternative (returning a partial stream) is the documented anti-pattern the helper exists to replace, so each guard throws a named, self-describing error instead. Story execution itself still never throws.*
+_Sanctioned exception: the Transcript orchestration helper `runUntilCompleteEvents` throws on a stalled drain — past its pull cap, or on a broken stopping-point invariant — a documented, bounded guard whose contract is stated on the function. The silent alternative (returning a partial stream) is the documented anti-pattern the helper exists to replace, so each guard throws a named, self-describing error instead. Story execution itself still never throws._
 
 ## 4. Resettable state lives in variable storage
 
 All story state — once-seen content, visit counts, saliency history — is stored as generated variables in the pluggable variable storage. Module-level mutable state is forbidden.
 
-*Case study: the once-state bug where module-level sets leaked across all runner instances.*
+_Case study: the once-state bug where module-level sets leaked across all runner instances._
 
 ## 5. Naming mirrors upstream concepts
 
@@ -36,7 +36,9 @@ Use the canonical glossary in `CONTEXT.md`. Upstream concept names render in cam
 
 Tests assert observable behavior — compiled outputs and runtime event streams — against the upstream fixture corpus (mounted as a git submodule) and ported upstream tests. No tests against internals, opcode layout, or private modules. The corpus is pinned by upstream tag.
 
-*Case study: the golden-test design behind the conformance suite (seams: compile→run pipeline; runtime line parser).*
+_Sanctioned exception: `src/tests/operands.test.ts` imports the operand operators (`../runtime/operands.js`) directly — that module is the operator contract both drivers dispatch through (the VM's stack ops and the string evaluator's arithmetic/comparison/logical loops), and the table exists to pin them in lockstep; behavioral coverage of the same operators still runs through the public runtime seams._
+
+_Case study: the golden-test design behind the conformance suite (seams: compile→run pipeline; runtime line parser)._
 
 ## 7. Docs must match reality
 
