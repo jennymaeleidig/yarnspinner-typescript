@@ -5,8 +5,9 @@
  * to stack bytecode instead of being re-evaluated from strings.
  *
  * The parser is a conventional recursive-descent precedence climber with
- * upstream's operator layering (loosest to tightest): `or` → `and` →
- * equality → relational → additive → multiplicative → unary → primary.
+ * upstream's operator layering (loosest to tightest): `or`/`and`/`xor`
+ * (one upstream level) → equality → relational → additive → multiplicative
+ * → unary → primary.
  * The upstream word aliases (`and`, `or`, `not`, `eq`, `is`, `neq`, `gt`,
  * `lt`, `gte`, `lte`, case-insensitive) tokenize as identifiers and bind as
  * operators; `=` is an equality alias, as in the evaluator's preprocessing.

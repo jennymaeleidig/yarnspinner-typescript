@@ -120,7 +120,9 @@ export class Dialogue {
    * Run the program until the next stopping point and return the events
    * since the last stop: a delivered line, command, or option set — with
    * node lifecycle and (opt-in) line-hint events riding along — or the end
-   * of the dialogue. Returns no events when the dialogue is not active.
+   * of the dialogue. Returns no events when the dialogue is not active,
+   * except a queued `dialogueComplete` (a `stop()` delivers it on this
+   * call — see `isComplete`).
    */
   continue(): DialogueEvent[] {
     return this.engine.continue();
@@ -192,10 +194,11 @@ export class Dialogue {
   }
 
   /**
-   * Switch to a named built-in strategy (the `<<set_saliency>>` mode
-   * vocabulary: `first`, `best`, `best_least_recently_seen`,
-   * `random_best_least_recently_seen`). Returns `false` for an unknown
-   * mode, leaving the active strategy unchanged.
+   * Switch to a named built-in strategy (`first`, `random`, `best`,
+   * `best_least_recent`, `random_best_least_recent` — the `<<set_saliency>>`
+   * modes — plus the conformance-harness spellings
+   * `best_least_recently_seen`/`random_best_least_recently_seen`). Returns
+   * `false` for an unknown mode, leaving the active strategy unchanged.
    */
   setSaliencyStrategy(mode: string): boolean {
     return this.engine.setSaliencyStrategy(mode);

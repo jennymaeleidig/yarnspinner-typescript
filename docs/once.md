@@ -1,6 +1,6 @@
 ## Once (Yarn Spinner)
 
-Source: [docs.yarnspinner.dev — Once](https://docs.yarnspinner.dev/write-yarn-scripts/scripting-fundamentalsendonce)
+Source: [docs.yarnspinner.dev — Once](https://docs.yarnspinner.dev/write-yarn-scripts/scripting-fundamentals/once)
 
 ### What it covers
 - Ensure a section runs only the first time it’s reached.

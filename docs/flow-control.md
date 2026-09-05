@@ -23,8 +23,10 @@ title: Start
 ```
 
 ### Implementation notes (this runtime)
-- `<<stop>>` halts dialogue immediately: the stack clears, further advances
-  do nothing, and a dialogue-complete event fires.
+- `<<stop>>` halts dialogue immediately: the stack clears and a
+  dialogue-complete event fires — both the node-complete and complete events
+  ride the same `continue()` batch that hit the stop, so afterwards further
+  advances return no events.
 - `<<return>>` pops to the detour's caller (recording the visit), or acts as
   stop outside a detour (upstream: ends the dialogue).
 - Compound assignment `<<set $x += expr>>` (also `-=`, `*=`, `/=`, `%=`) is

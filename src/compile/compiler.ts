@@ -11,7 +11,8 @@
  * src/tests/bytecode.test.ts and the conformance corpus):
  * - lines and commands keep their authored text (`runLine`/`runCommand`);
  *   the runtime line parser owns `{expr}` substitutions and markup
- *   (upstream's compiler/runtime split). Only condition and assignment
+ *   (recorded divergence: ADR 0005 — upstream's compiler emits
+ *   inline-expression bytecode). Only condition and assignment
  *   expressions compile to bytecode;
  * - `<<set>>` compiles to expression bytecode plus `popVariable` (compound
  *   assignment expands to read/operate/write); `<<declare>>` compiles to no
@@ -399,26 +400,39 @@ function lowerStatements(
   lowering: NodeLowering,
   ctx: LoweringContext,
   counters: NodeCounters,
+  tagLastLine = true,
 ): void {
+  // The runLine instruction of the immediately preceding statement, if that
+  // statement was a line (upstream LastLineBeforeOptionsVisitor's
+  // `statements[i - 1].line_statement()` adjacency: only a line directly
+  // before an options block tags, within the same statement list). Upstream
+  // never descends into `<<once>>` blocks — see lowerOnce's
+  // tagLastLine=false recursion; if-bodies and option bodies keep tagging.
+  let lastLine: { tags?: string[] } | null = null;
   for (const s of stmts) {
     switch (s.type) {
       case "Line":
-        lowerLine(s, lowering, ctx);
+        lastLine = lowerLine(s, lowering, ctx);
         break;
       case "Command":
         lowerCommand(s.content, lowering, ctx.enums);
+        lastLine = null;
         break;
       case "Jump":
         lowering.instructions.push({ op: "runNode", node: s.target });
+        lastLine = null;
         break;
       case "Detour":
         lowering.instructions.push({ op: "detour", node: s.target });
+        lastLine = null;
         break;
       case "OptionGroup":
-        lowerOptions(s, lowering, ctx, counters);
+        lowerOptions(s, lowering, ctx, counters, tagLastLine ? lastLine : null);
+        lastLine = null;
         break;
       case "LineGroup":
         lowerLineGroup(s, lowering, ctx);
+        lastLine = null;
         break;
       case "If": {
         const end = lowering.newLabel();
@@ -435,10 +449,12 @@ function lowerStatements(
           if (next && !isLast) lowering.place(next);
         }
         lowering.place(end);
+        lastLine = null;
         break;
       }
       case "Once":
         lowerOnce(s, lowering, ctx, counters);
+        lastLine = null;
         break;
       case "Enum":
         // Enums are metadata, skip during compilation (already stored in program.enums)
@@ -453,7 +469,11 @@ function lowerStatements(
  * condition/once-state bytecode, and the once flag stores when the line
  * actually runs (upstream: the store sits just before the RunLine).
  */
-function lowerLine(line: Line, lowering: NodeLowering, ctx: LoweringContext): void {
+function lowerLine(
+  line: Line,
+  lowering: NodeLowering,
+  ctx: LoweringContext,
+): { tags?: string[] } {
   const { tags, lineId } = ctx.ensureLineId(line.tags);
   const onceKey = line.once ? onceVariableKey(lineId) : null;
   const gate: Instruction[] = [];
@@ -462,13 +482,14 @@ function lowerLine(line: Line, lowering: NodeLowering, ctx: LoweringContext): vo
   } else if (line.condition !== undefined) {
     gate.push(...compileCondition(line.condition, ctx.enums));
   }
-  const emitRunLine = (): void => {
+  const emitRunLine = (): { tags?: string[] } => {
     const runLine: { op: "runLine"; text: string; tags?: string[] } = {
       op: "runLine",
       text: line.text,
     };
     if (tags !== undefined) runLine.tags = tags;
     lowering.instructions.push(runLine);
+    return runLine;
   };
   if (gate.length > 0) {
     const end = lowering.newLabel();
@@ -477,11 +498,11 @@ function lowerLine(line: Line, lowering: NodeLowering, ctx: LoweringContext): vo
     if (onceKey) {
       lowering.instructions.push({ op: "pushBool", value: true }, { op: "popVariable", name: onceKey });
     }
-    emitRunLine();
+    const runLine = emitRunLine();
     lowering.place(end);
-    return;
+    return runLine;
   }
-  emitRunLine();
+  return emitRunLine();
 }
 
 /**
@@ -554,20 +575,20 @@ function lowerOptions(
   lowering: NodeLowering,
   ctx: LoweringContext,
   counters: NodeCounters,
+  lastLine: { tags?: string[] } | null,
 ): void {
-  // Add #lastline tag to the most recent line, if present (the fork-era
-  // tagging kept for behavioral parity).
-  for (let i = lowering.instructions.length - 1; i >= 0; i--) {
-    const ins = lowering.instructions[i];
-    if (ins.op === "runLine") {
-      const tags = new Set(ins.tags ?? []);
-      if (![...tags].some((x) => x === "lastline" || x === "#lastline")) {
-        tags.add("lastline");
-      }
-      ins.tags = Array.from(tags);
-      break;
+  // Tag the immediately preceding line with #lastline (upstream
+  // LastLineBeforeOptionsVisitor: the statement directly before the options
+  // block must be a line — a command or any other statement in between means
+  // no tag, matching stringTable.ts flagLastLines). Tagging proceeds even if
+  // a #lastline tag is already present (upstream tags unconditionally; the
+  // set below just dedupes).
+  if (lastLine !== null) {
+    const tags = new Set(lastLine.tags ?? []);
+    if (![...tags].some((x) => x === "lastline" || x === "#lastline")) {
+      tags.add("lastline");
     }
-    if (ins.op !== "runCommand") break; // stop if non-line non-command before options
+    lastLine.tags = Array.from(tags);
   }
 
   const end = lowering.newLabel();
@@ -635,7 +656,10 @@ function lowerOnce(
     lowering.jump("jumpIfTrue", elseLabel);
   }
   lowering.instructions.push({ op: "pushBool", value: true }, { op: "popVariable", name: key });
-  lowerStatements(block.body, lowering, ctx, counters);
+  // Upstream's LastLineBeforeOptionsVisitor never descends into <<once>>
+  // blocks (only if-bodies and option bodies), so lines inside a once block
+  // are never tagged as lastline — mirrored here with tagLastLine=false.
+  lowerStatements(block.body, lowering, ctx, counters, false);
   if (block.elseBody) {
     lowering.jump("jumpTo", end);
     lowering.place(elseLabel);

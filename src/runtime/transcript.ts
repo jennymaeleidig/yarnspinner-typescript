@@ -5,7 +5,7 @@
  * previously re-derived at every call site.
  *
  * `runUntilStopped` is exported non-upstream orchestration over the pull
- * API (the loader's and React adapter's standing — docs/compatibility.md):
+ * API (the loader's standing — docs/compatibility.md):
  * upstream has no such accumulator, but the contract it encodes is upstream
  * behaviour, re-delivered — each `continue()` batch pauses at the next
  * stopping point and the consumer resumes (ADR 0002; .NET `Dialogue`
@@ -119,8 +119,8 @@ export function runUntilStopped(
 /**
  * Merge delivered events into `prior` (fresh arrays; `prior` untouched).
  * The reduction half of the transcript family's interface: `pullUntilStopped`
- * hands back events, this reduces them — a stateless consumer (the React
- * hook reshapes a run's tail) uses the pair; the accumulators use it too.
+ * hands back events, this reduces them — a stateless consumer reshaping a
+ * run's tail uses the pair; the accumulators use it too.
  * Lifecycle events carry through (`nodeStart`'s scene header lands on the
  * transcript), lines/options/commands accumulate.
  */
@@ -187,8 +187,7 @@ function stoppingPointOf(batch: DialogueEvent[]): StoppingPoint | null {
  * a complete dialogue is *data* (`{ events: [], stopped }`), not a contract
  * a caller must pre-empt: a consumer that must distinguish "nothing new"
  * from "a fresh tail" reads `events.length` instead of hand-copying the
- * at-rest guards before calling (the React hook's old shape —
- * CONTEXT.md "stopping point").
+ * at-rest guards before calling (CONTEXT.md "stopping point").
  *
  * Lifecycle-only batches accumulate into `events` (a node's scene header
  * can ride a batch of its own) — the run's events arrive in delivery order

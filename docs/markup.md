@@ -14,8 +14,10 @@ HTML.
 - `[wave speed=2]` carries a `speed` property; values are typed
   (`MarkupValue`: integer, float, string, bool) and read with
   `tryGetProperty`.
-- Tags nest: a tag inside another tag's range is a child attribute, so a host
-  can render hierarchy however it likes.
+- Tags nest: a tag inside another tag's range appears as its own attribute
+  whose range falls inside the parent's range; hierarchy is inferred from the
+  ranges (there is no children field), so a host can render it however it
+  likes.
 
 ### Example
 

@@ -7,7 +7,7 @@
  * declare regex. Four mechanisms, coordinated by a lockstep comment that
  * was already drifting in the margins (divergent identifier rules, a
  * restated compound-operator table) — now one parse result all four
- * consume (deepening-wave-2 ticket 05).
+ * consume.
  *
  * Grammar (upstream `set_statement` / `declare_statement`):
  * - `set $var (to|=) expr` — plain assignment;

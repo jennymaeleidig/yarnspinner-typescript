@@ -170,8 +170,8 @@ export class LineComposer {
 
 /**
  * The inline-expression span scanner — the one home for "where are the
- * inline `{expr}` spans in this text?" (deepening-wave-2 ticket 07). The
- * escape contract is the runtime composer's, stated here once:
+ * inline `{expr}` spans in this text?". The escape contract is the
+ * runtime composer's, stated here once:
  *
  * - `\{` and `\}` are escapes — the brace composes literally and never
  *   opens a span; any other backslash composes literally (there is no
@@ -220,15 +220,6 @@ export function inlineExpressionSpans(text: string): InlineExpressionSpan[] {
   return spans;
 }
 
-/**
- * Upstream `LineParser.ExpandSubstitutions`, index-based: replaces each
- * inline span with its evaluated substitution (the runtime's expression
- * evaluation supplies the values). An expression that fails composes as
- * the empty string; escaped braces compose as literal braces. The scan
- * rides the span scanner's contract (above); the compose-side escape
- * transform (`\\{` → `{`) stays here — it is this function's output
- * shape, not a classification.
- */
 /** The compose-side escape transform (`\\{` → `{`, `\\}` → `}`): the
  * output shape of expansion, applied to the text between spans. Other
  * backslashes compose literally. */

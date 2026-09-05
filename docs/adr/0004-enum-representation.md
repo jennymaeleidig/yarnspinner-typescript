@@ -11,6 +11,6 @@ We decided:
 
 ## Consequences
 
-- Variables holding enum values expose raw values to hosts (`getVariables()`, `onStoryEnd` payload) — the same observable contract as upstream. The fork's old `"Enum.Case"` string storage is gone; `ExpressionEvaluator.resolveEnumValue`/`getEnumTypeForVariable` were removed with it (0.2.0 breaking wave).
+- Variables holding enum values expose raw values to hosts (`getVariables()`, the `DialogueComplete` event payload) — the same observable contract as upstream. The fork's old `"Enum.Case"` string storage is gone; `ExpressionEvaluator.resolveEnumValue`/`getEnumTypeForVariable` were removed with it (0.2.0 breaking wave).
 - `.Case` resolution quality depends on declared/inferred variable types; the type checker records enum types from `<<declare … as T>>`, infers them from enum-typed initializers/assignments, and falls back to unique-case-name search when no type is known. Ambiguous shorthand is a compile error, not a guess.
-- The full compile result reshape (string table, file tags) remains owned by its own tickets; this pass contributes `declarations` (from `<<declare>>`) and `userDefinedTypes` to `compileSource`'s result.
+- The full compile result reshape (string table, file tags) remains future work; this pass contributes `declarations` (from `<<declare>>`) and `userDefinedTypes` to `compileSource`'s result.

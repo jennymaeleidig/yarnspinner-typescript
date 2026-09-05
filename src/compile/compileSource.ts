@@ -372,18 +372,33 @@ function validate(doc: YarnDocument, diagnostics: Diagnostic[]): void {
       );
     }
     // YS0027: node titles and subtitles can only contain
-    // letters, numbers, and underscores — one diagnostic per invalid
-    // character, as upstream's per-character validation reports.
+    // letters, numbers, and underscores — one diagnostic per title/subtitle,
+    // for the first invalid character (upstream's first-match validation).
+    // Leading-character rule (upstream parity): the grammar lexes titles as
+    // ID (IDENTIFIER_HEAD — [a-zA-Z_] in the ASCII core, plus Unicode
+    // ranges), so a title may not start with a digit or any other
+    // non-identifier character; subtitles ride the invalidTitleCharacters
+    // regex, whose ^[0-9] arm rejects a leading digit. This port validates
+    // the ASCII identifier set only — upstream's full Unicode ID ranges are
+    // a recorded simplification (docs/compatibility.md).
     for (const [kind, value] of [
       ["title", node.title] as const,
       ["subtitle", node.headers["subtitle"]?.trim() ?? ""] as const,
     ]) {
-      const invalid = [...value].find((c) => !/[A-Za-z0-9_]/.test(c));
-      if (invalid !== undefined) {
+      const chars = [...value];
+      const head = chars[0] ?? "";
+      const invalidHead =
+        kind === "title" ? head !== "" && !/[A-Za-z_]/.test(head) : /^[0-9]/.test(head);
+      const invalid = chars.find((c) => !/[A-Za-z0-9_]/.test(c));
+      // Head violation wins the message: upstream fails the head first (the
+      // lexer rejects the title's first character before the regex pass runs;
+      // the regex's own ^[0-9] arm is its leftmost alternative).
+      const offending = invalidHead ? head : invalid;
+      if (offending !== undefined) {
         diagnostics.push(
           makeDiagnostic(
             "YS0027",
-            `Unexpected '${invalid}' in node "${kind}". Titles can only contain letters, numbers, and underscores.`,
+            `Unexpected '${offending}' in node "${kind}". Titles can only contain letters, numbers, and underscores.`,
             { file: node.sourceFile },
           ),
         );

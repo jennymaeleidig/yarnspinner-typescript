@@ -23,6 +23,21 @@ Parity here means the observable contract upstream's own test suite pins:
     Rust port's shape, not upstream .NET's push handlers (ADR 0002).
   - On error diagnostics upstream nulls the program; this fork keeps it
     observable.
+  - Generated-variable keys mirror upstream's `$Yarn.Internal.*` names and
+    separators (once-state `Yarn.Internal.Once.<id>`, view counts
+    `Yarn.Internal.Content.ViewCount.<id>`); upstream's leading `$` sigil is
+    normalized away — this fork's variable storage strips `$` from every
+    variable name (authored and generated alike) at the storage seam.
+  - Node-title identifiers validate against the ASCII identifier set
+    (letters, numbers, underscores; leading letter/underscore per upstream's
+    `IDENTIFIER_HEAD`); upstream's extended Unicode ID ranges are not
+    accepted — a recorded simplification, not permissive drift.
+  - Comparing against an unset variable applies the compared side's
+    implicit default (bool→false, number→0, string→""); upstream 3.2.2
+    falls back to the program's declared initial values and throws when a
+    variable is unset (`VirtualMachine.PushVariable`) — a deliberate
+    adaptation so comparisons stay total in the collect-don't-throw
+    runtime (coding standards §3).
   - Line-ID collision handling: upstream throws after 1000 suffix attempts;
     this fork emits YS0041 and keeps retrying past that cap — no throw
     crosses the seam (coding standards §3).

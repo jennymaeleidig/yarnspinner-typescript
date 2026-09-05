@@ -3,7 +3,9 @@
 // precedent) — no virtual modules, hence no resolveId: Vite hands the plugin
 // the on-disk id and load answers it. The query contract: ?raw is the raw
 // source string; ?url/?inline/?no-inline — and any other query — bail so Vite
-// core owns them. Content edits to .yarn and .yarnproject full-reload in dev:
+// core owns them. Content edits to .yarn and .yarnproject full-reload in dev
+// via the `handleHotUpdate` hook, which sends a full reload and lets Vite
+// re-request the module.
 
 import type { Plugin } from "vite";
 import { readFile } from "node:fs/promises";

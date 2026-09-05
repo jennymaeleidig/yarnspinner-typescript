@@ -6,7 +6,13 @@ Source: [docs.yarnspinner.dev — Nodes and Lines](https://docs.yarnspinner.dev/
 - **Nodes**: titled containers for dialogue. Headers above `---`, body between `---` and `===`.
 - **Lines**: dialogue or narration lines emitted to the game one at a time.
 - **Character prefix**: `Name: Dialogue` marks the speaking character.
-- **Node rules**: titles start with a letter; letters/numbers/underscores only; no `.`.
+- **Node rules**: titles start with a letter or underscore; letters/numbers/underscores only; no `.`.
+
+  Implementation note: this runtime's YS0027 pass enforces the leading
+  letter/underscore rule (upstream lexer `IDENTIFIER_HEAD`) and the
+  letters/numbers/underscores set for titles and subtitles; upstream's
+  extended Unicode ID ranges are not accepted (a recorded simplification —
+  see docs/compatibility.md).
 
 ### Basic structure
 ```yarn

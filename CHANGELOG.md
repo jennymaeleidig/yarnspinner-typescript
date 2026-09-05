@@ -4,20 +4,19 @@
 
 The 3.2 parity release: full language + behavior parity with **Yarn Spinner
 3.2.2**, shipped as one breaking wave — all breaking changes land together in
-this release, with no staged deprecation windows.
+this release, with no staged breaking-change windows (the one rename carries
+a one-release deprecated alias, below).
 
 **Targeted upstream version: 3.2.2** — re-checked at release time against the
 upstream tag list (`YarnSpinnerTool/YarnSpinner`): `v3.2.2` is the newest tag;
 no `v3.2.3` or `v3.3.0` exists yet (a future 3.3 has been announced upstream
 but not shipped). The vendored conformance corpus is pinned at `v3.2.2`.
 
-### Breaking: renames with one-release deprecated aliases
+### Breaking: rename with one-release deprecated alias
 
-- **`YarnRunner` → `Dialogue`** (ticket 17): the glossary concept is
+- **`YarnRunner` → `Dialogue`**: the glossary concept is
   upstream's `Dialogue`; "runner" is retired vocabulary. The old name remains
   as an exact, deprecated alias in 0.2.0 only.
-- **`useYarnRunner` → `useDialogue`** (and the `UseYarnRunnerOptions` /
-  `UseYarnRunnerResult` types): same alias policy.
 
 See [docs/migration-notes.md](docs/migration-notes.md) — which now also
 covers these renames — and CONTEXT.md "Retired terms".
@@ -37,7 +36,7 @@ covers these renames — and CONTEXT.md "Retired terms".
 - Enums, smart variables, markup-at-runtime, multi-file `compile()`,
   implicit/explicit line IDs + the upstream 8-column strings CSV, saliency
   machinery, and the `.yarnproject` loader all landed per the parity spec.
-- The ParseFailures validation wave (ticket 54): every vendored upstream
+- The ParseFailures validation wave: every vendored upstream
   must-fail fixture now fails compilation with its exact upstream YS-code
   (verified against the upstream v3.2.2 compiler) — newline-in-command and
   missing `<<declare>>`/`<<set>>` values (YS0006/YS0005), indented
@@ -50,15 +49,9 @@ covers these renames — and CONTEXT.md "Retired terms".
 
 ### React adapter
 
-- The newer `DialogueOptions` reach React consumers: `useDialogue` (and
-  `<DialogueView>`) now take `variableStorage` (the persistence seam),
-  `textProvider` (localisation), the opt-in `lineHints` flag, and
-  `logError`/`logDebug` diagnostics. Passthrough only, with per-option
-  rebuild-on-change behaviour documented on the option types: storage and
-  provider identity rebuild the dialogue; `lineHints` rebuilds on flip;
-  the diagnostics callbacks are construction-time (changing them is
-  ignored). Language switching stays on `Dialogue.setLanguage`, reached
-  through the hook result's `dialogue` escape hatch (no rebuild needed).
+The React adapter (`useYarnRunner`/`useDialogue`, view components) was removed
+entirely before this release shipped (ADR 0006, amended); see
+[docs/migration-notes.md](docs/migration-notes.md).
 
 ### Docs
 

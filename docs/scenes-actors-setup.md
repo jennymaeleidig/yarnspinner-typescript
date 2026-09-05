@@ -106,24 +106,28 @@ Once a scene is set, the background persists across nodes until a new scene is s
 
 ## Actor Display
 
-### When Actors Appear
+The package ships no scene parser and no rendering — presentation is
+host-owned. What follows is a suggested host convention (the browser demo
+works this way), not built-in behavior:
 
-- Actors appear only when they are speaking
-- Actor images are matched by name (case-insensitive)
-- The speaking actor's image appears at the top center of the scene
-- If no matching actor is found in the scene configuration, only the text is shown
+### When Actors Appear (suggested convention)
+
+- Show actors only when they are speaking
+- Match actor images by name (case-insensitively)
+- Place the speaking actor's image at the top center of the scene
+- If no matching actor is found in the scene configuration, show only the text
 - Portrait transitions (if your UI shows actors at all) are a presentation
   choice: pick a duration and drive it from your own CSS or component code.
 
-### Actor Matching
+### Actor Matching (suggested convention)
 
-Actor names in the Yarn script are matched against actor names in the scene configuration:
+A host can match actor names in the Yarn script against actor names in the scene configuration — for example, case-insensitively:
 
 ```yarn
 Narrator: This is the narrator speaking.
 ```
 
-This matches an actor named `Narrator`, `narrator`, or any case variation in your scene config.
+Under that convention, this matches an actor named `Narrator`, `narrator`, or any case variation in your scene config.
 
 ## Example Configuration
 
@@ -186,6 +190,6 @@ example of styling a plain-text UI; write your own to match your game.
 1. **Reuse actors**: Define common actors globally so they're available in all scenes
 2. **Scene-specific actors**: Use scene-specific actors for characters that only appear in certain scenes
 3. **Background persistence**: Scenes persist until changed, so you don't need to repeat `scene:` in every node
-4. **Case sensitivity**: Actor names are matched case-insensitively, but scene names are case-sensitive
+4. **Case sensitivity**: if you follow the suggested matching convention, actor names match case-insensitively; treat scene names as case-sensitive
 5. **Image loading**: Use optimized images (WebP or compressed PNG/JPG) for better performance
 

@@ -6,7 +6,7 @@
  * through `applyBinaryOp`/`applyUnaryOp`, so a rule stated here holds for
  * both drivers' event streams — the lockstep the prose comments used to
  * coordinate (and which snapped once: xor was added "end to end" but
- * missed the string evaluator; deepening-wave-2 tickets 03–04).
+ * missed the string evaluator — ADR 0005).
  *
  * The primitives (`stringifyOperand`, `toNumberOperand`,
  * `deepEqualsOperands`) are the shared coercion/equality contract; they
@@ -56,13 +56,16 @@ function defaultValueFor(value: unknown): unknown {
 /**
  * The equality contract of the runtime's `==`/`!=` (shared with the VM's
  * `equalTo`/`notEqualTo` ops): deep equality, where an unset variable
- * carries its implicit default (upstream: bool→false, number→0,
- * string→"") inferred from the other side of the comparison.
+ * carries its implicit default (bool→false, number→0, string→"")
+ * inferred from the other side of the comparison — a deliberate
+ * adaptation: upstream 3.2.2 instead falls back to the program's
+ * declared initial values and throws when a variable is unset
+ * (`VirtualMachine.PushVariable`).
  */
 export function deepEqualsOperands(a: unknown, b: unknown): boolean {
   if (a === b) return true;
-  // Unset variables carry their implicit default (upstream: bool→false,
-  // number→0, string→"") inferred from the other side of the comparison.
+  // (The unset-variable contract — implicit default, deliberate adaptation
+  // vs upstream's throw — is stated on the JSDoc above.)
   if (a === undefined && b !== undefined) return deepEqualsOperands(b, defaultValueFor(b));
   if (b === undefined && a !== undefined) return deepEqualsOperands(a, defaultValueFor(a));
   if (a == null || b == null) return a === b;

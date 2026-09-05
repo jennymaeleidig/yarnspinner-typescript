@@ -7,7 +7,7 @@
  * line registering before its body, the `<<once>>`-exclusion variant
  * (upstream's `LastLineBeforeOptionsVisitor` has no once case), and
  * line-bearing vs all-statement filtering. One walker owns all of it;
- * each pass becomes a visitor of a few lines (deepening-wave-2 ticket 06).
+ * each pass becomes a visitor of a few lines.
  *
  * Order (document order, depth-first):
  * - `onLine` — every line-bearing statement: `Line` statements and

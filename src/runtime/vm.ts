@@ -32,7 +32,7 @@
  *   text and compose at delivery through the shared line parser
  *   (`interpolate`).
  * - Stack-op semantics are the operand-semantics module (`./operands.ts`,
- *   also home to the string evaluator's copies of these rules — one
+ *   which the string evaluator's loops dispatch through as well — one
  *   statement of every operator rule for both drivers' event streams):
  *   `add` concatenates when either operand is a string (rendering operands
  *   the upstream way), equality is `deepEqualsOperands` (unset variables
@@ -258,10 +258,10 @@ export class VirtualMachine {
   }
 
   /**
-   * Run the program until the next stopping point and return the events
-   * since the last stop: a delivered line, command, or option set — with
-   * node lifecycle and (opt-in) line-hint events riding along — or the end
-   * of the dialogue. Returns no events when the dialogue is not active.
+   * Run the program until the next stopping point. The public contract —
+   * stopping points, the inactive-state exception for a queued
+   * `dialogueComplete` after `stop()` — is stated on `Dialogue.continue()`
+   * (dialogue.ts); this is the engine-side implementation behind it.
    */
   continue(): DialogueEvent[] {
     if (this.pendingOptions) {

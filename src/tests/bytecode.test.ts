@@ -242,6 +242,53 @@ test("enum member access folds to the case's raw value at compile time", () => {
 
 // ── Lowering: options ────────────────────────────────────────────────────
 
+/** Assert a runLine carries no lastline tag (the tag the lowering and
+ * string table add for the line before an options block, upstream
+ * `#lastline`). */
+function assertNoLastline(line: { tags?: string[] }, why: string): void {
+  assert.ok(
+    (line.tags ?? []).every((t) => t !== "lastline" && t !== "#lastline"),
+    `${why}: ${JSON.stringify(line.tags)}`,
+  );
+}
+
+test("a command between the line and the options suppresses the lowered lastline tag (upstream LastLineBeforeOptionsVisitor adjacency)", () => {
+  const program = emit(`title: Start
+---
+Choose
+<<set $x to 1>>
+-> Red
+===
+`);
+  const choose = streamOf(program, "Start").find(
+    (ins): ins is Extract<Instruction, { op: "runLine" }> =>
+      ins.op === "runLine" && ins.text === "Choose",
+  );
+  assert.ok(choose, "the Choose line lowers to a runLine");
+  assertNoLastline(choose, "no lastline tag when a command intervenes");
+});
+
+test("a <<once>> block preceding options does not tag its body's line as lowered lastline (upstream's visitor never descends into once blocks)", () => {
+  // The once block is the statement BEFORE the options — upstream's
+  // LastLineBeforeOptionsVisitor skips past it without descending, so the
+  // body's line stays untagged (a regression to the old backward scan, which
+  // reached into the once body and tagged it, fails this test).
+  const program = emit(`title: Start
+---
+<<once>>
+Inside pick
+<<endonce>>
+-> Red
+===
+`);
+  const inside = streamOf(program, "Start").find(
+    (ins): ins is Extract<Instruction, { op: "runLine" }> =>
+      ins.op === "runLine" && ins.text === "Inside pick",
+  );
+  assert.ok(inside, "the once-block line lowers to a runLine");
+  assertNoLastline(inside, "no lastline tag for a line inside a preceding <<once>> block");
+});
+
 test("option groups lower to addOption/showOptions with resolved destinations", () => {
   const program = emit(`title: Start
 ---
@@ -330,7 +377,7 @@ Side line
 <<return>>
 ===
 `);
-  const onceKey = "Yarn.Internal.Once:Start#once#0";
+  const onceKey = "Yarn.Internal.Once.Start#once#0";
   assert.deepEqual(streamOf(program, "Start"), [
     { op: "pushVariable", name: onceKey },
     { op: "jumpIfTrue", index: 5 }, // already seen → skip the block

@@ -12,8 +12,9 @@
  * - Op names mirror the upstream instruction concepts in camelCase (coding
  *   standards §5): `runLine`, `addOption`, `pushVariable`, …
  * - Lines and commands keep their authored text; the runtime line parser
- *   owns `{expr}` substitutions and markup (upstream's compiler/runtime
- *   split). Only condition and assignment expressions compile to bytecode.
+ *   owns `{expr}` substitutions and markup (recorded divergence: ADR 0005
+ *   — upstream's compiler emits inline-expression bytecode). Only
+ *   condition and assignment expressions compile to bytecode.
  * - `runNode`/`detour` target nodes by name; `{expr}` targets stay strings
  *   the VM resolves at execution (upstream resolves dynamic node names at
  *   execution too).

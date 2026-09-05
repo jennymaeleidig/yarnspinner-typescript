@@ -861,7 +861,7 @@ class Parser {
           const [, caseName, rawValue] = caseMatch;
           cases.push(rawValue !== undefined ? { name: caseName, rawValue } : { name: caseName });
         } else {
-          // Unknown command, might be inside enum block - skip or break?
+          // An unknown command ends the enum block (treated as body content).
           break;
         }
       } else {

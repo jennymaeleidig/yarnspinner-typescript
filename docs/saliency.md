@@ -64,7 +64,9 @@ Custom strategies implement the two-method interface
   storage, keyed `Yarn.Internal.Content.ViewCount.<contentID>` (upstream
   `$Yarn.Internal.Content.ViewCount.<contentID>`) — they reset with the
   store (coding standards §4). `when: once` seen-state keys are
-  `Yarn.Internal.Once.<contentID>` (upstream `$Yarn.Internal.Once.<id>`).
+  `Yarn.Internal.Once.<contentID>` (upstream `$Yarn.Internal.Once.<id>`,
+  minus the `$` sigil — the storage layer normalizes it away on every
+  variable).
 - Saliency-condition expressions compile to bytecode (the compiler's
   expression codegen) and run on the VM's stack; the string evaluator is
   the fallback for uncompilable expressions.

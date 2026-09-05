@@ -12,19 +12,30 @@
  * and the runtime reference state by one contract.
  */
 
-/** Reserved namespace for generated variables — never authored content. */
+/** Reserved namespace for generated variables — never authored content.
+ *
+ * Keys mirror upstream's `$Yarn.Internal.*` generated-variable names
+ * (upstream Library.cs `GenerateUniqueContentViewedVariableName`,
+ * `ContentSaliencyOption.ViewCountKey`) without the leading `$`: the
+ * storage layer normalizes away Yarn's `$` sigil on every variable
+ * (see the `$`-stripping in the VM's initial-value seeding and the
+ * evaluator's variable resolution), so generated keys omit it too. */
 export const generatedVariablePrefix = "Yarn.Internal.";
 
 /** Storage key for a piece of content's seen-state (`<<once>>` blocks,
  * line/option `<<once>>` modifiers, and node-group members' `when: once`
  * headers — upstream `$Yarn.Internal.Once.<lineID|nodeTitle>`). */
-export const onceVariableKey = (id: string) => `${generatedVariablePrefix}Once:${id}`;
+export const onceVariableKey = (id: string) => `${generatedVariablePrefix}Once.${id}`;
 
 /** Storage key for a piece of content's saliency view count
  * upstream `$Yarn.Internal.Content.ViewCount.<contentID>`. */
 export const contentViewCountVariableKey = (contentId: string) =>
   `${generatedVariablePrefix}Content.ViewCount.${contentId}`;
 
-/** Storage key for a node's visit count (recorded on node return). */
+/** Storage key for a node's visit count (recorded on node return).
+ *
+ * This runtime's own extension (upstream's nearest analog,
+ * `GenerateUniqueVisitedVariableForNode`'s `$Yarn.Internal.Visiting.<node>`,
+ * is an unused helper); dot-separated to match the sibling keys. */
 export const visitCountVariableKey = (title: string) =>
-  `${generatedVariablePrefix}VisitCount:${title}`;
+  `${generatedVariablePrefix}VisitCount.${title}`;

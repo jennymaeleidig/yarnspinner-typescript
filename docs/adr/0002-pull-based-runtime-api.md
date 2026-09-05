@@ -5,3 +5,5 @@ The fork's runtime was mutate-and-read (`advance()` sets `currentResult`). Upstr
 ## Consequences
 
 `advance()` and the single `onStoryEnd` callback are removed (breaking, pre-1.0); the React hook migrates to the event stream; opt-in lookahead ships as a `LineHints` event (the Rust treatment of upstream's `PrepareForLines`).
+
+*Amendment note: the React hook's migration was superseded by ADR 0006's amendment, which removed the React adapter entirely.*

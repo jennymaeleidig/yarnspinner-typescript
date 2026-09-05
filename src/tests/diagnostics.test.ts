@@ -80,6 +80,33 @@ Hello world
   assert.deepEqual(diagnostics, []);
 });
 
+test("YS0027: a title may not start with a digit (upstream IDENTIFIER_HEAD rule)", () => {
+  const result = compileSource(`title: 1abc
+---
+Body
+===
+`);
+  assert.deepEqual(codesOf(result.diagnostics), ["YS0027"]);
+  assert.match(result.diagnostics[0]!.message, /Unexpected '1'/);
+});
+
+test("YS0027: underscore-leading titles are valid (identifier head), digit-leading subtitles are not", () => {
+  const ok = compileSource(`title: _Start
+---
+Body
+===
+`);
+  assert.deepEqual(codesOf(ok.diagnostics), []);
+
+  const bad = compileSource(`title: Start
+subtitle: 9lives
+---
+Body
+===
+`);
+  assert.deepEqual(codesOf(bad.diagnostics), ["YS0027"]);
+});
+
 test("YS0052 NodeHasMoreThanOneTitle (recovers, keeps the first title)", () => {
   const result = compileSource(`title: Start
 title: AlsoStart

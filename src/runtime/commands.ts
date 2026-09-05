@@ -67,7 +67,9 @@ export function commandKind(name: string): CommandKind {
 }
 
 /**
- * Parse a command string like "command_name arg1 arg2" or "set variable value"
+ * Parse a command string like "command_name arg1 arg2" or "set variable value".
+ * Throws on an empty or malformed command string — internal parsing utility;
+ * the VM converts this to a runtime diagnostic (`logError`).
  */
 export function parseCommand(content: string): ParsedCommand {
   const trimmed = content.trim();

@@ -1,6 +1,6 @@
 # One expression grammar, three consumers — merge deferred
 
-> Status: deferred (deepening-wave-2 ticket 08). The three expression
+> Status: deferred. The three expression
 > grammars stay separate; the LOCKSTEP cross-references between them are
 > the load-bearing coordination mechanism.
 
@@ -17,10 +17,10 @@ The expression grammar exists three times, each deep in behaviour:
   the fallback path for uncompilable expressions and inline line text.
 
 The upstream `ExpAndOrXor` one-level rule lives only as comments, and the
-evaluator's copy is what lost xor (fixed standalone in ticket 03 before
-any refactor). A shared grammar module (one tokenizer + one AST with token
+evaluator's copy is what lost xor (fixed standalone, before any
+refactor). A shared grammar module (one tokenizer + one AST with token
 positions + one parser; consumers lower to diagnostics, bytecode, and
-values) was proposed. Ticket 08 gated the merge on a careful diff.
+values) was proposed. The deferral gated the merge on a careful diff.
 
 ## The diff (the gate's evidence)
 
@@ -28,9 +28,9 @@ values) was proposed. Ticket 08 gated the merge on a careful diff.
 | --- | --- | --- | --- |
 | and/or/xor level | one level, left-assoc (`|| && ^`) | one level, left-assoc (`or and xor`) | one flat level via `evaluateLogical` |
 | equality vs relational | merged into ONE left-assoc comparison level | separate: equality ABOVE relational | comparison dispatch before logical; regex splits at the FIRST comparison operator |
-| mixed `a == b && c` | `(a == b) && c` | `(a == b) && c` | ~~`a == ((b) && (c…))`~~ **fixed** by ticket 09 (logical level now splits first, quote/paren-aware; primary parens unwrap; negation reachable) |
+| mixed `a == b && c` | `(a == b) && c` | `(a == b) && c` | ~~`a == ((b) && (c…))`~~ **fixed** (the logical level now splits first, quote/paren-aware; primary parens unwrap; negation reachable) |
 | `=` tolerance | alias of `==` | alias of equality | alias of `==` |
-| word aliases | tokenizer maps to symbols (10 incl. `xor`) | parser matches words (9 — **no `xor`**: word-xor content never compiles, rides the fallback; found in ticket 03) | regex preprocess to symbols (10 incl. `xor`) |
+| word aliases | tokenizer maps to symbols (10 incl. `xor`) | parser matches words (9 — **no `xor`**: word-xor content never compiles, rides the fallback; found while fixing the lost xor) | regex preprocess to symbols (10 incl. `xor`) |
 | string escapes | none (raw text to closing quote) | `\x` → literal char; unterminated throws | quoted strings stripped by regex heuristics |
 | unknown characters | skipped silently (parse-failure territory) | throw `ExpressionCodegenError` | regex dispatch never sees them; degrades to value lookup |
 | positions | start/end per token (feeds `.Case` rewrites) | none needed | none |
@@ -52,7 +52,7 @@ hypothetical.
 1. The divergence a shared parser exists to fix is *behavior*, not
    structure: adopting the shared parser changes the fallback evaluator's
    observable output for mixed-precedence expressions — a parity fix, not
-   a refactor. Per the wave's own rule (ticket 03's precedent), parity
+   a refactor. Per the precedent of the standalone xor fix above, parity
    fixes land as standalone commits, never bundled with a refactor.
 2. The consumers' AST needs diverge structurally (positions + arg-texts +
    rewrites for the checker; direct bytecode emission for codegen; string
@@ -73,7 +73,7 @@ The merge stops being deferrable when any of these holds:
 1. **A fourth consumer appears** (e.g. a formatter or an expression
    pretty-printer) — the fourth hand-rolled copy crosses the cost line.
 2. **The divergence class grows**: a second live divergence on the
-   fallback path (beyond ticket 09's mixed-precedence fix) means the
+   fallback path (beyond the mixed-precedence fix recorded below) means the
    regex-dispatch evaluator is drifting faster than it can be pinned;
    converge by adopting the shared parser rather than by patching.
 3. **Conformance fixtures cover mixed-precedence inline expressions** —
@@ -81,10 +81,10 @@ The merge stops being deferrable when any of these holds:
 
 ## Consequences
 
-- Ticket 08 resolves recorded-deferred; future architecture reviews
+- This deferral is recorded here; future architecture reviews
   should read this ADR before re-proposing the merge.
-- The known live divergence was fixed as its own standalone ticket (tracker:
-  `09-evaluator-mixed-precedence.md`, the ticket-03 pattern) — the fix
+- The known live divergence was fixed as its own standalone change, pinned
+  by `src/tests/vm-runtime.test.ts` — the fix
   landed; it was never a step toward the merge, and the deferral above
   stands.
 - The three grammars' operators stay pinned by their respective suites;

@@ -29,8 +29,8 @@ class EvaluationFailure extends Error {
  * depth once the character is consumed, and whether it sits inside a
  * string literal (opening and closing quote characters included). The
  * shared scan both the logical splitter and the paren unwrapper walk —
- * quote/depth tracking stated once (the standards review's Duplicated
- * Code finding: two hand-rolled copies of the same loop). */
+ * quote/depth tracking stated once (two hand-rolled copies of the same
+ * loop used to exist). */
 interface ScanChar {
   char: string;
   index: number;
@@ -125,7 +125,7 @@ export class ExpressionEvaluator {
    * `$a == 1 && $b > 2` as `$a == ((1 && $b) > 2)`; a leading `!` claimed
    * the comparison dispatcher and threw on any negated expression; and a
    * fully parenthesized logical `(1 && 0)` recursed infinitely. All fixed
-   * here — deepening-wave-2 ticket 09.)
+   * here (the parse-order history is ADR 0005's).
    */
   evaluateExpression(expr: string): unknown {
     try {

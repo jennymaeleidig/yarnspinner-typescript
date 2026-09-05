@@ -12,7 +12,8 @@
  * start with `line:` and be unique against the known set (excluded IDs,
  * existing tags, and IDs generated this run). Two built-ins ship:
  *
- * - `RandomLineTagGenerator` (the default; upstream `RandomLineTagger`):
+ * - `RandomLineTagGenerator` (the default; upstream class of the same
+ *   name):
  *   `line:` + 7 lowercase hex chars. Upstream aborts on a 500 ms stopwatch;
  *   the library reads no clocks (coding standards §2), so the same
  *   exception fires after an attempt cap instead.

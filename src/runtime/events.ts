@@ -70,8 +70,9 @@ export interface NodeStartEvent {
   type: "nodeStart";
   nodeName: string;
   /** The node's `scene:` header, when it declares one — the scene name's
-   *  one delivery channel (adapter-side, the
-   *  scene system is non-upstream). Absent when the node has no header. */
+   *  one delivery channel (host-side, the
+   *  scene system is non-upstream). Absent when the node declares no
+   *  `scene:` header. */
   scene?: string;
 }
 

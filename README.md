@@ -149,8 +149,8 @@ switchable saliency strategies (`examples/browser/StoryletsDemo.ts`). See
 
 A worked app-router example proving the YarnProject story in Next.js
 (`examples/nextjs-host/`): the loader runs server-side — `loadYarnProject()`
-over the app's own authored content (`content/project.yarnproject` +
-`content/crossroads.yarn`) through the Node file-access provider — and the
+over the shared demo project (`examples/content/project.yarnproject` +
+`examples/content/crossroads.yarn`) through the Node file-access provider — and the
 compiled program crosses the React Server Component boundary as a plain
 serializable object. The client component runs `Dialogue`'s pull-based
 continue loop natively, importing only the package's browser-safe main entry
@@ -172,8 +172,8 @@ pattern over the host's first pull) lives in
 
 The same story again, with zero React anywhere — the strongest proof the
 runtime is framework-agnostic (`examples/sveltekit-host/`). The loader runs
-in `+page.server.ts` — `loadYarnProject()` over the app's own authored
-content (`content/project.yarnproject` + `content/night_market.yarn`) — and
+in `+page.server.ts` — `loadYarnProject()` over the shared demo project
+(`examples/content/project.yarnproject` + `examples/content/night_market.yarn`) — and
 the compiled program crosses the SvelteKit load boundary as a plain
 serializable object. `Dialogue`'s pull-based continue loop runs natively in
 a Svelte 5 runes component (`src/lib/DialogueHost.svelte`); the page is
@@ -197,7 +197,7 @@ with `svelte/compiler` and renders it with `svelte/server`.
 
 The repo root contains `yarn-spinner-runner-ts.yarnproject`, so the
 [Yarn Spinner extension for VS Code](https://marketplace.visualstudio.com/items?itemName=SecretLab.yarn-spinner)
-(git-ignored `.vscode/extensions.json` recommends it) treats the workspace as
+(the committed `.vscode/extensions.json` recommends it) treats the workspace as
 a Yarn project: syntax highlighting, node navigation, and error checking are
 scoped to the authored content in `examples/yarn/`. Upstream conformance
 fixtures (the `test/fixtures/upstream/YarnSpinner` git submodule) are
@@ -371,7 +371,7 @@ See [Scene and Actor Setup Guide](./docs/scenes-actors-setup.md) for complete do
 ## Project Structure
 
 ```
-yarn-spinner/
+yarn-spinner-runner-ts/
 ├── src/
 │   ├── model/          # AST types
 │   ├── parse/          # Lexer and parser
@@ -381,10 +381,10 @@ yarn-spinner/
 │   └── tests/          # Test files
 ├── examples/
 │   ├── yarn/           # Example Yarn scripts
+│   ├── content/        # Demo Yarn content (Wayside project)
 │   ├── browser/        # Browser demo (Vite)
 │   ├── nextjs-host/    # Next.js host example (React client)
-│   ├── sveltekit-host/ # SvelteKit host example (Svelte client)
-│   └── scenes/         # Scene configuration examples
+│   └── sveltekit-host/ # SvelteKit host example (Svelte client)
 ├── docs/               # Documentation
 └── dist/               # Compiled output
 ```
