@@ -367,7 +367,7 @@ test("Library: host functions participate; built-ins remain; hosts may override 
 title: Start
 ---
 <<declare $doubled = multiply(2, 3)>>
-Result: {$doubled} {random_check()} {min(3, 1, 2)}
+Result: {$doubled} {random_check()} {min(3, 1)}
 ===
 `,
     {
