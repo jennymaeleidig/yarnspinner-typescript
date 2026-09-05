@@ -9,7 +9,7 @@
 
 import type { Plugin } from "vite";
 import { readFile } from "node:fs/promises";
-import { dirname, isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join, relative } from "node:path";
 import { compileYarnModule, type CompiledYarnModule } from "./compileModule.js";
 import { compileYarnProjectModule } from "./compileProjectModule.js";
 import { toDeclarations, type YslsDefinitions } from "./definitions.js";
@@ -219,11 +219,21 @@ export function yarnSpinnerVitePlugin(
     return true;
   };
 
-  // One load-and-emit path: the read (with `fileReadError` shaping on both
+  // One load-and-compile path: the read (with `fileReadError` shaping on both
   // branches), the compile-step choice by file kind + pin, and the single
   // warn closure — the plumbing a new plugin option would otherwise be
   // pasted into twice. The compile steps themselves are the
   // bundler-agnostic seam (ADR 0006) — their interfaces are untouched.
+  //
+  // Names are root-relative (`configResolved` captures the bundler root):
+  // the name flows into node `sourceFile`, string-table `fileName`, line-ID
+  // hashing, and diagnostics, and a build-machine absolute path there would
+  // ship inside end-user bundles. The relative name always round-trips
+  // through join(root, name) — a `..` prefix is fine — and reads stay
+  // absolute; without a resolved config (direct compileYarnModule calls)
+  // the name is passed through untouched.
+  const display = (file: string): string =>
+    root === undefined ? file : relative(root, file);
   const loadAndCompile = async (
     id: string,
     file: string,
@@ -252,7 +262,11 @@ export function yarnSpinnerVitePlugin(
         },
       );
       return emit(
-        compileYarnProjectModule(projectFile, compileOpts),
+        compileYarnProjectModule(
+          projectFile,
+          compileOpts,
+          display(projectFile),
+        ),
         projectText,
         dirname(projectFile),
       );
@@ -261,15 +275,25 @@ export function yarnSpinnerVitePlugin(
       throw fileReadError(file, e);
     });
     return emit(
-      compileYarnModule(source, file, compileOpts),
+      compileYarnModule(source, display(file), compileOpts),
       source,
-      dirname(file),
+      // Diagnostics carry the display name, so a frame quoting a file
+      // other than the imported id resolves against the same base the
+      // name is relative to.
+      root ?? dirname(file),
     );
   };
+
+  // Captured from the Vite config: the base the root-relative compile
+  // names are computed against (see `display`).
+  let root: string | undefined;
 
   return {
     name: "yarnspinner-vite-plugin",
     enforce: "pre",
+    configResolved(config) {
+      root = config.root;
+    },
     async load(id) {
       const { file, query } = splitQuery(id);
       if (!ANY_YARN_FILE.test(file)) return;

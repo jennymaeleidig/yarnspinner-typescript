@@ -52,6 +52,13 @@ The emitted module also carries tree-shakeable named exports:
 | `containsImplicitStringTags` | `boolean`                  | Whether the compiler created line IDs for lines lacking `#line:` tags |
 | `fileTags`                   | `Record<string, string[]>` | The file's file-level hashtags                                        |
 
+File names inside the emitted data — node `sourceFile`, string-table
+`fileName`, and diagnostic `file` fields — are exactly the name the host
+passes the compile step. Under this plugin that is the path relative to the
+Vite root (absolute only for files outside it), so shipped bundles carry no
+build-machine paths. A webpack-loader author should relativize the same way
+before calling `compileYarnModule`.
+
 ### `import source from "./story.yarn?raw"`
 
 The default export is the exact source string — useful for showing script

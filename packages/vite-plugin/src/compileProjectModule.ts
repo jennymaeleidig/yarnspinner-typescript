@@ -25,6 +25,11 @@ import {
 export function compileYarnProjectModule(
   projectFilePath: string,
   opts: CompileYarnOptions = {},
+  // Header-comment name only — the emitted data's file references are
+  // project-relative already (the loader resolves source globs against the
+  // project directory). Hosts pass a root-relative path so the emitted
+  // module text carries no build-machine absolute paths.
+  displayName: string = projectFilePath,
 ): CompiledYarnModule {
   const { project, stringTable, program, diagnostics } = loadYarnProject(
     projectFilePath,
@@ -46,7 +51,7 @@ export function compileYarnProjectModule(
     ...localisation.diagnostics,
   ]);
   const code =
-    `// ${projectFilePath} — loaded at build time by yarnspinner-vite-plugin\n` +
+    `// ${displayName} — loaded at build time by yarnspinner-vite-plugin\n` +
     `export default ${JSON.stringify({
       program,
       projectName: project?.projectName,
