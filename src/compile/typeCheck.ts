@@ -35,9 +35,16 @@ import type { Diagnostic, YarnRange } from "./diagnostics.js";
 import { isSmartVariableInitializer } from "./smartVariables.js";
 import { parseStateStatement } from "../parse/stateStatement.js";
 import { parseSaliencyCondition } from "../runtime/saliency.js";
-import type { DeclaredValueType, FunctionSignature } from "../runtime/library.js";
+import type {
+  DeclaredValueType,
+  FunctionSignature,
+} from "../runtime/library.js";
 import { inlineExpressionSpans } from "../runtime/interpolate.js";
-import { applyBinaryOp, applyUnaryOp, type BinaryOperator } from "../runtime/operands.js";
+import {
+  applyBinaryOp,
+  applyUnaryOp,
+  type BinaryOperator,
+} from "../runtime/operands.js";
 import { describeError } from "../describeError.js";
 
 // Re-exported so the declarations surface keeps its historical home in the
@@ -103,7 +110,11 @@ export interface TypeCheckResult {
 /** Upstream type display names as they appear in diagnostic messages
  *  (upstream `Types.Number`/`Types.String`/`Types.Boolean`; the Boolean type
  *  renders "Bool" — verified against the upstream v3.2.2 compiler). */
-const PRIM_NAME: Record<string, string> = { number: "Number", string: "String", bool: "Bool" };
+const PRIM_NAME: Record<string, string> = {
+  number: "Number",
+  string: "String",
+  bool: "Bool",
+};
 
 type ExprBase = "number" | "string" | "bool" | "unknown";
 
@@ -133,11 +144,19 @@ interface CheckContext {
   enumTypes: Map<string, EnumType>;
   variableTypes: Map<string, string>;
   functionSignatures: Map<string, FunctionSignature>;
-  emit: (code: string, message: string, file?: string, range?: YarnRange) => void;
+  emit: (
+    code: string,
+    message: string,
+    file?: string,
+    range?: YarnRange,
+  ) => void;
   rewrites: Rewrite[];
   declarations: VariableDeclaration[];
   /** Every `<<declare>>`d variable: smart flag + initializer expression (first declaration wins). */
-  declaredVariables: Map<string, { isSmart: boolean; expression: string; file?: string }>;
+  declaredVariables: Map<
+    string,
+    { isSmart: boolean; expression: string; file?: string }
+  >;
   /** Variables declared externally by the host (YS0039 on in-script redeclaration). */
   externalVariables: Set<string>;
   /** Source file of the node being walked (diagnostic attribution). */
@@ -197,7 +216,17 @@ interface CheckContext {
 // shorthand can be rewritten.
 
 interface Tok {
-  kind: "num" | "str" | "var" | "ident" | "wordop" | "dot" | "op" | "lparen" | "rparen" | "comma";
+  kind:
+    | "num"
+    | "str"
+    | "var"
+    | "ident"
+    | "wordop"
+    | "dot"
+    | "op"
+    | "lparen"
+    | "rparen"
+    | "comma";
   text: string;
   start: number;
   end: number;
@@ -227,7 +256,10 @@ const IDENT_TOKEN = new RegExp(`^${IDENTIFIER}`, "u");
 /** `EnumName.Case` — both names are upstream IDs. */
 const MEMBER_ACCESS = new RegExp(`^(${IDENTIFIER})\\.(${IDENTIFIER})$`, "u");
 /** `<<call name(args)>>` — the function name is an upstream ID. */
-const CALL_STATEMENT = new RegExp(`^call\\s+(${IDENTIFIER})\\s*\\(([\\s\\S]*)\\)\\s*$`, "u");
+const CALL_STATEMENT = new RegExp(
+  `^call\\s+(${IDENTIFIER})\\s*\\(([\\s\\S]*)\\)\\s*$`,
+  "u",
+);
 
 function tokenize(expr: string): Tok[] {
   const toks: Tok[] = [];
@@ -254,7 +286,12 @@ function tokenize(expr: string): Tok[] {
         value += expr[j];
         j++;
       }
-      toks.push({ kind: "str", text: value, start: i, end: Math.min(j + 1, expr.length) });
+      toks.push({
+        kind: "str",
+        text: value,
+        start: i,
+        end: Math.min(j + 1, expr.length),
+      });
       i = j + 1;
       continue;
     }
@@ -278,9 +315,19 @@ function tokenize(expr: string): Tok[] {
       const m = IDENT_TOKEN.exec(expr.slice(i))!;
       const word = m[0].toLowerCase();
       if (WORD_OPS.has(word)) {
-        toks.push({ kind: "wordop", text: WORD_OPS.get(word)!, start: i, end: i + m[0].length });
+        toks.push({
+          kind: "wordop",
+          text: WORD_OPS.get(word)!,
+          start: i,
+          end: i + m[0].length,
+        });
       } else {
-        toks.push({ kind: "ident", text: m[0], start: i, end: i + m[0].length });
+        toks.push({
+          kind: "ident",
+          text: m[0],
+          start: i,
+          end: i + m[0].length,
+        });
       }
       i += m[0].length;
       continue;
@@ -324,7 +371,14 @@ function tokenize(expr: string): Tok[] {
 type ExprNode =
   | { kind: "num" | "str" | "bool"; value: unknown }
   | { kind: "var"; name: string }
-  | { kind: "member"; typeName?: string; member: string; shorthand: boolean; start: number; end: number }
+  | {
+      kind: "member";
+      typeName?: string;
+      member: string;
+      shorthand: boolean;
+      start: number;
+      end: number;
+    }
   | {
       kind: "call";
       name: string;
@@ -360,7 +414,11 @@ class ExprParser {
 
   private takeOp(texts: string[]): string | null {
     const t = this.peek();
-    if (t && (t.kind === "op" || t.kind === "wordop") && texts.includes(t.text)) {
+    if (
+      t &&
+      (t.kind === "op" || t.kind === "wordop") &&
+      texts.includes(t.text)
+    ) {
       this.i++;
       return t.text;
     }
@@ -462,7 +520,13 @@ class ExprParser {
       const member = this.peek();
       if (!member || member.kind !== "ident") return { kind: "bad" };
       this.i++;
-      return { kind: "member", member: member.text, shorthand: true, start: t.start, end: member.end };
+      return {
+        kind: "member",
+        member: member.text,
+        shorthand: true,
+        start: t.start,
+        end: member.end,
+      };
     }
     if (t.kind === "lparen") {
       this.i++;
@@ -518,7 +582,9 @@ class ExprParser {
           const sub = new ExprParser(g, this.expr).parse();
           if (!sub) return { kind: "bad" };
           args.push(sub);
-          argTexts.push(this.expr.slice(g[0].start, g[g.length - 1].end).trim());
+          argTexts.push(
+            this.expr.slice(g[0].start, g[g.length - 1].end).trim(),
+          );
         }
         this.i = close + 1;
         return {
@@ -536,7 +602,14 @@ class ExprParser {
         const member = this.toks[this.i + 1];
         if (member && member.kind === "ident") {
           this.i += 2;
-          return { kind: "member", typeName: t.text, member: member.text, shorthand: false, start: t.start, end: member.end };
+          return {
+            kind: "member",
+            typeName: t.text,
+            member: member.text,
+            shorthand: false,
+            start: t.start,
+            end: member.end,
+          };
         }
         return { kind: "bad" };
       }
@@ -548,7 +621,11 @@ class ExprParser {
 
 // --- Checker ----------------------------------------------------------------
 
-function checkNode(node: ExprNode, ctx: CheckContext, expectedEnum?: string): ExprType {
+function checkNode(
+  node: ExprNode,
+  ctx: CheckContext,
+  expectedEnum?: string,
+): ExprType {
   switch (node.kind) {
     case "num":
       return { base: "number" };
@@ -558,8 +635,10 @@ function checkNode(node: ExprNode, ctx: CheckContext, expectedEnum?: string): Ex
       return { base: "bool" };
     case "var": {
       const varType = ctx.variableTypes.get(node.name);
-      if (varType && ctx.enumTypes.has(varType)) return { base: "unknown", enumName: varType };
-      if (varType === "number" || varType === "string" || varType === "bool") return { base: varType };
+      if (varType && ctx.enumTypes.has(varType))
+        return { base: "unknown", enumName: varType };
+      if (varType === "number" || varType === "string" || varType === "bool")
+        return { base: varType };
       return UNKNOWN_TYPE;
     }
     case "member":
@@ -590,7 +669,10 @@ function checkMember(
       return ERROR_TYPE;
     }
     if (!enumType.cases.some((c) => c.name === node.member)) {
-      ctx.emit("YS0038", `${node.typeName} doesn't have a member named ${node.member}`);
+      ctx.emit(
+        "YS0038",
+        `${node.typeName} doesn't have a member named ${node.member}`,
+      );
       return ERROR_TYPE;
     }
     return { base: "unknown", enumName: enumType.name };
@@ -600,19 +682,35 @@ function checkMember(
   if (expectedEnum) {
     const enumType = ctx.enumTypes.get(expectedEnum)!;
     if (!enumType.cases.some((c) => c.name === node.member)) {
-      ctx.emit("YS0050", `Type ${expectedEnum} does not have a member named ${node.member}`);
+      ctx.emit(
+        "YS0050",
+        `Type ${expectedEnum} does not have a member named ${node.member}`,
+      );
       return ERROR_TYPE;
     }
-    ctx.rewrites.push({ start: node.start, end: node.end, text: `${expectedEnum}.${node.member}` });
+    ctx.rewrites.push({
+      start: node.start,
+      end: node.end,
+      text: `${expectedEnum}.${node.member}`,
+    });
     return { base: "unknown", enumName: expectedEnum };
   }
-  const matches = [...ctx.enumTypes.values()].filter((t) => t.cases.some((c) => c.name === node.member));
+  const matches = [...ctx.enumTypes.values()].filter((t) =>
+    t.cases.some((c) => c.name === node.member),
+  );
   if (matches.length === 1) {
-    ctx.rewrites.push({ start: node.start, end: node.end, text: `${matches[0].name}.${node.member}` });
+    ctx.rewrites.push({
+      start: node.start,
+      end: node.end,
+      text: `${matches[0].name}.${node.member}`,
+    });
     return { base: "unknown", enumName: matches[0].name };
   }
   if (matches.length === 0) {
-    ctx.emit("YS0050", `No type containing a member named ${node.member} could be found`);
+    ctx.emit(
+      "YS0050",
+      `No type containing a member named ${node.member} could be found`,
+    );
     return ERROR_TYPE;
   }
   ctx.emit(
@@ -626,7 +724,11 @@ function checkMember(
  *  current expression's file position plus the offending token's offset
  *  within it. Upstream pins signature-mismatch ranges to the argument's /
  *  function-name's token range (ErrorHandlingTests). */
-function rangeAt(ctx: CheckContext, start: number, end: number): YarnRange | undefined {
+function rangeAt(
+  ctx: CheckContext,
+  start: number,
+  end: number,
+): YarnRange | undefined {
   if (!ctx.currentRange) return undefined;
   return {
     startLine: ctx.currentRange.line,
@@ -647,7 +749,12 @@ function checkArgsAgainstSignature(
   args: Array<{ text: string; type: ExprType }>,
   signature: FunctionSignature,
   ctx: CheckContext,
-  offsets?: { nameStart: number; nameEnd: number; argStarts: number[]; argEnds: number[] },
+  offsets?: {
+    nameStart: number;
+    nameEnd: number;
+    argStarts: number[];
+    argEnds: number[];
+  },
 ): void {
   const expected = signature.params.length;
   const variadic = signature.variadic === true;
@@ -672,7 +779,8 @@ function checkArgsAgainstSignature(
     return;
   }
   args.forEach((arg, i) => {
-    const paramIndex = variadic && expected > 0 && i >= expected - 1 ? expected - 1 : i;
+    const paramIndex =
+      variadic && expected > 0 && i >= expected - 1 ? expected - 1 : i;
     const paramType = signature.params[paramIndex];
     if (!paramType || paramType === "any") return;
     if (!arg.type.enumName) return;
@@ -707,7 +815,10 @@ function checkPrimitiveArgTypes(
 ): void {
   const expected = signature.params.length;
   args.forEach((arg, i) => {
-    const paramIndex = signature.variadic && expected > 0 && i >= expected - 1 ? expected - 1 : i;
+    const paramIndex =
+      signature.variadic && expected > 0 && i >= expected - 1
+        ? expected - 1
+        : i;
     const paramType = signature.params[paramIndex];
     if (!paramType || paramType === "any") return;
     if (arg.type.enumName || arg.type.error) return;
@@ -724,9 +835,17 @@ function checkPrimitiveArgTypes(
   });
 }
 
-function checkCall(node: Extract<ExprNode, { kind: "call" }>, ctx: CheckContext, expectedEnum?: string): ExprType {
+function checkCall(
+  node: Extract<ExprNode, { kind: "call" }>,
+  ctx: CheckContext,
+  expectedEnum?: string,
+): ExprType {
   // Built-in conversions (upstream Types.Number/String/Boolean functions).
-  if (node.name === "string" || node.name === "number" || node.name === "bool") {
+  if (
+    node.name === "string" ||
+    node.name === "number" ||
+    node.name === "bool"
+  ) {
     for (const arg of node.args) {
       const argType = checkNode(arg, ctx, expectedEnum);
       // YS0028: the conversion expression itself types (its
@@ -779,22 +898,35 @@ function checkCall(node: Extract<ExprNode, { kind: "call" }>, ctx: CheckContext,
     return UNKNOWN_TYPE;
   }
   checkArgsAgainstSignature(node.name, args, signature, ctx, node);
-  return signature.returns === "number" || signature.returns === "string" || signature.returns === "bool"
+  return signature.returns === "number" ||
+    signature.returns === "string" ||
+    signature.returns === "bool"
     ? { base: signature.returns }
     : UNKNOWN_TYPE;
 }
 
-function checkBinary(node: Extract<ExprNode, { kind: "bin" }>, ctx: CheckContext, expectedEnum?: string): ExprType {
+function checkBinary(
+  node: Extract<ExprNode, { kind: "bin" }>,
+  ctx: CheckContext,
+  expectedEnum?: string,
+): ExprType {
   const left = checkNode(node.left, ctx, expectedEnum);
   const right = checkNode(node.right, ctx, expectedEnum);
 
   /** Upstream's solver pins an unknown variable operand to its concrete
    *  co-operand's type (equality constraints); mirror that so uses like
    *  `<<declare $a = $a + 1>>` resolve instead of reporting YS0029. */
-  const pinFrom = (operand: ExprNode, type: ExprType, fallback: string | undefined) => {
+  const pinFrom = (
+    operand: ExprNode,
+    type: ExprType,
+    fallback: string | undefined,
+  ) => {
     if (operand.kind !== "var") return;
-    const resolved = type.enumName ?? (type.base !== "unknown" && !type.error ? type.base : fallback);
-    if (resolved && !ctx.variableTypes.has(operand.name)) ctx.variableTypes.set(operand.name, resolved);
+    const resolved =
+      type.enumName ??
+      (type.base !== "unknown" && !type.error ? type.base : fallback);
+    if (resolved && !ctx.variableTypes.has(operand.name))
+      ctx.variableTypes.set(operand.name, resolved);
   };
 
   if (node.op === "==" || node.op === "!=") {
@@ -830,7 +962,8 @@ function checkBinary(node: Extract<ExprNode, { kind: "bin" }>, ctx: CheckContext
   // Operator typing (upstream ExitExpAddSub/ExitExpMultDivMod):
   // '+' requires numbers or strings; the other arithmetic operators require
   // numbers. A concrete operand outside the permitted set is YS0050.
-  const arithmeticOp = node.op === "+" || ["-", "*", "/", "%"].includes(node.op);
+  const arithmeticOp =
+    node.op === "+" || ["-", "*", "/", "%"].includes(node.op);
   if (arithmeticOp) {
     const permitted = node.op === "+" ? ["number", "string"] : ["number"];
     const offenders = [left, right].filter(
@@ -924,7 +1057,10 @@ function containsBadNode(node: ExprNode): boolean {
   }
 }
 
-function primOrDefault(expr: string, enumTypes: Map<string, EnumType>): VariableDeclaration["defaultValue"] {
+function primOrDefault(
+  expr: string,
+  enumTypes: Map<string, EnumType>,
+): VariableDeclaration["defaultValue"] {
   const trimmed = expr.trim();
   if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) return Number(trimmed);
   if (trimmed === "true") return true;
@@ -937,7 +1073,9 @@ function primOrDefault(expr: string, enumTypes: Map<string, EnumType>): Variable
   }
   const member = trimmed.match(MEMBER_ACCESS);
   if (member) {
-    const rawValue = enumTypes.get(member[1])?.cases.find((c) => c.name === member[2])?.rawValue;
+    const rawValue = enumTypes
+      .get(member[1])
+      ?.cases.find((c) => c.name === member[2])?.rawValue;
     if (rawValue !== undefined) return rawValue;
   }
   return undefined;
@@ -946,7 +1084,10 @@ function primOrDefault(expr: string, enumTypes: Map<string, EnumType>): Variable
 /** Display name for an expression's type as upstream renders it in
  *  messages; undefined when the type is undetermined. */
 function describeUpstream(type: ExprType): string | undefined {
-  return type.enumName ?? (type.base === "unknown" ? undefined : PRIM_NAME[type.base]);
+  return (
+    type.enumName ??
+    (type.base === "unknown" ? undefined : PRIM_NAME[type.base])
+  );
 }
 
 /** The checker's bin-node operator text → the runtime's binary op (the
@@ -988,7 +1129,10 @@ type ConstantEvaluation =
  * check on `%` (upstream NumberType.MethodModulus's DivideByZeroException;
  * `/` is float division — Infinity, no exception) — reported as `failed`.
  */
-function evaluateConstantInitializer(node: ExprNode, enumTypes: Map<string, EnumType>): ConstantEvaluation {
+function evaluateConstantInitializer(
+  node: ExprNode,
+  enumTypes: Map<string, EnumType>,
+): ConstantEvaluation {
   switch (node.kind) {
     case "num":
     case "str":
@@ -1001,13 +1145,18 @@ function evaluateConstantInitializer(node: ExprNode, enumTypes: Map<string, Enum
     case "member": {
       const cases = node.typeName ? enumTypes.get(node.typeName) : undefined;
       const raw = cases?.cases.find((c) => c.name === node.member)?.rawValue;
-      return raw === undefined ? { state: "not-constant" } : { state: "ok", value: raw };
+      return raw === undefined
+        ? { state: "not-constant" }
+        : { state: "ok", value: raw };
     }
     case "un": {
       const inner = evaluateConstantInitializer(node.operand, enumTypes);
       if (inner.state !== "ok") return inner;
       try {
-        return { state: "ok", value: applyUnaryOp(node.op === "-" ? "negate" : "not", inner.value) };
+        return {
+          state: "ok",
+          value: applyUnaryOp(node.op === "-" ? "negate" : "not", inner.value),
+        };
       } catch (e) {
         return { state: "failed", error: e };
       }
@@ -1020,7 +1169,10 @@ function evaluateConstantInitializer(node: ExprNode, enumTypes: Map<string, Enum
       const op = CONSTANT_BIN_OPS[node.op];
       if (!op) return { state: "not-constant" };
       try {
-        return { state: "ok", value: applyBinaryOp(op, left.value, right.value) };
+        return {
+          state: "ok",
+          value: applyBinaryOp(op, left.value, right.value),
+        };
       } catch (e) {
         return { state: "failed", error: e };
       }
@@ -1044,7 +1196,9 @@ function parseExpression(expr: string): ExprNode | null {
  *  to an ExprType; undefined when the name names no known type. */
 function typeFromName(name: string, ctx: CheckContext): ExprType | undefined {
   if (ctx.enumTypes.has(name)) return { base: "unknown", enumName: name };
-  return ["number", "string", "bool"].includes(name) ? { base: name as ExprBase } : undefined;
+  return ["number", "string", "bool"].includes(name)
+    ? { base: name as ExprBase }
+    : undefined;
 }
 
 /**
@@ -1053,11 +1207,22 @@ function typeFromName(name: string, ctx: CheckContext): ExprType | undefined {
  * variables the solver resolves through usage). Records the return type and
  * the called arity; returns true when this call was a recordable first use.
  */
-function pinImplicitFunction(expr: string, returns: ExprType, ctx: CheckContext): boolean {
+function pinImplicitFunction(
+  expr: string,
+  returns: ExprType,
+  ctx: CheckContext,
+): boolean {
   const parsed = parseExpression(expr);
   if (!parsed || parsed.kind !== "call") return false;
-  if (ctx.functionSignatures.has(parsed.name) || ctx.inferredFunctions.has(parsed.name)) return false;
-  ctx.inferredFunctions.set(parsed.name, { returns, arity: parsed.args.length });
+  if (
+    ctx.functionSignatures.has(parsed.name) ||
+    ctx.inferredFunctions.has(parsed.name)
+  )
+    return false;
+  ctx.inferredFunctions.set(parsed.name, {
+    returns,
+    arity: parsed.args.length,
+  });
   return true;
 }
 
@@ -1066,7 +1231,11 @@ function pinImplicitFunction(expr: string, returns: ExprType, ctx: CheckContext)
  * condition expressions to Boolean, so an unknown variable or implicit
  * function call resolves to bool rather than reporting YS0029.
  */
-function constrainCondition(type: ExprType, expr: string, ctx: CheckContext): void {
+function constrainCondition(
+  type: ExprType,
+  expr: string,
+  ctx: CheckContext,
+): void {
   if (type.base !== "unknown" || type.enumName || type.error) return;
   const parsed = parseExpression(expr);
   if (!parsed) return;
@@ -1080,7 +1249,10 @@ function constrainCondition(type: ExprType, expr: string, ctx: CheckContext): vo
 /** Type-check a condition expression: check, resolve `.Case` shorthand, and
  *  bool-constrain unknown operands (the shared shape of every condition
  *  site: if-branches, once blocks, options, and line conditions). */
-function checkCondition(expr: string, ctx: CheckContext): { type: ExprType; rewritten: string } {
+function checkCondition(
+  expr: string,
+  ctx: CheckContext,
+): { type: ExprType; rewritten: string } {
   const checked = checkExpression(expr, ctx);
   constrainCondition(checked.type, checked.rewritten, ctx);
   return checked;
@@ -1123,15 +1295,17 @@ function collectInlineExpressionVars(
       }
     };
     if (parsed) collect(parsed);
-      // Type-check the inline span too: the runtime evaluates
-      // every `{...}` span as an expression, so the checker validates them
-      // as expressions — YS0028 for a variable inside a conversion that
-      // still can't be inferred, YS0005 for a malformed span. Rewrites are
-      // discarded: inline-text `.Case` resolution happens in lowering.
-      // The span's expression starts one column past the opening brace.
-      ctx.currentRange = base ? { line: base.line, col: base.col + span.start + 1 } : undefined;
-      checkExpression(exprSrc, ctx);
-      ctx.currentRange = undefined;
+    // Type-check the inline span too: the runtime evaluates
+    // every `{...}` span as an expression, so the checker validates them
+    // as expressions — YS0028 for a variable inside a conversion that
+    // still can't be inferred, YS0005 for a malformed span. Rewrites are
+    // discarded: inline-text `.Case` resolution happens in lowering.
+    // The span's expression starts one column past the opening brace.
+    ctx.currentRange = base
+      ? { line: base.line, col: base.col + span.start + 1 }
+      : undefined;
+    checkExpression(exprSrc, ctx);
+    ctx.currentRange = undefined;
   }
 }
 
@@ -1145,16 +1319,22 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
 
         if (stateStatement?.kind === "declare") {
           const { name, expression: expr, declaredType } = stateStatement;
-          const expectedEnum = declaredType && ctx.enumTypes.has(declaredType) ? declaredType : undefined;
+          const expectedEnum =
+            declaredType && ctx.enumTypes.has(declaredType)
+              ? declaredType
+              : undefined;
           let { type, rewritten } = checkExpression(expr, ctx, expectedEnum);
-          if (rewritten !== expr) s.content = `declare $${name} = ${rewritten}${declaredType ? ` as ${declaredType}` : ""}`;
+          if (rewritten !== expr)
+            s.content = `declare $${name} = ${rewritten}${declaredType ? ` as ${declaredType}` : ""}`;
           if (type.base === "unknown" && !type.enumName && !type.error) {
             // The initializer's type is undetermined (the Inference-*
             // fixtures). An explicit `as` type pins it (also pinning an
             // implicit function's return); otherwise neither the expression
             // nor the variable can ever be typed — YS0029 for both, as
             // upstream's solver leaves both unresolved.
-            const declared: ExprType | undefined = declaredType ? typeFromName(declaredType, ctx) : undefined;
+            const declared: ExprType | undefined = declaredType
+              ? typeFromName(declaredType, ctx)
+              : undefined;
             if (declared) {
               if (pinImplicitFunction(expr, declared, ctx)) type = declared;
             } else if (!declaredType) {
@@ -1172,13 +1352,25 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           // the original declaration's source.
           const originalDeclaration = ctx.declaredVariables.get(name);
           if (ctx.externalVariables.has(name) || originalDeclaration) {
-            ctx.emit("YS0039", `Redeclaration of existing variable $${name}`, ctx.currentFile);
+            ctx.emit(
+              "YS0039",
+              `Redeclaration of existing variable $${name}`,
+              ctx.currentFile,
+            );
             if (originalDeclaration?.file !== undefined) {
-              ctx.emit("YS0039", `Redeclaration of existing variable $${name}`, originalDeclaration.file);
+              ctx.emit(
+                "YS0039",
+                `Redeclaration of existing variable $${name}`,
+                originalDeclaration.file,
+              );
             }
           }
           if (!originalDeclaration) {
-            ctx.declaredVariables.set(name, { isSmart, expression: rewritten, file: ctx.currentFile });
+            ctx.declaredVariables.set(name, {
+              isSmart,
+              expression: rewritten,
+              file: ctx.currentFile,
+            });
           }
           if (declaredType) {
             ctx.variableTypes.set(name, declaredType);
@@ -1191,7 +1383,11 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           // constraint): an explicit `as` type must match the initial value's
           // type. Upstream's message template (Definitions/YS0053):
           // "{0} is declared to be a {1}, but its initial value '{2}' is a {3}".
-          if (declaredType && !type.error && (type.base !== "unknown" || type.enumName)) {
+          if (
+            declaredType &&
+            !type.error &&
+            (type.base !== "unknown" || type.enumName)
+          ) {
             const declaredDisplay = ctx.enumTypes.has(declaredType)
               ? declaredType
               : (PRIM_NAME[declaredType.toLowerCase()] ?? declaredType);
@@ -1219,7 +1415,10 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           if (!type.error) {
             const parsedInitializer = parseExpression(rewritten);
             if (parsedInitializer) {
-              const evaluation = evaluateConstantInitializer(parsedInitializer, ctx.enumTypes);
+              const evaluation = evaluateConstantInitializer(
+                parsedInitializer,
+                ctx.enumTypes,
+              );
               if (evaluation.state === "failed") {
                 ctx.emit(
                   "YS0037",
@@ -1231,8 +1430,13 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           }
           ctx.declarations.push({
             name,
-            type: declaredType ?? type.enumName ?? (type.base !== "unknown" ? type.base : "unknown"),
-            defaultValue: isSmart ? undefined : primOrDefault(rewritten, ctx.enumTypes),
+            type:
+              declaredType ??
+              type.enumName ??
+              (type.base !== "unknown" ? type.base : "unknown"),
+            defaultValue: isSmart
+              ? undefined
+              : primOrDefault(rewritten, ctx.enumTypes),
             ...(s.docComment ? { description: s.docComment } : {}),
             ...(isSmart ? { isSmartVariable: true } : {}),
           });
@@ -1245,7 +1449,10 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
         if (stateStatement?.kind === "set" && stateStatement.compoundOp) {
           const { name } = stateStatement;
           emitReadOnlyIfSmart(name, ctx);
-          if (!ctx.declaredVariables.has(name) && !ctx.externalVariables.has(name)) {
+          if (
+            !ctx.declaredVariables.has(name) &&
+            !ctx.externalVariables.has(name)
+          ) {
             ctx.undeclaredUses.push({ name, file: ctx.currentFile });
           }
           break;
@@ -1255,14 +1462,19 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           const { name, assignment: op, expression: rest } = stateStatement;
           emitReadOnlyIfSmart(name, ctx);
           const varType = ctx.variableTypes.get(name);
-          const expectedEnum = varType && ctx.enumTypes.has(varType) ? varType : undefined;
+          const expectedEnum =
+            varType && ctx.enumTypes.has(varType) ? varType : undefined;
           let { type, rewritten } = checkExpression(rest, ctx, expectedEnum);
           // YS0003 collection: a `<<set>>` target is a use of the
           // variable (the upstream YS0003 example pins `<<set $x = 3>>`). A
           // value expression that already failed validation suppresses the
           // report — upstream's Error type stops the cascade there (the
           // YS0038 pin: `<<set $x = Test.Failure>>` reports YS0038 only).
-          if (type.error !== true && !ctx.declaredVariables.has(name) && !ctx.externalVariables.has(name)) {
+          if (
+            type.error !== true &&
+            !ctx.declaredVariables.has(name) &&
+            !ctx.externalVariables.has(name)
+          ) {
             ctx.undeclaredUses.push({ name, file: ctx.currentFile });
           }
           if (rewritten !== rest) s.content = `set $${name} ${op} ${rewritten}`;
@@ -1272,9 +1484,11 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
               // upstream's solver resolves the value through the target
               // (pinning an implicit function's return type — the
               // Inference-* fixtures). No diagnostic.
-              const target: ExprType = typeFromName(varType, ctx) ?? UNKNOWN_TYPE;
+              const target: ExprType =
+                typeFromName(varType, ctx) ?? UNKNOWN_TYPE;
               if (target.base !== "unknown" || target.enumName) {
-                if (pinImplicitFunction(rest.trim(), target, ctx)) type = target;
+                if (pinImplicitFunction(rest.trim(), target, ctx))
+                  type = target;
               }
             } else {
               // Neither side can be typed yet (e.g. `<<set $a = somefunc()>>`).
@@ -1286,11 +1500,16 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           }
           const typeName = describeUpstream(type);
           if (varType) {
-            const varDisplay = ctx.enumTypes.has(varType) ? varType : PRIM_NAME[varType];
+            const varDisplay = ctx.enumTypes.has(varType)
+              ? varType
+              : PRIM_NAME[varType];
             if (typeName && varDisplay && typeName !== varDisplay) {
               // Upstream ExitSet_statement: convertible-to-target constraint
               // failure.
-              ctx.emit("YS0050", `$${name} (${varDisplay}) cannot be assigned a ${typeName}`);
+              ctx.emit(
+                "YS0050",
+                `$${name} (${varDisplay}) cannot be assigned a ${typeName}`,
+              );
             }
           } else if (type.enumName) {
             // Upstream infers a variable's type from an enum-typed assignment.
@@ -1307,9 +1526,13 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
         if (call) {
           const [, fnName, argsSrc] = call;
           const args = argsSrc.trim() ? splitArgs(argsSrc) : [];
-          const checkedArgs = args.map((arg) => ({ text: arg, type: checkExpression(arg, ctx).type }));
+          const checkedArgs = args.map((arg) => ({
+            text: arg,
+            type: checkExpression(arg, ctx).type,
+          }));
           const signature = ctx.functionSignatures.get(fnName);
-          if (signature) checkArgsAgainstSignature(fnName, checkedArgs, signature, ctx);
+          if (signature)
+            checkArgsAgainstSignature(fnName, checkedArgs, signature, ctx);
           break;
         }
         break;
@@ -1334,13 +1557,25 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
       case "OptionGroup":
         for (const o of s.options) {
           const optionBase =
-            o.lineNumber !== undefined ? { line: o.lineNumber - 1, col: 0 } : undefined;
+            o.lineNumber !== undefined
+              ? { line: o.lineNumber - 1, col: 0 }
+              : undefined;
           if (o.condition) {
-            const { rewritten } = withRange(o.condition, o.text, optionBase, ctx);
+            const { rewritten } = withRange(
+              o.condition,
+              o.text,
+              optionBase,
+              ctx,
+            );
             if (rewritten !== o.condition) o.condition = rewritten;
           }
           if (o.once?.condition) {
-            const { rewritten } = withRange(o.once.condition, o.text, optionBase, ctx);
+            const { rewritten } = withRange(
+              o.once.condition,
+              o.text,
+              optionBase,
+              ctx,
+            );
             if (rewritten !== o.once.condition) o.once.condition = rewritten;
           }
           collectInlineExpressionVars(o.text, ctx, optionBase);
@@ -1369,11 +1604,13 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
             // record that so later uses of it don't report YS0029.
             pinImplicitFunction(targetExpr[1], { base: "string" }, ctx);
             const bare = parseExpression(targetExpr[1]);
-            if (bare?.kind === "var") ctx.variableTypes.set(bare.name, "string");
+            if (bare?.kind === "var")
+              ctx.variableTypes.set(bare.name, "string");
           } else {
             const convertible =
               type.base === "string" ||
-              (type.enumName !== undefined && ctx.enumTypes.get(type.enumName)?.rawValueType === "string");
+              (type.enumName !== undefined &&
+                ctx.enumTypes.get(type.enumName)?.rawValueType === "string");
             const display = describeUpstream(type);
             if (!convertible && display) {
               ctx.emit(
@@ -1405,7 +1642,10 @@ function withRange(
   ctx: CheckContext,
 ): { type: ExprType; rewritten: string } {
   const at = base ? locateCondition(text, condition) : undefined;
-  ctx.currentRange = at !== undefined && base ? { line: base.line, col: base.col + at } : undefined;
+  ctx.currentRange =
+    at !== undefined && base
+      ? { line: base.line, col: base.col + at }
+      : undefined;
   const checked = checkCondition(condition, ctx);
   ctx.currentRange = undefined;
   return checked;
@@ -1418,7 +1658,9 @@ function checkLineStatement(line: Line, ctx: CheckContext): void {
   // conditions are located inside the line text when present (upstream pins
   // `when:`/condition ranges to the expression's columns).
   const base =
-    line.lineNumber !== undefined ? { line: line.lineNumber - 1, col: 0 } : undefined;
+    line.lineNumber !== undefined
+      ? { line: line.lineNumber - 1, col: 0 }
+      : undefined;
   collectInlineExpressionVars(line.text, ctx, base);
   for (const condition of [line.condition, line.once?.condition]) {
     if (!condition) continue;
@@ -1511,8 +1753,12 @@ function detectSmartVariableLoops(ctx: CheckContext): void {
     const start = parseExpression(startDecl.expression);
     if (!start) continue;
 
-    const seenLevels = new Map<string, Set<number>>([[startName, new Set([0])]]);
-    const stack: Array<{ node: ExprNode; level: number }> = [{ node: start, level: 0 }];
+    const seenLevels = new Map<string, Set<number>>([
+      [startName, new Set([0])],
+    ]);
+    const stack: Array<{ node: ExprNode; level: number }> = [
+      { node: start, level: 0 },
+    ];
     while (stack.length > 0) {
       const { node, level } = stack.pop()!;
       if (node.kind === "var") {
@@ -1532,10 +1778,12 @@ function detectSmartVariableLoops(ctx: CheckContext): void {
           levels.add(level);
         }
         const dependencyExpr = parseExpression(dependency.expression);
-        if (dependencyExpr) stack.push({ node: dependencyExpr, level: level + 1 });
+        if (dependencyExpr)
+          stack.push({ node: dependencyExpr, level: level + 1 });
         continue;
       }
-      for (const child of children(node)) stack.push({ node: child, level: level + 1 });
+      for (const child of children(node))
+        stack.push({ node: child, level: level + 1 });
     }
   }
 }
@@ -1558,37 +1806,44 @@ export function typeCheck(
       } catch (e) {
         // A half-built builder passed to the compile seam is host misuse;
         // keep the seam throw-free by reporting it as a diagnostic.
-        emitDiagnostic(
-          makeDiagnostic("YS0035", describeError(e)),
-        );
+        emitDiagnostic(makeDiagnostic("YS0035", describeError(e)));
       }
       continue;
     }
     hostEnums.push(host);
   }
 
-  const enumTypes = buildEnumTypes(collectEnumBlocks(doc), hostEnums, (code, message) =>
-    emitDiagnostic(makeDiagnostic(code, message)),
+  const enumTypes = buildEnumTypes(
+    collectEnumBlocks(doc),
+    hostEnums,
+    (code, message) => emitDiagnostic(makeDiagnostic(code, message)),
   );
 
-  const functionSignatures = new Map(Object.entries(opts.declarations?.functions ?? {}));
+  const functionSignatures = new Map(
+    Object.entries(opts.declarations?.functions ?? {}),
+  );
   const variableTypes = new Map<string, string>();
   const declarations: VariableDeclaration[] = [];
   const externalVariables = new Set<string>();
-  for (const [name, decl] of Object.entries(opts.declarations?.variables ?? {})) {
+  for (const [name, decl] of Object.entries(
+    opts.declarations?.variables ?? {},
+  )) {
     externalVariables.add(name);
     variableTypes.set(name, decl.type);
     declarations.push({
       name,
       type: decl.type,
-      ...(decl.defaultValue !== undefined ? { defaultValue: decl.defaultValue } : {}),
+      ...(decl.defaultValue !== undefined
+        ? { defaultValue: decl.defaultValue }
+        : {}),
     });
   }
   const ctx: CheckContext = {
     enumTypes,
     variableTypes,
     functionSignatures,
-    emit: (code, message, file, range) => emitDiagnostic(makeDiagnostic(code, message, { file, range })),
+    emit: (code, message, file, range) =>
+      emitDiagnostic(makeDiagnostic(code, message, { file, range })),
     rewrites: [],
     declarations,
     declaredVariables: new Map(),
@@ -1632,7 +1887,11 @@ export function typeCheck(
   // warns once per use site — the upstream YS0003 example pins that a
   // `<<set>>` target counts as a use.
   for (const use of ctx.undeclaredUses) {
-    if (ctx.declaredVariables.has(use.name) || ctx.externalVariables.has(use.name)) continue;
+    if (
+      ctx.declaredVariables.has(use.name) ||
+      ctx.externalVariables.has(use.name)
+    )
+      continue;
     emitDiagnostic(
       makeDiagnostic(
         "YS0003",
@@ -1666,7 +1925,8 @@ export function typeCheck(
   // internal error for those; here they're simply omitted).
   for (const [name, type] of ctx.variableTypes) {
     if (type !== "number" && type !== "string" && type !== "bool") continue;
-    if (ctx.declaredVariables.has(name) || ctx.externalVariables.has(name)) continue;
+    if (ctx.declaredVariables.has(name) || ctx.externalVariables.has(name))
+      continue;
     if (ctx.inferenceFailures.has(name)) continue;
     ctx.declarations.push({
       name,

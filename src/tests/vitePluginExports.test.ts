@@ -25,15 +25,26 @@ const projectFixture = (): [string, () => void] => {
   writeFileSync(join(dir, "story.yarn"), STORY);
   writeFileSync(
     join(dir, "project.yarnproject"),
-    JSON.stringify({ projectFileVersion: 4, sourceFiles: ["**/*.yarn"], baseLanguage: "en" }),
+    JSON.stringify({
+      projectFileVersion: 4,
+      sourceFiles: ["**/*.yarn"],
+      baseLanguage: "en",
+    }),
   );
-  return [join(dir, "project.yarnproject"), () => rmSync(dir, { recursive: true, force: true })];
+  return [
+    join(dir, "project.yarnproject"),
+    () => rmSync(dir, { recursive: true, force: true }),
+  ];
 };
 
 test("compileYarnModule resolves and executes through the package entry", async () => {
   // The options/result types ride the same entry (type-level pin).
   const opts: CompileYarnOptions = {};
-  const compiled: CompiledYarnModule = compileYarnModule(STORY, "story.yarn", opts);
+  const compiled: CompiledYarnModule = compileYarnModule(
+    STORY,
+    "story.yarn",
+    opts,
+  );
   deepStrictEqual(compiled.errors, []);
   ok(compiled.code.includes("export default"), "emitted ESM text");
 

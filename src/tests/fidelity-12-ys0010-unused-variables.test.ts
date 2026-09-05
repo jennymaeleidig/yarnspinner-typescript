@@ -22,7 +22,10 @@ import { compile, compileSource } from "../index.js";
 import type { CompileResult } from "../compile/compileSource.js";
 
 function show(result: CompileResult): string {
-  return result.diagnostics.map((d) => `${d.code}: ${d.message}`).join("; ") || "(none)";
+  return (
+    result.diagnostics.map((d) => `${d.code}: ${d.message}`).join("; ") ||
+    "(none)"
+  );
 }
 
 /** Upstream CreateTestNode: wrap a statement in a minimal node. */
@@ -35,17 +38,24 @@ function testNode(input: string): string {
 test("port: TestUnusedDeclaredVarsGenerateDiagnostic — a declared variable never read reports YS0010 (info)", () => {
   const cases = [
     { input: "<<declare $somevar = 123>>", varName: "$somevar" },
-    { input: "<<declare $somevar = \"hello\">>", varName: "$somevar" },
+    { input: '<<declare $somevar = "hello">>', varName: "$somevar" },
     { input: "<<declare $somevar = false>>", varName: "$somevar" },
   ] as const;
   for (const { input, varName } of cases) {
     const result = compileSource(testNode(input));
     const diags = result.diagnostics;
-    assert.equal(diags.length, 1, `expected exactly one diagnostic, got ${show(result)}`);
+    assert.equal(
+      diags.length,
+      1,
+      `expected exactly one diagnostic, got ${show(result)}`,
+    );
     const diag = diags[0];
     assert.equal(diag.code, "YS0010");
     assert.equal(diag.severity, "info");
-    assert.equal(diag.message, `Variable '${varName}' is declared but never used`);
+    assert.equal(
+      diag.message,
+      `Variable '${varName}' is declared but never used`,
+    );
   }
 });
 
@@ -83,7 +93,11 @@ test("port: TestDiagnosticsCanHaveOverriddenSeverities — YS0010's severity is 
     });
     const diag = result.diagnostics.find((d) => d.code === "YS0010");
     assert.ok(diag, `expected a YS0010, got ${show(result)}`);
-    assert.equal(diag.severity, severity, `override to ${severity} did not apply`);
+    assert.equal(
+      diag.severity,
+      severity,
+      `override to ${severity} did not apply`,
+    );
   }
 });
 
@@ -102,8 +116,15 @@ title: Another
 ===`;
   const result = compileSource(script);
   const unused = result.diagnostics.filter((d) => d.code === "YS0010");
-  assert.equal(unused.length, 1, `expected YS0010 for $somevar only, got ${show(result)}`);
-  assert.equal(unused[0].message, "Variable '$somevar' is declared but never used");
+  assert.equal(
+    unused.length,
+    1,
+    `expected YS0010 for $somevar only, got ${show(result)}`,
+  );
+  assert.equal(
+    unused[0].message,
+    "Variable '$somevar' is declared but never used",
+  );
   assert.equal(unused[0].severity, "info");
 });
 
@@ -118,14 +139,20 @@ test("smart variables are excluded from the unused set (ticket spec)", () => {
 });
 
 test("external declarations are excluded from the unused set (ticket spec)", () => {
-  const result = compile([{ name: "input", source: testNode("the value is {$ext}") }], {
-    declarations: { variables: { ext: { type: "number", defaultValue: 0 } } },
-  });
+  const result = compile(
+    [{ name: "input", source: testNode("the value is {$ext}") }],
+    {
+      declarations: { variables: { ext: { type: "number", defaultValue: 0 } } },
+    },
+  );
   // A never-read external variable is also excluded — the host's variable
   // store is not the script's problem.
   const storeOnly = compile([{ name: "input", source: testNode("===") }], {
     declarations: { variables: { ghost: { type: "number", defaultValue: 0 } } },
   });
   assert.ok(!result.diagnostics.some((d) => d.code === "YS0010"), show(result));
-  assert.ok(!storeOnly.diagnostics.some((d) => d.code === "YS0010"), show(storeOnly));
+  assert.ok(
+    !storeOnly.diagnostics.some((d) => d.code === "YS0010"),
+    show(storeOnly),
+  );
 });

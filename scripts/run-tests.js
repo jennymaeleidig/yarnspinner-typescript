@@ -29,7 +29,7 @@ async function findTestFiles() {
 
 async function runTests() {
   const testFiles = await findTestFiles();
-  
+
   if (testFiles.length === 0) {
     console.error("No test files found!");
     process.exit(1);
@@ -39,7 +39,7 @@ async function runTests() {
   testFiles.forEach((file) => console.log(`  - ${file}`));
 
   const args = ["--test", "--enable-source-maps", ...testFiles];
-  
+
   // process.execPath (the running node binary) instead of a bare "node":
   // a PATH lookup can fail on restricted environments where exec'ing by
   // bare name aborts on unreadable PATH directories.
@@ -57,4 +57,3 @@ runTests().catch((error) => {
   console.error(`Error running tests: ${error.message}`);
   process.exit(1);
 });
-

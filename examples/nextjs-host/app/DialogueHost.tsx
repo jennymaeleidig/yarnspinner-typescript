@@ -2,7 +2,12 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Dialogue, EMPTY_TRANSCRIPT, noOptionSelected, runUntilStopped } from "yarn-spinner-runner-ts";
+import {
+  Dialogue,
+  EMPTY_TRANSCRIPT,
+  noOptionSelected,
+  runUntilStopped,
+} from "yarn-spinner-runner-ts";
 import type { Diagnostic, Program, Transcript } from "yarn-spinner-runner-ts";
 
 /**
@@ -59,7 +64,10 @@ export default function DialogueHost({
   function onContinue(): void {
     const d = dialogueRef.current;
     if (!d) return;
-    transcriptRef.current = runUntilStopped(d, transcriptRef.current).transcript;
+    transcriptRef.current = runUntilStopped(
+      d,
+      transcriptRef.current,
+    ).transcript;
     rerender();
   }
 
@@ -69,7 +77,10 @@ export default function DialogueHost({
     const d = dialogueRef.current;
     if (!d) return;
     d.selectOption(index);
-    transcriptRef.current = runUntilStopped(d, transcriptRef.current).transcript;
+    transcriptRef.current = runUntilStopped(
+      d,
+      transcriptRef.current,
+    ).transcript;
     rerender();
   }
 
@@ -89,19 +100,25 @@ export default function DialogueHost({
   const muted = { color: "#9aa0b5" } as const;
 
   return (
-    <main style={{ maxWidth: 720, margin: "0 auto", padding: "32px 20px 60px" }}>
+    <main
+      style={{ maxWidth: 720, margin: "0 auto", padding: "32px 20px 60px" }}
+    >
       <p style={{ ...muted, fontSize: 13 }}>
         {projectName ?? "Yarn project"} — Next.js host. Loaded server-side via{" "}
-        <code>loadYarnProject()</code> ({sources.join(", ")}); the compiled program crossed the RSC
-        boundary as a plain serializable object.
+        <code>loadYarnProject()</code> ({sources.join(", ")}); the compiled
+        program crossed the RSC boundary as a plain serializable object.
       </p>
       {diagnostics.length > 0 && (
         <p style={{ ...muted, fontSize: 13 }}>
-          Loader diagnostics: {diagnostics.map((d) => `${d.code}: ${d.message}`).join(" · ")}
+          Loader diagnostics:{" "}
+          {diagnostics.map((d) => `${d.code}: ${d.message}`).join(" · ")}
         </p>
       )}
 
-      <div aria-live="polite" style={{ display: "grid", gap: 10, margin: "20px 0" }}>
+      <div
+        aria-live="polite"
+        style={{ display: "grid", gap: 10, margin: "20px 0" }}
+      >
         {transcript.lines.map((line, i) => (
           <p key={i} style={{ margin: 0 }}>
             {line.speaker && <strong>{line.speaker}: </strong>}
@@ -116,9 +133,17 @@ export default function DialogueHost({
       </div>
 
       {transcript.options !== null ? (
-        <div role="group" aria-label="Dialogue options" style={{ display: "grid", gap: 8 }}>
+        <div
+          role="group"
+          aria-label="Dialogue options"
+          style={{ display: "grid", gap: 8 }}
+        >
           {transcript.options.map((option) => (
-            <button key={option.index} type="button" onClick={() => onOption(option.index)}>
+            <button
+              key={option.index}
+              type="button"
+              onClick={() => onOption(option.index)}
+            >
               {option.text}
             </button>
           ))}
@@ -128,7 +153,11 @@ export default function DialogueHost({
         </div>
       ) : (
         <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" onClick={onContinue} disabled={ended || awaitingSelection}>
+          <button
+            type="button"
+            onClick={onContinue}
+            disabled={ended || awaitingSelection}
+          >
             Continue
           </button>
           <button type="button" onClick={onReset}>
@@ -137,7 +166,9 @@ export default function DialogueHost({
         </div>
       )}
 
-      {ended && <p style={muted}>Dialogue complete — Reset replays from the top.</p>}
+      {ended && (
+        <p style={muted}>Dialogue complete — Reset replays from the top.</p>
+      )}
     </main>
   );
 }

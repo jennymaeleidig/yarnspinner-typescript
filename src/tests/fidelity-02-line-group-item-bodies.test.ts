@@ -25,12 +25,18 @@ import type { DialogueEvent } from "../index.js";
 /** Compile a source, asserting it compiles clean. */
 function compile(source: string) {
   const { program, diagnostics } = compileSource(source);
-  assert.ok(program, `compilation failed: ${diagnostics.map((d) => `${d.code} ${d.message}`).join("; ")}`);
+  assert.ok(
+    program,
+    `compilation failed: ${diagnostics.map((d) => `${d.code} ${d.message}`).join("; ")}`,
+  );
   return program;
 }
 
 /** Run a dialogue to completion; return line texts and command texts. */
-function run(source: string, configure?: (d: Dialogue) => void): { lines: string[]; commands: string[] } {
+function run(
+  source: string,
+  configure?: (d: Dialogue) => void,
+): { lines: string[]; commands: string[] } {
   const dialogue = new Dialogue(compile(source));
   configure?.(dialogue);
   const lines: string[] = [];
@@ -51,7 +57,9 @@ test("line-group item body does not run when its item is unselected", () => {
     specific body
 ===
 `;
-  const { lines, commands } = run(source, (d) => d.setSaliencyStrategy("best_least_recently_seen"));
+  const { lines, commands } = run(source, (d) =>
+    d.setSaliencyStrategy("best_least_recently_seen"),
+  );
   assert.deepEqual(lines, []);
   assert.deepEqual(commands, []);
 });
@@ -139,9 +147,18 @@ test("line-group item body lines register in the string table", () => {
       .filter((t): t is string => t !== null),
   );
   assert.ok(texts.has("generic"), "group item line missing from string table");
-  assert.ok(texts.has("generic body"), "item body line missing from string table");
-  assert.ok(texts.has("specific"), "conditional item line missing from string table");
-  assert.ok(texts.has("specific body"), "conditional item body line missing from string table");
+  assert.ok(
+    texts.has("generic body"),
+    "item body line missing from string table",
+  );
+  assert.ok(
+    texts.has("specific"),
+    "conditional item line missing from string table",
+  );
+  assert.ok(
+    texts.has("specific body"),
+    "conditional item body line missing from string table",
+  );
   // Registration order is document order (upstream's parse-tree visit): an
   // item's body registers right after its item, before the next item. The
   // running count seeds every implicit ID, so order is observable.
@@ -149,7 +166,9 @@ test("line-group item body lines register in the string table", () => {
     .map((info) => info.text)
     .filter((t): t is string => t !== null);
   assert.deepEqual(
-    order.filter((t) => ["generic", "generic body", "specific", "specific body"].includes(t)),
+    order.filter((t) =>
+      ["generic", "generic body", "specific", "specific body"].includes(t),
+    ),
     ["generic", "generic body", "specific", "specific body"],
   );
 });

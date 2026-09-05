@@ -79,7 +79,9 @@ export function generateYarnFileWithDeclarations(
     } else if (decl.type === "bool") {
       line += decl.defaultValue === true ? "true" : "false";
     } else {
-      throw new Error(`Declaration $${decl.name}'s type must not be ${decl.type}.`);
+      throw new Error(
+        `Declaration $${decl.name}'s type must not be ${decl.type}.`,
+      );
     }
 
     lines.push(`${line}>>`);

@@ -33,12 +33,18 @@ function memoryFs(files: Record<string, string>): YarnProjectFileSystem {
   };
 }
 
-const baseProject = { projectFileVersion: 4, sourceFiles: ["**/*.yarn"], baseLanguage: "en" };
+const baseProject = {
+  projectFileVersion: 4,
+  sourceFiles: ["**/*.yarn"],
+  baseLanguage: "en",
+};
 
-const codesOf = (diagnostics: { code: string }[]) => diagnostics.map((d) => d.code);
+const codesOf = (diagnostics: { code: string }[]) =>
+  diagnostics.map((d) => d.code);
 
 /** The loader's own YPxxxx codes, isolated from compiler diagnostics (YSxxxx). */
-const ypCodes = (diagnostics: { code: string }[]) => codesOf(diagnostics).filter((c) => c.startsWith("YP"));
+const ypCodes = (diagnostics: { code: string }[]) =>
+  codesOf(diagnostics).filter((c) => c.startsWith("YP"));
 
 // ── Source resolution (globs, excludes, ordering) ─────────────────────────
 
@@ -93,10 +99,17 @@ test("no sources matched is diagnosed, and compile is not run", () => {
 
 test("legacy v2 project files are accepted and compile", () => {
   const r = loadProject({
-    project: { projectFileVersion: 2, sourceFiles: ["*.yarn"], baseLanguage: "en" },
+    project: {
+      projectFileVersion: 2,
+      sourceFiles: ["*.yarn"],
+      baseLanguage: "en",
+    },
     fileSystem: memoryFs({ "a.yarn": "title: A\n---\nLine\n===\n" }),
   });
-  assert.deepEqual(codesOf(r.diagnostics).filter((c) => c.startsWith("YP")), []);
+  assert.deepEqual(
+    codesOf(r.diagnostics).filter((c) => c.startsWith("YP")),
+    [],
+  );
   assert.ok(r.program);
   assert.equal(r.project?.projectFileVersion, 2);
 });
@@ -169,7 +182,10 @@ test("every compilerOptions key is either mapped or diagnosed — never silently
   // they are mapped onto the project (ported from upstream ProjectFileTests
   // in the coverage-audit wave), covered by the upstreamUnitPorts ports.
   assert.deepEqual(
-    r.diagnostics.filter((d) => d.code.startsWith("YP")).map((d) => d.context).sort(),
+    r.diagnostics
+      .filter((d) => d.code.startsWith("YP"))
+      .map((d) => d.context)
+      .sort(),
     [
       "compilerOptions.requireVariableDeclarations",
       "compilerOptions.someFutureFlag",
@@ -178,10 +194,16 @@ test("every compilerOptions key is either mapped or diagnosed — never silently
   assert.ok(r.program);
   // ...and the mapped flag is carried, not dropped:
   const mapped = loadProject({
-    project: { ...baseProject, compilerOptions: { allowPreviewFeatures: true } },
+    project: {
+      ...baseProject,
+      compilerOptions: { allowPreviewFeatures: true },
+    },
     fileSystem: memoryFs({ "a.yarn": "title: A\n---\n===\n" }),
   });
-  assert.equal(mapped.project?.compilerOptions?.allowLanguagePreviewFeatures, true);
+  assert.equal(
+    mapped.project?.compilerOptions?.allowLanguagePreviewFeatures,
+    true,
+  );
   assert.equal(ypCodes(mapped.diagnostics).length, 0);
 });
 
@@ -202,7 +224,8 @@ test("referenced-but-missing strings files are diagnosed; present ones are not",
     },
     fileSystem: memoryFs({
       "a.yarn": "title: A\n---\n===\n",
-      "translations/German.csv": "id,text,file,node,lineNumber,lock,comment,metadata",
+      "translations/German.csv":
+        "id,text,file,node,lineNumber,lock,comment,metadata",
     }),
   });
   assert.deepEqual(ypCodes(present.diagnostics), []);
@@ -254,13 +277,20 @@ test("compile options pass through (strict mode throws on collected errors)", ()
     "b.yarn": "title: A\n---\nLine\n===\n", // duplicate node title → YS0011
   };
   assert.throws(() =>
-    loadProject({ project: baseProject, fileSystem: memoryFs(files), strict: true }),
+    loadProject({
+      project: baseProject,
+      fileSystem: memoryFs(files),
+      strict: true,
+    }),
   );
 });
 
 test("a listed source the provider cannot read is diagnosed", () => {
   const fs = memoryFs({ "a.yarn": "title: A\n---\n===\n" });
-  const hostile: YarnProjectFileSystem = { listFiles: fs.listFiles, read: () => null };
+  const hostile: YarnProjectFileSystem = {
+    listFiles: fs.listFiles,
+    read: () => null,
+  };
   const r = loadProject({ project: baseProject, fileSystem: hostile });
   assert.ok(codesOf(r.diagnostics).includes("YP0008"));
 });
@@ -275,26 +305,43 @@ test("severity precedence: the host option merges per-code over the project's ow
     "b.yarn": "title: A\n---\nLine\n===\n", // duplicate node title
   };
   const fs = memoryFs(files);
-  const base = { projectFileVersion: 4, sourceFiles: ["**/*.yarn"], baseLanguage: "en" };
-  const code = (d: { code: string; severity: string }) => `${d.code}:${d.severity}`;
+  const base = {
+    projectFileVersion: 4,
+    sourceFiles: ["**/*.yarn"],
+    baseLanguage: "en",
+  };
+  const code = (d: { code: string; severity: string }) =>
+    `${d.code}:${d.severity}`;
 
   // No host layer: the project's downgrade holds — a warning, not an error.
   const alone = loadProject({
-    project: { ...base, compilerOptions: { diagnosticsSeverity: { YS0011: "warning" } } },
+    project: {
+      ...base,
+      compilerOptions: { diagnosticsSeverity: { YS0011: "warning" } },
+    },
     fileSystem: fs,
   });
-  assert.ok(alone.diagnostics.filter((d) => d.code === "YS0011").every((d) => code(d) === "YS0011:warning"),
-    "project's own downgrade applies on its own");
+  assert.ok(
+    alone.diagnostics
+      .filter((d) => d.code === "YS0011")
+      .every((d) => code(d) === "YS0011:warning"),
+    "project's own downgrade applies on its own",
+  );
 
   // Host layer re-escalates the shared code: per-code merge, host wins —
   // not the project map winning wholesale.
   const escalated = loadProject({
-    project: { ...base, compilerOptions: { diagnosticsSeverity: { YS0011: "warning" } } },
+    project: {
+      ...base,
+      compilerOptions: { diagnosticsSeverity: { YS0011: "warning" } },
+    },
     fileSystem: fs,
     diagnosticsSeverity: { YS0011: "error" },
   });
-  assert.ok(escalated.diagnostics.some((d) => code(d) === "YS0011:error"),
-    "host entry wins per-code over the project map");
+  assert.ok(
+    escalated.diagnostics.some((d) => code(d) === "YS0011:error"),
+    "host entry wins per-code over the project map",
+  );
 
   // Merged maps compose per-code: the project's entry for YS0011 survives
   // while the host's entry for YS0033 applies alongside it. (The fixture's
@@ -302,12 +349,21 @@ test("severity precedence: the host option merges per-code over the project's ow
   // YS0031 is reserved for mixed groups — so an empty node carries the
   // host's entry instead.)
   const merged = loadProject({
-    project: { ...base, compilerOptions: { diagnosticsSeverity: { YS0011: "warning" } } },
+    project: {
+      ...base,
+      compilerOptions: { diagnosticsSeverity: { YS0011: "warning" } },
+    },
     fileSystem: memoryFs({ ...files, "c.yarn": "title: C\n---\n===\n" }),
     diagnosticsSeverity: { YS0033: "none" },
   });
-  assert.ok(merged.diagnostics.some((d) => code(d) === "YS0011:warning"), "project entry survives the merge");
-  assert.ok(merged.diagnostics.some((d) => code(d) === "YS0033:none"), "host entry applies alongside it");
+  assert.ok(
+    merged.diagnostics.some((d) => code(d) === "YS0011:warning"),
+    "project entry survives the merge",
+  );
+  assert.ok(
+    merged.diagnostics.some((d) => code(d) === "YS0033:none"),
+    "host entry applies alongside it",
+  );
 
   // The host layer also reaches codes the project never mentions: a
   // downgrade for a project-error code holds when the project carries no map.
@@ -325,7 +381,10 @@ test("nodeProjectFs enumerates files (skipping node_modules) with POSIX-relative
   const dir = mkdtempSync(join(tmpdir(), "yp-nodefs-"));
   try {
     mkdirSync(join(dir, "node_modules"));
-    writeFileSync(join(dir, "node_modules", "junk.yarn"), "title: J\n---\n===\n");
+    writeFileSync(
+      join(dir, "node_modules", "junk.yarn"),
+      "title: J\n---\n===\n",
+    );
     mkdirSync(join(dir, "sub"));
     writeFileSync(join(dir, "sub", "b.yarn"), "title: B\n---\n===\n");
     writeFileSync(join(dir, "a.yarn"), "title: A\n---\n===\n");
@@ -339,7 +398,9 @@ test("nodeProjectFs enumerates files (skipping node_modules) with POSIX-relative
 });
 
 test("acceptance: the upstream Space project (submodule) loads, compiles, and diagnoses its unlisted German.csv", () => {
-  const r = loadYarnProject(join(UPSTREAM_TESTS_DIR, "Projects", "Space", "Space.yarnproject"));
+  const r = loadYarnProject(
+    join(UPSTREAM_TESTS_DIR, "Projects", "Space", "Space.yarnproject"),
+  );
   assert.deepEqual(ypCodes(r.diagnostics), ["YP0006"]);
   assert.deepEqual(r.sources, ["Sally.yarn", "Ship.yarn"]);
   assert.ok(r.program);
@@ -348,7 +409,9 @@ test("acceptance: the upstream Space project (submodule) loads, compiles, and di
 });
 
 test("loadYarnProject on a missing project file is a collected YP0001, not a throw", () => {
-  const r = loadYarnProject(join(UPSTREAM_TESTS_DIR, "Projects", "Space", "Nope.yarnproject"));
+  const r = loadYarnProject(
+    join(UPSTREAM_TESTS_DIR, "Projects", "Space", "Nope.yarnproject"),
+  );
   assert.deepEqual(ypCodes(r.diagnostics), ["YP0001"]);
   assert.equal(r.program, null);
   assert.equal(r.project, null);

@@ -58,9 +58,15 @@ export class Library {
    * library is passed to `compile()`. Throws on duplicate registration
    * (host programming error, as upstream).
    */
-  registerFunction(name: string, fn: YarnFunction, signature?: FunctionSignature): void {
+  registerFunction(
+    name: string,
+    fn: YarnFunction,
+    signature?: FunctionSignature,
+  ): void {
     if (this.functions.has(name)) {
-      throw new Error(`A function named "${name}" is already registered in the library`);
+      throw new Error(
+        `A function named "${name}" is already registered in the library`,
+      );
     }
     this.functions.set(name, fn);
     if (signature) this.signatures.set(name, signature);
@@ -97,7 +103,9 @@ export class Library {
   registerCommandHandler(name: string, handler: CommandHandler): void {
     const key = name.toLowerCase();
     if (this.commandHandlers.has(key)) {
-      throw new Error(`A command handler named "${name}" is already registered in the library`);
+      throw new Error(
+        `A command handler named "${name}" is already registered in the library`,
+      );
     }
     this.commandHandlers.set(key, handler);
   }

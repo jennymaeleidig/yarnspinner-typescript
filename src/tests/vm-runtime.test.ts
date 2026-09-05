@@ -13,13 +13,21 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compileSource, Dialogue, Library, noOptionSelected } from "../index.js";
+import {
+  compileSource,
+  Dialogue,
+  Library,
+  noOptionSelected,
+} from "../index.js";
 import type { Dialogue as DialogueClass } from "../index.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
 import type { Program } from "../compile/program.js";
 import { runUntilCompleteEvents } from "../runtime/transcript.js";
 
-function makeDialogue(source: string, opts?: ConstructorParameters<typeof DialogueClass>[1]): DialogueClass {
+function makeDialogue(
+  source: string,
+  opts?: ConstructorParameters<typeof DialogueClass>[1],
+): DialogueClass {
   const result = compileSource(source);
   assert.ok(result.program, "the compile seam emits a program");
   return new Dialogue(result.program, { startAt: "Start", ...opts });
@@ -30,11 +38,17 @@ function drain(
   dialogue: DialogueClass,
   onOptions: (count: number) => number | typeof noOptionSelected,
 ): DialogueEvent[] {
-  return runUntilCompleteEvents(dialogue, (options) => onOptions(options.length));
+  return runUntilCompleteEvents(dialogue, (options) =>
+    onOptions(options.length),
+  );
 }
 
 const textsOf = (events: DialogueEvent[]) =>
-  events.filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line").map((e) => e.text);
+  events
+    .filter(
+      (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+    )
+    .map((e) => e.text);
 
 // ── Linear flow ──────────────────────────────────────────────────────────
 
@@ -60,10 +74,23 @@ Done
   const events = drain(dialogue, () => noOptionSelected);
   assert.deepEqual(
     events.map((e) => e.type),
-    ["nodeStart", "line", "line", "nodeComplete", "nodeStart", "line", "nodeComplete", "dialogueComplete"],
+    [
+      "nodeStart",
+      "line",
+      "line",
+      "nodeComplete",
+      "nodeStart",
+      "line",
+      "nodeComplete",
+      "dialogueComplete",
+    ],
   );
   assert.deepEqual(textsOf(events), ["Count is 1", "First!", "Done"]);
-  assert.equal(dialogue.currentNode, null, "a completed dialogue is not in a node");
+  assert.equal(
+    dialogue.currentNode,
+    null,
+    "a completed dialogue is not in a node",
+  );
   assert.equal(dialogue.isActive, false);
 });
 
@@ -76,11 +103,20 @@ Two
 ===
 `);
   const first = dialogue.continue();
-  assert.deepEqual(first.map((e) => e.type), ["nodeStart", "line"]);
+  assert.deepEqual(
+    first.map((e) => e.type),
+    ["nodeStart", "line"],
+  );
   const second = dialogue.continue();
-  assert.deepEqual(second.map((e) => e.type), ["line"]);
+  assert.deepEqual(
+    second.map((e) => e.type),
+    ["line"],
+  );
   const last = dialogue.continue();
-  assert.deepEqual(last.map((e) => e.type), ["nodeComplete", "dialogueComplete"]);
+  assert.deepEqual(
+    last.map((e) => e.type),
+    ["nodeComplete", "dialogueComplete"],
+  );
 });
 
 // ── Options ──────────────────────────────────────────────────────────────
@@ -102,7 +138,10 @@ Choose
   while (!batch.some((e) => e.type === "options")) {
     batch = dialogue.continue();
   }
-  const options = batch.find((e): e is Extract<DialogueEvent, { type: "options" }> => e.type === "options");
+  const options = batch.find(
+    (e): e is Extract<DialogueEvent, { type: "options" }> =>
+      e.type === "options",
+  );
   assert.ok(options, "an options event is delivered");
   // The full set, in authored order — unavailable options included
   // (upstream OptionSet semantics; availability is advisory).
@@ -150,7 +189,10 @@ title: Start
 ===
 `);
   const batch = dialogue.continue();
-  const options = batch.find((e): e is Extract<DialogueEvent, { type: "options" }> => e.type === "options");
+  const options = batch.find(
+    (e): e is Extract<DialogueEvent, { type: "options" }> =>
+      e.type === "options",
+  );
   assert.ok(options);
   assert.deepEqual(
     options.options.map((o) => [o.text, o.isAvailable]),
@@ -199,16 +241,25 @@ Narrator: You have {$gold} ({$doubled} doubled)
   drain(dialogue, () => noOptionSelected);
   assert.equal(dialogue.getVariable("gold"), 25);
   const doubled = dialogue.tryGetSmartVariable("doubled");
-  assert.ok(doubled.ok && doubled.value === 50, "the smart variable recomputes");
+  assert.ok(
+    doubled.ok && doubled.value === 50,
+    "the smart variable recomputes",
+  );
 
   dialogue.setVariable("gold", 7);
   const recomputed = dialogue.tryGetSmartVariable("doubled");
-  assert.ok(recomputed.ok && recomputed.value === 14, "recomputing tracks new storage");
+  assert.ok(
+    recomputed.ok && recomputed.value === 14,
+    "recomputing tracks new storage",
+  );
 
   const visible = dialogue.getVariables();
   assert.equal(visible["gold"], 7);
   for (const key of Object.keys(visible)) {
-    assert.ok(!key.startsWith("$Yarn.Internal."), "generated variables are not story variables");
+    assert.ok(
+      !key.startsWith("$Yarn.Internal."),
+      "generated variables are not story variables",
+    );
   }
 });
 
@@ -248,13 +299,18 @@ Narrator: other node
   dialogue.setNode("Other");
   assert.equal(dialogue.currentNode, "Other");
   assert.equal(dialogue.getVariable("x"), 1, "variables survive setNode");
-  assert.deepEqual(textsOf(drain(dialogue, () => noOptionSelected)), ["other node"]);
+  assert.deepEqual(textsOf(drain(dialogue, () => noOptionSelected)), [
+    "other node",
+  ]);
 
   dialogue.setNode("Start");
   dialogue.stop();
   // The nodeStart queued by setNode() still delivers; nothing else runs.
   const afterStop = dialogue.continue();
-  assert.deepEqual(afterStop.map((e) => e.type), ["nodeStart", "dialogueComplete"]);
+  assert.deepEqual(
+    afterStop.map((e) => e.type),
+    ["nodeStart", "dialogueComplete"],
+  );
   assert.equal(dialogue.isActive, false);
 });
 
@@ -278,7 +334,11 @@ Narrator: One
   assert.ok(hintIds.length >= 2, "line and option text IDs are hinted");
 
   const withoutHints = makeDialogue(source);
-  assert.equal(withoutHints.continue()[0].type, "nodeStart", "no hints by default");
+  assert.equal(
+    withoutHints.continue()[0].type,
+    "nodeStart",
+    "no hints by default",
+  );
 });
 
 // ── Format dispatch ──────────────────────────────────────────────────────
@@ -339,7 +399,10 @@ test("event streams across the surface", () => {
             ? `options:[${e.options.map((o) => `${o.text}${o.isAvailable ? "" : "!"}`).join("|")}]`
             : e.type,
       );
-    assert.ok(summarize(run(result.program))!.length > 0, `${name}: delivers events`);
+    assert.ok(
+      summarize(run(result.program))!.length > 0,
+      `${name}: delivers events`,
+    );
   }
 });
 
@@ -374,7 +437,9 @@ Narrator: {$x} / {$y}
 ===
 `);
   const events = runUntilCompleteEvents(dialogue);
-  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  const line = events.find(
+    (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+  );
   assert.ok(line);
   assert.equal(line.text, "True / False");
 });
@@ -407,7 +472,9 @@ Narrator: never eligible
 `);
   const events = runUntilCompleteEvents(dialogue);
   const lines = events
-    .filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line")
+    .filter(
+      (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+    )
     .map((e) => e.text);
   assert.deepEqual(lines, ["xor member"]);
 });
@@ -436,7 +503,9 @@ Narrator: {$a == 1 && $b > 2} / {$a == 1 && $b > 0}
 ===
 `);
   const events = runUntilCompleteEvents(dialogue);
-  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  const line = events.find(
+    (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+  );
   assert.ok(line);
   assert.equal(line.text, "False / True");
 });
@@ -453,7 +522,9 @@ Narrator: {!true} / {!$flag} / {!$flag == true}
 ===
 `);
   const events = runUntilCompleteEvents(dialogue);
-  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  const line = events.find(
+    (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+  );
   assert.ok(line);
   assert.equal(line.text, "False / True / True");
 });
@@ -468,7 +539,9 @@ Narrator: {(1 && 0)} / {1 < 2 && "&&" != ""}
 ===
 `);
   const events = runUntilCompleteEvents(dialogue);
-  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  const line = events.find(
+    (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+  );
   assert.ok(line);
   assert.equal(line.text, "False / True");
 });
@@ -486,7 +559,9 @@ Narrator: {$a || $b == $b} / {$b || $a == $b}
 ===
 `);
   const events = runUntilCompleteEvents(dialogue);
-  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  const line = events.find(
+    (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+  );
   assert.ok(line);
   // true || (false == false) → True; false || (true == false) → False.
   assert.equal(line.text, "True / False");
@@ -514,7 +589,9 @@ Narrator: {$n}
 ===
 `);
   const events = runUntilCompleteEvents(dialogue);
-  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  const line = events.find(
+    (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+  );
   assert.ok(line);
   assert.equal(line.text, "True");
 });
@@ -535,7 +612,9 @@ Narrator: value={$n}
     { logError: (m) => errors.push(m) },
   );
   const events = runUntilCompleteEvents(dialogue);
-  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  const line = events.find(
+    (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+  );
   assert.ok(line);
   assert.equal(line.text, "value=2");
   assert.equal(dialogue.getVariable("n"), 2);
@@ -563,7 +642,9 @@ Narrator: value={$m}
     { logError: (m) => errors.push(m) },
   );
   const events = runUntilCompleteEvents(dialogue);
-  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  const line = events.find(
+    (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+  );
   assert.ok(line);
   assert.equal(line.text, "value=1");
   assert.equal(dialogue.getVariable("m"), 1);

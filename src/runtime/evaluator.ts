@@ -4,14 +4,21 @@
  * Supports variables, functions, comparisons, and logical operators.
  */
 
-import { InMemoryVariableStorage, type VariableStorage } from "./variableStorage.js";
+import {
+  InMemoryVariableStorage,
+  type VariableStorage,
+} from "./variableStorage.js";
 import { applyBinaryOp, applyUnaryOp } from "./operands.js";
 import { IDENTIFIER } from "../parse/identifier.js";
 
 // The operand primitives moved to ./operands.ts (the one operand-semantics
 // module); this re-export keeps their historical import path — and the
 // package's public surface (index.ts `export *`) — unchanged.
-export { stringifyOperand, toNumberOperand, deepEqualsOperands } from "./operands.js";
+export {
+  stringifyOperand,
+  toNumberOperand,
+  deepEqualsOperands,
+} from "./operands.js";
 
 /** Thrown when an expression resolves to no value — the evaluation failed
  * (an unresolvable token, e.g. the trailing garbage of `<<set $m to 1 2>>`).
@@ -28,7 +35,10 @@ class EvaluationFailure extends Error {
 
 /** Enum member access `EnumName.Case` — both names are upstream IDs (the
  *  shared unicode identifier classes). */
-const ENUM_MEMBER_ACCESS = new RegExp(`^(${IDENTIFIER})\\.(${IDENTIFIER})$`, "u");
+const ENUM_MEMBER_ACCESS = new RegExp(
+  `^(${IDENTIFIER})\\.(${IDENTIFIER})$`,
+  "u",
+);
 
 /** One character's structural position in an expression: the open-paren
  * depth once the character is consumed, and whether it sits inside a
@@ -69,13 +79,17 @@ function scanStructure(expr: string): ScanChar[] {
 export class ExpressionEvaluator {
   /** variable name → recomputing read (compiled bytecode). */
   private smartVariables: Record<string, () => unknown> = {}; // variable name -> read
-  
+
   constructor(
     private variables: VariableStorage = new InMemoryVariableStorage(),
     /** Function lookup — reads through the runtime's Library. */
-    private functions: { get(name: string): ((...args: unknown[]) => unknown) | undefined } = { get: () => undefined },
+    private functions: {
+      get(name: string): ((...args: unknown[]) => unknown) | undefined;
+    } = {
+      get: () => undefined,
+    },
     /** Enum registry: enum name → case name → raw value. */
-    private enums: Record<string, Record<string, number | string>> = {}
+    private enums: Record<string, Record<string, number | string>> = {},
   ) {}
 
   /**
@@ -106,7 +120,9 @@ export class ExpressionEvaluator {
    * executor logs a diagnostic and skips the write (collect-don't-throw,
    * coding standards §3) while void-function sets keep working.
    */
-  tryEvaluateExpression(expr: string): { ok: true; value: unknown } | { ok: false; error: unknown } {
+  tryEvaluateExpression(
+    expr: string,
+  ): { ok: true; value: unknown } | { ok: false; error: unknown } {
     try {
       return { ok: true, value: this.evaluateOrThrow(expr) };
     } catch (e) {
@@ -177,15 +193,15 @@ export class ExpressionEvaluator {
       return this.evaluateComparison(trimmed);
     }
 
-     // Handle arithmetic expressions (+, -, *, /, %) BEFORE the prefix-
-     // negation dispatch: upstream's ExpNot binds TIGHTER than the
-     // arithmetic levels (the checker's parseUnary placement), so
-     // `not 0 + 1` is `(!0) + 1` — the whole-rest negation below would
-     // build `not (0 + 1)` and disagree with the checker's tree.
-     // evaluateArithmetic's parseUnary consumes the leading `!`.
-     if (this.containsArithmetic(trimmed)) {
-       return this.evaluateArithmetic(trimmed);
-     }
+    // Handle arithmetic expressions (+, -, *, /, %) BEFORE the prefix-
+    // negation dispatch: upstream's ExpNot binds TIGHTER than the
+    // arithmetic levels (the checker's parseUnary placement), so
+    // `not 0 + 1` is `(!0) + 1` — the whole-rest negation below would
+    // build `not (0 + 1)` and disagree with the checker's tree.
+    // evaluateArithmetic's parseUnary consumes the leading `!`.
+    if (this.containsArithmetic(trimmed)) {
+      return this.evaluateArithmetic(trimmed);
+    }
 
     // Handle negation (no comparison/arithmetic operator in the rest —
     // a plain `!value`).
@@ -222,7 +238,9 @@ export class ExpressionEvaluator {
     if (!func) throw new Error(`Function not found: ${name}`);
 
     const args = this.parseArguments(argsStr);
-    const evaluatedArgs = args.map((arg) => this.evaluateExpression(arg.trim()));
+    const evaluatedArgs = args.map((arg) =>
+      this.evaluateExpression(arg.trim()),
+    );
 
     return func(...evaluatedArgs);
   }
@@ -376,7 +394,8 @@ export class ExpressionEvaluator {
         const char = input[index];
         if (char === "*" || char === "/" || char === "%") {
           index++;
-          const op = char === "*" ? "multiply" : char === "/" ? "divide" : "modulo";
+          const op =
+            char === "*" ? "multiply" : char === "/" ? "divide" : "modulo";
           value = applyBinaryOp(op, value, parseUnary());
           continue;
         }
@@ -395,7 +414,11 @@ export class ExpressionEvaluator {
           // applyBinaryOp owns the rule (string concat with upstream
           // rendering, else numeric) — the same statement the VM's add
           // applies.
-          value = applyBinaryOp(char === "+" ? "add" : "subtract", value, parseMulDiv());
+          value = applyBinaryOp(
+            char === "+" ? "add" : "subtract",
+            value,
+            parseMulDiv(),
+          );
           continue;
         }
         break;
@@ -463,7 +486,9 @@ export class ExpressionEvaluator {
    * Returns the operand/op chain, or null when the expression has no
    * top-level logical operator (the caller falls through the layering).
    */
-  private splitLogical(expr: string): Array<{ expr: string; op: "&&" | "||" | "^" | null }> | null {
+  private splitLogical(
+    expr: string,
+  ): Array<{ expr: string; op: "&&" | "||" | "^" | null }> | null {
     const chars = scanStructure(expr);
     const parts: Array<{ expr: string; op: "&&" | "||" | "^" | null }> = [];
     let current = "";
@@ -473,7 +498,8 @@ export class ExpressionEvaluator {
       const sc = chars[k];
       if (sc.depth === 0 && !sc.inString) {
         const two = expr.slice(sc.index, sc.index + 2);
-        const op = two === "&&" || two === "||" ? two : sc.char === "^" ? "^" : null;
+        const op =
+          two === "&&" || two === "||" ? two : sc.char === "^" ? "^" : null;
         if (op) {
           parts.push({ expr: current.trim(), op: lastOp });
           current = "";
@@ -517,7 +543,10 @@ export class ExpressionEvaluator {
     // string()/number() conversions of enum cases yield the raw value).
     // Both names are upstream IDs (the shared unicode identifier classes).
     const enumMatch = expr.match(ENUM_MEMBER_ACCESS);
-    if (enumMatch && Object.prototype.hasOwnProperty.call(this.enums, enumMatch[1])) {
+    if (
+      enumMatch &&
+      Object.prototype.hasOwnProperty.call(this.enums, enumMatch[1])
+    ) {
       return this.enums[enumMatch[1]][enumMatch[2]];
     }
 
@@ -554,7 +583,10 @@ export class ExpressionEvaluator {
     if (expr === "false") return false;
 
     // Try as string (quoted)
-    if ((expr.startsWith('"') && expr.endsWith('"')) || (expr.startsWith("'") && expr.endsWith("'"))) {
+    if (
+      (expr.startsWith('"') && expr.endsWith('"')) ||
+      (expr.startsWith("'") && expr.endsWith("'"))
+    ) {
       return expr.slice(1, -1);
     }
 
@@ -566,7 +598,7 @@ export class ExpressionEvaluator {
     // fallback-execution divergence).
     throw new EvaluationFailure(expr);
   }
-  
+
   /**
    * Update variables. Can be used to mutate state during dialogue.
    *
@@ -577,7 +609,7 @@ export class ExpressionEvaluator {
   setVariable(name: string, value: unknown): void {
     this.variables.set(name, value);
   }
-  
+
   /**
    * Register a smart variable (variable with a value that recalculates on
    * each access). Registered from the program's compiled smart variables at
@@ -587,7 +619,7 @@ export class ExpressionEvaluator {
   setSmartVariable(name: string, compute: () => unknown): void {
     this.smartVariables[name] = compute;
   }
-  
+
   /**
    * Check if a variable is a smart variable.
    */
@@ -601,7 +633,9 @@ export class ExpressionEvaluator {
    * A stored value under the same name (a host write) shadows the
    * computation, mirroring upstream's VariableKind.Stored precedence.
    */
-  tryGetSmartVariable(name: string): { ok: true; value: unknown } | { ok: false } {
+  tryGetSmartVariable(
+    name: string,
+  ): { ok: true; value: unknown } | { ok: false } {
     if (!this.isSmartVariable(name)) return { ok: false };
     if (this.variables.has(name)) {
       return { ok: true, value: this.variables.get(name) };
@@ -620,4 +654,3 @@ export class ExpressionEvaluator {
     return this.variables.get(name);
   }
 }
-

@@ -23,7 +23,9 @@ const plugin = yarnSpinnerVitePlugin();
 
 const YSLS = {
   version: 1,
-  commands: [{ yarnName: "roll_dice", parameters: [{ name: "n", type: "number" }] }],
+  commands: [
+    { yarnName: "roll_dice", parameters: [{ name: "n", type: "number" }] },
+  ],
   functions: [],
 };
 
@@ -48,15 +50,29 @@ test("a pinned .yarn import compiles with the project's context", async () => {
     }),
   });
   try {
-    const pinned = yarnSpinnerVitePlugin({ project: join(dir, "project.yarnproject") });
-    const code = await callHook(pinned.load, viteCtx(), join(dir, "story.yarn"));
+    const pinned = yarnSpinnerVitePlugin({
+      project: join(dir, "project.yarnproject"),
+    });
+    const code = await callHook(
+      pinned.load,
+      viteCtx(),
+      join(dir, "story.yarn"),
+    );
     const mod = await importEmitted(code as string);
-    strictEqual(mod.default.baseLanguage, "en", "project context reached the pinned import");
+    strictEqual(
+      mod.default.baseLanguage,
+      "en",
+      "project context reached the pinned import",
+    );
     strictEqual(mod.default.projectName, "Pinned");
 
     // Unpinned imports remain standalone: the same .yarn, no project option —
     // no upward discovery, just the bare Program.
-    const standalone = await callHook(plugin.load, viteCtx(), join(dir, "story.yarn"));
+    const standalone = await callHook(
+      plugin.load,
+      viteCtx(),
+      join(dir, "story.yarn"),
+    );
     const bare = await importEmitted(standalone as string);
     ok(!("baseLanguage" in bare.default), "standalone import stays bare");
   } finally {
@@ -70,22 +86,34 @@ test("inline-object definitions reach the compilation job", async () => {
     const declared = yarnSpinnerVitePlugin({
       definitions: [YSLS],
     });
-    const good = await callHook(declared.load, viteCtx(), join(dir, "story.yarn"));
-    ok(typeof good === "string", "a declared function passes signature checking");
+    const good = await callHook(
+      declared.load,
+      viteCtx(),
+      join(dir, "story.yarn"),
+    );
+    ok(
+      typeof good === "string",
+      "a declared function passes signature checking",
+    );
 
     const badStory = fixture({
       "story.yarn": STORY.replace("roll_dice(3)", 'roll_dice("high")'),
     })[0];
     try {
-      const err = await (callHook(
-        declared.load,
-        viteCtx(),
-        join(badStory, "story.yarn"),
-      ) as Promise<unknown>).then(
+      const err = (await (
+        callHook(
+          declared.load,
+          viteCtx(),
+          join(badStory, "story.yarn"),
+        ) as Promise<unknown>
+      ).then(
         () => null,
         (e: { message?: string } | undefined) => e,
-      ) as { message?: string } | null;
-      ok(err && /YS0050|YS0014/.test(err.message ?? ""), `the expected diagnostic fails the build: ${JSON.stringify(err)}`);
+      )) as { message?: string } | null;
+      ok(
+        err && /YS0050|YS0014/.test(err.message ?? ""),
+        `the expected diagnostic fails the build: ${JSON.stringify(err)}`,
+      );
     } finally {
       rmSync(badStory, { recursive: true, force: true });
     }
@@ -100,9 +128,18 @@ test(".ysls.json file definitions behave identically to inline objects", async (
     "Commands.ysls.json": JSON.stringify(YSLS),
   });
   try {
-    const fromFile = yarnSpinnerVitePlugin({ definitions: [join(dir, "Commands.ysls.json")] });
-    const good = await callHook(fromFile.load, viteCtx(), join(dir, "story.yarn"));
-    ok(typeof good === "string", "file definitions pass signature checking like inline ones");
+    const fromFile = yarnSpinnerVitePlugin({
+      definitions: [join(dir, "Commands.ysls.json")],
+    });
+    const good = await callHook(
+      fromFile.load,
+      viteCtx(),
+      join(dir, "story.yarn"),
+    );
+    ok(
+      typeof good === "string",
+      "file definitions pass signature checking like inline ones",
+    );
   } finally {
     cleanup();
   }
@@ -112,7 +149,10 @@ test("a malformed .ysls.json fails plugin creation naming the file, not a raw Sy
   const [dir, cleanup] = fixture({ "Commands.ysls.json": "{ not json" });
   try {
     throws(
-      () => yarnSpinnerVitePlugin({ definitions: [join(dir, "Commands.ysls.json")] }),
+      () =>
+        yarnSpinnerVitePlugin({
+          definitions: [join(dir, "Commands.ysls.json")],
+        }),
       /Commands\.ysls\.json/,
       "the error identifies the definitions file",
     );
@@ -124,21 +164,33 @@ test("a malformed .ysls.json fails plugin creation naming the file, not a raw Sy
 test("an unreadable pinned project fails the load naming the file", async () => {
   const [dir, cleanup] = fixture({ "story.yarn": STORY });
   try {
-    const pinned = yarnSpinnerVitePlugin({ project: join(dir, "missing.yarnproject") });
+    const pinned = yarnSpinnerVitePlugin({
+      project: join(dir, "missing.yarnproject"),
+    });
     const err = (await (
-      callHook(pinned.load, viteCtx(), join(dir, "story.yarn")) as Promise<unknown>
+      callHook(
+        pinned.load,
+        viteCtx(),
+        join(dir, "story.yarn"),
+      ) as Promise<unknown>
     ).then(
       () => null,
       (e: { message?: string } | undefined) => e,
     )) as { message?: string } | null;
-    ok(err && (err.message ?? "").includes("missing.yarnproject"), `error names the file, got ${JSON.stringify(err)}`);
+    ok(
+      err && (err.message ?? "").includes("missing.yarnproject"),
+      `error names the file, got ${JSON.stringify(err)}`,
+    );
   } finally {
     cleanup();
   }
 });
 
 test("include/exclude filters layer over extension matching", async () => {
-  const [dir, cleanup] = fixture({ "story.yarn": STORY, "vendor/other.yarn": STORY });
+  const [dir, cleanup] = fixture({
+    "story.yarn": STORY,
+    "vendor/other.yarn": STORY,
+  });
   try {
     const onlySrc = yarnSpinnerVitePlugin({ include: ["src/**"] });
     strictEqual(
@@ -147,14 +199,27 @@ test("include/exclude filters layer over extension matching", async () => {
       "outside include: not loaded",
     );
     const notVendor = yarnSpinnerVitePlugin({ exclude: ["vendor/**"] });
-    ok(typeof (await callHook(notVendor.load, viteCtx(), join(dir, "story.yarn"))) === "string");
+    ok(
+      typeof (await callHook(
+        notVendor.load,
+        viteCtx(),
+        join(dir, "story.yarn"),
+      )) === "string",
+    );
     strictEqual(
-      await callHook(notVendor.load, viteCtx(), join(dir, "vendor", "other.yarn")),
+      await callHook(
+        notVendor.load,
+        viteCtx(),
+        join(dir, "vendor", "other.yarn"),
+      ),
       undefined,
       "excluded: not loaded",
     );
     // Extension matching still gates everything: non-.yarn files never load.
-    strictEqual(await callHook(notVendor.load, viteCtx(), join(dir, "notes.txt")), undefined);
+    strictEqual(
+      await callHook(notVendor.load, viteCtx(), join(dir, "notes.txt")),
+      undefined,
+    );
   } finally {
     cleanup();
   }
@@ -172,7 +237,10 @@ test("compiler-options passthrough reaches the compilation job", async () => {
       { warn: (m: unknown) => warnings.push(m) },
       join(dir, "broken.yarn"),
     );
-    ok(typeof code === "string", "the override reaches the job without a project");
+    ok(
+      typeof code === "string",
+      "the override reaches the job without a project",
+    );
     ok(warnings.some((w) => String(w).includes("YS0004")));
   } finally {
     cleanup();
@@ -227,7 +295,10 @@ test("severity precedence: the plugin's map wins over the project file's own", a
         () => null,
         (e: unknown) => e,
       );
-      ok(e && String((e as { message?: string }).message).includes("YS0004"), `plugin's map wins: ${e}`);
+      ok(
+        e && String((e as { message?: string }).message).includes("YS0004"),
+        `plugin's map wins: ${e}`,
+      );
     }
     cleanup();
   }

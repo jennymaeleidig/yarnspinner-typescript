@@ -12,7 +12,7 @@ Scenes and actors are configured separately in YAML:
 ```yaml
 scenes:
   scene1: https://example.com/background1.jpg
-  
+
 actors:
   user: https://example.com/user.png
   Narrator: https://example.com/narrator.png
@@ -60,4 +60,3 @@ The scene name reaches you on the `NodeStartEvent`'s `scene` field (and
 `Transcript.scene`, carried forward across scene-less nodes), so you can
 cross-check your collection at that seam: a name with no collection entry
 means your host decides what to show.
-

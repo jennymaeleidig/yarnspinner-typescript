@@ -3,11 +3,13 @@
 Source: [docs.yarnspinner.dev — Logic and Variables](https://docs.yarnspinner.dev/write-yarn-scripts/scripting-fundamentals/logic-and-variables)
 
 ### What it covers
+
 - Declaring and using variables; reading and writing from the game.
 - Basic expressions for conditions and assignments.
 - Interpolating values in lines.
 
 ### Examples
+
 ```yarn
 title: Start
 ---
@@ -23,6 +25,7 @@ title: Start
 ```
 
 ### Implementation notes (this runtime)
+
 - `<<declare $var = expr (as type)?>>`d variables are seeded into variable
   storage at start-up (upstream `Program.InitialValues`), so they exist before
   the first node runs; host-provided variables override the declared defaults.
@@ -44,5 +47,3 @@ title: Start
 - String `+` concatenates; comparing against an unset variable uses the
   implicit type default (bool→false, number→0, string→"") — a deliberate
   adaptation.
-
-

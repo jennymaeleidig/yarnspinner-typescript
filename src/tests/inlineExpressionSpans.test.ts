@@ -11,9 +11,13 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { expandSubstitutions, inlineExpressionSpans } from "../runtime/interpolate.js";
+import {
+  expandSubstitutions,
+  inlineExpressionSpans,
+} from "../runtime/interpolate.js";
 
-const sources = (text: string) => inlineExpressionSpans(text).map((s) => s.source);
+const sources = (text: string) =>
+  inlineExpressionSpans(text).map((s) => s.source);
 
 test("plain spans: one span per brace pair, non-overlapping", () => {
   assert.deepEqual(sources("Hello {$name} and {$other}!"), ["$name", "$other"]);
@@ -24,7 +28,11 @@ test("plain spans: one span per brace pair, non-overlapping", () => {
 
 test("escaped braces never open a span", () => {
   assert.deepEqual(sources("\\{not an expr\\}"), []);
-  assert.deepEqual(sources("a \\{ b {$x}"), ["$x"], "an escaped brace before a real span");
+  assert.deepEqual(
+    sources("a \\{ b {$x}"),
+    ["$x"],
+    "an escaped brace before a real span",
+  );
 });
 
 test("an escaped backslash does not escape the brace after it", () => {
@@ -47,15 +55,43 @@ test("unclosed braces compose literally — not spans", () => {
 });
 
 test("a span runs to the next `}` — braces are not balanced in expressions", () => {
-  assert.deepEqual(sources('{"a}"}'), ['"a'], "a `}` inside a string literal closes the span");
-  assert.deepEqual(sources("{a {b}"), ["a {b"], "the inner brace rides inside the outer span");
+  assert.deepEqual(
+    sources('{"a}"}'),
+    ['"a'],
+    "a `}` inside a string literal closes the span",
+  );
+  assert.deepEqual(
+    sources("{a {b}"),
+    ["a {b"],
+    "the inner brace rides inside the outer span",
+  );
 });
 
 test("expandSubstitutions: evaluation, escapes, and composition agree with the pins", () => {
-  assert.equal(expandSubstitutions("Hello {$name}!", () => "World"), "Hello World!");
-  assert.equal(expandSubstitutions("\\{literal\\}", () => "never"), "{literal}");
-  assert.equal(expandSubstitutions("\\\\{x}", () => "EVAL"), "\\{x}", "escaped backslash then escaped brace — literal text");
-  assert.equal(expandSubstitutions("{unclosed", () => "EVAL"), "{unclosed");
-  assert.equal(expandSubstitutions("{$fail} tail", () => ""), " tail", "a failing expression composes empty");
-  assert.equal(expandSubstitutions("{x} \\{y} {z}", () => "V"), "V {y} V");
+  assert.equal(
+    expandSubstitutions("Hello {$name}!", () => "World"),
+    "Hello World!",
+  );
+  assert.equal(
+    expandSubstitutions("\\{literal\\}", () => "never"),
+    "{literal}",
+  );
+  assert.equal(
+    expandSubstitutions("\\\\{x}", () => "EVAL"),
+    "\\{x}",
+    "escaped backslash then escaped brace — literal text",
+  );
+  assert.equal(
+    expandSubstitutions("{unclosed", () => "EVAL"),
+    "{unclosed",
+  );
+  assert.equal(
+    expandSubstitutions("{$fail} tail", () => ""),
+    " tail",
+    "a failing expression composes empty",
+  );
+  assert.equal(
+    expandSubstitutions("{x} \\{y} {z}", () => "V"),
+    "V {y} V",
+  );
 });

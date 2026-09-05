@@ -15,7 +15,17 @@ import { join, dirname } from "node:path";
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 /** …/test/fixtures/upstream/YarnSpinner/Tests — three levels up from dist/tests/upstream. */
-export const UPSTREAM_TESTS_DIR = join(HERE, "..", "..", "..", "test", "fixtures", "upstream", "YarnSpinner", "Tests");
+export const UPSTREAM_TESTS_DIR = join(
+  HERE,
+  "..",
+  "..",
+  "..",
+  "test",
+  "fixtures",
+  "upstream",
+  "YarnSpinner",
+  "Tests",
+);
 
 /**
  * The corpus is a git submodule; a plain clone leaves the mount empty.

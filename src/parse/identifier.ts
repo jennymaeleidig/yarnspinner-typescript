@@ -26,7 +26,8 @@ export const IDENTIFIER_HEAD = HEAD_ASCII + HEAD_RANGES + HEAD_ASTRAL;
 /** IDENTIFIER_CHARACTER: digits and the combining-mark ranges, plus
  *  IDENTIFIER_HEAD (a continuation character of an identifier). */
 export const IDENTIFIER_CHARACTER =
-  String.raw`0-9\u0300-\u036F\u1DC0-\u1DFF\u20D0-\u20FF\uFE20-\uFE2F` + IDENTIFIER_HEAD;
+  String.raw`0-9\u0300-\u036F\u1DC0-\u1DFF\u20D0-\u20FF\uFE20-\uFE2F` +
+  IDENTIFIER_HEAD;
 
 /** The full ID rule: one IDENTIFIER_HEAD, then IDENTIFIER_CHARACTERS. */
 export const IDENTIFIER = `[${IDENTIFIER_HEAD}][${IDENTIFIER_CHARACTER}]*`;

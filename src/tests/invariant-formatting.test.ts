@@ -27,7 +27,9 @@ function withCultureSensitiveApisBlocked<T>(fn: () => T): T {
   const numberToLocale = Number.prototype.toLocaleString;
   const stringToLocale = String.prototype.toLocaleString;
   const origNumberFormat = Intl.NumberFormat;
-  const guardedNumberFormat = function (...args: Parameters<typeof Intl.NumberFormat>) {
+  const guardedNumberFormat = function (
+    ...args: Parameters<typeof Intl.NumberFormat>
+  ) {
     if (args.length === 0 || args[0] == null) {
       throw new Error("Intl.NumberFormat used without an explicit locale");
     }
@@ -50,7 +52,10 @@ function runStory(source: string): string[] {
   const program = compileOk(source);
   const dialogue = new Dialogue(program, { startAt: "Start" });
   return runUntilCompleteEvents(dialogue)
-    .filter((event): event is Extract<DialogueEvent, { type: "line" }> => event.type === "line" && !!event.text)
+    .filter(
+      (event): event is Extract<DialogueEvent, { type: "line" }> =>
+        event.type === "line" && !!event.text,
+    )
     .map((event) => event.text);
 }
 

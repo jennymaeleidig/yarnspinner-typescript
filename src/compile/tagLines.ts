@@ -42,11 +42,20 @@
  */
 
 import { parseYarn, ParseError } from "../parse/parser.js";
-import type { Line, Option, Statement, YarnDocument, YarnNode } from "../model/ast.js";
+import type {
+  Line,
+  Option,
+  Statement,
+  YarnDocument,
+  YarnNode,
+} from "../model/ast.js";
 import { walkStatements } from "../model/walk.js";
 import { crc32Hex } from "./crc32.js";
 import { LineParser } from "../markup/lineParser.js";
-import { characterAttribute, characterAttributeNameProperty } from "../markup/lineParser.js";
+import {
+  characterAttribute,
+  characterAttributeNameProperty,
+} from "../markup/lineParser.js";
 import { tryGetProperty } from "../markup/types.js";
 import { describeError } from "../describeError.js";
 
@@ -57,7 +66,10 @@ export interface LineTagGenerator {
    * document order — line number, line text, existing content-ID tag or
    * null) and the IDs that must not be generated.
    */
-  prepareForLines(lineContexts: Record<string, LineTagContext[]>, excludedIDs: Set<string>): void;
+  prepareForLines(
+    lineContexts: Record<string, LineTagContext[]>,
+    excludedIDs: Set<string>,
+  ): void;
   /** Generate a unique line ID for the node's line at `lineIndex`. */
   generateLineTag(node: string, lineIndex: number): string;
 }
@@ -114,7 +126,10 @@ export interface TagLinesResult {
  * Add line tags to every user-visible line of `source` that lacks one
  * (upstream `Utility.TagLines`).
  */
-export function tagLines(source: string, opts: TagLinesOptions = {}): TagLinesResult {
+export function tagLines(
+  source: string,
+  opts: TagLinesOptions = {},
+): TagLinesResult {
   const fileName = opts.fileName ?? "<input>";
 
   // Parse the source. Any parse error bails before tagging: upstream isn't
@@ -171,10 +186,14 @@ export function tagLines(source: string, opts: TagLinesOptions = {}): TagLinesRe
         newLineID = generator.generateLineTag(nodeTitle, i);
 
         if (newLineID.trim() === "") {
-          throw new LineTaggingError("Line ID generator returned a null or empty line ID");
+          throw new LineTaggingError(
+            "Line ID generator returned a null or empty line ID",
+          );
         }
         if (fullKnownIDs.has(newLineID) || nodeKnownIDs.has(newLineID)) {
-          throw new LineTaggingError(`Line ID generator returned a duplicate line tag ${newLineID}`);
+          throw new LineTaggingError(
+            `Line ID generator returned a duplicate line tag ${newLineID}`,
+          );
         }
         if (!newLineID.startsWith("line:")) {
           throw new LineTaggingError(
@@ -189,7 +208,11 @@ export function tagLines(source: string, opts: TagLinesOptions = {}): TagLinesRe
         const error =
           e instanceof LineTaggingError
             ? e
-            : new LineTaggingError(describeError(e), fileName, context.lineNumber);
+            : new LineTaggingError(
+                describeError(e),
+                fileName,
+                context.lineNumber,
+              );
         if (error.sourceFile === undefined) {
           error.sourceFile = fileName;
           error.lineNumber = context.lineNumber;
@@ -217,10 +240,16 @@ export function tagLines(source: string, opts: TagLinesOptions = {}): TagLinesRe
   // error comment inserts before the line's end. Existing trailing
   // whitespace is preserved.
   for (const [lineNumber, tag] of appliedTags) {
-    sourceLines[lineNumber] = sourceLines[lineNumber].replace(/(\s*)$/, ` #${tag} $1`);
+    sourceLines[lineNumber] = sourceLines[lineNumber].replace(
+      /(\s*)$/,
+      ` #${tag} $1`,
+    );
   }
   for (const [lineNumber, message] of errorComments) {
-    sourceLines[lineNumber] = sourceLines[lineNumber].replace(/(\s*)$/, ` // ERROR: ${message}$1`);
+    sourceLines[lineNumber] = sourceLines[lineNumber].replace(
+      /(\s*)$/,
+      ` // ERROR: ${message}$1`,
+    );
   }
 
   return {
@@ -252,7 +281,6 @@ function firstBodyLine(node: YarnNode): number | undefined {
   return undefined;
 }
 
-
 /** Every line-bearing statement of a statement list, document order — the
  * shared statement walker (src/model/walk.ts). */
 function collectLines(stmts: Statement[], out: LineTagContext[]): void {
@@ -267,7 +295,9 @@ function lineContext(line: Line | Option): LineTagContext {
   // A `#shadow:` tag counts as an existing ID: shadow lines are not tagged
   // (upstream records either tag as the line's LineID).
   const existing =
-    tags.find((t) => t.startsWith("line:")) ?? tags.find((t) => t.startsWith("shadow:")) ?? null;
+    tags.find((t) => t.startsWith("line:")) ??
+    tags.find((t) => t.startsWith("shadow:")) ??
+    null;
   return {
     lineNumber: (line.lineNumber ?? 1) - 1,
     lineText: line.text,
@@ -283,7 +313,10 @@ function lineContext(line: Line | Option): LineTagContext {
 export class RandomLineTagGenerator implements LineTagGenerator {
   private allKeys: Set<string> | null = null;
 
-  prepareForLines(lineContexts: Record<string, LineTagContext[]>, excludedIDs: Set<string>): void {
+  prepareForLines(
+    lineContexts: Record<string, LineTagContext[]>,
+    excludedIDs: Set<string>,
+  ): void {
     this.allKeys = new Set(excludedIDs);
     for (const lines of Object.values(lineContexts)) {
       for (const line of lines) {
@@ -294,7 +327,9 @@ export class RandomLineTagGenerator implements LineTagGenerator {
 
   generateLineTag(): string {
     if (this.allKeys === null) {
-      throw new LineTaggingError("Asked to generate a line tag but haven't been given the context");
+      throw new LineTaggingError(
+        "Asked to generate a line tag but haven't been given the context",
+      );
     }
     // Upstream caps the search at 500 ms (a wall clock — unavailable to the
     // library, coding standards §2); the same exception fires after an
@@ -304,9 +339,13 @@ export class RandomLineTagGenerator implements LineTagGenerator {
     let tag: string;
     do {
       if (attempt >= maxAttempts) {
-        throw new LineTaggingError("Unable to tag the line due to running out of time.");
+        throw new LineTaggingError(
+          "Unable to tag the line due to running out of time.",
+        );
       }
-      tag = `line:${Math.floor(Math.random() * 0x1000000).toString(16).padStart(7, "0")}`;
+      tag = `line:${Math.floor(Math.random() * 0x1000000)
+        .toString(16)
+        .padStart(7, "0")}`;
       attempt += 1;
     } while (this.allKeys.has(tag));
     this.allKeys.add(tag);
@@ -329,7 +368,10 @@ export class DescriptiveLineTagGenerator implements LineTagGenerator {
   private readonly exclusions = new Set<string>();
   private readonly lineParser = new LineParser();
 
-  prepareForLines(lineContexts: Record<string, LineTagContext[]>, excludedIDs: Set<string>): void {
+  prepareForLines(
+    lineContexts: Record<string, LineTagContext[]>,
+    excludedIDs: Set<string>,
+  ): void {
     this.lineContexts = lineContexts;
     this.numbers.clear();
     for (const id of excludedIDs) this.exclusions.add(id);
@@ -393,7 +435,9 @@ export class DescriptiveLineTagGenerator implements LineTagGenerator {
     const context = linesForNode[lineIndex];
     const parsedNumbers = this.numbers.get(node);
     if (!parsedNumbers) {
-      throw new LineTaggingError("Asked to generate a line tag but haven't been given the context");
+      throw new LineTaggingError(
+        "Asked to generate a line tag but haven't been given the context",
+      );
     }
 
     const parsedMarkup = this.parseLineText(context.lineText);
@@ -427,11 +471,16 @@ export class DescriptiveLineTagGenerator implements LineTagGenerator {
       } else {
         // Not enough space: dense packing (which forces generational numbers).
         increment = 1;
-        finalIndex = Math.min(neighbours.leftCount + relativeIndex, neighbours.rightCount);
+        finalIndex = Math.min(
+          neighbours.leftCount + relativeIndex,
+          neighbours.rightCount,
+        );
       }
     } else if (neighbours.leftIndex === -1) {
       // A rightmost neighbour only: inserted before any tagged lines.
-      increment = Math.floor(neighbours.rightCount / (neighbours.rightIndex + 1));
+      increment = Math.floor(
+        neighbours.rightCount / (neighbours.rightIndex + 1),
+      );
       if (increment > 0) {
         finalIndex = increment * (1 + lineIndex);
       } else {
@@ -442,14 +491,22 @@ export class DescriptiveLineTagGenerator implements LineTagGenerator {
       // A leftmost neighbour only: inserted after any tagged lines — continue
       // numbering from the next multiple of the index multiplier.
       const nextMultiple =
-        neighbours.leftCount + INDEX_MULTIPLIER - 1 - ((neighbours.leftCount + INDEX_MULTIPLIER - 1) % INDEX_MULTIPLIER);
+        neighbours.leftCount +
+        INDEX_MULTIPLIER -
+        1 -
+        ((neighbours.leftCount + INDEX_MULTIPLIER - 1) % INDEX_MULTIPLIER);
       increment = INDEX_MULTIPLIER;
-      finalIndex = (lineIndex - neighbours.leftIndex) * INDEX_MULTIPLIER + nextMultiple;
+      finalIndex =
+        (lineIndex - neighbours.leftIndex) * INDEX_MULTIPLIER + nextMultiple;
     }
 
     // Round up to the nearest five (neater numbers) when there's space.
     if (increment > ROUND_FACTOR) {
-      finalIndex = finalIndex + ROUND_FACTOR - 1 - ((finalIndex + ROUND_FACTOR - 1) % ROUND_FACTOR);
+      finalIndex =
+        finalIndex +
+        ROUND_FACTOR -
+        1 -
+        ((finalIndex + ROUND_FACTOR - 1) % ROUND_FACTOR);
     }
 
     lineIDComponents.push(String(finalIndex).padStart(4, "0"));
@@ -459,8 +516,12 @@ export class DescriptiveLineTagGenerator implements LineTagGenerator {
       lineIDComponents.push(`g${generation}`);
     }
 
-    const character = parsedMarkup?.attributes.find((a) => a.name === characterAttribute);
-    const name = character ? tryGetProperty(character, characterAttributeNameProperty) : undefined;
+    const character = parsedMarkup?.attributes.find(
+      (a) => a.name === characterAttribute,
+    );
+    const name = character
+      ? tryGetProperty(character, characterAttributeNameProperty)
+      : undefined;
     if (name && name.type === "string") {
       lineIDComponents.push(name.stringValue);
     }
@@ -512,8 +573,16 @@ export class DescriptiveLineTagGenerator implements LineTagGenerator {
 function getNeighbours(
   lineIndex: number,
   numbers: number[],
-): { leftCount: number; leftIndex: number; rightCount: number; rightIndex: number } {
-  let lc = -1, li = -1, rc = -1, ri = -1;
+): {
+  leftCount: number;
+  leftIndex: number;
+  rightCount: number;
+  rightIndex: number;
+} {
+  let lc = -1,
+    li = -1,
+    rc = -1,
+    ri = -1;
   for (let i = lineIndex + 1; i < numbers.length; i++) {
     if (numbers[i] === -1) continue;
     ri = i;

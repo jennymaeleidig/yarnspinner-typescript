@@ -14,12 +14,13 @@
 // plugin layers no pass of its own.
 
 import { dirname } from "node:path";
-import {
-  loadYarnProject,
-  nodeProjectFs,
-} from "yarn-spinner-runner-ts/node";
+import { loadYarnProject, nodeProjectFs } from "yarn-spinner-runner-ts/node";
 import { loadLocalisations } from "yarn-spinner-runner-ts";
-import { partitionDiagnostics, type CompileYarnOptions, type CompiledYarnModule } from "./compileModule.js";
+import {
+  partitionDiagnostics,
+  type CompileYarnOptions,
+  type CompiledYarnModule,
+} from "./compileModule.js";
 
 export function compileYarnProjectModule(
   projectFilePath: string,
@@ -27,14 +28,23 @@ export function compileYarnProjectModule(
 ): CompiledYarnModule {
   const { project, stringTable, program, diagnostics } = loadYarnProject(
     projectFilePath,
-    { declarations: opts.declarations, diagnosticsSeverity: opts.diagnosticsSeverity },
+    {
+      declarations: opts.declarations,
+      diagnosticsSeverity: opts.diagnosticsSeverity,
+    },
   );
   // Severity precedence lives in loadProject: the project file's own map
   // first, then the host-supplied option per-code (most specific wins) —
   // one layering implementation, applied by the shared pass inside
   // compile(). The plugin adds no pass of its own.
-  const localisation = loadLocalisations({ project, stringTable }, nodeProjectFs(dirname(projectFilePath)));
-  const { errors, warnings } = partitionDiagnostics([...diagnostics, ...localisation.diagnostics]);
+  const localisation = loadLocalisations(
+    { project, stringTable },
+    nodeProjectFs(dirname(projectFilePath)),
+  );
+  const { errors, warnings } = partitionDiagnostics([
+    ...diagnostics,
+    ...localisation.diagnostics,
+  ]);
   const code =
     `// ${projectFilePath} — loaded at build time by yarn-spinner-vite-plugin\n` +
     `export default ${JSON.stringify({

@@ -3,10 +3,12 @@
 Source: [docs.yarnspinner.dev — Once](https://docs.yarnspinner.dev/write-yarn-scripts/scripting-fundamentals/once)
 
 ### What it covers
+
 - Ensure a section runs only the first time it’s reached.
 - Useful for tutorials, first-time greetings, unique rewards.
 
 ### Example
+
 ```yarn
 title: Start
 ---
@@ -17,5 +19,3 @@ title: Start
 Guide: This shows every time.
 ===
 ```
-
-

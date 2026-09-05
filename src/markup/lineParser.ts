@@ -121,8 +121,10 @@ export function lexMarkup(input: string): LexerToken[] {
   let currentPosition = 0;
   let pos = 0; // the reader cursor (next character to read)
 
-  const peekChar = (): string | null => (pos < input.length ? input[pos] : null);
-  const readChar = (): string | null => (pos < input.length ? input[pos++] : null);
+  const peekChar = (): string | null =>
+    pos < input.length ? input[pos] : null;
+  const readChar = (): string | null =>
+    pos < input.length ? input[pos++] : null;
 
   while (pos < input.length) {
     const c = readChar()!;
@@ -137,7 +139,11 @@ export function lexMarkup(input: string): LexerToken[] {
         if (last.type === "text" && input[last.end] === "\\") {
           last.end = currentPosition;
         } else {
-          last = { type: "openMarker", start: currentPosition, end: currentPosition };
+          last = {
+            type: "openMarker",
+            start: currentPosition,
+            end: currentPosition,
+          };
           tokens.push(last);
           mode = "tag";
         }
@@ -151,11 +157,19 @@ export function lexMarkup(input: string): LexerToken[] {
       }
     } else if (mode === "tag") {
       if (c === "]") {
-        last = { type: "closeMarker", start: currentPosition, end: currentPosition };
+        last = {
+          type: "closeMarker",
+          start: currentPosition,
+          end: currentPosition,
+        };
         tokens.push(last);
         mode = "text";
       } else if (c === "/") {
-        last = { type: "closeSlash", start: currentPosition, end: currentPosition };
+        last = {
+          type: "closeSlash",
+          start: currentPosition,
+          end: currentPosition,
+        };
         tokens.push(last);
       } else if (c === "=") {
         last = { type: "equals", start: currentPosition, end: currentPosition };
@@ -165,7 +179,10 @@ export function lexMarkup(input: string): LexerToken[] {
         const start = currentPosition;
         // Eat until the NEXT character is not an identifier character.
         let next = peekChar();
-        while (next !== null && (isLetterOrDigit(next) || ALLOWED_IDENTIFIER_PUNCTUATION.has(next))) {
+        while (
+          next !== null &&
+          (isLetterOrDigit(next) || ALLOWED_IDENTIFIER_PUNCTUATION.has(next))
+        ) {
           readChar();
           currentPosition += 1;
           next = peekChar();
@@ -181,7 +198,11 @@ export function lexMarkup(input: string): LexerToken[] {
     } else if (mode === "value") {
       if (!isWhitespace(c)) {
         if (isDigit(c) || c === "-") {
-          const token: LexerToken = { type: "numberValue", start: currentPosition, end: currentPosition };
+          const token: LexerToken = {
+            type: "numberValue",
+            start: currentPosition,
+            end: currentPosition,
+          };
           let next = peekChar();
           if (next !== null && (isDigit(next) || next === ".")) {
             while (true) {
@@ -202,7 +223,14 @@ export function lexMarkup(input: string): LexerToken[] {
               }
             }
           }
-          if (isValidFloat(input.slice(token.start, token.start + (currentPosition + 1 - token.start)))) {
+          if (
+            isValidFloat(
+              input.slice(
+                token.start,
+                token.start + (currentPosition + 1 - token.start),
+              ),
+            )
+          ) {
             token.end = currentPosition;
             tokens.push(token);
             last = token;
@@ -214,7 +242,11 @@ export function lexMarkup(input: string): LexerToken[] {
           }
           mode = "tag";
         } else if (c === '"') {
-          const token: LexerToken = { type: "stringValue", start: currentPosition, end: currentPosition };
+          const token: LexerToken = {
+            type: "stringValue",
+            start: currentPosition,
+            end: currentPosition,
+          };
           if (peekChar() !== null) {
             // The next quote that isn't preceded by a backslash. When no
             // unescaped quote exists, upstream still searches — .NET's
@@ -224,7 +256,10 @@ export function lexMarkup(input: string): LexerToken[] {
             // string-value branch).
             const rest = input.slice(currentPosition + 1);
             const match = /(?<!\\)"/.exec(rest);
-            const nextQuote = input.indexOf('"', currentPosition + 1 + (match ? match.index : 0));
+            const nextQuote = input.indexOf(
+              '"',
+              currentPosition + 1 + (match ? match.index : 0),
+            );
             if (nextQuote === -1) {
               token.type = "error";
             } else {
@@ -244,7 +279,11 @@ export function lexMarkup(input: string): LexerToken[] {
           // An interpolated value — grabbed up to the next `}` for
           // diagnostics; the real parse happens in the Yarn expression
           // parser, so the interior is opaque here.
-          const token: LexerToken = { type: "interpolatedValue", start: currentPosition, end: currentPosition };
+          const token: LexerToken = {
+            type: "interpolatedValue",
+            start: currentPosition,
+            end: currentPosition,
+          };
           let exited = false;
           while (peekChar() !== null) {
             currentPosition += 1;
@@ -262,7 +301,11 @@ export function lexMarkup(input: string): LexerToken[] {
           mode = "tag";
         } else {
           // true / false / an undelimited alphanumeric string.
-          const token: LexerToken = { type: "stringValue", start: currentPosition, end: currentPosition };
+          const token: LexerToken = {
+            type: "stringValue",
+            start: currentPosition,
+            end: currentPosition,
+          };
           const next = peekChar();
           if (next !== null && isLetterOrDigit(next)) {
             while (true) {
@@ -273,8 +316,16 @@ export function lexMarkup(input: string): LexerToken[] {
               if (after === null || !isLetterOrDigit(after)) break;
             }
           }
-          const value = input.slice(token.start, token.start + (currentPosition + 1 - token.start));
-          if (value === "true" || value === "True" || value === "false" || value === "False") {
+          const value = input.slice(
+            token.start,
+            token.start + (currentPosition + 1 - token.start),
+          );
+          if (
+            value === "true" ||
+            value === "True" ||
+            value === "false" ||
+            value === "False"
+          ) {
             token.type = "booleanValue";
           }
           token.end = currentPosition;
@@ -378,11 +429,17 @@ export interface MarkupProperty {
   value: MarkupValue;
 }
 
-function textNode(text: string, firstToken: LexerToken | null = null): MarkupTreeNode {
+function textNode(
+  text: string,
+  firstToken: LexerToken | null = null,
+): MarkupTreeNode {
   return { name: null, firstToken, children: [], properties: [], text };
 }
 
-function elementNode(name: string | null, firstToken: LexerToken | null = null): MarkupTreeNode {
+function elementNode(
+  name: string | null,
+  firstToken: LexerToken | null = null,
+): MarkupTreeNode {
   return { name, firstToken, children: [], properties: [], text: null };
 }
 
@@ -396,7 +453,10 @@ function elementNode(name: string | null, firstToken: LexerToken | null = null):
  * instance.
  */
 export class LineParser {
-  private readonly markerProcessors = new Map<string, AttributeMarkerProcessor>();
+  private readonly markerProcessors = new Map<
+    string,
+    AttributeMarkerProcessor
+  >();
   private internalIncrementingAttribute = 1;
 
   /**
@@ -405,9 +465,14 @@ export class LineParser {
    * encountered, the processor supplies replacement text. Registering a
    * duplicate name is a host programming error and throws, as upstream.
    */
-  registerMarkerProcessor(attributeName: string, markerProcessor: AttributeMarkerProcessor): void {
+  registerMarkerProcessor(
+    attributeName: string,
+    markerProcessor: AttributeMarkerProcessor,
+  ): void {
     if (this.markerProcessors.has(attributeName)) {
-      throw new Error(`A marker processor for ${attributeName} has already been registered.`);
+      throw new Error(
+        `A marker processor for ${attributeName} has already been registered.`,
+      );
     }
     this.markerProcessors.set(attributeName, markerProcessor);
   }
@@ -434,7 +499,11 @@ export class LineParser {
   parseString(
     input: string,
     localeCode = "en",
-    options: { addImplicitCharacterAttribute?: boolean; squish?: boolean; sort?: boolean } = {},
+    options: {
+      addImplicitCharacterAttribute?: boolean;
+      squish?: boolean;
+      sort?: boolean;
+    } = {},
   ): MarkupParseResult {
     return this.parseStringWithDiagnostics(input, localeCode, options).markup;
   }
@@ -448,15 +517,23 @@ export class LineParser {
   parseStringWithDiagnostics(
     input: string,
     localeCode = "en",
-    options: { addImplicitCharacterAttribute?: boolean; squish?: boolean; sort?: boolean } = {},
+    options: {
+      addImplicitCharacterAttribute?: boolean;
+      squish?: boolean;
+      sort?: boolean;
+    } = {},
   ): { markup: MarkupParseResult; diagnostics: MarkupDiagnostic[] } {
-    const addImplicitCharacterAttribute = options.addImplicitCharacterAttribute ?? true;
+    const addImplicitCharacterAttribute =
+      options.addImplicitCharacterAttribute ?? true;
     const squish = options.squish ?? true;
     const sort = options.sort ?? true;
 
     let text = input.normalize();
 
-    if (addImplicitCharacterAttribute && /^\s*\[character/.test(text) === false) {
+    if (
+      addImplicitCharacterAttribute &&
+      /^\s*\[character/.test(text) === false
+    ) {
       // The line does not already contain a `[character]` marker at the
       // start; attempt to find a character name prefix and replace it with
       // markup that indicates the character name.
@@ -476,14 +553,23 @@ export class LineParser {
     // With lexing/parsing errors it makes no sense to continue: the text
     // composes as the input and no attributes.
     if (parseResult.diagnostics.length > 0) {
-      return { markup: { text: input, attributes: [] }, diagnostics: parseResult.diagnostics };
+      return {
+        markup: { text: input, attributes: [] },
+        diagnostics: parseResult.diagnostics,
+      };
     }
 
     const builder = new StringBuilder();
     const attributes: MarkupAttribute[] = [];
     const diagnostics: MarkupDiagnostic[] = [];
 
-    this.walkAndProcessTree(parseResult.tree, builder, attributes, localeCode, diagnostics);
+    this.walkAndProcessTree(
+      parseResult.tree,
+      builder,
+      attributes,
+      localeCode,
+      diagnostics,
+    );
 
     if (squish) {
       LineParser.squishSplitAttributes(attributes);
@@ -597,7 +683,14 @@ export class LineParser {
     const childBuilder = new StringBuilder();
     const childAttributes: MarkupAttribute[] = [];
     for (const child of root.children) {
-      this.walkTree(child, childBuilder, childAttributes, localeCode, diagnostics, builder.length + offset);
+      this.walkTree(
+        child,
+        childBuilder,
+        childAttributes,
+        localeCode,
+        diagnostics,
+        builder.length + offset,
+      );
     }
 
     // The root node has no name: just add the children and be done.
@@ -617,7 +710,12 @@ export class LineParser {
         name: root.name,
         properties: propertiesToRecord(root.properties),
       };
-      const result = rewriter.processReplacementMarker(attribute, childBuilder, childAttributes, localeCode);
+      const result = rewriter.processReplacementMarker(
+        attribute,
+        childBuilder,
+        childAttributes,
+        localeCode,
+      );
       diagnostics.push(...result.diagnostics);
       this.invisibleCharacters += result.invisibleCharacters;
     } else {
@@ -685,7 +783,9 @@ export class LineParser {
 
       // Only tag a node with the tracking ID once (an element may be split
       // multiple times).
-      const found = top.properties.some((p) => p.name === internalIncrementingProperty);
+      const found = top.properties.some(
+        (p) => p.name === internalIncrementingProperty,
+      );
       if (!found) {
         top.properties.push(this.internalIDproperty());
       }
@@ -728,7 +828,9 @@ export class LineParser {
   }
 }
 
-function propertiesToRecord(properties: MarkupProperty[]): Record<string, MarkupValue> {
+function propertiesToRecord(
+  properties: MarkupProperty[],
+): Record<string, MarkupValue> {
   const record: Record<string, MarkupValue> = {};
   const seen = new Set<string>();
   for (const property of properties) {
@@ -737,7 +839,9 @@ function propertiesToRecord(properties: MarkupProperty[]): Record<string, Markup
     // throws on a repeated name: duplicate property names in one tag are
     // an authoring error that surfaces as a throw, not last-wins.
     if (seen.has(property.name)) {
-      throw new Error(`An item with the same key has already been added. [Key: ${property.name}]`);
+      throw new Error(
+        `An item with the same key has already been added. [Key: ${property.name}]`,
+      );
     }
     seen.add(property.name);
     record[property.name] = property.value;
@@ -765,15 +869,24 @@ function buildMarkupTreeFromTokens(
   const og = original.normalize();
 
   if (tokens.length < 2) {
-    diagnostics.push({ message: "There are not enough tokens to form a valid tree.", column: -1 });
+    diagnostics.push({
+      message: "There are not enough tokens to form a valid tree.",
+      column: -1,
+    });
     return { tree, diagnostics };
   }
   if (og === "") {
-    diagnostics.push({ message: "There is a valid list of tokens but no original string.", column: -1 });
+    diagnostics.push({
+      message: "There is a valid list of tokens but no original string.",
+      column: -1,
+    });
     return { tree, diagnostics };
   }
   if (tokens[0].type !== "start" && tokens[tokens.length - 1].type !== "end") {
-    diagnostics.push({ message: "Token list doesn't start and end with the correct tokens.", column: -1 });
+    diagnostics.push({
+      message: "Token list doesn't start and end with the correct tokens.",
+      column: -1,
+    });
     return { tree, diagnostics };
   }
 
@@ -786,7 +899,10 @@ function buildMarkupTreeFromTokens(
   };
   const tryFloatFromToken = (token: LexerToken): number | null => {
     const valueString = og.slice(token.start, token.end + 1);
-    if (/^[-+]?(\d+(\.\d*)?|\.\d+)$/.test(valueString) && Number.isFinite(Number(valueString))) {
+    if (
+      /^[-+]?(\d+(\.\d*)?|\.\d+)$/.test(valueString) &&
+      Number.isFinite(Number(valueString))
+    ) {
       return Number(valueString);
     }
     return null;
@@ -802,30 +918,68 @@ function buildMarkupTreeFromTokens(
     let valueString = og.slice(token.start, token.end + 1);
     if (valueString.startsWith('"') && valueString.endsWith('"')) {
       // Inside delimiters, escaped characters are removed.
-      valueString = valueString.replaceAll("\\", "").replace(/^"+/g, "").replace(/"+$/g, "");
+      valueString = valueString
+        .replaceAll("\\", "")
+        .replace(/^"+/g, "")
+        .replace(/"+$/g, "");
     }
     return valueString;
   };
   const valueFromInterpolatedToken = (token: LexerToken): string => {
     // Removing the { } from the interpolated value.
-    return og.slice(token.start, token.end + 1).replace(/^{+/g, "").replace(/}+$/g, "");
+    return og
+      .slice(token.start, token.end + 1)
+      .replace(/^{+/g, "")
+      .replace(/}+$/g, "");
   };
 
   // [ / ]
-  const closeAllPattern: LexerTokenType[] = ["openMarker", "closeSlash", "closeMarker"];
+  const closeAllPattern: LexerTokenType[] = [
+    "openMarker",
+    "closeSlash",
+    "closeMarker",
+  ];
   // [ / ID ]
-  const closeOpenAttributePattern: LexerTokenType[] = ["openMarker", "closeSlash", "identifier", "closeMarker"];
+  const closeOpenAttributePattern: LexerTokenType[] = [
+    "openMarker",
+    "closeSlash",
+    "identifier",
+    "closeMarker",
+  ];
   // [ / ~( ID | ] )
   const closeErrorPattern: LexerTokenType[] = ["openMarker", "closeSlash"];
   // [ ID ]
-  const openAttributePropertyLessPattern: LexerTokenType[] = ["openMarker", "identifier", "closeMarker"];
+  const openAttributePropertyLessPattern: LexerTokenType[] = [
+    "openMarker",
+    "identifier",
+    "closeMarker",
+  ];
   // ID = VALUE
-  const numberPropertyPattern: LexerTokenType[] = ["identifier", "equals", "numberValue"];
-  const booleanPropertyPattern: LexerTokenType[] = ["identifier", "equals", "booleanValue"];
-  const stringPropertyPattern: LexerTokenType[] = ["identifier", "equals", "stringValue"];
-  const interpolatedPropertyPattern: LexerTokenType[] = ["identifier", "equals", "interpolatedValue"];
+  const numberPropertyPattern: LexerTokenType[] = [
+    "identifier",
+    "equals",
+    "numberValue",
+  ];
+  const booleanPropertyPattern: LexerTokenType[] = [
+    "identifier",
+    "equals",
+    "booleanValue",
+  ];
+  const stringPropertyPattern: LexerTokenType[] = [
+    "identifier",
+    "equals",
+    "stringValue",
+  ];
+  const interpolatedPropertyPattern: LexerTokenType[] = [
+    "identifier",
+    "equals",
+    "interpolatedValue",
+  ];
   // / ]
-  const selfClosingAttributeEndPattern: LexerTokenType[] = ["closeSlash", "closeMarker"];
+  const selfClosingAttributeEndPattern: LexerTokenType[] = [
+    "closeSlash",
+    "closeMarker",
+  ];
 
   const stream = new TokenStream(tokens);
 
@@ -850,7 +1004,9 @@ function buildMarkupTreeFromTokens(
           cleanUpUnmatchedCloses(openNodes, unmatchedCloses, diagnostics);
         }
         const text = og.slice(stream.current.start, stream.current.end + 1);
-        openNodes[openNodes.length - 1].children.push(textNode(text, stream.current));
+        openNodes[openNodes.length - 1].children.push(
+          textNode(text, stream.current),
+        );
         break;
       }
 
@@ -934,9 +1090,15 @@ function buildMarkupTreeFromTokens(
             while ((stream.current.type as LexerTokenType) !== "end") {
               if (stream.comparePattern(closeOpenAttributePattern)) {
                 const nmIDToken = stream.lookAhead(2);
-                if (og.slice(nmIDToken.start, nmIDToken.end + 1) === noMarkupAttribute) {
+                if (
+                  og.slice(nmIDToken.start, nmIDToken.end + 1) ===
+                  noMarkupAttribute
+                ) {
                   const text = textNode(
-                    og.slice(firstTokenAfterNoMarkup.start, stream.current.start),
+                    og.slice(
+                      firstTokenAfterNoMarkup.start,
+                      stream.current.start,
+                    ),
                   );
                   nm = elementNode(noMarkupAttribute, tokenStart);
                   nm.children.push(text);
@@ -948,7 +1110,8 @@ function buildMarkupTreeFromTokens(
             }
             if (nm === null) {
               diagnostics.push({
-                message: "we entered nomarkup mode but didn't find an exit token",
+                message:
+                  "we entered nomarkup mode but didn't find an exit token",
                 column: tokenStart.start,
               });
             } else {
@@ -1004,11 +1167,17 @@ function buildMarkupTreeFromTokens(
           const valueToken = stream.lookAhead(2);
           const intValue = tryIntFromToken(valueToken);
           if (intValue !== null) {
-            openNodes[openNodes.length - 1].properties.push({ name: id, value: integerMarkupValue(intValue) });
+            openNodes[openNodes.length - 1].properties.push({
+              name: id,
+              value: integerMarkupValue(intValue),
+            });
           } else {
             const floatValue = tryFloatFromToken(valueToken);
             if (floatValue !== null) {
-              openNodes[openNodes.length - 1].properties.push({ name: id, value: floatMarkupValue(floatValue) });
+              openNodes[openNodes.length - 1].properties.push({
+                name: id,
+                value: floatMarkupValue(floatValue),
+              });
             } else {
               diagnostics.push({
                 message: `failed to convert the value ${og.slice(valueToken.start, valueToken.end + 1)} into a valid property`,
@@ -1020,7 +1189,10 @@ function buildMarkupTreeFromTokens(
           const valueToken = stream.lookAhead(2);
           const boolValue = tryBoolFromToken(valueToken);
           if (boolValue !== null) {
-            openNodes[openNodes.length - 1].properties.push({ name: id, value: boolMarkupValue(boolValue) });
+            openNodes[openNodes.length - 1].properties.push({
+              name: id,
+              value: boolMarkupValue(boolValue),
+            });
           } else {
             diagnostics.push({
               message: `failed to convert the value ${og.slice(valueToken.start, valueToken.end + 1)} into a valid property`,
@@ -1059,9 +1231,14 @@ function buildMarkupTreeFromTokens(
         // which can't have children.
         if (stream.comparePattern(selfClosingAttributeEndPattern)) {
           const top = openNodes.pop()!;
-          const found = top.properties.some((p) => p.name === trimWhitespaceProperty);
+          const found = top.properties.some(
+            (p) => p.name === trimWhitespaceProperty,
+          );
           if (!found) {
-            top.properties.push({ name: trimWhitespaceProperty, value: boolMarkupValue(true) });
+            top.properties.push({
+              name: trimWhitespaceProperty,
+              value: boolMarkupValue(true),
+            });
           }
           stream.consume(1);
         } else {
@@ -1091,7 +1268,9 @@ function buildMarkupTreeFromTokens(
       nodeNames.push("[" + node.name + "]");
     }
     diagnostics.push({
-      message: "parsing finished with unclosed attributes still on the stack: " + nodeNames.join(", "),
+      message:
+        "parsing finished with unclosed attributes still on the stack: " +
+        nodeNames.join(", "),
       column: -1,
     });
   }

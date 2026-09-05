@@ -38,7 +38,7 @@ export function crc32(s: string): number {
     const index = (crc ^ bytes[i]) & 0xff;
     crc = (crc >>> 8) ^ LOOKUP_TABLE[index];
   }
-  return (~crc) >>> 0;
+  return ~crc >>> 0;
 }
 
 /**
@@ -47,6 +47,11 @@ export function crc32(s: string): number {
  */
 export function crc32Hex(s: string): string {
   const checksum = crc32(s);
-  const bytes = [checksum & 0xff, (checksum >>> 8) & 0xff, (checksum >>> 16) & 0xff, (checksum >>> 24) & 0xff];
+  const bytes = [
+    checksum & 0xff,
+    (checksum >>> 8) & 0xff,
+    (checksum >>> 16) & 0xff,
+    (checksum >>> 24) & 0xff,
+  ];
   return bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
 }

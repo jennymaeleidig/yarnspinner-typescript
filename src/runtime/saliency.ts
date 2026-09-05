@@ -62,7 +62,9 @@ export interface SaliencyState {
  * update belongs in `contentWasSelected`.
  */
 export interface ContentSaliencyStrategy {
-  queryBestContent(content: readonly ContentSaliencyOption[]): ContentSaliencyOption | null;
+  queryBestContent(
+    content: readonly ContentSaliencyOption[],
+  ): ContentSaliencyOption | null;
   contentWasSelected(content: ContentSaliencyOption): void;
 }
 
@@ -71,7 +73,9 @@ export interface ContentSaliencyStrategy {
  * dialogue must choose but has no tracked saliency state.
  */
 export class FirstSaliencyStrategy implements ContentSaliencyStrategy {
-  queryBestContent(content: readonly ContentSaliencyOption[]): ContentSaliencyOption | null {
+  queryBestContent(
+    content: readonly ContentSaliencyOption[],
+  ): ContentSaliencyOption | null {
     return content.find((c) => c.failingConditionValueCount === 0) ?? null;
   }
   contentWasSelected(): void {}
@@ -83,7 +87,9 @@ export class FirstSaliencyStrategy implements ContentSaliencyStrategy {
  * often it has been seen.
  */
 export class BestSaliencyStrategy implements ContentSaliencyStrategy {
-  queryBestContent(content: readonly ContentSaliencyOption[]): ContentSaliencyOption | null {
+  queryBestContent(
+    content: readonly ContentSaliencyOption[],
+  ): ContentSaliencyOption | null {
     let best: ContentSaliencyOption | null = null;
     for (const c of content) {
       if (c.failingConditionValueCount !== 0) continue;
@@ -111,7 +117,10 @@ function bestLeastRecentlyViewed(
       continue;
     }
     const views = state.getViewCount(c.contentId);
-    if (views < bestViews || (views === bestViews && c.complexityScore > best.complexityScore)) {
+    if (
+      views < bestViews ||
+      (views === bestViews && c.complexityScore > best.complexityScore)
+    ) {
       best = c;
       bestViews = views;
     }
@@ -126,7 +135,9 @@ function bestLeastRecentlyViewed(
  */
 export class BestLeastRecentlyViewedSaliencyStrategy implements ContentSaliencyStrategy {
   constructor(private readonly state: SaliencyState) {}
-  queryBestContent(content: readonly ContentSaliencyOption[]): ContentSaliencyOption | null {
+  queryBestContent(
+    content: readonly ContentSaliencyOption[],
+  ): ContentSaliencyOption | null {
     return bestLeastRecentlyViewed(content, this.state);
   }
   contentWasSelected(content: ContentSaliencyOption): void {
@@ -140,13 +151,16 @@ export class BestLeastRecentlyViewedSaliencyStrategy implements ContentSaliencyS
  */
 export class RandomBestLeastRecentlyViewedSaliencyStrategy implements ContentSaliencyStrategy {
   constructor(private readonly state: SaliencyState) {}
-  queryBestContent(content: readonly ContentSaliencyOption[]): ContentSaliencyOption | null {
+  queryBestContent(
+    content: readonly ContentSaliencyOption[],
+  ): ContentSaliencyOption | null {
     const passing = content.filter((c) => c.failingConditionValueCount === 0);
     if (passing.length === 0) return null;
     // Group by view count (least first), then by complexity (highest first),
     // and pick a random element of the final group (upstream's grouping).
     let group = passing;
-    let key = (c: ContentSaliencyOption) => this.state.getViewCount(c.contentId);
+    let key = (c: ContentSaliencyOption) =>
+      this.state.getViewCount(c.contentId);
     group = extremalGroup(group, key, "min");
     key = (c) => c.complexityScore;
     group = extremalGroup(group, key, "max");
@@ -167,7 +181,10 @@ function extremalGroup<T>(
   let group: T[] = [];
   for (const item of items) {
     const value = key(item);
-    if (group.length === 0 || (which === "min" ? value < extreme : value > extreme)) {
+    if (
+      group.length === 0 ||
+      (which === "min" ? value < extreme : value > extreme)
+    ) {
       extreme = value;
       group = [item];
     } else if (value === extreme) {
@@ -222,7 +239,9 @@ export function saliencyStrategyForMode(
 }
 
 /** The runtime's default strategy (upstream `VirtualMachine`'s constructor). */
-export function defaultSaliencyStrategy(state: SaliencyState): ContentSaliencyStrategy {
+export function defaultSaliencyStrategy(
+  state: SaliencyState,
+): ContentSaliencyStrategy {
   return saliencyStrategyForMode(DEFAULT_SALIENCY_MODE, state)!;
 }
 
@@ -261,7 +280,8 @@ export function booleanOperatorCount(expression: string): number {
       // named `$or` never reads as the operator.
       const start = c === "$" ? i + 1 : i;
       let end = start;
-      while (end < expression.length && /[A-Za-z0-9_]/.test(expression[end])) end++;
+      while (end < expression.length && /[A-Za-z0-9_]/.test(expression[end]))
+        end++;
       if (c !== "$") {
         const word = expression.slice(start, end);
         if (word === "and" || word === "or" || word === "xor") count++;
@@ -361,7 +381,12 @@ export function nodeGroupMemberId(
 ): string {
   if (member.subtitle) return `${groupTitle}.${member.subtitle}`;
   if (member.sourceFile !== undefined && member.startLine !== undefined) {
-    return nodeGroupUniqueName(groupTitle, undefined, member.sourceFile, member.startLine);
+    return nodeGroupUniqueName(
+      groupTitle,
+      undefined,
+      member.sourceFile,
+      member.startLine,
+    );
   }
   return `${groupTitle}.${index}`;
 }

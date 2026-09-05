@@ -71,7 +71,11 @@ export class NodeDebugInfo {
   /** Instruction index → source range (upstream `LineRanges`). */
   private readonly lineRanges = new Map<number, DebugRange>();
 
-  constructor(fileName: string | undefined, nodeName: string, range: DebugRange) {
+  constructor(
+    fileName: string | undefined,
+    nodeName: string,
+    range: DebugRange,
+  ) {
     this.fileName = fileName;
     this.nodeName = nodeName;
     this.range = range;
@@ -167,7 +171,11 @@ function buildNodeDebugInfo(
   member: ProgramNode,
 ): NodeDebugInfo {
   const locator = new NodeSourceLocator(input.source, node);
-  const info = new NodeDebugInfo(node.sourceFile ?? input.name, member.title, locator.nodeRange());
+  const info = new NodeDebugInfo(
+    node.sourceFile ?? input.name,
+    member.title,
+    locator.nodeRange(),
+  );
 
   // Line-bearing statements keyed by their `line:` ID — the program's
   // runLine/addOption instructions carry the same ID (the string-table pass
@@ -288,7 +296,10 @@ class NodeSourceLocator {
   nodeRange(): DebugRange {
     return {
       start: { line: this.nodeStart, character: 0 },
-      end: { line: this.nodeEnd, character: this.lines[this.nodeEnd]?.length ?? 0 },
+      end: {
+        line: this.nodeEnd,
+        character: this.lines[this.nodeEnd]?.length ?? 0,
+      },
     };
   }
 

@@ -24,7 +24,11 @@
  */
 
 import { compile, emptyCompileResult, hasErrors } from "./compileSource.js";
-import type { CompileFile, CompileOptions, CompileResult } from "./compileSource.js";
+import type {
+  CompileFile,
+  CompileOptions,
+  CompileResult,
+} from "./compileSource.js";
 import { isDiagnosticSeverity } from "./diagnostics.js";
 import type { Diagnostic, DiagnosticSeverity } from "./diagnostics.js";
 import { describeError } from "../describeError.js";
@@ -245,9 +249,17 @@ export function parseYarnProject(
   if (typeof project === "string") {
     try {
       const parsed: unknown = JSON.parse(project);
-      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      if (
+        typeof parsed !== "object" ||
+        parsed === null ||
+        Array.isArray(parsed)
+      ) {
         diagnostics.push(
-          projectDiagnostic("YP0001", "Project file must contain a JSON object", projectFile),
+          projectDiagnostic(
+            "YP0001",
+            "Project file must contain a JSON object",
+            projectFile,
+          ),
         );
       } else {
         raw = parsed as Record<string, unknown>;
@@ -274,7 +286,13 @@ export function parseYarnProject(
   // projectFileVersion: required, integer, 2 or 4 (3 is the dead dev version).
   const version = raw.projectFileVersion;
   if (version === undefined) {
-    return fail(projectDiagnostic("YP0003", "Required field `projectFileVersion` is missing", projectFile));
+    return fail(
+      projectDiagnostic(
+        "YP0003",
+        "Required field `projectFileVersion` is missing",
+        projectFile,
+      ),
+    );
   }
   if (typeof version !== "number" || !Number.isInteger(version)) {
     return fail(
@@ -309,47 +327,86 @@ export function parseYarnProject(
   // validation failure here).
   const sourceFiles = raw.sourceFiles;
   if (sourceFiles === undefined) {
-    return fail(projectDiagnostic("YP0003", "Required field `sourceFiles` is missing", projectFile));
+    return fail(
+      projectDiagnostic(
+        "YP0003",
+        "Required field `sourceFiles` is missing",
+        projectFile,
+      ),
+    );
   }
   if (
     !Array.isArray(sourceFiles) ||
     sourceFiles.some((s) => typeof s !== "string")
   ) {
     return fail(
-      projectDiagnostic("YP0003", "`sourceFiles` must be an array of glob strings", projectFile),
+      projectDiagnostic(
+        "YP0003",
+        "`sourceFiles` must be an array of glob strings",
+        projectFile,
+      ),
     );
   }
 
   // baseLanguage: required string.
   const baseLanguage = raw.baseLanguage;
   if (baseLanguage === undefined) {
-    return fail(projectDiagnostic("YP0003", "Required field `baseLanguage` is missing", projectFile));
+    return fail(
+      projectDiagnostic(
+        "YP0003",
+        "Required field `baseLanguage` is missing",
+        projectFile,
+      ),
+    );
   }
   if (typeof baseLanguage !== "string") {
     return fail(
-      projectDiagnostic("YP0003", "`baseLanguage` must be a string language code", projectFile),
+      projectDiagnostic(
+        "YP0003",
+        "`baseLanguage` must be a string language code",
+        projectFile,
+      ),
     );
   }
 
   // excludeFiles: optional array of strings.
   const excludeFiles = raw.excludeFiles;
-  if (excludeFiles !== undefined && (!Array.isArray(excludeFiles) || excludeFiles.some((s) => typeof s !== "string"))) {
+  if (
+    excludeFiles !== undefined &&
+    (!Array.isArray(excludeFiles) ||
+      excludeFiles.some((s) => typeof s !== "string"))
+  ) {
     return fail(
-      projectDiagnostic("YP0003", "`excludeFiles` must be an array of glob strings", projectFile),
+      projectDiagnostic(
+        "YP0003",
+        "`excludeFiles` must be an array of glob strings",
+        projectFile,
+      ),
     );
   }
 
   // projectName / authorName: optional, but the schema types them — malformed
   // values are diagnosed (failures legible, never silent).
   if (raw.projectName !== undefined && typeof raw.projectName !== "string") {
-    return fail(projectDiagnostic("YP0003", "`projectName` must be a string", projectFile));
+    return fail(
+      projectDiagnostic(
+        "YP0003",
+        "`projectName` must be a string",
+        projectFile,
+      ),
+    );
   }
   if (
     raw.authorName !== undefined &&
-    (!Array.isArray(raw.authorName) || raw.authorName.some((a) => typeof a !== "string"))
+    (!Array.isArray(raw.authorName) ||
+      raw.authorName.some((a) => typeof a !== "string"))
   ) {
     return fail(
-      projectDiagnostic("YP0003", "`authorName` must be an array of author name strings", projectFile),
+      projectDiagnostic(
+        "YP0003",
+        "`authorName` must be an array of author name strings",
+        projectFile,
+      ),
     );
   }
 
@@ -357,7 +414,11 @@ export function parseYarnProject(
   let localisation: YarnProject["localisation"];
   const rawLocalisation = raw.localisation;
   if (rawLocalisation !== undefined) {
-    if (typeof rawLocalisation !== "object" || rawLocalisation === null || Array.isArray(rawLocalisation)) {
+    if (
+      typeof rawLocalisation !== "object" ||
+      rawLocalisation === null ||
+      Array.isArray(rawLocalisation)
+    ) {
       return fail(
         projectDiagnostic(
           "YP0003",
@@ -380,12 +441,20 @@ export function parseYarnProject(
       const e = entry as Record<string, unknown>;
       if (e.strings !== undefined && typeof e.strings !== "string") {
         return fail(
-          projectDiagnostic("YP0003", `\`localisation.${lang}.strings\` must be a string path`, projectFile),
+          projectDiagnostic(
+            "YP0003",
+            `\`localisation.${lang}.strings\` must be a string path`,
+            projectFile,
+          ),
         );
       }
       if (e.assets !== undefined && typeof e.assets !== "string") {
         return fail(
-          projectDiagnostic("YP0003", `\`localisation.${lang}.assets\` must be a string path`, projectFile),
+          projectDiagnostic(
+            "YP0003",
+            `\`localisation.${lang}.assets\` must be a string path`,
+            projectFile,
+          ),
         );
       }
       // The schema closes localisation entries (additionalProperties: false) —
@@ -447,9 +516,17 @@ export function parseYarnProject(
   const compilerOptions = raw.compilerOptions;
   let carriedCompilerOptions: YarnProject["compilerOptions"] | undefined;
   if (compilerOptions !== undefined) {
-    if (typeof compilerOptions !== "object" || compilerOptions === null || Array.isArray(compilerOptions)) {
+    if (
+      typeof compilerOptions !== "object" ||
+      compilerOptions === null ||
+      Array.isArray(compilerOptions)
+    ) {
       return fail(
-        projectDiagnostic("YP0003", "`compilerOptions` must be an object", projectFile),
+        projectDiagnostic(
+          "YP0003",
+          "`compilerOptions` must be an object",
+          projectFile,
+        ),
       );
     }
     const carried: NonNullable<YarnProject["compilerOptions"]> = {};
@@ -461,7 +538,12 @@ export function parseYarnProject(
         // the flag is currently inert, recorded here and on the ticket).
         if (typeof value !== "boolean") {
           diagnostics.push(
-            projectDiagnostic("YP0003", "`compilerOptions.allowPreviewFeatures` must be a boolean", projectFile, "compilerOptions.allowPreviewFeatures"),
+            projectDiagnostic(
+              "YP0003",
+              "`compilerOptions.allowPreviewFeatures` must be a boolean",
+              projectFile,
+              "compilerOptions.allowPreviewFeatures",
+            ),
           );
           continue;
         }
@@ -471,15 +553,26 @@ export function parseYarnProject(
       if (key === "diagnosticsSeverity") {
         // Upstream `CompilerOptions.DiagnosticsSeverity`: a map of
         // diagnostic code → severity, honoured by `compile()`.
-        if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        if (
+          typeof value !== "object" ||
+          value === null ||
+          Array.isArray(value)
+        ) {
           diagnostics.push(
-            projectDiagnostic("YP0003", "`compilerOptions.diagnosticsSeverity` must be an object", projectFile, "compilerOptions.diagnosticsSeverity"),
+            projectDiagnostic(
+              "YP0003",
+              "`compilerOptions.diagnosticsSeverity` must be an object",
+              projectFile,
+              "compilerOptions.diagnosticsSeverity",
+            ),
           );
           continue;
         }
         const overrides: Record<string, DiagnosticSeverity> = {};
         let valid = true;
-        for (const [code, severity] of Object.entries(value as Record<string, unknown>)) {
+        for (const [code, severity] of Object.entries(
+          value as Record<string, unknown>,
+        )) {
           if (!isDiagnosticSeverity(severity)) {
             diagnostics.push(
               projectDiagnostic(
@@ -519,11 +612,19 @@ export function parseYarnProject(
   if (raw.definitions !== undefined) {
     if (typeof raw.definitions === "string") {
       definitions = [raw.definitions];
-    } else if (Array.isArray(raw.definitions) && raw.definitions.every((d) => typeof d === "string")) {
+    } else if (
+      Array.isArray(raw.definitions) &&
+      raw.definitions.every((d) => typeof d === "string")
+    ) {
       definitions = raw.definitions as string[];
     } else {
       diagnostics.push(
-        projectDiagnostic("YP0003", "`definitions` must be a string or an array of strings", projectFile, "definitions"),
+        projectDiagnostic(
+          "YP0003",
+          "`definitions` must be a string or an array of strings",
+          projectFile,
+          "definitions",
+        ),
       );
     }
   }
@@ -532,10 +633,16 @@ export function parseYarnProject(
     projectFileVersion: version,
     sourceFiles: sourceFiles as string[],
     baseLanguage,
-    ...(excludeFiles !== undefined ? { excludeFiles: excludeFiles as string[] } : {}),
-    ...(typeof raw.projectName === "string" ? { projectName: raw.projectName } : {}),
+    ...(excludeFiles !== undefined
+      ? { excludeFiles: excludeFiles as string[] }
+      : {}),
+    ...(typeof raw.projectName === "string"
+      ? { projectName: raw.projectName }
+      : {}),
     ...(localisation !== undefined ? { localisation } : {}),
-    ...(carriedCompilerOptions !== undefined ? { compilerOptions: carriedCompilerOptions } : {}),
+    ...(carriedCompilerOptions !== undefined
+      ? { compilerOptions: carriedCompilerOptions }
+      : {}),
     ...(definitions !== undefined ? { definitions } : {}),
   };
   return { project: project0, diagnostics };
@@ -572,7 +679,10 @@ function resolveSources(
   // Referenced strings files must exist — diagnosed here at validation time;
   // consuming their contents is projectLocalisation.ts (localisation wiring).
   for (const [lang, entry] of Object.entries(project.localisation ?? {})) {
-    if (entry.strings !== undefined && fileSystem.read(entry.strings) === null) {
+    if (
+      entry.strings !== undefined &&
+      fileSystem.read(entry.strings) === null
+    ) {
       diagnostics.push(
         projectDiagnostic(
           "YP0006",
@@ -586,7 +696,10 @@ function resolveSources(
   return { sources: matched, diagnostics };
 }
 
-function toCompileFiles(sources: string[], fileSystem: YarnProjectFileSystem): {
+function toCompileFiles(
+  sources: string[],
+  fileSystem: YarnProjectFileSystem,
+): {
   files: CompileFile[];
   diagnostics: Diagnostic[];
 } {
@@ -596,7 +709,11 @@ function toCompileFiles(sources: string[], fileSystem: YarnProjectFileSystem): {
     const source = fileSystem.read(path);
     if (source === null) {
       diagnostics.push(
-        projectDiagnostic("YP0008", `Source file matched but could not be read: ${path}`, path),
+        projectDiagnostic(
+          "YP0008",
+          `Source file matched but could not be read: ${path}`,
+          path,
+        ),
       );
       continue;
     }
@@ -622,7 +739,10 @@ export function listSources(opts: LoadProjectOptions): SourceList {
   const { project, diagnostics } = parseYarnProject(opts.project, projectFile);
   if (!project) return { sources: [], diagnostics };
   const resolved = resolveSources(project, opts.fileSystem, projectFile);
-  return { sources: resolved.sources, diagnostics: [...diagnostics, ...resolved.diagnostics] };
+  return {
+    sources: resolved.sources,
+    diagnostics: [...diagnostics, ...resolved.diagnostics],
+  };
 }
 
 /**
@@ -643,7 +763,10 @@ export function loadProject(opts: LoadProjectOptions): LoadProjectResult {
   if (hasErrors(resolved.diagnostics)) {
     return failedResult(allDiagnostics, project, resolved.sources);
   }
-  const { files, diagnostics: readDiagnostics } = toCompileFiles(resolved.sources, opts.fileSystem);
+  const { files, diagnostics: readDiagnostics } = toCompileFiles(
+    resolved.sources,
+    opts.fileSystem,
+  );
   // Severity precedence — the one home for layering: the project file's
   // `compilerOptions.diagnosticsSeverity` first, then the host-supplied
   // option per-code (most specific wins). Direct callers and the companion

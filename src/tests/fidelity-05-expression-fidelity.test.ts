@@ -28,7 +28,8 @@ import { runUntilCompleteEvents } from "../runtime/transcript.js";
 import { ExpressionEvaluator } from "../runtime/evaluator.js";
 import { InMemoryVariableStorage } from "../runtime/variableStorage.js";
 
-const node = (content: string): string => `title: Start\n---\n${content}\n===\n`;
+const node = (content: string): string =>
+  `title: Start\n---\n${content}\n===\n`;
 
 const drain = runUntilCompleteEvents;
 
@@ -41,11 +42,13 @@ test("$a == $b < $c parses comparison-tighter (upstream precedence ladder)", () 
   // differ observably. ($a is declared bool so the equality's operand
   // types are legal — Bool == Bool.)
   const source = node(
-    '<<declare $a = false>>\n<<declare $b = 1>>\n<<declare $c = 0>>\n<<if $a == $b < $c>>\nUpstream tree\n<<else>>\nMerged tree\n<<endif>>',
+    "<<declare $a = false>>\n<<declare $b = 1>>\n<<declare $c = 0>>\n<<if $a == $b < $c>>\nUpstream tree\n<<else>>\nMerged tree\n<<endif>>",
   );
   const dialogue = new Dialogue(compileOk(source));
   const events = drain(dialogue);
-  const lines = events.filter((e) => e.type === "line").map((e) => (e as { text: string }).text);
+  const lines = events
+    .filter((e) => e.type === "line")
+    .map((e) => (e as { text: string }).text);
   assert.deepEqual(lines, ["Upstream tree"]);
 });
 
@@ -54,7 +57,9 @@ test("the checker's tree and the runtime result agree on the upstream tree", () 
   // operands are $b and $c (lessThan), then equalTo against $a. Inspect via
   // the program's instructions — the public compile seam's program.
   const { program } = compileSource(
-    node('<<declare $a = false>>\n<<declare $b = 1>>\n<<declare $c = 0>>\n<<if $a == $b < $c>>\nX\n<<endif>>'),
+    node(
+      "<<declare $a = false>>\n<<declare $b = 1>>\n<<declare $c = 0>>\n<<if $a == $b < $c>>\nX\n<<endif>>",
+    ),
   );
   const ops = JSON.stringify(program);
   // lessThan must be emitted BEFORE equalTo (postfix: inner comparison first)
@@ -67,23 +72,33 @@ test("the checker's tree and the runtime result agree on the upstream tree", () 
 // ── string escapes ───────────────────────────────────────────────────────────
 
 test('<<set $x to "a\\"b">> compiles and evaluates (upstream STRING escapes)', () => {
-  const dialogue = new Dialogue(compileOk(node('<<set $x to "a\\"b">>\n{ $x }')));
+  const dialogue = new Dialogue(
+    compileOk(node('<<set $x to "a\\"b">>\n{ $x }')),
+  );
   const events = drain(dialogue);
-  const text = events.filter((e) => e.type === "line").map((e) => (e as { text: string }).text);
+  const text = events
+    .filter((e) => e.type === "line")
+    .map((e) => (e as { text: string }).text);
   assert.deepEqual(text, ['a"b']);
 });
 
 test("escaped backslash in a string literal evaluates (upstream \\\\ escape)", () => {
-  const dialogue = new Dialogue(compileOk(node('<<set $x to "a\\\\b">>\n{ $x }')));
+  const dialogue = new Dialogue(
+    compileOk(node('<<set $x to "a\\\\b">>\n{ $x }')),
+  );
   const events = drain(dialogue);
-  const text = events.filter((e) => e.type === "line").map((e) => (e as { text: string }).text);
+  const text = events
+    .filter((e) => e.type === "line")
+    .map((e) => (e as { text: string }).text);
   assert.deepEqual(text, ["a\\b"]);
 });
 
 // ── when: validation ─────────────────────────────────────────────────────────
 
 test("when: foo bar is a compile diagnostic (upstream: header_when_expression must parse)", () => {
-  const { diagnostics } = compileSource("title: Start\nwhen: foo bar\n---\nLine one\n===\n");
+  const { diagnostics } = compileSource(
+    "title: Start\nwhen: foo bar\n---\nLine one\n===\n",
+  );
   // The fork keeps the program observable on error diagnostics (the
   // recorded divergence); the YS0005 error is the contract.
   assert.ok(
@@ -93,8 +108,13 @@ test("when: foo bar is a compile diagnostic (upstream: header_when_expression mu
 });
 
 test("when: $x && (dangling operator) is a compile diagnostic", () => {
-  const { diagnostics } = compileSource("title: Start\nwhen: $x &&\n---\nLine one\n===\n");
-  assert.ok(diagnostics.some((d) => d.code === "YS0005" && d.severity === "error"), JSON.stringify(diagnostics));
+  const { diagnostics } = compileSource(
+    "title: Start\nwhen: $x &&\n---\nLine one\n===\n",
+  );
+  assert.ok(
+    diagnostics.some((d) => d.code === "YS0005" && d.severity === "error"),
+    JSON.stringify(diagnostics),
+  );
 });
 
 test("when: always / once / once if expr / valid expressions stay accepted", () => {
@@ -102,7 +122,10 @@ test("when: always / once / once if expr / valid expressions stay accepted", () 
     const source = `title: Start\nwhen: ${when}\n---\nLine one\n===\n`;
     const { program, diagnostics } = compileSource(source);
     assert.ok(program, `${when}: ${JSON.stringify(diagnostics)}`);
-    assert.ok(!diagnostics.some((d) => d.severity === "error"), `${when}: ${JSON.stringify(diagnostics)}`);
+    assert.ok(
+      !diagnostics.some((d) => d.severity === "error"),
+      `${when}: ${JSON.stringify(diagnostics)}`,
+    );
   }
 });
 

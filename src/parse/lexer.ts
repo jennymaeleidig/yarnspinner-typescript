@@ -89,7 +89,10 @@ function commandEndIndex(line: string): number {
  * Returns the tag text and the index past it, or null when `#` opens no
  * hashtag.
  */
-export function readHashtagText(line: string, at: number): { text: string; end: number } | null {
+export function readHashtagText(
+  line: string,
+  at: number,
+): { text: string; end: number } | null {
   let j = at + 1;
   while (j < line.length && (line[j] === " " || line[j] === "\t")) j++;
   if (j >= line.length || /[\s#$<]/.test(line[j])) return null;
@@ -143,7 +146,10 @@ export function lex(input: string): Token[] {
       // (The assertion defeats TS's closure-narrowing of lastContent: the
       // assignments happen inside push(), and the runtime value is always
       // the declared type.)
-      const last = lastContent as { type: Token["type"]; indent: number } | null;
+      const last = lastContent as {
+        type: Token["type"];
+        indent: number;
+      } | null;
       if (
         last &&
         (last.type === "OPTION" || last.type === "LINE_GROUP") &&
@@ -151,7 +157,12 @@ export function lex(input: string): Token[] {
       ) {
         throw new ParseError(
           "An indented line following an option must have content",
-          { startLine: lineNum - 1, startCol: 0, endLine: lineNum - 1, endCol: raw.length },
+          {
+            startLine: lineNum - 1,
+            startCol: 0,
+            endLine: lineNum - 1,
+            endCol: raw.length,
+          },
         );
       }
       push("EMPTY", "", lineNum, 1);
@@ -165,7 +176,10 @@ export function lex(input: string): Token[] {
         indentStack.push(indent.length);
         push("INDENT", "", lineNum, 1);
       } else if (indent.length < prev) {
-        while (indentStack.length && indent.length < indentStack[indentStack.length - 1]) {
+        while (
+          indentStack.length &&
+          indent.length < indentStack[indentStack.length - 1]
+        ) {
           indentStack.pop();
           push("DEDENT", "", lineNum, 1);
         }
@@ -200,7 +214,12 @@ export function lex(input: string): Token[] {
         const comment = value.indexOf("//");
         if (comment !== -1) value = value.slice(0, comment).trimEnd();
         push("HEADER_KEY", m[1], lineNum, indent.length + 1);
-        push("HEADER_VALUE", value, lineNum, indent.length + 1 + m[0].indexOf(m[2]));
+        push(
+          "HEADER_VALUE",
+          value,
+          lineNum,
+          indent.length + 1 + m[0].indexOf(m[2]),
+        );
         continue;
       }
     }
@@ -243,7 +262,12 @@ export function lex(input: string): Token[] {
           // rejected; closed spans continue below.
           throw new ParseError(
             "Unclosed command: missing >>",
-            { startLine: lineNum - 1, startCol: indent.length, endLine: lineNum - 1, endCol: indent.length + content.length },
+            {
+              startLine: lineNum - 1,
+              startCol: indent.length,
+              endLine: lineNum - 1,
+              endCol: indent.length + content.length,
+            },
             "YS0006",
           );
         }
@@ -280,7 +304,13 @@ export function lex(input: string): Token[] {
           textStart = k;
           break;
         }
-        push("COMMAND", inner.trim(), lineNum, indent.length + 1, trailingComment);
+        push(
+          "COMMAND",
+          inner.trim(),
+          lineNum,
+          indent.length + 1,
+          trailingComment,
+        );
         if (tags.length > 0) tokens[tokens.length - 1].tags = tags;
         if (resumeCommandAt >= 0) {
           remaining = tail.slice(resumeCommandAt);
@@ -291,7 +321,12 @@ export function lex(input: string): Token[] {
           // lexes a line_statement after the command_statement on the same
           // line; the parser reports YS0019 for the shape).
           const textPart = tail.slice(textStart);
-          push("TEXT", textPart, lineNum, indent.length + 1 + (content.length - textPart.length));
+          push(
+            "TEXT",
+            textPart,
+            lineNum,
+            indent.length + 1 + (content.length - textPart.length),
+          );
         }
         break;
       }
@@ -311,5 +346,3 @@ export function lex(input: string): Token[] {
   tokens.push({ type: "EOF", text: "", line: lines.length + 1, column: 1 });
   return tokens;
 }
-
-

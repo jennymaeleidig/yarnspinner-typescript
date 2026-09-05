@@ -42,12 +42,12 @@ const dialogue = new Dialogue(program, { startAt: "Start" });
 
 ```ts
 yarnSpinnerVitePlugin({
-  project: "./project.yarnproject",      // pin the compilation context
+  project: "./project.yarnproject", // pin the compilation context
   definitions: ["./Commands.ysls.json"], // host Library surface for checking
   compilerOptions: { diagnosticsSeverity: { YS0012: "none" } },
-  include: ["src/**"],                   // unanchored globs, layered over
-  exclude: ["**/draft/**"],              // extension matching
-})
+  include: ["src/**"], // unanchored globs, layered over
+  exclude: ["**/draft/**"], // extension matching
+});
 ```
 
 ## Editor types

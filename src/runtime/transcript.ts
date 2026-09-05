@@ -56,7 +56,9 @@ export interface Transcript {
 }
 
 /** The transcript before the first pull — the merge identity. */
-const EMPTY_LINES: TranscriptLine[] = Object.freeze([]) as unknown as TranscriptLine[];
+const EMPTY_LINES: TranscriptLine[] = Object.freeze(
+  [],
+) as unknown as TranscriptLine[];
 const EMPTY_COMMANDS: string[] = Object.freeze([]) as unknown as string[];
 export const EMPTY_TRANSCRIPT: Transcript = Object.freeze({
   lines: EMPTY_LINES,
@@ -124,7 +126,10 @@ export function runUntilStopped(
  * Lifecycle events carry through (`nodeStart`'s scene header lands on the
  * transcript), lines/options/commands accumulate.
  */
-export function mergeEvents(events: DialogueEvent[], prior: Transcript = EMPTY_TRANSCRIPT): Transcript {
+export function mergeEvents(
+  events: DialogueEvent[],
+  prior: Transcript = EMPTY_TRANSCRIPT,
+): Transcript {
   let lines: TranscriptLine[] | null = null;
   let options: DialogueOption[] | null = null;
   let commands: string[] | null = null;
@@ -150,7 +155,12 @@ export function mergeEvents(events: DialogueEvent[], prior: Transcript = EMPTY_T
       scene = event.scene ?? scene;
     }
   }
-  if (lines === null && options === null && commands === null && scene === prior.scene) {
+  if (
+    lines === null &&
+    options === null &&
+    commands === null &&
+    scene === prior.scene
+  ) {
     return prior;
   }
   return {
@@ -195,9 +205,10 @@ function stoppingPointOf(batch: DialogueEvent[]): StoppingPoint | null {
  * reason `runUntilStopped`'s could not: the VM's batch contract delivers
  * one stopping point per `continue()`.
  */
-export function pullUntilStopped(
-  dialogue: Dialogue,
-): { events: DialogueEvent[]; stopped: StoppingPoint } {
+export function pullUntilStopped(dialogue: Dialogue): {
+  events: DialogueEvent[];
+  stopped: StoppingPoint;
+} {
   if (dialogue.isWaitingForOptionSelection) {
     return { events: [], stopped: "options" };
   }
@@ -261,12 +272,16 @@ const MAX_DRAIN_PULLS = 1_000;
  */
 export function runUntilCompleteEvents(
   dialogue: Dialogue,
-  selectOption?: (options: DialogueOption[]) => number | typeof noOptionSelected,
+  selectOption?: (
+    options: DialogueOption[],
+  ) => number | typeof noOptionSelected,
 ): DialogueEvent[] {
   const events: DialogueEvent[] = [];
   for (let pulls = 0; ; pulls++) {
     if (pulls === MAX_DRAIN_PULLS) {
-      throw new Error(`runUntilCompleteEvents: stalled after ${MAX_DRAIN_PULLS} pulls without reaching a terminal stopping point`);
+      throw new Error(
+        `runUntilCompleteEvents: stalled after ${MAX_DRAIN_PULLS} pulls without reaching a terminal stopping point`,
+      );
     }
     const { events: pulled, stopped } = pullUntilStopped(dialogue);
     // An empty pull is exactly the at-rest guard firing: the pending-
@@ -282,12 +297,17 @@ export function runUntilCompleteEvents(
         // pending, exactly as a pull-API consumer would.
         break;
       }
-      const optionsEvent = pulled.find((event): event is Extract<DialogueEvent, { type: "options" }> => event.type === "options");
+      const optionsEvent = pulled.find(
+        (event): event is Extract<DialogueEvent, { type: "options" }> =>
+          event.type === "options",
+      );
       // The stopping point came from this pull's options event — `find` is
       // total here; if it ever isn't, the invariant is broken and a stalled
       // runtime is a bug to surface, not a drain to quietly end.
       if (!optionsEvent) {
-        throw new Error("runUntilCompleteEvents: an options stopping point without an options event");
+        throw new Error(
+          "runUntilCompleteEvents: an options stopping point without an options event",
+        );
       }
       dialogue.selectOption(selectOption(optionsEvent.options));
     }

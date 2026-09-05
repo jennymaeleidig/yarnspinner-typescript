@@ -20,7 +20,12 @@ import DialogueHost from "./DialogueHost";
 export default function Page() {
   // `next build`/`next dev` run from the repo root (see package.json's
   // host:build), so the shared content dir resolves relative to it.
-  const projectPath = join(process.cwd(), "examples", "content", "project.yarnproject");
+  const projectPath = join(
+    process.cwd(),
+    "examples",
+    "content",
+    "project.yarnproject",
+  );
   const result = loadYarnProject(projectPath);
 
   if (result.program === null) {

@@ -64,10 +64,14 @@ export function convertToInt32(value: number): number {
  */
 function defaultValueFor(value: unknown): unknown {
   switch (typeof value) {
-    case "boolean": return false;
-    case "number": return 0;
-    case "string": return "";
-    default: return undefined;
+    case "boolean":
+      return false;
+    case "number":
+      return 0;
+    case "string":
+      return "";
+    default:
+      return undefined;
   }
 }
 
@@ -84,8 +88,10 @@ export function deepEqualsOperands(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   // (The unset-variable contract — implicit default, deliberate adaptation
   // vs upstream's throw — is stated on the JSDoc above.)
-  if (a === undefined && b !== undefined) return deepEqualsOperands(b, defaultValueFor(b));
-  if (b === undefined && a !== undefined) return deepEqualsOperands(a, defaultValueFor(a));
+  if (a === undefined && b !== undefined)
+    return deepEqualsOperands(b, defaultValueFor(b));
+  if (b === undefined && a !== undefined)
+    return deepEqualsOperands(a, defaultValueFor(a));
   if (a == null || b == null) return a === b;
   if (typeof a !== typeof b) return false;
   if (typeof a === "object") {
@@ -132,7 +138,11 @@ export type UnaryOperator = "negate" | "not";
  * - `xor`: `Boolean(a) !== Boolean(b)` — upstream `BooleanType.MethodXor`:
  *   `ConvertTo<bool>() ^ ConvertTo<bool>()`.
  */
-export function applyBinaryOp(op: BinaryOperator, a: unknown, b: unknown): unknown {
+export function applyBinaryOp(
+  op: BinaryOperator,
+  a: unknown,
+  b: unknown,
+): unknown {
   switch (op) {
     case "add":
       return typeof a === "string" || typeof b === "string"

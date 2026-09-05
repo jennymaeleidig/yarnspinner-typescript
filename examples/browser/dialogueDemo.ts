@@ -3,7 +3,11 @@
 // Dialogue, render the transcript (plain text) and the live option set,
 // act on input, repeat. Manual continue only; no scheduling, no typing
 // effect, no markup rendering.
-import { Dialogue, EMPTY_TRANSCRIPT, runUntilStopped } from "yarn-spinner-runner-ts";
+import {
+  Dialogue,
+  EMPTY_TRANSCRIPT,
+  runUntilStopped,
+} from "yarn-spinner-runner-ts";
 import type { StoppingPoint, Transcript } from "yarn-spinner-runner-ts";
 import wayside from "../content/project.yarnproject";
 import { el } from "./dom.js";
@@ -59,7 +63,11 @@ export function mountDialogueDemo(root: HTMLElement): void {
       }
     } else {
       const complete = stopped === "complete";
-      const button = el("button", "demo-button", complete ? "Restart" : "Continue");
+      const button = el(
+        "button",
+        "demo-button",
+        complete ? "Restart" : "Continue",
+      );
       button.type = "button";
       button.addEventListener("click", complete ? start : step);
       controls.push(button);

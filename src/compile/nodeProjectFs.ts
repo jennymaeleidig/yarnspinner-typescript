@@ -14,7 +14,10 @@ import { dirname, join, relative } from "node:path";
 
 import { loadProject, failedResult } from "./yarnProject.js";
 import { describeError } from "../describeError.js";
-import type { LoadProjectResult, YarnProjectFileSystem } from "./yarnProject.js";
+import type {
+  LoadProjectResult,
+  YarnProjectFileSystem,
+} from "./yarnProject.js";
 import type { CompileOptions } from "./compileSource.js";
 
 /**

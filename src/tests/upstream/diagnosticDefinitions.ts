@@ -45,7 +45,10 @@ export function listDiagnosticDefinitionFiles(): string[] {
  * `- script: |`; a block ends at the frontmatter's closing `---` or the next
  * `- script:` at (or above) the item's indent.
  */
-export function parseDiagnosticDefinition(source: string, fileName: string): DiagnosticDefinition {
+export function parseDiagnosticDefinition(
+  source: string,
+  fileName: string,
+): DiagnosticDefinition {
   const lines = source.split("\n");
   // Frontmatter: between the leading `---` and the next `---` line.
   const start = lines.indexOf("---");
@@ -56,7 +59,10 @@ export function parseDiagnosticDefinition(source: string, fileName: string): Dia
   const front = lines.slice(start + 1, end);
   const scalar = (key: string): string | undefined => {
     const line = front.find((l) => new RegExp(`^${key}:`).test(l));
-    const value = line?.replace(new RegExp(`^${key}:\\s*`), "").trim().replace(/^["']|["']$/g, "");
+    const value = line
+      ?.replace(new RegExp(`^${key}:\\s*`), "")
+      .trim()
+      .replace(/^["']|["']$/g, "");
     return value || undefined;
   };
   const code = scalar("code");
@@ -94,7 +100,9 @@ export function parseDiagnosticDefinition(source: string, fileName: string): Dia
       while (block.length > 0 && block[block.length - 1] === "") block.pop();
       // Dedent by the block's minimal non-empty indent.
       const base = Math.min(
-        ...block.filter((l) => l.trim() !== "").map((l) => l.length - l.trimStart().length),
+        ...block
+          .filter((l) => l.trim() !== "")
+          .map((l) => l.length - l.trimStart().length),
       );
       scripts.push(block.map((l) => l.slice(base)).join("\n"));
     }
@@ -104,7 +112,9 @@ export function parseDiagnosticDefinition(source: string, fileName: string): Dia
     code,
     name,
     ...(scalar("generated_in") ? { generatedIn: scalar("generated_in") } : {}),
-    ...(scalar("defaultSeverity") ? { defaultSeverity: scalar("defaultSeverity") } : {}),
+    ...(scalar("defaultSeverity")
+      ? { defaultSeverity: scalar("defaultSeverity") }
+      : {}),
     scripts,
   };
 }
@@ -112,6 +122,9 @@ export function parseDiagnosticDefinition(source: string, fileName: string): Dia
 /** Every vendored diagnostic definition, keyed in file order. */
 export function loadDiagnosticDefinitions(): DiagnosticDefinition[] {
   return listDiagnosticDefinitionFiles().map((f) =>
-    parseDiagnosticDefinition(readFileSync(join(DIAGNOSTIC_DEFINITIONS_DIR, f), "utf8"), f),
+    parseDiagnosticDefinition(
+      readFileSync(join(DIAGNOSTIC_DEFINITIONS_DIR, f), "utf8"),
+      f,
+    ),
   );
 }

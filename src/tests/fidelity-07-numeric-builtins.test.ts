@@ -39,13 +39,19 @@ import { applyBinaryOp } from "../runtime/operands.js";
 
 type LineEvent = Extract<DialogueEvent, { type: "line" }>;
 
-function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
+function makeDialogue(
+  source: string,
+  opts?: ConstructorParameters<typeof Dialogue>[1],
+): Dialogue {
   const program = compileOk(source);
   return new Dialogue(program, { startAt: "Start", ...opts });
 }
 
 /** Evaluate one `{expr}` in a line and return the composed text. */
-function evaluateText(expression: string, opts?: ConstructorParameters<typeof Dialogue>[1]): string {
+function evaluateText(
+  expression: string,
+  opts?: ConstructorParameters<typeof Dialogue>[1],
+): string {
   const dialogue = makeDialogue(
     `
 title: Start
@@ -85,7 +91,10 @@ Result: {$x}
 }
 
 /** Collect runtime diagnostics while draining the dialogue. */
-function drainCollectingErrors(dialogue: Dialogue): { texts: string[]; errors: string[] } {
+function drainCollectingErrors(dialogue: Dialogue): {
+  texts: string[];
+  errors: string[];
+} {
   const errors: string[] = [];
   const texts: string[] = [];
   for (let i = 0; i < 20; i++) {
@@ -98,7 +107,10 @@ function drainCollectingErrors(dialogue: Dialogue): { texts: string[]; errors: s
   return { texts, errors };
 }
 
-function runCollectingErrors(source: string): { texts: string[]; errors: string[] } {
+function runCollectingErrors(source: string): {
+  texts: string[];
+  errors: string[];
+} {
   const errors: string[] = [];
   const dialogue = makeDialogue(source, { logError: (m) => errors.push(m) });
   const texts: string[] = [];
@@ -115,12 +127,24 @@ function runCollectingErrors(source: string): { texts: string[]; errors: string[
 // ── `%` — integer modulo (upstream NumberType.MethodModulus) ─────────────
 
 test("% converts both operands to int (upstream ConvertTo<int>)", () => {
-  equal(applyBinaryOp("modulo", 7.5, 2), 0, "7.5 % 2: Convert.ToInt32(7.5) is 8 (midpoint-to-even), 8 % 2 = 0");
+  equal(
+    applyBinaryOp("modulo", 7.5, 2),
+    0,
+    "7.5 % 2: Convert.ToInt32(7.5) is 8 (midpoint-to-even), 8 % 2 = 0",
+  );
   equal(applyBinaryOp("modulo", 7.2, 2), 1, "7.2 % 2: 7 % 2 = 1");
-  equal(applyBinaryOp("modulo", 2.5, 2), 0, "2.5 % 2: Convert.ToInt32(2.5) is 2 (midpoint-to-even)");
+  equal(
+    applyBinaryOp("modulo", 2.5, 2),
+    0,
+    "2.5 % 2: Convert.ToInt32(2.5) is 2 (midpoint-to-even)",
+  );
   equal(applyBinaryOp("modulo", -7.5, 2), 0, "-7.5 % 2: -8 % 2 = 0");
   equal(applyBinaryOp("modulo", 7, 2), 1);
-  equal(applyBinaryOp("modulo", -7, 2), -1, "C# remainder: sign follows the dividend");
+  equal(
+    applyBinaryOp("modulo", -7, 2),
+    -1,
+    "C# remainder: sign follows the dividend",
+  );
 });
 
 test("modulo by zero is a runtime error, not NaN", () => {
@@ -155,10 +179,22 @@ test("round uses banker's rounding (upstream Math.Round)", () => {
 });
 
 test("round_places midpoints match banker's rounding", () => {
-  equal(evaluateText("round_places(2.25, 1)"), "2.2", "2.25 to 1 place rounds to even → 2.2");
-  equal(evaluateText("round_places(2.35, 1)"), "2.4", "the scaled value 23.5 rounds to even → 2.4");
+  equal(
+    evaluateText("round_places(2.25, 1)"),
+    "2.2",
+    "2.25 to 1 place rounds to even → 2.2",
+  );
+  equal(
+    evaluateText("round_places(2.35, 1)"),
+    "2.4",
+    "the scaled value 23.5 rounds to even → 2.4",
+  );
   equal(evaluateText("round_places(2.5, 0)"), "2");
-  equal(evaluateText("round_places(2.675, 2)"), "2.68", "the scaled value 267.5 rounds to even → 2.68");
+  equal(
+    evaluateText("round_places(2.675, 2)"),
+    "2.68",
+    "the scaled value 267.5 rounds to even → 2.68",
+  );
   equal(evaluateText("round_places(0.5, 0)"), "0");
   equal(evaluateText("round_places(1.5, 0)"), "2");
 });
@@ -172,12 +208,19 @@ title: Start
 <<set $x = number("abc")>>
 ===
 `);
-  ok(errors.length > 0, 'number("abc") is a runtime error (upstream FormatException), not NaN');
+  ok(
+    errors.length > 0,
+    'number("abc") is a runtime error (upstream FormatException), not NaN',
+  );
 });
 
 test("bool() parses true/false strings; other strings throw (upstream Convert.ToBoolean)", () => {
   // Upstream Convert.ToBoolean(string) accepts "true"/"false" (case-insensitive).
-  equal(evaluateText('bool("false")'), "False", 'bool("false") is False, not true');
+  equal(
+    evaluateText('bool("false")'),
+    "False",
+    'bool("false") is False, not true',
+  );
   equal(evaluateText('bool("False")'), "False");
   equal(evaluateText('bool("true")'), "True");
   // A non-boolean string is a FormatException upstream — a runtime error here.
@@ -193,7 +236,11 @@ title: Start
 // ── decimal / string — sign and casing ───────────────────────────────────
 
 test("decimal preserves the sign (upstream value - trunc(value))", () => {
-  equal(evaluateText("decimal(-1.5)"), "-0.5", "decimal(-1.5) is -0.5, not 0.5");
+  equal(
+    evaluateText("decimal(-1.5)"),
+    "-0.5",
+    "decimal(-1.5) is -0.5, not 0.5",
+  );
   equal(evaluateText("decimal(1.5)"), "0.5");
   equal(evaluateText("decimal(3)"), "0");
 });
@@ -212,7 +259,10 @@ title: Start
 <<set $x = random_range(5, 1)>>
 ===
 `);
-  ok(errors.length > 0, "random_range(5, 1) throws upstream (ArgumentOutOfRangeException), it does not clamp");
+  ok(
+    errors.length > 0,
+    "random_range(5, 1) throws upstream (ArgumentOutOfRangeException), it does not clamp",
+  );
 });
 
 test("dice with non-positive sides is a runtime error", () => {
@@ -222,7 +272,10 @@ title: Start
 <<set $x = dice(-5)>>
 ===
 `);
-  ok(errors.length > 0, "dice(-5) throws upstream (Random.Next ArgumentOutOfRangeException)");
+  ok(
+    errors.length > 0,
+    "dice(-5) throws upstream (Random.Next ArgumentOutOfRangeException)",
+  );
 });
 
 test("random_range returns a value in [min, trunc(max)] (integer span above min)", () => {
@@ -239,7 +292,11 @@ test("random_range returns a value in [min, trunc(max)] (integer span above min)
       Number(evaluateText("random_range(1.2, 3.7)")),
       Number(evaluateText("random_range(1.2, 3.7)")),
     ];
-    deepStrictEqual(values, [1.2, 2.2, 3.2], "Next(span) + min: results ride above the untruncated min");
+    deepStrictEqual(
+      values,
+      [1.2, 2.2, 3.2],
+      "Next(span) + min: results ride above the untruncated min",
+    );
   } finally {
     Math.random = originalRandom;
   }
@@ -250,7 +307,11 @@ test("random_range_float is registered and follows upstream's integer-span seman
   const originalRandom = Math.random;
   Math.random = () => 0.9999;
   try {
-    equal(Number(evaluateText("random_range_float(2, 5)")), 5, "span covers the inclusive max");
+    equal(
+      Number(evaluateText("random_range_float(2, 5)")),
+      5,
+      "span covers the inclusive max",
+    );
   } finally {
     Math.random = originalRandom;
   }
@@ -273,11 +334,19 @@ test("format_invariant renders at float (32-bit) precision", () => {
   equal(evaluateText("format_invariant(1/3)"), "0.33333334");
   equal(evaluateText("format_invariant(0.5)"), "0.5");
   equal(evaluateText("format_invariant(5)"), "5");
-  equal(evaluateText("format_invariant(123456789)"), "123456790", "values round-trip through float32");
+  equal(
+    evaluateText("format_invariant(123456789)"),
+    "123456790",
+    "values round-trip through float32",
+  );
 });
 
 test("format_invariant non-finite handling matches upstream spellings", () => {
-  equal(evaluateText("format_invariant(5/0)"), "Infinity", "positive infinity renders as Infinity, not 0");
+  equal(
+    evaluateText("format_invariant(5/0)"),
+    "Infinity",
+    "positive infinity renders as Infinity, not 0",
+  );
   equal(evaluateText("format_invariant(-5/0)"), "-Infinity");
   equal(evaluateText("format_invariant(0/0)"), "NaN");
 });
@@ -299,10 +368,15 @@ test("min and max take exactly two arguments (upstream arity)", () => {
   // A 3-argument call is a compile diagnostic (the library signature is the
   // two-parameter upstream shape), not a silently accepted extra argument.
   const result = compile([
-    { name: "s.yarn", source: "title: Start\n---\nResult: {min(3, 1, 2)}\n===\n" },
+    {
+      name: "s.yarn",
+      source: "title: Start\n---\nResult: {min(3, 1, 2)}\n===\n",
+    },
   ]);
   ok(
-    result.diagnostics.some((d) => d.code === "YS0014" && /min expects 2 parameters/.test(d.message)),
+    result.diagnostics.some(
+      (d) => d.code === "YS0014" && /min expects 2 parameters/.test(d.message),
+    ),
     `expected an arity diagnostic, got: ${result.diagnostics.map((d) => d.code).join(", ")}`,
   );
 });
@@ -310,15 +384,19 @@ test("min and max take exactly two arguments (upstream arity)", () => {
 test("format accepts exactly one argument (upstream arity)", () => {
   // (via a command — a `{0}` placeholder inside an inline `{expr}` span
   // collides with the line substitution scanner's first-`}` contract)
-  equal(
-    setExpression("format('x{0}y', 5)"),
-    "x5y",
-  );
+  equal(setExpression("format('x{0}y', 5)"), "x5y");
   const result = compile([
-    { name: "s.yarn", source: "title: Start\n---\n<<declare $x = ''>>\n<<set $x = format(\"x{0}{1}y\", 5, 6)>>\n===\n" },
+    {
+      name: "s.yarn",
+      source:
+        "title: Start\n---\n<<declare $x = ''>>\n<<set $x = format(\"x{0}{1}y\", 5, 6)>>\n===\n",
+    },
   ]);
   ok(
-    result.diagnostics.some((d) => d.code === "YS0014" && /format expects 2 parameters/.test(d.message)),
+    result.diagnostics.some(
+      (d) =>
+        d.code === "YS0014" && /format expects 2 parameters/.test(d.message),
+    ),
     `expected an arity diagnostic, got: ${result.diagnostics.map((d) => d.code).join(", ")}`,
   );
 });

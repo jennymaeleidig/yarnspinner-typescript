@@ -51,8 +51,17 @@
  */
 
 import type { Instruction, Program, ProgramNode } from "../compile/program.js";
-import { compileExpression, EXPRESSION_OPS, LITERAL_OPS } from "../compile/expressionCodegen.js";
-import { ForeignOpError, UnbalancedStackError, runBytecode, type BytecodeEnv } from "./bytecode.js";
+import {
+  compileExpression,
+  EXPRESSION_OPS,
+  LITERAL_OPS,
+} from "../compile/expressionCodegen.js";
+import {
+  ForeignOpError,
+  UnbalancedStackError,
+  runBytecode,
+  type BytecodeEnv,
+} from "./bytecode.js";
 import type { MarkupParseResult } from "../markup/types.js";
 import {
   defaultStartNodeName,
@@ -64,7 +73,13 @@ import {
 import { Library, type YarnFunction } from "./library.js";
 import { ExpressionEvaluator } from "./evaluator.js";
 import { applyBinaryOp, applyUnaryOp } from "./operands.js";
-import { commandKind, executeStateStatement, parseCommand, stripQuotes, type ParsedCommand } from "./commands.js";
+import {
+  commandKind,
+  executeStateStatement,
+  parseCommand,
+  stripQuotes,
+  type ParsedCommand,
+} from "./commands.js";
 import { LineComposer } from "./interpolate.js";
 import { LineParser } from "../markup/lineParser.js";
 import { registerBuiltinFunctions } from "./builtins.js";
@@ -86,7 +101,10 @@ import {
   type SaliencyState,
 } from "./saliency.js";
 import type { TextProvider } from "./textProvider.js";
-import { InMemoryVariableStorage, type VariableStorage } from "./variableStorage.js";
+import {
+  InMemoryVariableStorage,
+  type VariableStorage,
+} from "./variableStorage.js";
 import { describeError } from "../describeError.js";
 import type { ProgramNodeGroup } from "../compile/program.js";
 
@@ -97,7 +115,12 @@ type CommandOutcome = "continued" | "delivered" | "halted";
 type ReturnFrame = { title: string; ip: number; nodeIndex: number };
 
 /** An option accumulated by `addOption`, awaiting delivery by `showOptions`. */
-type AccumulatedOption = { text: string; tags?: string[]; destination: number; isAvailable: boolean };
+type AccumulatedOption = {
+  text: string;
+  tags?: string[];
+  destination: number;
+  isAvailable: boolean;
+};
 
 /** Ops whose execution leaves the operand stack one value richer; on a
  * caught failure the VM pushes `null` so the stream stays balanced.
@@ -156,13 +179,16 @@ export class VirtualMachine {
     // The saliency history lives in variable storage under generated keys
     // (coding standards §4); the default strategy is Random BLRV.
     this.saliencyState = {
-      getViewCount: (contentId) => Number(this.storage.get(contentViewCountVariableKey(contentId))) || 0,
+      getViewCount: (contentId) =>
+        Number(this.storage.get(contentViewCountVariableKey(contentId))) || 0,
       recordView: (contentId) => {
         const key = contentViewCountVariableKey(contentId);
         this.storage.set(key, (Number(this.storage.get(key)) || 0) + 1);
       },
     };
-    this.saliencyStrategy = opts.contentSaliencyStrategy ?? defaultSaliencyStrategy(this.saliencyState);
+    this.saliencyStrategy =
+      opts.contentSaliencyStrategy ??
+      defaultSaliencyStrategy(this.saliencyState);
     registerBuiltinFunctions(this.library, () => this.storage);
     // Upstream Dialogue registers has_any_content over the program and the
     // saliency strategy; a host library imported below may override it.
@@ -171,7 +197,11 @@ export class VirtualMachine {
       const entry = this.program.nodes[name];
       if (!entry) return false; // no node with this name — no content at all
       if (!("nodes" in entry)) return true; // not a node group: always content
-      return this.contentSaliencyStrategy.queryBestContent(this.saliencyOptionsForGroup(entry)) !== null;
+      return (
+        this.contentSaliencyStrategy.queryBestContent(
+          this.saliencyOptionsForGroup(entry),
+        ) !== null
+      );
     });
     if (opts.library) this.library.importLibrary(opts.library);
     this.lineHintsEnabled = opts.lineHints ?? false;
@@ -182,15 +212,21 @@ export class VirtualMachine {
       this.storage,
       {
         get: (name: string): YarnFunction | undefined =>
-          this.library.hasFunction(name) ? this.library.getFunction(name) : undefined,
+          this.library.hasFunction(name)
+            ? this.library.getFunction(name)
+            : undefined,
       },
       this.program.enums,
     );
 
     // Smart variables: compiled initializers, recomputed on
     // every access (upstream: smart variables are not in InitialValues).
-    for (const [name, code] of Object.entries(this.program.smartVariables ?? {})) {
-      this.evaluator.setSmartVariable(name, () => this.evaluateInitializer(code, name));
+    for (const [name, code] of Object.entries(
+      this.program.smartVariables ?? {},
+    )) {
+      this.evaluator.setSmartVariable(name, () =>
+        this.evaluateInitializer(code, name),
+      );
     }
 
     // Upstream Dialogue.SetProgram seeds the variable storage from
@@ -282,7 +318,9 @@ export class VirtualMachine {
         this.noteCompleteDelivery(drained);
         return drained;
       }
-      this.logDebug("continue() called on an inactive dialogue; no events returned");
+      this.logDebug(
+        "continue() called on an inactive dialogue; no events returned",
+      );
       return [];
     }
     const batch = this.queuedEvents;
@@ -312,7 +350,11 @@ export class VirtualMachine {
       this.pendingOptions = null;
       return;
     }
-    if (!Number.isInteger(selectedOption) || selectedOption < 0 || selectedOption >= count) {
+    if (
+      !Number.isInteger(selectedOption) ||
+      selectedOption < 0 ||
+      selectedOption >= count
+    ) {
       this.logError(
         `${selectedOption} is not a valid option (expected a number between 0 and ${count - 1}, or noOptionSelected)`,
       );
@@ -386,7 +428,9 @@ export class VirtualMachine {
   }
 
   /** Upstream `Dialogue.TryGetSmartVariable`: compute a smart variable's current value. */
-  tryGetSmartVariable(name: string): { ok: true; value: unknown } | { ok: false } {
+  tryGetSmartVariable(
+    name: string,
+  ): { ok: true; value: unknown } | { ok: false } {
     return this.evaluator.tryGetSmartVariable(name);
   }
 
@@ -448,7 +492,11 @@ export class VirtualMachine {
 
   /** Upstream `Dialogue.HasSalientContent`: whether the strategy could select content for the node group. */
   hasSalientContent(nodeGroup: string): boolean {
-    return this.contentSaliencyStrategy.queryBestContent(this.getSaliencyOptionsForNodeGroup(nodeGroup)) !== null;
+    return (
+      this.contentSaliencyStrategy.queryBestContent(
+        this.getSaliencyOptionsForNodeGroup(nodeGroup),
+      ) !== null
+    );
   }
 
   // ── Execution engine ────────────────────────────────────────────────
@@ -491,7 +539,10 @@ export class VirtualMachine {
             const lineId = lineIdFromTags(ins.tags);
             const resolved = this.resolveLineText(ins.tags, ins.text);
             const composed = resolved.fromProvider
-              ? this.getOrCreateComposer().composeLocalisedLine(resolved.text, ins.text)
+              ? this.getOrCreateComposer().composeLocalisedLine(
+                  resolved.text,
+                  ins.text,
+                )
               : this.compose(resolved.text);
             batch.push({
               type: "line",
@@ -591,7 +642,9 @@ export class VirtualMachine {
               // Upstream throws DialogueException on a non-candidate;
               // coding standards §3 (collect, don't throw) applies: a
               // diagnostic surfaces and the group runs nothing.
-              const match = candidates.find((c) => c.contentId === selected!.contentId);
+              const match = candidates.find(
+                (c) => c.contentId === selected!.contentId,
+              );
               if (!match) {
                 this.logError(
                   `Content saliency strategy returned "${selected.contentId}", which is not one of the available candidates`,
@@ -645,9 +698,7 @@ export class VirtualMachine {
         // depth before the instruction (an op that threw may already have
         // consumed operands) and re-balanced with a null, and execution
         // continues at the next instruction.
-        this.logError(
-          `Failed to execute ${ins.op}: ${describeError(e)}`,
-        );
+        this.logError(`Failed to execute ${ins.op}: ${describeError(e)}`);
         this.stack.length = stackDepth;
         if (STACK_PRODUCERS.has(ins.op)) this.push(null);
       }
@@ -781,7 +832,11 @@ export class VirtualMachine {
    * lookahead (upstream `SetNode`: `NodeStartHandler` fires before
    * `PrepareForLinesHandler`).
    */
-  private refireNodeEntry(sink: DialogueEvent[], node: ProgramNode | undefined, title: string): void {
+  private refireNodeEntry(
+    sink: DialogueEvent[],
+    node: ProgramNode | undefined,
+    title: string,
+  ): void {
     sink.push({ type: "nodeStart", nodeName: title, scene: node?.scene });
     const lineIds = this.lineIdsForNode(node);
     // The provider's lookahead runs whether or not the opt-in LineHints
@@ -794,10 +849,15 @@ export class VirtualMachine {
 
   private resolveNodeForEntry(
     title: string,
-  ): { ok: true; node: ProgramNode; nodeIndex: number } | { ok: false; message?: string } {
+  ):
+    | { ok: true; node: ProgramNode; nodeIndex: number }
+    | { ok: false; message?: string } {
     const nodeOrGroup = this.program.nodes[title];
     if (!nodeOrGroup) {
-      return { ok: false, message: `No node named "${title}" exists in the program` };
+      return {
+        ok: false,
+        message: `No node named "${title}" exists in the program`,
+      };
     }
     if (!("nodes" in nodeOrGroup)) {
       return { ok: true, node: nodeOrGroup, nodeIndex: -1 };
@@ -805,7 +865,9 @@ export class VirtualMachine {
     // Node group: build a saliency candidate per member from
     // its `when:` conditions, and let the strategy pick (upstream: the hub
     // node's AddSaliencyCandidateFromNode/SelectSaliencyCandidate sequence).
-    const selected = this.saliencyStrategy.queryBestContent(this.saliencyOptionsForGroup(nodeOrGroup));
+    const selected = this.saliencyStrategy.queryBestContent(
+      this.saliencyOptionsForGroup(nodeOrGroup),
+    );
     if (!selected) {
       // No salient content: the hub returns — the dialogue completes if
       // nothing else remains (upstream NodeGroupCompiler emits a bare Return).
@@ -816,7 +878,10 @@ export class VirtualMachine {
     );
     const member = nodeOrGroup.nodes[nodeIndex];
     if (nodeIndex < 0 || !member) {
-      return { ok: false, message: `Node group "${title}" selected an unknown member` };
+      return {
+        ok: false,
+        message: `Node group "${title}" selected an unknown member`,
+      };
     }
     // Commit the selection: the strategy records the view (its BLRV state),
     // and any `when: once` header's seen-state stores now (upstream: the
@@ -837,7 +902,9 @@ export class VirtualMachine {
    * one option per member, each condition evaluated against the current
    * variable state, with the member's complexity score. Read-only.
    */
-  private saliencyOptionsForGroup(group: ProgramNodeGroup): ContentSaliencyOption[] {
+  private saliencyOptionsForGroup(
+    group: ProgramNodeGroup,
+  ): ContentSaliencyOption[] {
     return group.nodes.map((member, index) => {
       const contentId = nodeGroupMemberId(group.title, member, index);
       let complexityScore = 0;
@@ -874,7 +941,10 @@ export class VirtualMachine {
       case "once":
         return this.storage.get(onceVariableKey(contentId)) !== true;
       case "once-if":
-        return this.storage.get(onceVariableKey(contentId)) !== true && this.evaluateConditionExpression(parsed.expression);
+        return (
+          this.storage.get(onceVariableKey(contentId)) !== true &&
+          this.evaluateConditionExpression(parsed.expression)
+        );
       case "expression":
         return this.evaluateConditionExpression(parsed.expression);
     }
@@ -904,7 +974,8 @@ export class VirtualMachine {
     try {
       return Boolean(runBytecode(code, this.sliceEnv()));
     } catch (e) {
-      if (e instanceof ForeignOpError) return this.evaluator.evaluate(expression);
+      if (e instanceof ForeignOpError)
+        return this.evaluator.evaluate(expression);
       this.logError(
         `Failed to evaluate saliency condition "${expression}": ${describeError(e)}`,
       );
@@ -982,7 +1053,11 @@ export class VirtualMachine {
     this.nodeTitle = frame.title;
     this.ip = frame.ip;
     this.currentNodeIndex = frame.nodeIndex;
-    this.refireNodeEntry(batch, this.memberFor(frame.title, frame.nodeIndex), frame.title);
+    this.refireNodeEntry(
+      batch,
+      this.memberFor(frame.title, frame.nodeIndex),
+      frame.title,
+    );
   }
 
   /**
@@ -1037,13 +1112,15 @@ export class VirtualMachine {
           // (EvaluationFailure) or a thrown evaluation error (unknown
           // function, bad argument) — the historical message shape keeps
           // the cause visible either way.
-          this.logError(
-            `<<call>> failed: ${describeError(called.error)}`,
-          );
+          this.logError(`<<call>> failed: ${describeError(called.error)}`);
         }
       } else {
         executeStateStatement(
-          { variables: this.storage, evaluator: this.evaluator, logError: this.logError },
+          {
+            variables: this.storage,
+            evaluator: this.evaluator,
+            logError: this.logError,
+          },
           content,
         );
       }
@@ -1058,7 +1135,11 @@ export class VirtualMachine {
    * any, then surface the `Command` event with `{expr}` substitutions
    * expanded (upstream expands command text before delivery).
    */
-  private deliverCommand(content: string, parsed: ParsedCommand | undefined, batch: DialogueEvent[]): void {
+  private deliverCommand(
+    content: string,
+    parsed: ParsedCommand | undefined,
+    batch: DialogueEvent[],
+  ): void {
     if (parsed) {
       const handler = this.library.getCommandHandler(parsed.name);
       if (handler) {
@@ -1068,7 +1149,9 @@ export class VirtualMachine {
           // tokens); the delivered event text keeps the authored form.
           handler(parsed.args.map(stripQuotes));
         } catch (e) {
-          this.logError(`Command handler for "${parsed.name}" failed: ${describeError(e)}`);
+          this.logError(
+            `Command handler for "${parsed.name}" failed: ${describeError(e)}`,
+          );
         }
       }
     }
@@ -1094,7 +1177,10 @@ export class VirtualMachine {
       // (`{0}`) and expand positionally against the authored option text.
       const resolved = this.resolveLineText(option.tags, option.text);
       const composed = resolved.fromProvider
-        ? this.getOrCreateComposer().composeLocalisedOption(resolved.text, option.text)
+        ? this.getOrCreateComposer().composeLocalisedOption(
+            resolved.text,
+            option.text,
+          )
         : this.getOrCreateComposer().composeOption(resolved.text);
       return {
         index,
@@ -1118,7 +1204,10 @@ export class VirtualMachine {
   /** Mark completion when a delivered batch carried the complete event —
    *  `isComplete` answers "delivered", not "queued" (the `stop()` edge). */
   private noteCompleteDelivery(batch: DialogueEvent[]): void {
-    if (!this.completeDelivered && batch.some((event) => event.type === "dialogueComplete")) {
+    if (
+      !this.completeDelivered &&
+      batch.some((event) => event.type === "dialogueComplete")
+    ) {
       this.completeDelivered = true;
     }
   }
@@ -1185,10 +1274,14 @@ export class VirtualMachine {
       return runBytecode(code, this.sliceEnv());
     } catch (e) {
       if (e instanceof ForeignOpError) {
-        throw new Error(`Instruction "${e.op}" is not valid in the initializer of "${name}"`);
+        throw new Error(
+          `Instruction "${e.op}" is not valid in the initializer of "${name}"`,
+        );
       }
       if (e instanceof UnbalancedStackError) {
-        throw new Error(`Initializer for "${name}" left the operand stack unbalanced`);
+        throw new Error(
+          `Initializer for "${name}" left the operand stack unbalanced`,
+        );
       }
       throw e;
     }
@@ -1224,7 +1317,11 @@ export class VirtualMachine {
   /** The line composer: substitutions, markup, and speaker resolution. */
   private composer: LineComposer | null = null;
 
-  private compose(text: string): { text: string; speaker?: string; markup?: MarkupParseResult } {
+  private compose(text: string): {
+    text: string;
+    speaker?: string;
+    markup?: MarkupParseResult;
+  } {
     return this.getOrCreateComposer().composeLine(text);
   }
 
@@ -1273,7 +1370,9 @@ export class VirtualMachine {
 
   private getOrCreateComposer(): LineComposer {
     if (this.composer === null) {
-      this.composer = new LineComposer((expr) => this.evaluator.evaluateExpression(expr));
+      this.composer = new LineComposer((expr) =>
+        this.evaluator.evaluateExpression(expr),
+      );
     }
     return this.composer;
   }

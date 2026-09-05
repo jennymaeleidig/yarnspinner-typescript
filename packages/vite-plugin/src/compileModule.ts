@@ -11,7 +11,11 @@
 // .None): it reaches neither bucket, so it produces no build signal.
 
 import { compileSource } from "yarn-spinner-runner-ts";
-import type { Diagnostic, DiagnosticSeverity, ExternalDeclarations } from "yarn-spinner-runner-ts";
+import type {
+  Diagnostic,
+  DiagnosticSeverity,
+  ExternalDeclarations,
+} from "yarn-spinner-runner-ts";
 
 export interface CompileYarnOptions {
   /**
@@ -49,7 +53,9 @@ export function partitionDiagnostics(diagnostics: Diagnostic[]): {
 } {
   return {
     errors: diagnostics.filter((d) => d.severity === "error"),
-    warnings: diagnostics.filter((d) => d.severity === "warning" || d.severity === "info"),
+    warnings: diagnostics.filter(
+      (d) => d.severity === "warning" || d.severity === "info",
+    ),
   };
 }
 
@@ -58,12 +64,17 @@ export function compileYarnModule(
   filename: string,
   opts: CompileYarnOptions = {},
 ): CompiledYarnModule {
-  const { program, stringTable, containsImplicitStringTags, fileTags, diagnostics } =
-    compileSource(source, {
-      file: filename,
-      diagnosticsSeverity: opts.diagnosticsSeverity,
-      declarations: opts.declarations,
-    });
+  const {
+    program,
+    stringTable,
+    containsImplicitStringTags,
+    fileTags,
+    diagnostics,
+  } = compileSource(source, {
+    file: filename,
+    diagnosticsSeverity: opts.diagnosticsSeverity,
+    declarations: opts.declarations,
+  });
   const { errors, warnings } = partitionDiagnostics(diagnostics);
   const code =
     `// ${filename} — compiled at build time by yarn-spinner-vite-plugin\n` +

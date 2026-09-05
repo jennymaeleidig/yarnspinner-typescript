@@ -21,15 +21,17 @@ test("a non-round-tripping decimal literal resolves (1.0)", () => {
   const ev = new ExpressionEvaluator(new InMemoryVariableStorage());
   // evaluate() is the boolean-condition seam; tryEvaluateExpression is the
   // raw-value seam the {…} composition and fallback sets use.
-  const raw = (e: string): unknown => (ev.tryEvaluateExpression(e) as { ok: true; value: unknown }).value;
+  const raw = (e: string): unknown =>
+    (ev.tryEvaluateExpression(e) as { ok: true; value: unknown }).value;
   assert.equal(raw("1.0"), 1);
-  assert.equal(raw("1.0 / 3") as number > 0.3, true);
+  assert.equal((raw("1.0 / 3") as number) > 0.3, true);
   assert.equal(raw("0.5"), 0.5);
 });
 
 test("integers still resolve, and non-numbers still fail", () => {
   const ev = new ExpressionEvaluator(new InMemoryVariableStorage());
-  const raw = (e: string): unknown => (ev.tryEvaluateExpression(e) as { ok: true; value: unknown }).value;
+  const raw = (e: string): unknown =>
+    (ev.tryEvaluateExpression(e) as { ok: true; value: unknown }).value;
   assert.equal(raw("42"), 42);
   assert.equal(raw("007"), 7);
   // No exponent in upstream NUMBER: "1e3" is not a literal — the
@@ -42,7 +44,9 @@ test("{1.0/3} composes a nonzero value end-to-end", () => {
   const source = `title: Start\n---\nx {1.0/3}\n===\n`;
   const dialogue = new Dialogue(compileOk(source));
   const lines = runUntilCompleteEvents(dialogue)
-    .filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line")
+    .filter(
+      (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+    )
     .map((e) => e.text.trim());
   assert.ok(lines[0].startsWith("x 0.3"), lines.join("; "));
 });

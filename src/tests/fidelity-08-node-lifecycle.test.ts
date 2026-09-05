@@ -28,7 +28,10 @@ import type { DialogueEvent } from "../runtime/dialogue.js";
 import { runUntilCompleteEvents } from "../runtime/transcript.js";
 import { visitCountVariableKey } from "../runtime/generatedVariables.js";
 
-function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
+function makeDialogue(
+  source: string,
+  opts?: ConstructorParameters<typeof Dialogue>[1],
+): Dialogue {
   const program = compileOk(source);
   return new Dialogue(program, { startAt: "Start", ...opts });
 }
@@ -58,9 +61,16 @@ test("jump-from-detour fires nodeComplete for every unwound call-stack frame", (
   // (NodeComplete), then every node on the return stack unwinds with its
   // own NodeComplete — both Sub (current) and Start (the detoured caller).
   const completes = events
-    .filter((e): e is Extract<DialogueEvent, { type: "nodeComplete" }> => e.type === "nodeComplete")
+    .filter(
+      (e): e is Extract<DialogueEvent, { type: "nodeComplete" }> =>
+        e.type === "nodeComplete",
+    )
     .map((e) => e.nodeName);
-  deepStrictEqual(completes, ["Sub", "Start", "Other"], "the jump from inside the detour completes Sub AND Start");
+  deepStrictEqual(
+    completes,
+    ["Sub", "Start", "Other"],
+    "the jump from inside the detour completes Sub AND Start",
+  );
   ok(
     events.some((e) => e.type === "nodeStart" && e.nodeName === "Other"),
     "the jump target still starts",
@@ -70,13 +80,22 @@ test("jump-from-detour fires nodeComplete for every unwound call-stack frame", (
 test("jump-from-detour records visit counts for every unwound frame", () => {
   const storage = new Map<string, unknown>();
   const dialogue = makeDialogue(START_WITH_DETOUR, {
-    variableStorage: { has: (k) => storage.has(k), get: (k) => storage.get(k), set: (k, v) => storage.set(k, v), entries: () => storage.entries() },
+    variableStorage: {
+      has: (k) => storage.has(k),
+      get: (k) => storage.get(k),
+      set: (k, v) => storage.set(k, v),
+      entries: () => storage.entries(),
+    },
   });
   runUntilCompleteEvents(dialogue);
   runUntilCompleteEvents(dialogue);
   // Upstream: the jump unwind records Sub (the current node) and Start (the
   // detoured caller) via ReturnFromNode; Other is visited when it ends.
-  equal(storage.get(visitCountVariableKey("Start")), 1, "Start's visit is recorded by the jump unwind");
+  equal(
+    storage.get(visitCountVariableKey("Start")),
+    1,
+    "Start's visit is recorded by the jump unwind",
+  );
   equal(storage.get(visitCountVariableKey("Sub")), 1);
   equal(storage.get(visitCountVariableKey("Other")), 1);
 });
@@ -134,12 +153,15 @@ Narrator: inside
 });
 
 test("node-entry batches fire nodeStart before line hints (upstream SetNode order)", () => {
-  const dialogue = makeDialogue(`
+  const dialogue = makeDialogue(
+    `
 title: Start
 ---
 Narrator: One
 ===
-`, { lineHints: true });
+`,
+    { lineHints: true },
+  );
   const batch = dialogue.continue();
   deepStrictEqual(
     batch.map((e) => e.type),
@@ -150,7 +172,8 @@ Narrator: One
 
 test("<<stop>> records visit counts for the current node and unwound frames", () => {
   const storage = new Map<string, unknown>();
-  const dialogue = makeDialogue(`
+  const dialogue = makeDialogue(
+    `
 title: Start
 ---
 Narrator: start line
@@ -161,26 +184,50 @@ title: Sub
 Narrator: sub line
 <<stop>>
 ===
-`, {
-    variableStorage: { has: (k) => storage.has(k), get: (k) => storage.get(k), set: (k, v) => storage.set(k, v), entries: () => storage.entries() },
-  });
+`,
+    {
+      variableStorage: {
+        has: (k) => storage.has(k),
+        get: (k) => storage.get(k),
+        set: (k, v) => storage.set(k, v),
+        entries: () => storage.entries(),
+      },
+    },
+  );
   const events = runUntilCompleteEvents(dialogue);
-  ok(events.some((e) => e.type === "dialogueComplete"), "<<stop>> completes the dialogue");
-  equal(storage.get(visitCountVariableKey("Start")), 1, "the unwound Start frame is visited");
-  equal(storage.get(visitCountVariableKey("Sub")), 1, "the stopping Sub node is visited");
+  ok(
+    events.some((e) => e.type === "dialogueComplete"),
+    "<<stop>> completes the dialogue",
+  );
+  equal(
+    storage.get(visitCountVariableKey("Start")),
+    1,
+    "the unwound Start frame is visited",
+  );
+  equal(
+    storage.get(visitCountVariableKey("Sub")),
+    1,
+    "the stopping Sub node is visited",
+  );
   // The complete event fires after the unwinding nodeCompletes.
   const kinds = events.map((e) => e.type);
-  ok(kinds.indexOf("dialogueComplete") > kinds.lastIndexOf("nodeComplete"), "completion follows the unwind");
+  ok(
+    kinds.indexOf("dialogueComplete") > kinds.lastIndexOf("nodeComplete"),
+    "completion follows the unwind",
+  );
 });
 
 test("setNode with an unknown node leaves the dialogue inactive (upstream stops first)", () => {
   const errors: string[] = [];
-  const dialogue = makeDialogue(`
+  const dialogue = makeDialogue(
+    `
 title: Start
 ---
 Narrator: Only line
 ===
-`, { logError: (m) => errors.push(m) });
+`,
+    { logError: (m) => errors.push(m) },
+  );
 
   dialogue.setNode("Nope");
   equal(errors.length, 1, "a diagnostic reports the unknown node");
@@ -189,7 +236,11 @@ Narrator: Only line
   // No events are produced afterwards (upstream stops without firing the
   // complete handler).
   const batch = dialogue.continue();
-  deepStrictEqual(batch, [], "continue() after the failed setNode yields nothing");
+  deepStrictEqual(
+    batch,
+    [],
+    "continue() after the failed setNode yields nothing",
+  );
 });
 
 test("stop() after completion still fires the dialogue-complete event", () => {
@@ -202,7 +253,10 @@ Narrator: Only line
   const first = dialogue.continue();
   ok(first.some((e) => e.type === "line"));
   const done = dialogue.continue();
-  ok(done.some((e) => e.type === "dialogueComplete"), "the run completed");
+  ok(
+    done.some((e) => e.type === "dialogueComplete"),
+    "the run completed",
+  );
   dialogue.stop();
   const after = dialogue.continue();
   ok(

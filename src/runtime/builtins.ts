@@ -15,7 +15,11 @@ import type { Library } from "./library.js";
 import type { FunctionSignature } from "./library.js";
 import { visitCountVariableKey } from "./generatedVariables.js";
 import type { VariableStorage } from "./variableStorage.js";
-import { convertToInt32, stringifyOperand, toNumberOperand } from "./operands.js";
+import {
+  convertToInt32,
+  stringifyOperand,
+  toNumberOperand,
+} from "./operands.js";
 
 /**
  * Render a number the way upstream's `format_invariant` does
@@ -37,7 +41,9 @@ function formatFloat32Invariant(value: number): string {
   let exponent = 0;
   for (let precision = 1; precision <= 9; precision++) {
     if (Math.fround(Number(f.toPrecision(precision))) === f) {
-      const match = /^(-?)(\d)(?:\.(\d+))?e([+-]\d+)$/.exec(f.toExponential(precision - 1))!;
+      const match = /^(-?)(\d)(?:\.(\d+))?e([+-]\d+)$/.exec(
+        f.toExponential(precision - 1),
+      )!;
       mantissa = match[2] + (match[3] ?? "").replace(/0+$/, "");
       exponent = Number(match[4]);
       if (match[1] === "-") return `-${renderCSharpFloat(mantissa, exponent)}`;
@@ -82,7 +88,10 @@ export function registerBuiltinFunctions(
       if (typeof v === "boolean") return v ? 1 : 0;
       if (v == null) return 0;
       const text = String(v).trim();
-      if (text === "" || !/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(text)) {
+      if (
+        text === "" ||
+        !/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(text)
+      ) {
         throw new Error(`Cannot convert "${text}" to number`);
       }
       return Number(text);
@@ -107,7 +116,8 @@ export function registerBuiltinFunctions(
       const name = String(nodeName ?? "");
       return Number(getVariables().get(visitCountVariableKey(name))) || 0;
     },
-    format_invariant: (n: unknown) => formatFloat32Invariant(toNumberOperand(n)),
+    format_invariant: (n: unknown) =>
+      formatFloat32Invariant(toNumberOperand(n)),
     random: () => Math.random(),
     // Upstream: random_range returns an integer offset above the (untruncated)
     // min: Random.Next((int)max - (int)min + 1) + min. random_range_float is
@@ -126,8 +136,10 @@ export function registerBuiltinFunctions(
       return Math.floor(Math.random() * s) + 1;
     },
     // Upstream arity: exactly two parameters (float a, float b).
-    min: (a: unknown, b: unknown) => Math.min(toNumberOperand(a), toNumberOperand(b)),
-    max: (a: unknown, b: unknown) => Math.max(toNumberOperand(a), toNumberOperand(b)),
+    min: (a: unknown, b: unknown) =>
+      Math.min(toNumberOperand(a), toNumberOperand(b)),
+    max: (a: unknown, b: unknown) =>
+      Math.max(toNumberOperand(a), toNumberOperand(b)),
     // Upstream: (int)Math.Round(num) / (float)Math.Round(num, places) — C#
     // Math.Round rounds midpoints to even.
     round: (n: unknown) => convertToInt32(bankersRound(toNumberOperand(n))),
@@ -198,7 +210,9 @@ function randomIntegerSpan(a: unknown, b: unknown): number {
   // midpoint-to-even conversion.
   const span = Math.trunc(max) - Math.trunc(min) + 1;
   if (span < 0) {
-    throw new Error(`random_range: min (${min}) must be less than or equal to max (${max})`);
+    throw new Error(
+      `random_range: min (${min}) must be less than or equal to max (${max})`,
+    );
   }
   return Math.floor(Math.random() * span) + min;
 }

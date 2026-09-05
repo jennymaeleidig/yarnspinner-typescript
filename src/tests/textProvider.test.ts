@@ -65,7 +65,11 @@ test("areLinesAvailable reports whether all hinted lines resolve in the current 
   assert.equal(provider.areLinesAvailable(), true);
 
   provider.setLanguage("de");
-  assert.equal(provider.areLinesAvailable(), false, "de has no translation for line:one");
+  assert.equal(
+    provider.areLinesAvailable(),
+    false,
+    "de has no translation for line:one",
+  );
 
   provider.extendTranslation("de", { "line:one": "Hallo" });
   assert.equal(provider.areLinesAvailable(), true);
@@ -97,7 +101,10 @@ function germanProvider() {
   }));
 
   const provider = new StringTableTextProvider();
-  provider.extendTranslation("de", csvEntriesToTable(parseCSV(createCSV(translated)), "de"));
+  provider.extendTranslation(
+    "de",
+    csvEntriesToTable(parseCSV(createCSV(translated)), "de"),
+  );
   return { result, provider };
 }
 
@@ -107,14 +114,20 @@ test("setLanguage swaps rendered text from a CSV strings file", () => {
     provider,
   } = germanProvider();
   const lineOf = (events: ReturnType<Dialogue["continue"]>) =>
-    events.find((e): e is Extract<typeof e, { type: "line" }> => e.type === "line");
+    events.find(
+      (e): e is Extract<typeof e, { type: "line" }> => e.type === "line",
+    );
 
   // Base language: the program's own text.
   const base = new Dialogue(program!, { textProvider: provider });
   let line = lineOf(base.continue());
   assert.ok(line);
   assert.equal(line.text, "Gold 0.");
-  assert.match(line.lineId!, /^line:/, "event line IDs are the canonical string-table keys");
+  assert.match(
+    line.lineId!,
+    /^line:/,
+    "event line IDs are the canonical string-table keys",
+  );
 
   // Switch language mid-run; the next lines render the CSV text.
   const dialogue = new Dialogue(program!, { textProvider: provider });
@@ -148,14 +161,18 @@ test("translated option text resolves through the provider; substitutions still 
   void dialogue.continue(); // the node-start + base line
   const options = dialogue
     .continue()
-    .find((e): e is Extract<typeof e, { type: "options" }> => e.type === "options");
+    .find(
+      (e): e is Extract<typeof e, { type: "options" }> => e.type === "options",
+    );
   assert.ok(options, "an options event arrives");
   assert.equal(options.options[0].text, "Nimm es");
 
   // Selecting the option runs its body; the translated line keeps its
   // `{expr}` substitution live against current variables.
   dialogue.selectOption(0);
-  const line = dialogue.continue().find((e): e is Extract<typeof e, { type: "line" }> => e.type === "line");
+  const line = dialogue
+    .continue()
+    .find((e): e is Extract<typeof e, { type: "line" }> => e.type === "line");
   assert.ok(line);
   assert.equal(line.text, "You took it. (DE)");
 });
@@ -168,7 +185,9 @@ test("translated text keeps substitutions live (expanded at delivery, not export
   const dialogue = new Dialogue(program!, { textProvider: provider });
   dialogue.setLanguage("de");
   dialogue.setVariable("gold", 7);
-  const line = dialogue.continue().find((e): e is Extract<typeof e, { type: "line" }> => e.type === "line");
+  const line = dialogue
+    .continue()
+    .find((e): e is Extract<typeof e, { type: "line" }> => e.type === "line");
   assert.ok(line);
   assert.equal(line.text, "Gold 7. (DE)");
 });
@@ -178,7 +197,10 @@ test("lineHints feed the provider's availability tracking", () => {
     result: { program },
     provider,
   } = germanProvider();
-  const dialogue = new Dialogue(program!, { textProvider: provider, lineHints: true });
+  const dialogue = new Dialogue(program!, {
+    textProvider: provider,
+    lineHints: true,
+  });
   dialogue.setLanguage("fr"); // a language with no translations loaded
   // areLinesAvailable flips once the node's lines are hinted.
   dialogue.continue();
@@ -188,7 +210,9 @@ test("lineHints feed the provider's availability tracking", () => {
 test("setLanguage without a provider reports a diagnostic and changes nothing", () => {
   const result = compile([file("story.yarn", STORY)]);
   const errors: string[] = [];
-  const dialogue = new Dialogue(result.program!, { logError: (m) => errors.push(m) });
+  const dialogue = new Dialogue(result.program!, {
+    logError: (m) => errors.push(m),
+  });
   dialogue.setLanguage("de");
   assert.equal(errors.length, 1);
   assert.match(errors[0], /no text provider/);

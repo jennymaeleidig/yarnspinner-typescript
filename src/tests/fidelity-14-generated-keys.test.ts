@@ -33,7 +33,10 @@ import {
   visitCountVariableKey,
 } from "../runtime/generatedVariables.js";
 
-function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
+function makeDialogue(
+  source: string,
+  opts?: ConstructorParameters<typeof Dialogue>[1],
+): Dialogue {
   const program = compileOk(source);
   return new Dialogue(program, { startAt: "Start", ...opts });
 }
@@ -41,7 +44,9 @@ function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialog
 function mapStorage(): {
   storage: Map<string, unknown>;
   variableStorage: ConstructorParameters<typeof Dialogue>[1] extends infer O
-    ? O extends { variableStorage?: infer V } ? V : never
+    ? O extends { variableStorage?: infer V }
+      ? V
+      : never
     : never;
 } {
   const storage = new Map<string, unknown>();
@@ -61,7 +66,10 @@ function mapStorage(): {
 test("generated-variable keys carry upstream's $ sigil", () => {
   equal(generatedVariablePrefix, "$Yarn.Internal.");
   equal(onceVariableKey("line:abc"), "$Yarn.Internal.Once.line:abc");
-  equal(contentViewCountVariableKey("content"), "$Yarn.Internal.Content.ViewCount.content");
+  equal(
+    contentViewCountVariableKey("content"),
+    "$Yarn.Internal.Content.ViewCount.content",
+  );
   equal(visitCountVariableKey("Start"), "$Yarn.Internal.VisitCount.Start");
 });
 
@@ -89,9 +97,14 @@ Narrator: Always
   // reads the same stored key).
   const second = makeDialogue(ONCE_SCRIPT, { variableStorage });
   const texts = runUntilCompleteEvents(second)
-    .filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line")
+    .filter(
+      (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+    )
     .map((e) => e.text);
-  ok(!texts.includes("Once line"), "the stored once-flag (under its sigil'd key) still suppresses the block");
+  ok(
+    !texts.includes("Once line"),
+    "the stored once-flag (under its sigil'd key) still suppresses the block",
+  );
   ok(texts.includes("Always"));
 });
 
@@ -107,7 +120,11 @@ Narrator: here
     { variableStorage },
   );
   runUntilCompleteEvents(first);
-  equal(storage.get(visitCountVariableKey("Start")), 1, "the visit count sits under the sigil'd key");
+  equal(
+    storage.get(visitCountVariableKey("Start")),
+    1,
+    "the visit count sits under the sigil'd key",
+  );
 
   const second = makeDialogue(
     `
@@ -118,9 +135,17 @@ title: Start
 `,
     { variableStorage },
   );
-  const line = second.continue().find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  const line = second
+    .continue()
+    .find(
+      (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+    );
   ok(line);
-  equal(line.text, "True", "visited() reads the same sigil'd key the runtime writes");
+  equal(
+    line.text,
+    "True",
+    "visited() reads the same sigil'd key the runtime writes",
+  );
 });
 
 // ── <<once>> statement keys: upstream's location CRC32 ──────────────────
@@ -139,8 +164,16 @@ test("<<once>> statement keys derive from upstream's location checksum", () => {
   );
   // Distinct locations hash distinctly.
   ok(
-    onceStatementVariableKey({ sourceFileName: "story.yarn", nodeTitle: "Start", lineNumber: 6 }) !==
-      onceStatementVariableKey({ sourceFileName: "story.yarn", nodeTitle: "Start", lineNumber: 5 }),
+    onceStatementVariableKey({
+      sourceFileName: "story.yarn",
+      nodeTitle: "Start",
+      lineNumber: 6,
+    }) !==
+      onceStatementVariableKey({
+        sourceFileName: "story.yarn",
+        nodeTitle: "Start",
+        lineNumber: 5,
+      }),
   );
 });
 
@@ -162,7 +195,11 @@ Member 0
   const options = dialogue.getSaliencyOptionsForNodeGroup("Group");
   equal(options.length, 1);
   // Upstream ComplexityScore for `when: $or`: no ExpAndOrXor nodes → 0 + 1.
-  equal(options[0].complexityScore, 1, "the variable named $or is not counted as an operator");
+  equal(
+    options[0].complexityScore,
+    1,
+    "the variable named $or is not counted as an operator",
+  );
 });
 
 test("boolean operators still score from the parsed expression", () => {

@@ -3,10 +3,12 @@
 Source: [docs.yarnspinner.dev — Detour](https://docs.yarnspinner.dev/write-yarn-scripts/scripting-fundamentals/detour)
 
 ### What it covers
+
 - **`<<detour NodeTitle>>`**: temporarily visit another node and return when it finishes.
 - Useful for side conversations, tooltips, or contextual asides.
 
 ### Example
+
 ```yarn
 title: Main
 ---
@@ -20,5 +22,3 @@ title: Aside
 Narrator: Here's some extra info.
 ===
 ```
-
-

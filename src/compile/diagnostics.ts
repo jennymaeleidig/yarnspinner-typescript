@@ -26,10 +26,20 @@ export interface YarnRange {
  * assign (upstream `DiagnosticSeverity`, including `None` = present but
  * user-hidden). Shared with the validation guard so the union and the
  * runtime check cannot drift apart. */
-export const DIAGNOSTIC_SEVERITIES = ["error", "warning", "info", "none"] as const;
+export const DIAGNOSTIC_SEVERITIES = [
+  "error",
+  "warning",
+  "info",
+  "none",
+] as const;
 
-export function isDiagnosticSeverity(value: unknown): value is DiagnosticSeverity {
-  return typeof value === "string" && (DIAGNOSTIC_SEVERITIES as readonly string[]).includes(value);
+export function isDiagnosticSeverity(
+  value: unknown,
+): value is DiagnosticSeverity {
+  return (
+    typeof value === "string" &&
+    (DIAGNOSTIC_SEVERITIES as readonly string[]).includes(value)
+  );
 }
 
 export interface Diagnostic {
@@ -91,7 +101,10 @@ export const DIAGNOSTIC_REGISTRY: Record<string, DiagnosticDescriptor> = {
   YS0041: { name: "InternalError", defaultSeverity: "error" },
   YS0042: { name: "UnknownLineIDForShadowLine", defaultSeverity: "error" },
   YS0043: { name: "ShadowLinesCantHaveExpressions", defaultSeverity: "error" },
-  YS0044: { name: "ShadowLinesMustHaveSameTextAsSource", defaultSeverity: "error" },
+  YS0044: {
+    name: "ShadowLinesMustHaveSameTextAsSource",
+    defaultSeverity: "error",
+  },
   YS0045: { name: "SmartVariableLoop", defaultSeverity: "error" },
   YS0048: { name: "SingularCommandWrap", defaultSeverity: "warning" },
   YS0050: { name: "TypeCheckerError", defaultSeverity: "error" },
@@ -112,7 +125,12 @@ export function makeDiagnostic(
   if (!descriptor) {
     // Programming error: emitting an unregistered code. Keep the diagnostic
     // flowing (collect-don't-throw) but flag it as an internal error.
-    return { code: "YS0041", severity: "error", message: `Internal compiler error: diagnostic ${code} is not registered`, ...opts };
+    return {
+      code: "YS0041",
+      severity: "error",
+      message: `Internal compiler error: diagnostic ${code} is not registered`,
+      ...opts,
+    };
   }
   return { code, severity: descriptor.defaultSeverity, message, ...opts };
 }

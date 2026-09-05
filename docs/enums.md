@@ -3,6 +3,7 @@
 Source: [docs.yarnspinner.dev — Enums](https://docs.yarnspinner.dev/write-yarn-scripts/scripting-fundamentals/enums)
 
 ### What it covers
+
 - Define named sets of values for clarity and safety.
 - Compare enum values in conditions and assignments.
 - Raw values: uniform per enum (all number or all string); if any case declares one, all must; omitted raw values are auto-numbered from 0; comparisons `==`/`!=` are only valid within the same enum.
@@ -27,6 +28,7 @@ Raw values are what variables hold at runtime, so `string(QuestObjectives.Object
 Host code can define enums from TypeScript with `EnumTypeBuilder` and pass them to `compile()`/`compileSource()` via `declarations.enums`; they participate in compile-time checking and appear in the compile result's `userDefinedTypes` (see `docs/adr/0004-enum-representation.md`).
 
 ### Example
+
 ```yarn
 <<enum Mood>>
 <<case Happy>>
@@ -46,5 +48,3 @@ title: Check
 <<endif>>
 ===
 ```
-
-

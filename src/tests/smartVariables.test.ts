@@ -30,7 +30,10 @@ import type { Diagnostic } from "../compile/diagnostics.js";
 import { hasErrors } from "../compile/diagnostics.js";
 import type { Program } from "../compile/program.js";
 
-function compile(source: string): { program: Program | null; diagnostics: Diagnostic[] } {
+function compile(source: string): {
+  program: Program | null;
+  diagnostics: Diagnostic[];
+} {
   return compileSource(source);
 }
 
@@ -41,7 +44,11 @@ test("a declare over a plain literal is a stored variable, not a smart variable"
 <<set $x += 1>>
 ===
 `);
-  assert.equal(hasErrors(result.diagnostics), false, JSON.stringify(result.diagnostics));
+  assert.equal(
+    hasErrors(result.diagnostics),
+    false,
+    JSON.stringify(result.diagnostics),
+  );
   assert.equal(result.program?.smartVariables["x"], undefined);
   assert.equal(result.program?.initialValues["x"] !== undefined, true);
 });
@@ -53,7 +60,11 @@ test("a declare whose initializer references variables is a smart variable", () 
 <<declare $can_afford = $money > 10>>
 ===
 `);
-  assert.equal(hasErrors(result.diagnostics), false, JSON.stringify(result.diagnostics));
+  assert.equal(
+    hasErrors(result.diagnostics),
+    false,
+    JSON.stringify(result.diagnostics),
+  );
   // Smart variables compile their initializer to bytecode (the
   // compiled form).
   assert.deepEqual(result.program?.smartVariables["can_afford"], [
@@ -137,7 +148,11 @@ test("smart variables may reference other smart variables without a loop", () =>
 <<declare $E = $C || $C>>
 ===
 `);
-  assert.equal(hasErrors(result.diagnostics), false, JSON.stringify(result.diagnostics));
+  assert.equal(
+    hasErrors(result.diagnostics),
+    false,
+    JSON.stringify(result.diagnostics),
+  );
   assert.deepEqual(Object.keys(result.program?.smartVariables ?? {}).sort(), [
     "C",
     "D",
@@ -192,7 +207,10 @@ test("tryGetSmartVariable computes the current value on access", () => {
   assert.deepEqual(result, { ok: true, value: 10 });
 
   dialogue.setVariable("money", 7);
-  assert.deepEqual(dialogue.tryGetSmartVariable("double"), { ok: true, value: 14 });
+  assert.deepEqual(dialogue.tryGetSmartVariable("double"), {
+    ok: true,
+    value: 14,
+  });
 
   // Non-smart and unknown names report failure (upstream TryGetSmartVariable).
   assert.equal(dialogue.tryGetSmartVariable("money").ok, false);
@@ -208,7 +226,10 @@ test("a host write to a smart variable name shadows it (upstream VariableKind.St
 `);
   const dialogue = new Dialogue(program!, { startAt: "Start" });
   dialogue.setVariable("double", 99);
-  assert.deepEqual(dialogue.tryGetSmartVariable("double"), { ok: true, value: 99 });
+  assert.deepEqual(dialogue.tryGetSmartVariable("double"), {
+    ok: true,
+    value: 99,
+  });
 });
 
 test("smart variables appear in the compile result's declarations", () => {
@@ -218,7 +239,9 @@ test("smart variables appear in the compile result's declarations", () => {
 <<declare $can_afford = $money > 10>>
 ===
 `);
-  const declarations = Object.fromEntries(result.declarations.map((d) => [d.name, d]));
+  const declarations = Object.fromEntries(
+    result.declarations.map((d) => [d.name, d]),
+  );
   assert.equal(declarations["can_afford"].isSmartVariable, true);
   assert.equal(declarations["can_afford"].defaultValue, undefined);
   assert.equal(declarations["money"].isSmartVariable, undefined);

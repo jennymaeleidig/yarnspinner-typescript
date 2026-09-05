@@ -66,7 +66,10 @@ export class StringTableTextProvider implements TextProvider {
 
   /** Add (or replace) a language's translation lines (Rust `extend_translation`). */
   extendTranslation(language: string, table: Record<string, string>): void {
-    this.translations.set(language, { ...this.translations.get(language), ...table });
+    this.translations.set(language, {
+      ...this.translations.get(language),
+      ...table,
+    });
   }
 
   setLanguage(language: string | null): void {
@@ -85,7 +88,10 @@ export class StringTableTextProvider implements TextProvider {
     // Availability checks the ACTIVE language's table directly — no fallback
     // to base (Rust `are_lines_available`): a missing translation is exactly
     // what this signal reports.
-    const table = this.language !== null ? this.translations.get(this.language) : this.baseTable;
+    const table =
+      this.language !== null
+        ? this.translations.get(this.language)
+        : this.baseTable;
     for (const lineId of this.hinted) {
       if (!table || table[lineId] === undefined) return false;
     }

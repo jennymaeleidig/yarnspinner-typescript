@@ -22,7 +22,15 @@
  */
 
 import { test } from "node:test";
-import { deepEqual, deepStrictEqual, equal, match, notEqual, ok, throws } from "node:assert";
+import {
+  deepEqual,
+  deepStrictEqual,
+  equal,
+  match,
+  notEqual,
+  ok,
+  throws,
+} from "node:assert";
 
 import { LineParser, lexMarkup } from "../markup/lineParser.js";
 import {
@@ -46,7 +54,10 @@ test("duplicate property names in one tag throw during parse, like upstream", ()
   // Upstream: the MarkupAttribute constructor feeds the properties into a
   // Dictionary via Add, which throws ArgumentException on the repeat
   // ("An item with the same key has already been added.").
-  throws(() => parser.parseString("[a p=1 p=2]text[/a]"), /same key has already been added/);
+  throws(
+    () => parser.parseString("[a p=1 p=2]text[/a]"),
+    /same key has already been added/,
+  );
   throws(() => parser.parseString("[a p=1 p=2]text[/a]"), Error);
 });
 
@@ -105,7 +116,9 @@ test("the lexer emits a string value, not an error, for an escaped-quote-termina
   // "Expected to find a property and it's value". The C# source is
   // authoritative — coding standards §1.)
   const tokens = lexMarkup('[p="a\\"b]');
-  const valueTokens = tokens.filter((t) => t.type === "stringValue" || t.type === "error");
+  const valueTokens = tokens.filter(
+    (t) => t.type === "stringValue" || t.type === "error",
+  );
   equal(valueTokens.length, 1);
   equal(valueTokens[0].type, "stringValue");
   equal(valueTokens[0].start, 3);
@@ -113,7 +126,8 @@ test("the lexer emits a string value, not an error, for an escaped-quote-termina
 
   // And the parse fails on the stray identifier, exactly like upstream.
   const parser = new LineParser();
-  const { markup, diagnostics } = parser.parseStringWithDiagnostics('[p="a\\"b]');
+  const { markup, diagnostics } =
+    parser.parseStringWithDiagnostics('[p="a\\"b]');
   ok(diagnostics.length > 0);
   match(diagnostics[0].message, /Expected to find a property and it's value/);
   equal(markup.text, '[p="a\\"b]');
@@ -126,8 +140,12 @@ test("invalid-name diagnostic excludes the offending character", () => {
   // idToken.Start)` — the range stops BEFORE the error token's character,
   // unlike the token Range used elsewhere.
   const parser = new LineParser();
-  const { diagnostics } = parser.parseStringWithDiagnostics("[invalid.name]normal text[/invalid.name]");
-  const diag = diagnostics.filter((d) => d.message.startsWith("Error parsing markup, invalid name:"));
+  const { diagnostics } = parser.parseStringWithDiagnostics(
+    "[invalid.name]normal text[/invalid.name]",
+  );
+  const diag = diagnostics.filter((d) =>
+    d.message.startsWith("Error parsing markup, invalid name:"),
+  );
   equal(diag.length, 1);
   equal(diag[0].message, 'Error parsing markup, invalid name: "invalid"');
   equal(diag[0].column, 1);
@@ -141,7 +159,15 @@ test("shiftAttribute shifts the position and copies the attribute", () => {
     sourcePosition: 9,
     length: 3,
     name: "em",
-    properties: { pause: { type: "integer", integerValue: 500, floatValue: 0, stringValue: "", boolValue: false } },
+    properties: {
+      pause: {
+        type: "integer",
+        integerValue: 500,
+        floatValue: 0,
+        stringValue: "",
+        boolValue: false,
+      },
+    },
   };
   const shifted = shiftAttribute(attribute, 6);
   equal(shifted.position, 10);
@@ -196,9 +222,13 @@ test("plural % substitution renders in the current culture, comma-decimal", () =
   const previous = getCurrentCulture();
   setCurrentCulture("de-DE");
   try {
-    const markup = parser.parseString('[plural value=2.5 other="% cats"/]', "en", {
-      addImplicitCharacterAttribute: false,
-    });
+    const markup = parser.parseString(
+      '[plural value=2.5 other="% cats"/]',
+      "en",
+      {
+        addImplicitCharacterAttribute: false,
+      },
+    );
     equal(markup.text, "2,5 cats");
   } finally {
     setCurrentCulture(previous);
@@ -217,9 +247,13 @@ test("ordinal % substitution also renders in the current culture", () => {
     // which is why the integer ordinal cases upstream tests never show
     // the difference). Quirky, but that is the upstream behavior —
     // parity, not improvement.
-    const markup = parser.parseString('[ordinal value=2.5 one="%st" two="%nd" other="%th"/]', "en", {
-      addImplicitCharacterAttribute: false,
-    });
+    const markup = parser.parseString(
+      '[ordinal value=2.5 one="%st" two="%nd" other="%th"/]',
+      "en",
+      {
+        addImplicitCharacterAttribute: false,
+      },
+    );
     equal(markup.text, "2,5th");
   } finally {
     setCurrentCulture(previous);
@@ -253,9 +287,13 @@ test("the default current culture is the host environment's locale", () => {
     equal(getCurrentCulture(), undefined);
     const parser = new LineParser();
     parser.registerMarkerProcessor("plural", new BuiltInMarkupReplacer());
-    const markup = parser.parseString('[plural value=2.5 other="% cats"/]', "en", {
-      addImplicitCharacterAttribute: false,
-    });
+    const markup = parser.parseString(
+      '[plural value=2.5 other="% cats"/]',
+      "en",
+      {
+        addImplicitCharacterAttribute: false,
+      },
+    );
     // Under the suite's (dot-decimal) host locale this is dot-decimal; the
     // point is the rendering went through the culture-sensitive path.
     ok(markup.text.endsWith(" cats"));

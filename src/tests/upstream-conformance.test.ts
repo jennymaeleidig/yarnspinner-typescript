@@ -24,7 +24,11 @@ import { compileSource, hasErrors } from "../index.js";
 import type { ExternalDeclarations } from "../compile/typeCheck.js";
 import { parseTestPlan } from "./upstream/testPlan.js";
 import { runTestPlan, PlanFailure } from "./upstream/testBase.js";
-import { listTestCases, listParseFailures, readFixture } from "./upstream/fixtures.js";
+import {
+  listTestCases,
+  listParseFailures,
+  readFixture,
+} from "./upstream/fixtures.js";
 
 /**
  * Fixtures that must compile clean but currently fail. Each entry cites the
@@ -61,14 +65,19 @@ const HARNESS_FUNCTION_SIGNATURES = {
  * so there is no per-fixture driver split any more.
  */
 
-function attemptCompile(source: string): { ok: true } | { ok: false; error: string } {
+function attemptCompile(
+  source: string,
+): { ok: true } | { ok: false; error: string } {
   try {
     const { program, diagnostics } = compileSource(source, {
       declarations: { functions: HARNESS_FUNCTION_SIGNATURES },
     });
     if (program === null || hasErrors(diagnostics)) {
       const first = diagnostics.find((d) => d.severity === "error");
-      return { ok: false, error: first ? `${first.code}: ${first.message}` : "compilation failed" };
+      return {
+        ok: false,
+        error: first ? `${first.code}: ${first.message}` : "compilation failed",
+      };
     }
     return { ok: true };
   } catch (e) {
@@ -78,22 +87,37 @@ function attemptCompile(source: string): { ok: true } | { ok: false; error: stri
 
 test("upstream ParseFailures fixtures must fail to compile", async (t) => {
   const failures = listParseFailures();
-  assert.ok(failures.length >= 33, `expected the upstream ParseFailures corpus, found ${failures.length}`);
+  assert.ok(
+    failures.length >= 33,
+    `expected the upstream ParseFailures corpus, found ${failures.length}`,
+  );
   for (const name of failures) {
     await t.test(name, () => {
-      const result = attemptCompile(readFixture(`TestCases/ParseFailures/${name}`));
-      assert.ok(!result.ok, "fixture compiles clean but upstream requires it to fail");
+      const result = attemptCompile(
+        readFixture(`TestCases/ParseFailures/${name}`),
+      );
+      assert.ok(
+        !result.ok,
+        "fixture compiles clean but upstream requires it to fail",
+      );
     });
   }
 
   await t.test("DuplicateLineTags.yarn", () => {
-    const result = attemptCompile(readFixture("TestCases/DuplicateLineTags.yarn"));
-    assert.ok(!result.ok, "fixture compiles clean but upstream requires it to fail");
+    const result = attemptCompile(
+      readFixture("TestCases/DuplicateLineTags.yarn"),
+    );
+    assert.ok(
+      !result.ok,
+      "fixture compiles clean but upstream requires it to fail",
+    );
   });
 });
 
 test("upstream TestCases fixtures with a plan must compile clean", async (t) => {
-  const pairs = listTestCases().filter((name) => name !== "DuplicateLineTags.yarn");
+  const pairs = listTestCases().filter(
+    (name) => name !== "DuplicateLineTags.yarn",
+  );
   for (const name of pairs) {
     await t.test(name, () => {
       const result = attemptCompile(readFixture(`TestCases/${name}`));
@@ -114,9 +138,13 @@ test("upstream TestCases fixtures with a plan must compile clean", async (t) => 
 });
 
 test("upstream testplan pairs run per plan", async (t) => {
-  const pairs = listTestCases().filter((name) => name !== "DuplicateLineTags.yarn");
+  const pairs = listTestCases().filter(
+    (name) => name !== "DuplicateLineTags.yarn",
+  );
   for (const name of pairs) {
-    const planSource = readFixtureSafe(`TestCases/${name.replace(/\.yarn$/, ".testplan")}`);
+    const planSource = readFixtureSafe(
+      `TestCases/${name.replace(/\.yarn$/, ".testplan")}`,
+    );
     if (planSource === null) continue; // no plan ⇒ compile-only fixture (covered above)
     await t.test(name, () => {
       const result = compileSource(readFixture(`TestCases/${name}`), {
@@ -126,7 +154,9 @@ test("upstream testplan pairs run per plan", async (t) => {
       // tree-IR driver is retired.
       const program = result.program;
       if (!program || hasErrors(result.diagnostics)) {
-        throw new Error(`fixture failed to compile: ${result.diagnostics.map((d) => d.code).join(", ")}`);
+        throw new Error(
+          `fixture failed to compile: ${result.diagnostics.map((d) => d.code).join(", ")}`,
+        );
       }
       const plan = parseTestPlan(planSource);
       if (!program.nodes["Start"]) {

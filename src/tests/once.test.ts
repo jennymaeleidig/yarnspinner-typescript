@@ -6,7 +6,10 @@ import { Dialogue } from "../runtime/dialogue.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
 import { runUntilCompleteEvents } from "../runtime/transcript.js";
 
-function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
+function makeDialogue(
+  source: string,
+  opts?: ConstructorParameters<typeof Dialogue>[1],
+): Dialogue {
   const program = compileOk(source);
   return new Dialogue(program, { startAt: "Start", ...opts });
 }
@@ -14,7 +17,11 @@ function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialog
 const drain = runUntilCompleteEvents;
 
 const lineTexts = (events: DialogueEvent[]) =>
-  events.filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line").map((e) => e.text);
+  events
+    .filter(
+      (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+    )
+    .map((e) => e.text);
 
 test("once block behavior", () => {
   const script = `
@@ -33,19 +40,38 @@ Narrator: Always
   // First run: the once block's content appears, then the always line.
   const dialogue = makeDialogue(script);
   const firstLine = lineTexts(dialogue.continue());
-  strictEqual(firstLine.some((t) => /One time only/.test(t)), true, "Expect once block content on first run");
+  strictEqual(
+    firstLine.some((t) => /One time only/.test(t)),
+    true,
+    "Expect once block content on first run",
+  );
 
   const secondLine = lineTexts(dialogue.continue());
-  strictEqual(secondLine.some((t) => /Always/.test(t)), true, "Expect always line after once");
+  strictEqual(
+    secondLine.some((t) => /Always/.test(t)),
+    true,
+    "Expect always line after once",
+  );
 
   // Once-state lives in the dialogue's variable storage (coding standards
   // §4): re-entering the same dialogue skips the once block.
   dialogue.setNode("Start");
   const reentry = lineTexts(drain(dialogue));
-  strictEqual(reentry.some((t) => /One time only/.test(t)), false, "once content is skipped on re-entry");
-  strictEqual(reentry.some((t) => /Always/.test(t)), true);
+  strictEqual(
+    reentry.some((t) => /One time only/.test(t)),
+    false,
+    "once content is skipped on re-entry",
+  );
+  strictEqual(
+    reentry.some((t) => /Always/.test(t)),
+    true,
+  );
 
   // A NEW dialogue starts with fresh state.
   const fresh = lineTexts(drain(makeDialogue(script)));
-  strictEqual(fresh.some((t) => /One time only/.test(t)), true, "a new dialogue has fresh once-state");
+  strictEqual(
+    fresh.some((t) => /One time only/.test(t)),
+    true,
+    "a new dialogue has fresh once-state",
+  );
 });

@@ -110,7 +110,9 @@ function scanCommand(content: string, into: Set<string>): void {
     scanVars(state.expression, into);
     return;
   }
-  const call = content.match(/^call\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*)\)\s*$/);
+  const call = content.match(
+    /^call\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*)\)\s*$/,
+  );
   if (call) {
     scanVars(call[2], into);
     return;
@@ -186,6 +188,11 @@ export function addUnusedVariableDiagnostics(
     if (decl.name.startsWith(GENERATED_PREFIX)) continue;
     // Message from the submodule's Definitions registry template
     // (YS0010-UnusedVariable.md); declaration names surface with their `$`.
-    push(makeDiagnostic("YS0010", `Variable '$${decl.name}' is declared but never used`));
+    push(
+      makeDiagnostic(
+        "YS0010",
+        `Variable '$${decl.name}' is declared but never used`,
+      ),
+    );
   }
 }

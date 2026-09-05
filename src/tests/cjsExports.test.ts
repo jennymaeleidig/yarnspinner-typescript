@@ -60,7 +60,8 @@ test("no CJS artifact requires an ESM sibling", () => {
   for (const path of walk(distDir)) {
     if (!path.endsWith(".cjs")) continue;
     const code = readFileSync(path, "utf8");
-    if (/\((?:require\()?\s*["']\.\.?\/[^"']*\.js["']/.test(code)) offenders.push(path);
+    if (/\((?:require\()?\s*["']\.\.?\/[^"']*\.js["']/.test(code))
+      offenders.push(path);
   }
   deepStrictEqual(offenders, []);
 });
@@ -80,7 +81,11 @@ test("every CJS surface matches its ESM twin", () => {
       import(specifier).then((esm) => {
         deepStrictEqual(names, Object.keys(esm).sort());
         for (const name of surfaceChecks[subpath]) {
-          strictEqual(typeof cjs[name], "function", `"${subpath}".${name} missing`);
+          strictEqual(
+            typeof cjs[name],
+            "function",
+            `"${subpath}".${name} missing`,
+          );
         }
       }),
     );

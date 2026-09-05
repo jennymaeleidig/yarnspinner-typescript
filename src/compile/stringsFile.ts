@@ -59,7 +59,16 @@ export interface StringTableEntry {
 }
 
 /** The upstream column order (Unity's `CreateCSV` field list). */
-const COLUMNS = ["language", "id", "text", "file", "node", "lineNumber", "lock", "comment"] as const;
+const COLUMNS = [
+  "language",
+  "id",
+  "text",
+  "file",
+  "node",
+  "lineNumber",
+  "lock",
+  "comment",
+] as const;
 
 /**
  * Parse a CSV strings file into entries (upstream
@@ -182,7 +191,10 @@ function parseRows(sourceText: string): string[][] {
  * the SHA-256 lock and the `Line metadata: …` comment. Entries keep the
  * string table's registration order.
  */
-export function stringTableToEntries(table: StringTable, language = "en"): StringTableEntry[] {
+export function stringTableToEntries(
+  table: StringTable,
+  language = "en",
+): StringTableEntry[] {
   const entries: StringTableEntry[] = [];
   for (const [id, info] of Object.entries(table)) {
     if (info.text === null) continue;

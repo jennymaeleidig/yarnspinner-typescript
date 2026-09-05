@@ -19,11 +19,23 @@ test("the browser demo builds end-to-end through the real plugin", () => {
   // The published-surface build: `vite build` with the demo's config — the
   // same command `npm run demo:build` runs. Plugin-compiled content and the
   // package's dist both flow through one bundle.
-  execFileSync(process.execPath, [join(ROOT, "node_modules", "vite", "bin", "vite.js"), "build", "--config", DEMO_CONFIG], {
-    cwd: ROOT,
-    stdio: "pipe",
-  });
-  assert.ok(existsSync(join(DIST_DEMO, "index.html")), "the build produced index.html");
+  execFileSync(
+    process.execPath,
+    [
+      join(ROOT, "node_modules", "vite", "bin", "vite.js"),
+      "build",
+      "--config",
+      DEMO_CONFIG,
+    ],
+    {
+      cwd: ROOT,
+      stdio: "pipe",
+    },
+  );
+  assert.ok(
+    existsSync(join(DIST_DEMO, "index.html")),
+    "the build produced index.html",
+  );
   const assets = readdirSync(join(DIST_DEMO, "assets"));
   const bundle = assets.find((f) => f.endsWith(".js"));
   assert.ok(bundle, "the build produced a JS bundle");
@@ -40,5 +52,8 @@ test("the browser demo builds end-to-end through the real plugin", () => {
 
   // No source aliasing: the bundle was built from dist, not src — a src-path
   // import would leave the alias's literal path or compile-time src markers.
-  assert.ok(!js.includes('examples/src'), "no src tree references leak into the bundle");
+  assert.ok(
+    !js.includes("examples/src"),
+    "no src tree references leak into the bundle",
+  );
 });

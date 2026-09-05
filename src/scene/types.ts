@@ -15,4 +15,3 @@ export interface SceneConfig {
 export interface SceneCollection {
   scenes: Record<string, SceneConfig>; // Scene name -> config
 }
-

@@ -9,8 +9,8 @@ manually keeping it in sync.
 
 ### Declaring
 
-A declaration is a smart variable when its initial value is *anything other
-than a plain literal*:
+A declaration is a smart variable when its initial value is _anything other
+than a plain literal_:
 
 - number literal (`0`, `1.5`), with at most one leading unary minus (`-1` — a
   negative literal is **not** a smart variable, upstream issue #421);

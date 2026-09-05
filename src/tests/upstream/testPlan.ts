@@ -32,7 +32,12 @@
 
 export type TestPlanStep =
   | { kind: "line"; text: string | null; hashtags: string[] }
-  | { kind: "option"; text: string | null; hashtags: string[]; disabled: boolean }
+  | {
+      kind: "option";
+      text: string | null;
+      hashtags: string[];
+      disabled: boolean;
+    }
   | { kind: "command"; text: string }
   | { kind: "stop" }
   | { kind: "select"; optionIndex: number }
@@ -51,7 +56,10 @@ export interface TestPlan {
 }
 
 export class TestPlanSyntaxError extends Error {
-  constructor(message: string, public readonly line: number) {
+  constructor(
+    message: string,
+    public readonly line: number,
+  ) {
     super(`testplan line ${line}: ${message}`);
   }
 }
@@ -65,12 +73,18 @@ const NUMBER = /^[0-9]+$/;
 const HASHTAG = /^#[^\s]+$/;
 
 /** Parse the text inside backticks; returns null if not backtick-quoted. */
-function parseBackticked(rest: string, lineNumber: number): { text: string; remainder: string } | null {
+function parseBackticked(
+  rest: string,
+  lineNumber: number,
+): { text: string; remainder: string } | null {
   const trimmed = rest.trimStart();
   if (!trimmed.startsWith("`")) return null;
   const close = trimmed.indexOf("`", 1);
   if (close === -1) {
-    throw new TestPlanSyntaxError("unterminated backticked text (TEXT cannot contain backticks)", lineNumber);
+    throw new TestPlanSyntaxError(
+      "unterminated backticked text (TEXT cannot contain backticks)",
+      lineNumber,
+    );
   }
   return { text: trimmed.slice(1, close), remainder: trimmed.slice(close + 1) };
 }
@@ -90,7 +104,10 @@ function parseTrailingTokens(
     } else if (allowDisabled && token === "[disabled]") {
       disabled = true;
     } else {
-      throw new TestPlanSyntaxError(`unexpected trailing token "${token}"`, lineNumber);
+      throw new TestPlanSyntaxError(
+        `unexpected trailing token "${token}"`,
+        lineNumber,
+      );
     }
   }
   return { hashtags, disabled };
@@ -126,38 +143,71 @@ export function parseTestPlan(source: string): TestPlan {
     switch (keyword) {
       case "line": {
         if (rest.trimStart().startsWith("*")) {
-          const { hashtags } = parseTrailingTokens(rest.trimStart().slice(1), lineNumber, false);
+          const { hashtags } = parseTrailingTokens(
+            rest.trimStart().slice(1),
+            lineNumber,
+            false,
+          );
           current.steps.push({ kind: "line", text: null, hashtags });
           break;
         }
         const parsed = parseBackticked(rest, lineNumber);
         if (!parsed) {
-          throw new TestPlanSyntaxError("expected backticked text or '*' after 'line:'", lineNumber);
+          throw new TestPlanSyntaxError(
+            "expected backticked text or '*' after 'line:'",
+            lineNumber,
+          );
         }
-        const { hashtags } = parseTrailingTokens(parsed.remainder, lineNumber, false);
+        const { hashtags } = parseTrailingTokens(
+          parsed.remainder,
+          lineNumber,
+          false,
+        );
         current.steps.push({ kind: "line", text: parsed.text, hashtags });
         break;
       }
       case "option": {
         const parsed = parseBackticked(rest, lineNumber);
         if (!parsed) {
-          throw new TestPlanSyntaxError("expected backticked text after 'option:'", lineNumber);
+          throw new TestPlanSyntaxError(
+            "expected backticked text after 'option:'",
+            lineNumber,
+          );
         }
-        const { hashtags, disabled } = parseTrailingTokens(parsed.remainder, lineNumber, true);
-        current.steps.push({ kind: "option", text: parsed.text, hashtags, disabled });
+        const { hashtags, disabled } = parseTrailingTokens(
+          parsed.remainder,
+          lineNumber,
+          true,
+        );
+        current.steps.push({
+          kind: "option",
+          text: parsed.text,
+          hashtags,
+          disabled,
+        });
         break;
       }
       case "command": {
         const parsed = parseBackticked(rest, lineNumber);
-        if (!parsed || parseTrailingTokens(parsed.remainder, lineNumber, false).hashtags.length) {
-          throw new TestPlanSyntaxError("expected exactly backticked text after 'command:'", lineNumber);
+        if (
+          !parsed ||
+          parseTrailingTokens(parsed.remainder, lineNumber, false).hashtags
+            .length
+        ) {
+          throw new TestPlanSyntaxError(
+            "expected exactly backticked text after 'command:'",
+            lineNumber,
+          );
         }
         current.steps.push({ kind: "command", text: parsed.text });
         break;
       }
       case "stop": {
         if (rest.trim() !== "") {
-          throw new TestPlanSyntaxError("'stop' takes no arguments", lineNumber);
+          throw new TestPlanSyntaxError(
+            "'stop' takes no arguments",
+            lineNumber,
+          );
         }
         current.steps.push({ kind: "stop" });
         break;
@@ -165,35 +215,61 @@ export function parseTestPlan(source: string): TestPlan {
       case "select": {
         const value = rest.trim();
         if (!NUMBER.test(value)) {
-          throw new TestPlanSyntaxError(`'select:' expects a number, got "${value}"`, lineNumber);
+          throw new TestPlanSyntaxError(
+            `'select:' expects a number, got "${value}"`,
+            lineNumber,
+          );
         }
         // Upstream converts the 1-indexed plan value to 0-based; 0 => -1 (no option selected).
-        current.steps.push({ kind: "select", optionIndex: parseInt(value, 10) - 1 });
+        current.steps.push({
+          kind: "select",
+          optionIndex: parseInt(value, 10) - 1,
+        });
         break;
       }
       case "set": {
         const match = rest.trim().match(/^(\$\S+)\s*=\s*(\S+)$/);
         if (!match) {
-          throw new TestPlanSyntaxError(`'set:' expects "$var = value", got "${rest.trim()}"`, lineNumber);
+          throw new TestPlanSyntaxError(
+            `'set:' expects "$var = value", got "${rest.trim()}"`,
+            lineNumber,
+          );
         }
         const varMatch = match[1].match(VARIABLE);
         if (!varMatch) {
-          throw new TestPlanSyntaxError(`'set:' variable must be $identifier, got "${match[1]}"`, lineNumber);
+          throw new TestPlanSyntaxError(
+            `'set:' variable must be $identifier, got "${match[1]}"`,
+            lineNumber,
+          );
         }
         const rawValue = match[2];
         if (BOOL.test(rawValue)) {
-          current.steps.push({ kind: "set", variable: varMatch[1], value: rawValue === "true" });
+          current.steps.push({
+            kind: "set",
+            variable: varMatch[1],
+            value: rawValue === "true",
+          });
         } else if (NUMBER.test(rawValue)) {
-          current.steps.push({ kind: "set", variable: varMatch[1], value: parseInt(rawValue, 10) });
+          current.steps.push({
+            kind: "set",
+            variable: varMatch[1],
+            value: parseInt(rawValue, 10),
+          });
         } else {
-          throw new TestPlanSyntaxError(`'set:' value must be a bool or integer, got "${rawValue}"`, lineNumber);
+          throw new TestPlanSyntaxError(
+            `'set:' value must be a bool or integer, got "${rawValue}"`,
+            lineNumber,
+          );
         }
         break;
       }
       case "saliency": {
         const mode = rest.trim();
         if (!IDENTIFIER.test(mode)) {
-          throw new TestPlanSyntaxError(`'saliency:' expects an identifier, got "${mode}"`, lineNumber);
+          throw new TestPlanSyntaxError(
+            `'saliency:' expects an identifier, got "${mode}"`,
+            lineNumber,
+          );
         }
         current.steps.push({ kind: "saliency", mode });
         break;
@@ -201,7 +277,10 @@ export function parseTestPlan(source: string): TestPlan {
       case "node": {
         const name = rest.trim();
         if (!IDENTIFIER.test(name)) {
-          throw new TestPlanSyntaxError(`'node:' expects an identifier, got "${name}"`, lineNumber);
+          throw new TestPlanSyntaxError(
+            `'node:' expects an identifier, got "${name}"`,
+            lineNumber,
+          );
         }
         current.steps.push({ kind: "node", nodeName: name });
         break;

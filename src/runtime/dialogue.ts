@@ -39,7 +39,10 @@
 
 import type { Program } from "../compile/program.js";
 import { Library } from "./library.js";
-import type { ContentSaliencyOption, ContentSaliencyStrategy } from "./saliency.js";
+import type {
+  ContentSaliencyOption,
+  ContentSaliencyStrategy,
+} from "./saliency.js";
 import {
   noOptionSelected,
   type DialogueEvent,
@@ -189,7 +192,9 @@ export class Dialogue {
    * Upstream `Dialogue.TryGetSmartVariable`: compute a smart variable's
    * current value. Reports failure when the name is not a smart variable.
    */
-  tryGetSmartVariable(name: string): { ok: true; value: unknown } | { ok: false } {
+  tryGetSmartVariable(
+    name: string,
+  ): { ok: true; value: unknown } | { ok: false } {
     return this.engine.tryGetSmartVariable(name);
   }
 

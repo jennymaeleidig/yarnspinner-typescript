@@ -113,7 +113,11 @@ title: StartFalse
   // `<<declare>>` is silent, so the options arrive with the node start.
   assert.deepEqual(typesOf(batch), ["nodeStart", "options"]);
   const options = batch[1].type === "options" ? batch[1].options : [];
-  assert.equal(options.length, 2, "unavailable options are delivered, not dropped");
+  assert.equal(
+    options.length,
+    2,
+    "unavailable options are delivered, not dropped",
+  );
   assert.deepEqual(
     options.map((o) => ({ text: o.text, isAvailable: o.isAvailable })),
     [
@@ -145,7 +149,9 @@ Line after fallthrough
 
   dialogue.selectOption(noOptionSelected);
   const rest = drain(dialogue);
-  const line = rest.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  const line = rest.find(
+    (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+  );
   assert.ok(line, "expected the fall-through line");
   assert.equal(line.text, "Line after fallthrough");
   assert.equal(typesOf(rest).includes("dialogueComplete"), true);
@@ -164,7 +170,9 @@ Narrator: Score {$score} level {$level}
   const events = drain(dialogue);
   const commands = events.filter((e) => e.type === "command");
   assert.deepEqual(commands, [], "set/declare are internal");
-  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  const line = events.find(
+    (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+  );
   assert.ok(line);
   assert.equal(line.text, "Score 42 level 3");
   assert.equal(dialogue.getVariable("score"), 42);
@@ -180,7 +188,10 @@ title: Start
 `);
 
   const events = drain(dialogue);
-  const command = events.find((e): e is Extract<DialogueEvent, { type: "command" }> => e.type === "command");
+  const command = events.find(
+    (e): e is Extract<DialogueEvent, { type: "command" }> =>
+      e.type === "command",
+  );
   assert.ok(command);
   assert.equal(command.command, "hello world");
 });
@@ -222,7 +233,9 @@ Narrator: Inside
     "dialogueComplete",
   ]);
   const speakers = events
-    .filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line")
+    .filter(
+      (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+    )
     .map((e) => e.text);
   assert.deepEqual(speakers, ["Go", "In Next", "Inside", "Back"]);
 });
@@ -237,7 +250,12 @@ Narrator: Never seen
 ===
 `);
   const stopEvents = drain(stopDialogue);
-  assert.deepEqual(typesOf(stopEvents), ["nodeStart", "line", "nodeComplete", "dialogueComplete"]);
+  assert.deepEqual(typesOf(stopEvents), [
+    "nodeStart",
+    "line",
+    "nodeComplete",
+    "dialogueComplete",
+  ]);
 
   const returnDialogue = makeDialogue(`
 title: Start
@@ -248,7 +266,12 @@ Narrator: Never seen
 ===
 `);
   const returnEvents = drain(returnDialogue);
-  assert.deepEqual(typesOf(returnEvents), ["nodeStart", "line", "nodeComplete", "dialogueComplete"]);
+  assert.deepEqual(typesOf(returnEvents), [
+    "nodeStart",
+    "line",
+    "nodeComplete",
+    "dialogueComplete",
+  ]);
 });
 
 test("stop() discards execution state and delivers dialogueComplete", () => {
@@ -278,14 +301,21 @@ Narrator: Run {$runCount}
     { variables: { $runCount: 0 } },
   );
   const first = drain(dialogue);
-  const firstLine = first.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  const firstLine = first.find(
+    (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+  );
   assert.ok(firstLine && firstLine.text === "Run 1");
 
   dialogue.setNode("Start");
   assert.equal(dialogue.currentNode, "Start");
   const second = drain(dialogue);
-  const secondLine = second.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
-  assert.ok(secondLine && secondLine.text === "Run 2", "variables persist across setNode");
+  const secondLine = second.find(
+    (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+  );
+  assert.ok(
+    secondLine && secondLine.text === "Run 2",
+    "variables persist across setNode",
+  );
 });
 
 test("setNode queues nodeStart for the next batch; an unknown node makes the dialogue inactive", () => {
@@ -374,17 +404,29 @@ Result: {$doubled} {random_check()} {min(3, 1)}
     {
       library: (() => {
         const lib = new Library();
-        lib.registerFunction("multiply", (a, b) => Number(a) * Number(b), { params: ["any", "any"], returns: "number" });
-        lib.registerFunction("random_check", () => "ok", { params: [], returns: "string" });
+        lib.registerFunction("multiply", (a, b) => Number(a) * Number(b), {
+          params: ["any", "any"],
+          returns: "number",
+        });
+        lib.registerFunction("random_check", () => "ok", {
+          params: [],
+          returns: "string",
+        });
         return lib;
       })(),
     },
   );
   const events = drain(dialogue);
-  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  const line = events.find(
+    (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+  );
   assert.ok(line);
   assert.equal(line.speaker, "Result");
-  assert.equal(line.text, "6 ok 1", "host functions + built-ins (variadic min)");
+  assert.equal(
+    line.text,
+    "6 ok 1",
+    "host functions + built-ins (variadic min)",
+  );
   assert.equal(dialogue.getLibrary().hasFunction("multiply"), true);
 
   // Host override of a built-in.
@@ -408,7 +450,11 @@ Narrator: {int(2.7)}
     (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
   );
   assert.ok(overrideLine);
-  assert.equal(overrideLine.text, "999", "imported library takes precedence over built-ins");
+  assert.equal(
+    overrideLine.text,
+    "999",
+    "imported library takes precedence over built-ins",
+  );
 });
 
 test("Library command handlers fire at delivery; the Command event still surfaces", () => {
@@ -423,16 +469,21 @@ title: Start
     {
       library: (() => {
         const lib = new Library();
-        lib.registerCommandHandler("quest", (parameters) => seen.push(parameters));
+        lib.registerCommandHandler("quest", (parameters) =>
+          seen.push(parameters),
+        );
         return lib;
       })(),
     },
   );
   const events = drain(dialogue);
   assert.deepEqual(seen, [["start", "Find the hat"]]);
-  const command = events.find((e): e is Extract<DialogueEvent, { type: "command" }> => e.type === "command");
+  const command = events.find(
+    (e): e is Extract<DialogueEvent, { type: "command" }> =>
+      e.type === "command",
+  );
   assert.ok(command);
-  assert.equal(command.command, "quest start \"Find the hat\"");
+  assert.equal(command.command, 'quest start "Find the hat"');
 });
 
 test("runtime failures surface as logError diagnostics; content failures do not throw", () => {
@@ -454,7 +505,11 @@ Narrator: Jumping
   const events = drain(dialogue);
   assert.equal(errors.length, 1);
   assert.match(errors[0], /Missing/);
-  assert.equal(typesOf(events).includes("dialogueComplete"), true, "a failed jump completes the dialogue");
+  assert.equal(
+    typesOf(events).includes("dialogueComplete"),
+    true,
+    "a failed jump completes the dialogue",
+  );
 });
 
 test("lineHints events are opt-in", () => {
@@ -495,7 +550,10 @@ Narrator: Gold {$gold}
   assert.equal(dialogue.getVariable("gold"), 25);
   assert.deepEqual(dialogue.getVariables()["gold"], 25);
   for (const key of Object.keys(dialogue.getVariables())) {
-    assert.ok(!key.startsWith("$Yarn.Internal."), "generated variables are not story variables");
+    assert.ok(
+      !key.startsWith("$Yarn.Internal."),
+      "generated variables are not story variables",
+    );
   }
 });
 
@@ -507,9 +565,15 @@ title: Start
 <<declare $double = $money * 2>>
 ===
 `);
-  assert.deepEqual(dialogue.tryGetSmartVariable("double"), { ok: true, value: 20 });
+  assert.deepEqual(dialogue.tryGetSmartVariable("double"), {
+    ok: true,
+    value: 20,
+  });
   dialogue.setVariable("money", 15);
-  assert.deepEqual(dialogue.tryGetSmartVariable("double"), { ok: true, value: 30 });
+  assert.deepEqual(dialogue.tryGetSmartVariable("double"), {
+    ok: true,
+    value: 30,
+  });
   assert.equal(dialogue.tryGetSmartVariable("money").ok, false);
 });
 

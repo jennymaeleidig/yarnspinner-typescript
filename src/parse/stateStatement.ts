@@ -91,7 +91,12 @@ export function parseStateStatement(content: string): StateStatement | null {
 
   const compound = COMPOUND_SET.exec(trimmed);
   if (compound) {
-    return { kind: "set", name: compound[1], expression: compound[3].trim(), compoundOp: compound[2] as CompoundOperator };
+    return {
+      kind: "set",
+      name: compound[1],
+      expression: compound[3].trim(),
+      compoundOp: compound[2] as CompoundOperator,
+    };
   }
 
   const plain = PLAIN_SET.exec(trimmed);
@@ -126,12 +131,19 @@ export function parseStateStatement(content: string): StateStatement | null {
  * compiler's lowering and the runtime's fallback execution, replacing the
  * restated `COMPOUND_OPS` tables.
  */
-export function compoundOperatorToStackOp(op: CompoundOperator): "add" | "subtract" | "multiply" | "divide" | "modulo" {
+export function compoundOperatorToStackOp(
+  op: CompoundOperator,
+): "add" | "subtract" | "multiply" | "divide" | "modulo" {
   switch (op) {
-    case "+=": return "add";
-    case "-=": return "subtract";
-    case "*=": return "multiply";
-    case "/=": return "divide";
-    case "%=": return "modulo";
+    case "+=":
+      return "add";
+    case "-=":
+      return "subtract";
+    case "*=":
+      return "multiply";
+    case "/=":
+      return "divide";
+    case "%=":
+      return "modulo";
   }
 }

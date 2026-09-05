@@ -23,10 +23,17 @@ Narrator: Done
   // `<<set>>` is internal (never a Command event): the next batch runs
   // straight through to the following line.
   const second = dialogue.continue();
-  ok(second.length === 1 && second[0].type === "line" && second[0].text === "Done");
+  ok(
+    second.length === 1 &&
+      second[0].type === "line" &&
+      second[0].text === "Done",
+  );
 
   const last = dialogue.continue();
-  ok(last.some((e) => e.type === "dialogueComplete"), "Expected the dialogue-complete event");
+  ok(
+    last.some((e) => e.type === "dialogueComplete"),
+    "Expected the dialogue-complete event",
+  );
   strictEqual(dialogue.isActive, false);
 
   // The story's variables are readable from the variable storage (the old

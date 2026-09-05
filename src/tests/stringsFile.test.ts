@@ -59,7 +59,13 @@ test("createCSV writes the upstream 8-column header (CRLF records, RFC 4180)", (
 test("parseCSV(createCSV(entries)) round-trips entries", () => {
   const entries = [
     ENTRY,
-    { ...ENTRY, id: "line:feedface", text: "Goodbye", lineNumber: "4", comment: "" },
+    {
+      ...ENTRY,
+      id: "line:feedface",
+      text: "Goodbye",
+      lineNumber: "4",
+      comment: "",
+    },
   ];
   const parsed = parseCSV(createCSV(entries));
   assert.deepEqual(parsed, entries);
@@ -88,9 +94,7 @@ test("parseCSV handles \\r\\n line endings and missing trailing fields", () => {
 });
 
 test("parseCSV ignores unknown columns and defaults missing ones (TryGetField semantics)", () => {
-  const parsed = parseCSV(
-    "id,extra,language\ndropdown,line:one,fr",
-  );
+  const parsed = parseCSV("id,extra,language\ndropdown,line:one,fr");
   assert.equal(parsed.length, 1);
   assert.equal(parsed[0].id, "dropdown");
   assert.equal(parsed[0].language, "fr");
@@ -110,7 +114,11 @@ Hello there. #line:hello #apple
 `,
     ),
   ]);
-  assert.equal(hasErrors(result.diagnostics), false, result.diagnostics.map((d) => d.code).join(", "));
+  assert.equal(
+    hasErrors(result.diagnostics),
+    false,
+    result.diagnostics.map((d) => d.code).join(", "),
+  );
   const entries = stringTableToEntries(result.stringTable!, "en");
   assert.equal(entries.length, 1);
   const entry = entries[0];
@@ -143,7 +151,11 @@ Pick one.
 `,
     ),
   ]);
-  assert.equal(hasErrors(result.diagnostics), false, result.diagnostics.map((d) => d.code).join(", "));
+  assert.equal(
+    hasErrors(result.diagnostics),
+    false,
+    result.diagnostics.map((d) => d.code).join(", "),
+  );
   const entries = stringTableToEntries(result.stringTable!);
   const line = entries.find((e) => e.text === "Pick one.")!;
   assert.equal(line.comment, "Line metadata: lastline");
@@ -165,8 +177,15 @@ This is a line. #shadow:source
 `,
     ),
   ]);
-  assert.equal(hasErrors(result.diagnostics), false, result.diagnostics.map((d) => d.code).join(", "));
-  assert.ok(Object.values(result.stringTable!).some((e) => e.text === null), "precondition: a shadow entry exists");
+  assert.equal(
+    hasErrors(result.diagnostics),
+    false,
+    result.diagnostics.map((d) => d.code).join(", "),
+  );
+  assert.ok(
+    Object.values(result.stringTable!).some((e) => e.text === null),
+    "precondition: a shadow entry exists",
+  );
   const entries = stringTableToEntries(result.stringTable!);
   assert.equal(entries.length, 1);
   assert.equal(entries[0].id, "line:source");

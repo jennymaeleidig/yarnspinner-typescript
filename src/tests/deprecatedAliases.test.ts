@@ -28,5 +28,8 @@ Narrator: Hi
   const runner: YarnRunner = new YarnRunner(program, { startAt: "Start" });
   const events = runner.continue();
   strictEqual(events[0].type, "nodeStart");
-  strictEqual(events.some((e) => e.type === "line" && e.text === "Hi"), true);
+  strictEqual(
+    events.some((e) => e.type === "line" && e.text === "Hi"),
+    true,
+  );
 });

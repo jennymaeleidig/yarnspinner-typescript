@@ -29,7 +29,10 @@
 import { csvEntriesToTable, parseCSV } from "./stringsFile.js";
 import { projectDiagnostic } from "./yarnProject.js";
 import type { Diagnostic } from "./diagnostics.js";
-import type { LoadProjectResult, YarnProjectFileSystem } from "./yarnProject.js";
+import type {
+  LoadProjectResult,
+  YarnProjectFileSystem,
+} from "./yarnProject.js";
 import { StringTableTextProvider } from "../runtime/textProvider.js";
 
 /** The localisation surface a loaded project exposes to its host. */
@@ -79,7 +82,9 @@ export function loadLocalisations(
 
   const translations: Record<string, Record<string, string>> = {};
   const assets: Record<string, string> = {};
-  for (const [lang, entry] of Object.entries(result.project.localisation ?? {})) {
+  for (const [lang, entry] of Object.entries(
+    result.project.localisation ?? {},
+  )) {
     if (entry.assets !== undefined) assets[lang] = entry.assets;
     let table: Record<string, string> = {};
     if (entry.strings !== undefined) {

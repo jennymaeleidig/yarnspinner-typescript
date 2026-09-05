@@ -23,7 +23,10 @@ Mae: hi
 `);
   ok(result.declarations.some((d) => d.name === "shop_visits"));
   const decl = result.declarations.find((d) => d.name === "shop_visits");
-  strictEqual(decl?.description, "How many times the player has visited the shop");
+  strictEqual(
+    decl?.description,
+    "How many times the player has visited the shop",
+  );
 });
 
 test("consecutive /// lines join with a space, both ends trimmed (upstream join)", () => {

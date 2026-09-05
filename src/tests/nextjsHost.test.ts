@@ -27,7 +27,12 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 
-import { Dialogue, noOptionSelected, runUntilComplete, runUntilStopped } from "../index.js";
+import {
+  Dialogue,
+  noOptionSelected,
+  runUntilComplete,
+  runUntilStopped,
+} from "../index.js";
 import { loadYarnProject } from "../compile/nodeProjectFs.js";
 import type { Program } from "../index.js";
 
@@ -41,17 +46,32 @@ const CONTENT_DIR = join(HERE, "..", "..", "examples", "content");
 const DIST_INDEX = join(HERE, "..", "..", "dist", "index.js");
 
 /** Load the host's project the way the server component does. */
-function loadHostProject(): { program: Program; sources: string[]; projectName?: string } {
+function loadHostProject(): {
+  program: Program;
+  sources: string[];
+  projectName?: string;
+} {
   const result = loadYarnProject(join(CONTENT_DIR, "project.yarnproject"));
-  assert.ok(result.program, `host project must load: ${result.diagnostics.map((d) => d.code).join(", ")}`);
-  return { program: result.program, sources: result.sources, projectName: result.project?.projectName };
+  assert.ok(
+    result.program,
+    `host project must load: ${result.diagnostics.map((d) => d.code).join(", ")}`,
+  );
+  return {
+    program: result.program,
+    sources: result.sources,
+    projectName: result.project?.projectName,
+  };
 }
 
 // ── Server-side load path (the host's page.tsx, minus the markup) ─────────
 
 test("the host's project loads server-side through the Node provider", () => {
   const { sources, projectName } = loadHostProject();
-  assert.deepEqual(sources, ["crossroads.yarn", "night_market.yarn", "storylets.yarn"]);
+  assert.deepEqual(sources, [
+    "crossroads.yarn",
+    "night_market.yarn",
+    "storylets.yarn",
+  ]);
   assert.equal(projectName, "Wayside");
 });
 
@@ -69,10 +89,22 @@ test("the client bundle's main entry carries no Node builtins (§2)", () => {
   // builtins (either specifier style), and the ./node bundle is where
   // node:fs lives.
   const index = readFileSync(DIST_INDEX, "utf8");
-  assert.ok(!index.includes("node:"), "dist/index.js must not reference node: builtins");
-  assert.ok(!/\brequire\(["']fs["']\)/.test(index), "dist/index.js must not require fs");
-  const nodeSubpath = readFileSync(join(HERE, "..", "..", "dist", "compile", "nodeProjectFs.js"), "utf8");
-  assert.ok(nodeSubpath.includes("node:fs"), "the ./node subpath is where node:fs lives");
+  assert.ok(
+    !index.includes("node:"),
+    "dist/index.js must not reference node: builtins",
+  );
+  assert.ok(
+    !/\brequire\(["']fs["']\)/.test(index),
+    "dist/index.js must not require fs",
+  );
+  const nodeSubpath = readFileSync(
+    join(HERE, "..", "..", "dist", "compile", "nodeProjectFs.js"),
+    "utf8",
+  );
+  assert.ok(
+    nodeSubpath.includes("node:fs"),
+    "the ./node subpath is where node:fs lives",
+  );
 });
 
 // ── The SSR story (vanilla): the render-time initial pull ─────────────────
@@ -86,8 +118,16 @@ test("the host's opening line is in the initial pull it renders (SSR story)", ()
   const { transcript } = runUntilStopped(new Dialogue(program));
   const opening = transcript.lines[0];
   assert.ok(opening, "the first pull delivers the opening line");
-  assert.match(opening.text, /A crossroads at dusk/, "the opening Narrator line is in the SSR output");
-  assert.equal(opening.speaker, "Narrator", "the opening line's speaker renders");
+  assert.match(
+    opening.text,
+    /A crossroads at dusk/,
+    "the opening Narrator line is in the SSR output",
+  );
+  assert.equal(
+    opening.speaker,
+    "Narrator",
+    "the opening line's speaker renders",
+  );
 });
 
 // ── Variable-storage reset through the host's flow ────────────────────────
@@ -107,20 +147,32 @@ test("the host's dialogue flow: buy the map, arrive, complete — then reset rep
   const { transcript, stopped } = runUntilComplete(dialogue);
   assert.equal(dialogue.getVariable("gold"), 3, "the map cost 2 gold");
   assert.equal(dialogue.getVariable("hasMap"), true);
-  assert.ok(transcript.lines.some((l) => l.text.includes("chapel path is due north")));
-  assert.ok(transcript.lines.some((l) => l.text.includes("glints on the altar")));
+  assert.ok(
+    transcript.lines.some((l) => l.text.includes("chapel path is due north")),
+  );
+  assert.ok(
+    transcript.lines.some((l) => l.text.includes("glints on the altar")),
+  );
   assert.equal(stopped, "complete", "the flow runs to completion");
 
   // Variable-storage reset (§4): a fresh Dialogue is a fresh storage — the
   // declares reseed, once-state clears, and the story replays from the top.
   const replay = new Dialogue(program);
-  assert.equal(replay.getVariable("gold"), 5, "the seed reapplies — storage was reset");
+  assert.equal(
+    replay.getVariable("gold"),
+    5,
+    "the seed reapplies — storage was reset",
+  );
   assert.equal(replay.getVariable("hasMap"), false);
   const line = replay
     .continue()
     .find((e): e is Extract<typeof e, { type: "line" }> => e.type === "line");
   assert.ok(line);
-  assert.match(line.text, /A crossroads at dusk/, "the flow replays from the top");
+  assert.match(
+    line.text,
+    /A crossroads at dusk/,
+    "the flow replays from the top",
+  );
 });
 
 test("the walk-on path reaches the night market without the map", () => {

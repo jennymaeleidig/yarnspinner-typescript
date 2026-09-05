@@ -60,10 +60,14 @@ const FIXTURE_TSCONFIG = {
 };
 
 function runTsc(fixtureDir: string): void {
-  execFileSync(process.execPath, [TSC, "-p", join(fixtureDir, "tsconfig.json")], {
-    cwd: ROOT, // node_modules resolution walks up from the fixture into the repo
-    stdio: "pipe",
-  });
+  execFileSync(
+    process.execPath,
+    [TSC, "-p", join(fixtureDir, "tsconfig.json")],
+    {
+      cwd: ROOT, // node_modules resolution walks up from the fixture into the repo
+      stdio: "pipe",
+    },
+  );
 }
 
 /** The shipped ambient file, verified snippet-clean (no self-references). */
@@ -97,7 +101,10 @@ function makeFixture(enableVia: "reference" | "snippet"): string {
 test("the ./client types subpath ships with the plugin package", () => {
   const pkg = JSON.parse(readFileSync(join(PLUGIN, "package.json"), "utf8"));
   assert.equal(pkg.exports["./client"]?.types, "./client.d.ts");
-  assert.ok(pkg.files.includes("client.d.ts"), "client.d.ts ships in the files array");
+  assert.ok(
+    pkg.files.includes("client.d.ts"),
+    "client.d.ts ships in the files array",
+  );
 });
 
 test("all three import shapes type-check via the triple-slash reference", () => {

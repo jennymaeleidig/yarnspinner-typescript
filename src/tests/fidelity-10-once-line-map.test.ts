@@ -107,8 +107,14 @@ test("the alignment is per-file across a multi-file compile", () => {
   const captures: Capture[] = [];
   const result = compile(
     [
-      { name: "a.yarn", source: "title: Start\n---\n<<once>>\nA\n<<endonce>>\n===\n" },
-      { name: "b.yarn", source: "title: Other\n---\n<<once>>\nB\n<<endonce>>\n===\n" },
+      {
+        name: "a.yarn",
+        source: "title: Start\n---\n<<once>>\nA\n<<endonce>>\n===\n",
+      },
+      {
+        name: "b.yarn",
+        source: "title: Other\n---\n<<once>>\nB\n<<endonce>>\n===\n",
+      },
     ],
     {
       generateOnceIds: (ctx) => {

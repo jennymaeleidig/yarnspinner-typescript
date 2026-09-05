@@ -28,7 +28,9 @@ test("every registered code's vendored examples emit that exact code", () => {
       `${def.code} is registered but its vendored definition has no examples to pin`,
     );
     for (const [index, script] of def.scripts.entries()) {
-      const { diagnostics } = compile([{ name: `${def.code}-example-${index}.yarn`, source: script }]);
+      const { diagnostics } = compile([
+        { name: `${def.code}-example-${index}.yarn`, source: script },
+      ]);
       assert.ok(
         diagnostics.some((d) => d.code === def.code),
         `${def.code} (${def.name}) example #${index} did not emit its code — got [${diagnostics
@@ -38,7 +40,10 @@ test("every registered code's vendored examples emit that exact code", () => {
       checked++;
     }
   }
-  assert.ok(checked >= 30, `expected to pin most of the registry, pinned ${checked}`);
+  assert.ok(
+    checked >= 30,
+    `expected to pin most of the registry, pinned ${checked}`,
+  );
 });
 
 test("languageserver-generated codes are never compiler-emitted (registry)", () => {

@@ -60,8 +60,14 @@ Bob: Hello
   const result = tagLines(source);
   assert.equal(result.tagExceptions.length, 0);
 
-  const taggedIds = [...result.modifiedSource.matchAll(/#(line:[0-9a-f]{7})/g)].map((m) => m[1]);
-  assert.equal(taggedIds.length, 4, "lines, options, and option bodies all tag");
+  const taggedIds = [
+    ...result.modifiedSource.matchAll(/#(line:[0-9a-f]{7})/g),
+  ].map((m) => m[1]);
+  assert.equal(
+    taggedIds.length,
+    4,
+    "lines, options, and option bodies all tag",
+  );
   assert.equal(new Set(taggedIds).size, 4, "generated IDs are unique");
 
   // The returned ID set is the known-ID set (excluded + found + added).
@@ -77,7 +83,10 @@ Bob: Hello #shadow:keepme
   assert.equal(result.tagExceptions.length, 0);
   assert.ok(result.modifiedSource.includes("#line:keepme"));
   assert.ok(result.modifiedSource.includes("#shadow:keepme"));
-  assert.ok(!/#line:[0-9a-f]{7}/.test(result.modifiedSource), "nothing new to tag");
+  assert.ok(
+    !/#line:[0-9a-f]{7}/.test(result.modifiedSource),
+    "nothing new to tag",
+  );
   assert.deepEqual(result.lineIds, []);
 });
 
@@ -90,7 +99,11 @@ Narrator: One
   const tagged = tagLines(source).modifiedSource;
 
   const result = compile([file("input", tagged)]);
-  assert.equal(hasErrors(result.diagnostics), false, result.diagnostics.map((d) => d.code).join(", "));
+  assert.equal(
+    hasErrors(result.diagnostics),
+    false,
+    result.diagnostics.map((d) => d.code).join(", "),
+  );
   // Every generated ID is now a string-table key.
   for (const id of tagged.matchAll(/#(line:[0-9a-f]{7})/g)) {
     assert.ok(id[1] in result.stringTable!, `string table contains ${id[1]}`);
@@ -144,7 +157,11 @@ test("ported TestCommentsArentTagged: escaped text tags and recompiles clean", (
 ===`;
   // The base text compiles clean.
   const before = compile([file("input", escapedText)]);
-  assert.equal(hasErrors(before.diagnostics), false, before.diagnostics.map((d) => d.code).join(", "));
+  assert.equal(
+    hasErrors(before.diagnostics),
+    false,
+    before.diagnostics.map((d) => d.code).join(", "),
+  );
 
   // Tagging adds a line ID to the (escaped) line.
   const tagged = tagLines(escapedText);
@@ -153,7 +170,11 @@ test("ported TestCommentsArentTagged: escaped text tags and recompiles clean", (
 
   // And the tagged source recompiles clean.
   const after = compile([file("input", tagged.modifiedSource)]);
-  assert.equal(hasErrors(after.diagnostics), false, after.diagnostics.map((d) => d.code).join(", "));
+  assert.equal(
+    hasErrors(after.diagnostics),
+    false,
+    after.diagnostics.map((d) => d.code).join(", "),
+  );
 });
 
 // ── DescriptiveLineTagGenerator ─────────────────────────────────────────────
@@ -166,7 +187,9 @@ Alice: And another line
 Bob: And me responding
 And finally a line that isn't from a character
 `);
-  const result = tagLines(source, { generator: new DescriptiveLineTagGenerator() });
+  const result = tagLines(source, {
+    generator: new DescriptiveLineTagGenerator(),
+  });
   assert.equal(result.tagExceptions.length, 0);
   assert.ok(result.modifiedSource.includes("#line:Node_0100_Alice"));
   assert.ok(result.modifiedSource.includes("#line:Node_0200_Alice"));
@@ -182,7 +205,9 @@ when: always
 Alice: This is me saying a line
 ===
 `;
-  const result = tagLines(source, { generator: new DescriptiveLineTagGenerator() });
+  const result = tagLines(source, {
+    generator: new DescriptiveLineTagGenerator(),
+  });
   assert.equal(result.tagExceptions.length, 0);
   assert.ok(result.modifiedSource.includes("#line:Node.Subtitle_0100_Alice"));
 });
@@ -196,7 +221,9 @@ Alice: And another line #line:Node_0200_Alice
 Bob: And me responding #line:Node_0300_Bob
 And finally a line that isn't from a character #line:Node_0400
 `);
-  const result = tagLines(source, { generator: new DescriptiveLineTagGenerator() });
+  const result = tagLines(source, {
+    generator: new DescriptiveLineTagGenerator(),
+  });
   assert.equal(result.tagExceptions.length, 0);
   assert.ok(result.modifiedSource.includes("#line:Node_0150_Bob"));
 });
@@ -207,7 +234,9 @@ Alice: This is me saying a line #line:Node_0100_Alice
 Alice: And saying a bit more
 Bob: I have a retort #line:Node_0101_Bob
 `);
-  const result = tagLines(source, { generator: new DescriptiveLineTagGenerator() });
+  const result = tagLines(source, {
+    generator: new DescriptiveLineTagGenerator(),
+  });
   assert.equal(result.tagExceptions.length, 0);
   assert.ok(result.modifiedSource.includes("#line:Node_0101_g1_Alice"));
 });
@@ -218,12 +247,17 @@ Alice: later line #line:Node_0200_Alice
 Bob: inserted line
 Alice: earlier line #line:Node_0100_Alice
 `);
-  const result = tagLines(source, { generator: new DescriptiveLineTagGenerator() });
+  const result = tagLines(source, {
+    generator: new DescriptiveLineTagGenerator(),
+  });
   assert.equal(result.tagExceptions.length, 1);
   assert.match(result.tagExceptions[0].message, /greater tagged value/);
   // The error is left in the source as a comment; the offending node's tags
   // are discarded (the default TagAbortBehaviour is currentNode).
-  assert.match(result.modifiedSource, /\/\/ ERROR: The preceeding dialogue has a greater tagged value/);
+  assert.match(
+    result.modifiedSource,
+    /\/\/ ERROR: The preceeding dialogue has a greater tagged value/,
+  );
 });
 
 test("descriptive IDs: a generated ID in the exclusion set raises a tagging exception", () => {
@@ -241,9 +275,15 @@ test("descriptive tagging round-trips through the compile seam and the runtime",
 Alice: Hi there
 Bob: Hello
 `);
-  const tagged = tagLines(source, { generator: new DescriptiveLineTagGenerator() }).modifiedSource;
+  const tagged = tagLines(source, {
+    generator: new DescriptiveLineTagGenerator(),
+  }).modifiedSource;
   const result = compile([file("input", tagged)]);
-  assert.equal(hasErrors(result.diagnostics), false, result.diagnostics.map((d) => d.code).join(", "));
+  assert.equal(
+    hasErrors(result.diagnostics),
+    false,
+    result.diagnostics.map((d) => d.code).join(", "),
+  );
   assert.ok("line:Node_0100_Alice" in result.stringTable!);
   assert.ok("line:Node_0200_Bob" in result.stringTable!);
 
@@ -263,7 +303,9 @@ ${body}
 // ── TagAbortBehaviour ───────────────────────────────────────────────────────
 
 test("tagAbortBehaviour currentNode skips the offending node but tags the rest", () => {
-  const source = nodeTitled("Broken", "Alice: broken line") + nodeTitled("Fine", "Bob: fine line");
+  const source =
+    nodeTitled("Broken", "Alice: broken line") +
+    nodeTitled("Fine", "Bob: fine line");
   // A generator that fails for the first node only.
   const failing = {
     prepareForLines(): void {},
@@ -278,19 +320,27 @@ test("tagAbortBehaviour currentNode skips the offending node but tags the rest",
   // The second node's line was still tagged.
   assert.match(result.modifiedSource, /title: Fine[\s\S]*#line:fine0001/);
   // And the first node's line was not.
-  const firstNode = result.modifiedSource.slice(0, result.modifiedSource.indexOf("title: Fine"));
+  const firstNode = result.modifiedSource.slice(
+    0,
+    result.modifiedSource.indexOf("title: Fine"),
+  );
   assert.doesNotMatch(firstNode, /#line:[0-9a-f]{7}/);
 });
 
 test("tagAbortBehaviour entireTagging leaves no tags anywhere", () => {
-  const source = nodeTitled("Broken", "Alice: broken line") + nodeTitled("Fine", "Bob: fine line");
+  const source =
+    nodeTitled("Broken", "Alice: broken line") +
+    nodeTitled("Fine", "Bob: fine line");
   const failing = {
     prepareForLines(): void {},
     generateLineTag(): string {
       throw new LineTaggingError("no tags for you");
     },
   };
-  const result = tagLines(source, { generator: failing, tagAbortBehaviour: "entireTagging" });
+  const result = tagLines(source, {
+    generator: failing,
+    tagAbortBehaviour: "entireTagging",
+  });
   assert.equal(result.tagExceptions.length, 1);
   assert.doesNotMatch(result.modifiedSource, /#line:[0-9a-f]{7}/);
   assert.match(result.modifiedSource, /\/\/ ERROR: no tags for you/);
@@ -306,7 +356,10 @@ test("tagAbortBehaviour currentLine tags every other line", () => {
       return `line:generated${calls}`;
     },
   };
-  const result = tagLines(source, { generator: failingOnce, tagAbortBehaviour: "currentLine" });
+  const result = tagLines(source, {
+    generator: failingOnce,
+    tagAbortBehaviour: "currentLine",
+  });
   assert.equal(result.tagExceptions.length, 1);
   assert.match(result.modifiedSource, /#line:generated[0-9]+/);
   // The line after the failure was still tagged.

@@ -5,7 +5,10 @@ import { compileOk } from "./compileOk.js";
 import { Dialogue } from "../runtime/dialogue.js";
 import type { DialogueEvent, OptionsEvent } from "../runtime/dialogue.js";
 
-function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
+function makeDialogue(
+  source: string,
+  opts?: ConstructorParameters<typeof Dialogue>[1],
+): Dialogue {
   const program = compileOk(source);
   return new Dialogue(program, { startAt: "Start", ...opts });
 }
@@ -21,7 +24,11 @@ function nextOptions(dialogue: Dialogue, guard = 25): OptionsEvent {
 }
 
 const lineTexts = (events: DialogueEvent[]) =>
-  events.filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line").map((e) => e.text);
+  events
+    .filter(
+      (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+    )
+    .map((e) => e.text);
 
 test("options selection", () => {
   const script = `
@@ -39,7 +46,10 @@ Narrator: Choose one
   const dialogue = new Dialogue(ir, { startAt: "Start" });
 
   const first = dialogue.continue();
-  ok(first[1].type === "line" && first[1].text === "Choose one", "Expected intro text");
+  ok(
+    first[1].type === "line" && first[1].text === "Choose one",
+    "Expected intro text",
+  );
   const optionsEvent = nextOptions(dialogue);
   strictEqual(optionsEvent.options.length, 2, "Should have 2 options");
   // choose B (index 1)
@@ -70,9 +80,11 @@ Narrator: Choose
   strictEqual(boldMarkup.text, "Bold");
   ok(
     boldMarkup.attributes.some((attribute) => attribute.name === "b"),
-    "Expected bold attribute"
+    "Expected bold attribute",
   );
-  const custom = options[1].markup!.attributes.find((attribute) => attribute.name === "wave");
+  const custom = options[1].markup!.attributes.find(
+    (attribute) => attribute.name === "wave",
+  );
   ok(custom, "Expected wave attribute on second option");
   strictEqual(custom.properties["intensity"]?.integerValue, 5);
 });
@@ -94,12 +106,23 @@ Narrator: Decide
   const dialogue = makeDialogue(script);
   // `<<set>>` statements are internal: the intro line arrives immediately.
   const first = dialogue.continue();
-  ok(first[1].type === "line" && first[1].text === "Decide", "Expected narration after the sets");
+  ok(
+    first[1].type === "line" && first[1].text === "Decide",
+    "Expected narration after the sets",
+  );
 
   const optionsEvent = nextOptions(dialogue);
   const [pay, haggle] = optionsEvent.options;
-  strictEqual(pay.text, "Pay 150", "Should replace placeholder with variable value");
-  strictEqual(haggle.text, "Haggle 300", "Should evaluate expressions inside placeholders");
+  strictEqual(
+    pay.text,
+    "Pay 150",
+    "Should replace placeholder with variable value",
+  );
+  strictEqual(
+    haggle.text,
+    "Haggle 300",
+    "Should evaluate expressions inside placeholders",
+  );
 });
 
 test("conditional options respect once blocks and if statements", () => {
@@ -129,15 +152,27 @@ Narrator: Menu
   // First pass: the secret option's condition holds, so the if-wrapped
   // option group is reached (the compiler merges the lists into one).
   const secretMenu = nextOptions(dialogue);
-  strictEqual(secretMenu.options.length, 1, "First pass should expose the conditional secret option");
+  strictEqual(
+    secretMenu.options.length,
+    1,
+    "First pass should expose the conditional secret option",
+  );
   strictEqual(secretMenu.options[0].text, "Secret Option");
-  strictEqual(secretMenu.options[0].isAvailable, true, "the secret option is available on the first pass");
+  strictEqual(
+    secretMenu.options[0].isAvailable,
+    true,
+    "the secret option is available on the first pass",
+  );
 
   // Consume the secret option to flip the flag off, then walk to the next
   // options event (secret body line, jump, Start re-entry).
   dialogue.selectOption(0);
   const fallbackMenu = nextOptions(dialogue);
-  strictEqual(fallbackMenu.options.length, 1, "After the secret path is used, only the regular option should remain");
+  strictEqual(
+    fallbackMenu.options.length,
+    1,
+    "After the secret path is used, only the regular option should remain",
+  );
   strictEqual(fallbackMenu.options[0].text, "Regular Option");
   strictEqual(fallbackMenu.options[0].isAvailable, true);
 });
@@ -165,7 +200,11 @@ Narrator: Run branch
 
   const dialogue = makeDialogue(script);
   const optionsEvent = nextOptions(dialogue);
-  strictEqual(optionsEvent.options.length, 2, "Space indents should still group options together");
+  strictEqual(
+    optionsEvent.options.length,
+    2,
+    "Space indents should still group options together",
+  );
   strictEqual(optionsEvent.options[0].text, "Pay");
   strictEqual(optionsEvent.options[1].text, "Run");
 });
@@ -199,7 +238,10 @@ title: StartTrue
     // compile; host writes are the reliable way to vary the input.
     dialogue.setVariable("flag", flag);
     const optionsEvent = nextOptions(dialogue);
-    return optionsEvent.options.map((o) => ({ text: o.text, isAvailable: o.isAvailable }));
+    return optionsEvent.options.map((o) => ({
+      text: o.text,
+      isAvailable: o.isAvailable,
+    }));
   };
 
   strictEqual(

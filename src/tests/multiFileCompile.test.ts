@@ -29,18 +29,32 @@ import { UPSTREAM_TESTS_DIR } from "./upstream/fixtures.js";
 
 const spaceFile = (name: string): CompileFile => ({
   name,
-  source: readFileSync(join(UPSTREAM_TESTS_DIR, "Projects", "Space", name), "utf8"),
+  source: readFileSync(
+    join(UPSTREAM_TESTS_DIR, "Projects", "Space", name),
+    "utf8",
+  ),
 });
 
-const basicSource = readFileSync(join(UPSTREAM_TESTS_DIR, "Projects", "Basic", "Test.yarn"), "utf8");
+const basicSource = readFileSync(
+  join(UPSTREAM_TESTS_DIR, "Projects", "Basic", "Test.yarn"),
+  "utf8",
+);
 
 // ── Upstream multi-file projects ──────────────────────────────────────────
 
 test("Projects/Basic compiles and its nodes run (upstream TestLoadingNodes)", () => {
   const result = compile([{ name: "Test.yarn", source: basicSource }]);
-  assert.equal(hasErrors(result.diagnostics), false, result.diagnostics.map((d) => d.code).join(", "));
+  assert.equal(
+    hasErrors(result.diagnostics),
+    false,
+    result.diagnostics.map((d) => d.code).join(", "),
+  );
   assert.ok(result.program);
-  assert.deepEqual(Object.keys(result.program.nodes).sort(), ["AnotherTestNode", "TestNode", "ThirdNode"]);
+  assert.deepEqual(Object.keys(result.program.nodes).sort(), [
+    "AnotherTestNode",
+    "TestNode",
+    "ThirdNode",
+  ]);
 
   const dialogue = new Dialogue(result.program, { startAt: "TestNode" });
   const events = dialogue.continue();
@@ -51,10 +65,21 @@ test("Projects/Basic compiles and its nodes run (upstream TestLoadingNodes)", ()
 
 test("Projects/Space compiles Sally.yarn + Ship.yarn together and runs", () => {
   const result = compile([spaceFile("Sally.yarn"), spaceFile("Ship.yarn")]);
-  assert.equal(hasErrors(result.diagnostics), false, result.diagnostics.map((d) => d.code).join(", "));
+  assert.equal(
+    hasErrors(result.diagnostics),
+    false,
+    result.diagnostics.map((d) => d.code).join(", "),
+  );
   assert.ok(result.program);
   // Nodes from both files share one program.
-  for (const title of ["Declarations", "Sally", "Sally_Watch", "Sally_Exit", "Sally_Sorry", "Ship"]) {
+  for (const title of [
+    "Declarations",
+    "Sally",
+    "Sally_Watch",
+    "Sally_Exit",
+    "Sally_Sorry",
+    "Ship",
+  ]) {
     assert.ok(result.program.nodes[title], `node ${title} exists`);
   }
 
@@ -78,21 +103,38 @@ test("Projects/Space: the .ysls command definitions ride the declarations path",
   // language server; a host derives declarations from it and passes them
   // alongside the compile. The files also compile with a compile-time
   // Library present (signature checking without runtime wiring).
-  const ysls = JSON.parse(readFileSync(join(UPSTREAM_TESTS_DIR, "Projects", "Space", "Commands.ysls.json"), "utf8"));
+  const ysls = JSON.parse(
+    readFileSync(
+      join(UPSTREAM_TESTS_DIR, "Projects", "Space", "Commands.ysls.json"),
+      "utf8",
+    ),
+  );
   const library = new Library();
   for (const command of ysls.commands) {
     library.registerCommandHandler(command.yarnName, () => {});
   }
   assert.ok(library.hasCommandHandler("test_command"));
 
-  const result = compile([spaceFile("Sally.yarn"), spaceFile("Ship.yarn")], { library });
-  assert.equal(hasErrors(result.diagnostics), false, result.diagnostics.map((d) => d.code).join(", "));
+  const result = compile([spaceFile("Sally.yarn"), spaceFile("Ship.yarn")], {
+    library,
+  });
+  assert.equal(
+    hasErrors(result.diagnostics),
+    false,
+    result.diagnostics.map((d) => d.code).join(", "),
+  );
   // Explicit declarations override / extend library signatures for checking.
   const result2 = compile([spaceFile("Sally.yarn"), spaceFile("Ship.yarn")], {
     library,
-    declarations: { functions: { visited: { params: ["string"], returns: "bool" } } },
+    declarations: {
+      functions: { visited: { params: ["string"], returns: "bool" } },
+    },
   });
-  assert.equal(hasErrors(result2.diagnostics), false, result2.diagnostics.map((d) => d.code).join(", "));
+  assert.equal(
+    hasErrors(result2.diagnostics),
+    false,
+    result2.diagnostics.map((d) => d.code).join(", "),
+  );
 });
 
 // ── Four compilation modes ────────────────────────────────────────────────
@@ -117,10 +159,16 @@ test("full mode: program, string table, declarations, file tags, implicit-tag fl
 });
 
 test("stringsOnly mode: string table + implicit-tag flag only (upstream StringsOnly)", () => {
-  const result = compile([{ name: "mode.yarn", source: MODE_SOURCE }], { mode: "stringsOnly" });
+  const result = compile([{ name: "mode.yarn", source: MODE_SOURCE }], {
+    mode: "stringsOnly",
+  });
   assert.equal(result.program, null);
   assert.deepEqual(result.declarations, []);
-  assert.deepEqual(result.fileTags, {}, "upstream StringsOnly surfaces no file tags");
+  assert.deepEqual(
+    result.fileTags,
+    {},
+    "upstream StringsOnly surfaces no file tags",
+  );
   assert.ok(result.stringTable, "the string table is present");
   assert.equal(result.stringTable!["line:explicit_one"].text, "Hello.");
   assert.equal(result.containsImplicitStringTags, true);
@@ -130,18 +178,27 @@ test("stringsOnly mode: string table + implicit-tag flag only (upstream StringsO
 });
 
 test("typeCheckOnly mode: declarations + string table, no program (upstream TypeCheck)", () => {
-  const result = compile([{ name: "mode.yarn", source: MODE_SOURCE }], { mode: "typeCheckOnly" });
+  const result = compile([{ name: "mode.yarn", source: MODE_SOURCE }], {
+    mode: "typeCheckOnly",
+  });
   assert.equal(result.program, null);
   assert.ok(result.declarations.some((d) => d.name === "count"));
   assert.deepEqual(result.fileTags, { "mode.yarn": ["project-wide"] });
-  assert.ok(result.stringTable, "TypeCheck has carried the string table since upstream 3.2.1");
+  assert.ok(
+    result.stringTable,
+    "TypeCheck has carried the string table since upstream 3.2.1",
+  );
   // Upstream hardcodes ContainsImplicitStringTags false for TypeCheck.
   assert.equal(result.containsImplicitStringTags, false);
 });
 
 test("declarationsOnly mode: the obsolete upstream alias of typeCheckOnly", () => {
-  const alias = compile([{ name: "mode.yarn", source: MODE_SOURCE }], { mode: "declarationsOnly" });
-  const canonical = compile([{ name: "mode.yarn", source: MODE_SOURCE }], { mode: "typeCheckOnly" });
+  const alias = compile([{ name: "mode.yarn", source: MODE_SOURCE }], {
+    mode: "declarationsOnly",
+  });
+  const canonical = compile([{ name: "mode.yarn", source: MODE_SOURCE }], {
+    mode: "typeCheckOnly",
+  });
   assert.deepEqual(alias, canonical);
 });
 
@@ -150,7 +207,12 @@ test("every mode observes the same multi-file validation diagnostics", () => {
     { name: "a.yarn", source: "title: Dup\n---\nOne\n===\n" },
     { name: "b.yarn", source: "title: Dup\n---\nTwo\n===\n" },
   ];
-  for (const mode of ["full", "stringsOnly", "typeCheckOnly", "declarationsOnly"] as const satisfies readonly CompilationMode[]) {
+  for (const mode of [
+    "full",
+    "stringsOnly",
+    "typeCheckOnly",
+    "declarationsOnly",
+  ] as const satisfies readonly CompilationMode[]) {
     const result = compile(files, { mode });
     assert.ok(
       result.diagnostics.some((d) => d.code === "YS0011"),
@@ -182,11 +244,24 @@ Shadowed. #shadow:my_id
     metadata: ["line:my_id", "colour"],
     shadowLineID: null,
   });
-  const shadowEntry = Object.values(table).find((e) => e.shadowLineID === "line:my_id");
-  assert.ok(shadowEntry, "the shadow line is registered with its source line's ID");
-  assert.equal(shadowEntry!.isImplicitTag, true, "shadow lines carry implicit IDs of their own");
+  const shadowEntry = Object.values(table).find(
+    (e) => e.shadowLineID === "line:my_id",
+  );
+  assert.ok(
+    shadowEntry,
+    "the shadow line is registered with its source line's ID",
+  );
+  assert.equal(
+    shadowEntry!.isImplicitTag,
+    true,
+    "shadow lines carry implicit IDs of their own",
+  );
   assert.equal(shadowEntry!.nodeName, "Node");
-  assert.equal(shadowEntry!.text, null, "shadow lines do not carry their text (upstream strips it)");
+  assert.equal(
+    shadowEntry!.text,
+    null,
+    "shadow lines do not carry their text (upstream strips it)",
+  );
   const implicit = Object.values(table).find((e) => e.text === "Plain line.");
   assert.ok(implicit);
   assert.equal(implicit!.isImplicitTag, true);
@@ -194,13 +269,18 @@ Shadowed. #shadow:my_id
 });
 
 test("no explicit tags → containsImplicitStringTags; all explicit → false", () => {
-  const implicit = compile([{ name: "a.yarn", source: "title: A\n---\nHello.\n===\n" }], {
-    mode: "stringsOnly",
-  });
+  const implicit = compile(
+    [{ name: "a.yarn", source: "title: A\n---\nHello.\n===\n" }],
+    {
+      mode: "stringsOnly",
+    },
+  );
   assert.equal(implicit.containsImplicitStringTags, true);
   const explicit = compile(
     [{ name: "a.yarn", source: "title: A\n---\nHello. #line:one\n===\n" }],
-    { mode: "stringsOnly" },
+    {
+      mode: "stringsOnly",
+    },
   );
   assert.equal(explicit.containsImplicitStringTags, false);
 });
@@ -222,16 +302,32 @@ test("duplicate explicit line IDs across files produce YS0018 on both occurrence
 // ── External declarations: variables ────────────────────────────
 
 test("external variables are known to the type checker and surface in declarations", () => {
-  const result = compile([{ name: "ext.yarn", source: "title: A\n---\n<<set $gold to 5>>\n===\n" }], {
-    declarations: { variables: { gold: { type: "number", defaultValue: 0 } } },
-  });
-  assert.equal(hasErrors(result.diagnostics), false, result.diagnostics.map((d) => d.code).join(", "));
-  assert.ok(result.declarations.some((d) => d.name === "gold" && d.type === "number"));
+  const result = compile(
+    [{ name: "ext.yarn", source: "title: A\n---\n<<set $gold to 5>>\n===\n" }],
+    {
+      declarations: {
+        variables: { gold: { type: "number", defaultValue: 0 } },
+      },
+    },
+  );
+  assert.equal(
+    hasErrors(result.diagnostics),
+    false,
+    result.diagnostics.map((d) => d.code).join(", "),
+  );
+  assert.ok(
+    result.declarations.some((d) => d.name === "gold" && d.type === "number"),
+  );
 });
 
 test("an in-script <<declare>> conflicting with an external variable is YS0039", () => {
   const result = compile(
-    [{ name: "ext.yarn", source: "title: A\n---\n<<declare $gold = 1>>\n===\n" }],
+    [
+      {
+        name: "ext.yarn",
+        source: "title: A\n---\n<<declare $gold = 1>>\n===\n",
+      },
+    ],
     { declarations: { variables: { gold: { type: "number" } } } },
   );
   const redecls = result.diagnostics.filter((d) => d.code === "YS0039");
@@ -258,21 +354,35 @@ title: B
   ];
   const multi = compile(files);
   const multiRedecls = multi.diagnostics.filter((d) => d.code === "YS0039");
-  assert.equal(multiRedecls.length, 2, "upstream reports both occurrences across files");
-  assert.deepEqual(
-    [...new Set(multiRedecls.map((d) => d.file))].sort(),
-    ["a.yarn", "b.yarn"],
+  assert.equal(
+    multiRedecls.length,
+    2,
+    "upstream reports both occurrences across files",
   );
+  assert.deepEqual([...new Set(multiRedecls.map((d) => d.file))].sort(), [
+    "a.yarn",
+    "b.yarn",
+  ]);
 });
 
 test("a duplicate <<enum>> redeclaration across files is YS0040", () => {
   const files: CompileFile[] = [
-    { name: "a.yarn", source: "title: A\n---\n<<enum Fish>>\n<<case Shark>>\n<<endenum>>\n===\n" },
-    { name: "b.yarn", source: "title: B\n---\n<<enum Fish>>\n<<case Tuna>>\n<<endenum>>\n===\n" },
+    {
+      name: "a.yarn",
+      source:
+        "title: A\n---\n<<enum Fish>>\n<<case Shark>>\n<<endenum>>\n===\n",
+    },
+    {
+      name: "b.yarn",
+      source: "title: B\n---\n<<enum Fish>>\n<<case Tuna>>\n<<endenum>>\n===\n",
+    },
   ];
   const result = compile(files, { mode: "typeCheckOnly" });
   const redecls = result.diagnostics.filter((d) => d.code === "YS0040");
-  assert.ok(redecls.length >= 1, "upstream RedeclarationOfExistingType fires across files");
+  assert.ok(
+    redecls.length >= 1,
+    "upstream RedeclarationOfExistingType fires across files",
+  );
 });
 
 test("enum-typed external variables feed assignment checking (YS0050)", () => {
@@ -281,7 +391,13 @@ test("enum-typed external variables feed assignment checking (YS0050)", () => {
     .addCase("Tuna", 2)
     .build();
   const result = compile(
-    [{ name: "e.yarn", source: "title: A\n---\n<<set $pet to Fish.Shark>>\n<<set $pet to 3>>\n===\n" }],
+    [
+      {
+        name: "e.yarn",
+        source:
+          "title: A\n---\n<<set $pet to Fish.Shark>>\n<<set $pet to 3>>\n===\n",
+      },
+    ],
     { declarations: { enums: [fish], variables: { pet: { type: "Fish" } } } },
   );
   assert.ok(
@@ -298,16 +414,36 @@ test("a compile-time Library's signatures drive arity checking (YS0014)", () => 
     params: ["number", "number"],
     returns: "number",
   });
-  const bad = compile([{ name: "lib.yarn", source: "title: A\n---\n<<set $x to add_two(1)>>\n===\n" }], {
-    library,
-  });
-  assert.ok(bad.diagnostics.some((d) => d.code === "YS0014"), "wrong arity is flagged via the Library");
+  const bad = compile(
+    [
+      {
+        name: "lib.yarn",
+        source: "title: A\n---\n<<set $x to add_two(1)>>\n===\n",
+      },
+    ],
+    {
+      library,
+    },
+  );
+  assert.ok(
+    bad.diagnostics.some((d) => d.code === "YS0014"),
+    "wrong arity is flagged via the Library",
+  );
 
   const good = compile(
-    [{ name: "lib.yarn", source: "title: A\n---\n<<set $x to add_two(1, 2)>>\n===\n" }],
+    [
+      {
+        name: "lib.yarn",
+        source: "title: A\n---\n<<set $x to add_two(1, 2)>>\n===\n",
+      },
+    ],
     { library },
   );
-  assert.equal(hasErrors(good.diagnostics), false, good.diagnostics.map((d) => d.code).join(", "));
+  assert.equal(
+    hasErrors(good.diagnostics),
+    false,
+    good.diagnostics.map((d) => d.code).join(", "),
+  );
 });
 
 test("variadic library signatures are accepted (upstream VariadicParameterType)", () => {
@@ -318,18 +454,35 @@ test("variadic library signatures are accepted (upstream VariadicParameterType)"
     returns: "number",
   });
   const result = compile(
-    [{ name: "lib.yarn", source: "title: A\n---\n<<set $x to sum_all(1, 2, 3)>>\n===\n" }],
+    [
+      {
+        name: "lib.yarn",
+        source: "title: A\n---\n<<set $x to sum_all(1, 2, 3)>>\n===\n",
+      },
+    ],
     { library },
   );
-  assert.equal(hasErrors(result.diagnostics), false, result.diagnostics.map((d) => d.code).join(", "));
+  assert.equal(
+    hasErrors(result.diagnostics),
+    false,
+    result.diagnostics.map((d) => d.code).join(", "),
+  );
 });
 
 test("explicit declarations.functions take precedence over library signatures", () => {
   const library = new Library();
   // The library says pick/1; the host's explicit declaration says pick/0.
-  library.registerFunction("pick", () => 0, { params: ["number"], returns: "number" });
+  library.registerFunction("pick", () => 0, {
+    params: ["number"],
+    returns: "number",
+  });
   const result = compile(
-    [{ name: "lib.yarn", source: "title: A\n---\n<<set $x to pick()>>\n===\n" }],
+    [
+      {
+        name: "lib.yarn",
+        source: "title: A\n---\n<<set $x to pick()>>\n===\n",
+      },
+    ],
     {
       library,
       declarations: { functions: { pick: { params: [], returns: "string" } } },
@@ -337,7 +490,11 @@ test("explicit declarations.functions take precedence over library signatures", 
   );
   // The override won: the zero-arg call is legal (the library's arity
   // requirement would have flagged it with YS0014).
-  assert.equal(hasErrors(result.diagnostics), false, result.diagnostics.map((d) => d.code).join(", "));
+  assert.equal(
+    hasErrors(result.diagnostics),
+    false,
+    result.diagnostics.map((d) => d.code).join(", "),
+  );
 });
 
 // ── File tags ─────────────────────────────────────────────────────────────
@@ -348,7 +505,11 @@ test("file-level hashtags (#tag lines before the first node) surface per file", 
     { name: "b.yarn", source: "title: B\n---\nLine.\n===\n" },
   ];
   const result = compile(files);
-  assert.equal(hasErrors(result.diagnostics), false, result.diagnostics.map((d) => d.code).join(", "));
+  assert.equal(
+    hasErrors(result.diagnostics),
+    false,
+    result.diagnostics.map((d) => d.code).join(", "),
+  );
   assert.deepEqual(result.fileTags, { "a.yarn": ["one", "two"], "b.yarn": [] });
 });
 
@@ -361,7 +522,11 @@ test("parse failure in one file does not sink the others (collect-don't-throw)",
   ];
   const result = compile(files);
   // A node cut off before its '---' is upstream YS0004 MissingDelimiter.
-  assert.ok(result.diagnostics.some((d) => d.code === "YS0004" && d.file === "bad.yarn"));
+  assert.ok(
+    result.diagnostics.some(
+      (d) => d.code === "YS0004" && d.file === "bad.yarn",
+    ),
+  );
   assert.ok(result.program?.nodes["B"], "the healthy file still compiles");
 });
 

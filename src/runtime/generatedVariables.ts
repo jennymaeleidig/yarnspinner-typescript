@@ -29,7 +29,8 @@ export const generatedVariablePrefix = "$Yarn.Internal.";
 /** Storage key for a piece of content's seen-state (`<<once>>` blocks,
  * line/option `<<once>>` modifiers, and node-group members' `when: once`
  * headers — upstream `$Yarn.Internal.Once.<lineID>`). */
-export const onceVariableKey = (id: string) => `${generatedVariablePrefix}Once.${id}`;
+export const onceVariableKey = (id: string) =>
+  `${generatedVariablePrefix}Once.${id}`;
 
 /**
  * The once-state key for a `<<once>>` STATEMENT (upstream

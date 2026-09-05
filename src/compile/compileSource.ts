@@ -38,10 +38,23 @@
 import { parseYarn, ParseError } from "../parse/parser.js";
 import type { YarnDocument, YarnNode, Statement } from "../model/ast.js";
 import { walkStatements } from "../model/walk.js";
-import { compileDocument, LoweringError, type OnceIdContext, type OnceLineMap } from "./compiler.js";
+import {
+  compileDocument,
+  LoweringError,
+  type OnceIdContext,
+  type OnceLineMap,
+} from "./compiler.js";
 import type { Program } from "./program.js";
-import { applySeverityOverrides, makeDiagnostic, hasErrors } from "./diagnostics.js";
-import type { Diagnostic, DiagnosticSeverity, YarnRange } from "./diagnostics.js";
+import {
+  applySeverityOverrides,
+  makeDiagnostic,
+  hasErrors,
+} from "./diagnostics.js";
+import type {
+  Diagnostic,
+  DiagnosticSeverity,
+  YarnRange,
+} from "./diagnostics.js";
 import { typeCheck } from "./typeCheck.js";
 import type { ExternalDeclarations, VariableDeclaration } from "./typeCheck.js";
 import type { EnumType } from "./enums.js";
@@ -50,7 +63,10 @@ import type { StringTable } from "./stringTable.js";
 import { buildProjectDebugInfo } from "./debugInfo.js";
 import type { ProjectDebugInfo } from "./debugInfo.js";
 import { LineParser } from "../markup/lineParser.js";
-import { collectVariableReferences, addUnusedVariableDiagnostics } from "./unusedVariables.js";
+import {
+  collectVariableReferences,
+  addUnusedVariableDiagnostics,
+} from "./unusedVariables.js";
 import { builtinSignatures } from "../runtime/builtins.js";
 import { inlineExpressionSpans } from "../runtime/interpolate.js";
 import type { Library } from "../runtime/library.js";
@@ -67,7 +83,8 @@ export interface CompileFile {
  * `stringsOnly`, or `typeCheckOnly` — `declarationsOnly` is the obsolete
  * upstream name for `typeCheckOnly`, accepted as an alias.
  */
-export type CompilationMode = "full" | "stringsOnly" | "typeCheckOnly" | "declarationsOnly";
+export type CompilationMode =
+  "full" | "stringsOnly" | "typeCheckOnly" | "declarationsOnly";
 
 export interface CompileOptions {
   /**
@@ -158,7 +175,10 @@ export function emptyCompileResult(diagnostics: Diagnostic[]): CompileResult {
 }
 
 /** Single-file convenience; delegates to `compile()`. */
-export function compileSource(source: string, opts: CompileSourceOptions = {}): CompileResult {
+export function compileSource(
+  source: string,
+  opts: CompileSourceOptions = {},
+): CompileResult {
   return compile([{ name: opts.file ?? "input", source }], opts);
 }
 
@@ -174,7 +194,10 @@ export type CompileSourceResult = CompileResult;
  * line IDs and register the string table, validate node structure, then
  * continue per the compilation mode.
  */
-export function compile(files: CompileFile[], opts: CompileOptions = {}): CompileResult {
+export function compile(
+  files: CompileFile[],
+  opts: CompileOptions = {},
+): CompileResult {
   const mode = opts.mode ?? "full";
   const diagnostics: Diagnostic[] = [];
 
@@ -189,13 +212,19 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
       // syntax diagnostics. Collected here and surfaced as codeless
       // YS0005-wrapped diagnostics, matching the seam's wrap below.
       const recovered: ParseError[] = [];
-      const doc = parseYarn(file.source, { onRecoveredError: (e) => recovered.push(e) });
+      const doc = parseYarn(file.source, {
+        onRecoveredError: (e) => recovered.push(e),
+      });
       for (const e of recovered) {
         diagnostics.push(
-          makeDiagnostic(e.code ?? "YS0005", e.code ? e.message : `Syntax error: ${e.message}`, {
-            file: file.name,
-            range: e.range as YarnRange | undefined,
-          }),
+          makeDiagnostic(
+            e.code ?? "YS0005",
+            e.code ? e.message : `Syntax error: ${e.message}`,
+            {
+              file: file.name,
+              range: e.range as YarnRange | undefined,
+            },
+          ),
         );
       }
       for (const node of doc.nodes) node.sourceFile = file.name;
@@ -308,7 +337,9 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
   // Enum-aware type checking: validates enum declarations and
   // member access, enforces the same-enum comparison restriction, resolves
   // `.Case` shorthand in place, and collects declarations.
-  const checked = typeCheck(combined, { declarations }, (d) => diagnostics.push(d));
+  const checked = typeCheck(combined, { declarations }, (d) =>
+    diagnostics.push(d),
+  );
 
   // YS0010 UnusedVariable — the compile-end unused-declared-variable
   // analysis (upstream's pass after type checking, before the TypeCheck
@@ -350,14 +381,20 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
     });
   } catch (e) {
     if (!(e instanceof LoweringError)) throw e;
-    diagnostics.push(makeDiagnostic("YS0005", `Internal lowering failure: ${e.message}`));
+    diagnostics.push(
+      makeDiagnostic("YS0005", `Internal lowering failure: ${e.message}`),
+    );
   }
 
   // Debug output (upstream `ProjectDebugInfo`): per-node instruction →
   // source ranges, reconstructed from the lowered program against the
   // parsed documents (src/compile/debugInfo.ts).
   const debugInfo = buildProjectDebugInfo(
-    docs.map(({ name, doc }) => ({ name, doc, source: sourceByName.get(name) ?? "" })),
+    docs.map(({ name, doc }) => ({
+      name,
+      doc,
+      source: sourceByName.get(name) ?? "",
+    })),
     program,
   );
 
@@ -451,7 +488,11 @@ function validate(doc: YarnDocument, diagnostics: Diagnostic[]): void {
     if (node.duplicateTitleHeaders) {
       // Message sourced from the submodule's Definitions registry template
       // (YS0052-NodeHasMoreThanOneTitle.md).
-      diagnostics.push(makeDiagnostic("YS0052", "Nodes must have a single title header", { file: node.sourceFile }));
+      diagnostics.push(
+        makeDiagnostic("YS0052", "Nodes must have a single title header", {
+          file: node.sourceFile,
+        }),
+      );
     }
     if (node.body.length === 0) {
       // Message sourced from the submodule's Definitions registry template
@@ -481,7 +522,9 @@ function validate(doc: YarnDocument, diagnostics: Diagnostic[]): void {
       const chars = [...value];
       const head = chars[0] ?? "";
       const invalidHead =
-        kind === "title" ? head !== "" && !/[A-Za-z_]/.test(head) : /^[0-9]/.test(head);
+        kind === "title"
+          ? head !== "" && !/[A-Za-z_]/.test(head)
+          : /^[0-9]/.test(head);
       const invalid = chars.find((c) => !/[A-Za-z0-9_]/.test(c));
       // Head violation wins the message: upstream fails the head first (the
       // lexer rejects the title's first character before the regex pass runs;
@@ -510,7 +553,8 @@ function validate(doc: YarnDocument, diagnostics: Diagnostic[]): void {
       // YS0011 — one per member, each attributed to its member's file — and
       // no YS0031 at all (upstream's YS0011 definition: not emitted for
       // groups whose members share a title but differ in when: clauses).
-      const hasWhen = (n: YarnNode): boolean => Boolean(n.when && n.when.length > 0);
+      const hasWhen = (n: YarnNode): boolean =>
+        Boolean(n.when && n.when.length > 0);
       if (nodes.some(hasWhen)) {
         for (const member of nodes) {
           if (hasWhen(member)) continue;
@@ -535,15 +579,23 @@ function validate(doc: YarnDocument, diagnostics: Diagnostic[]): void {
           if (count <= 1) continue;
           for (const member of nodes) {
             diagnostics.push(
-              makeDiagnostic("YS0032", `More than one node in group ${title} has subtitle ${subtitle}.`, {
-                file: member.sourceFile,
-              }),
+              makeDiagnostic(
+                "YS0032",
+                `More than one node in group ${title} has subtitle ${subtitle}.`,
+                {
+                  file: member.sourceFile,
+                },
+              ),
             );
           }
         }
       } else {
         for (const member of nodes) {
-          diagnostics.push(makeDiagnostic("YS0011", `Duplicate node title: '${title}'`, { file: member.sourceFile }));
+          diagnostics.push(
+            makeDiagnostic("YS0011", `Duplicate node title: '${title}'`, {
+              file: member.sourceFile,
+            }),
+          );
         }
       }
     }
@@ -570,7 +622,11 @@ function validateJumps(doc: YarnDocument, diagnostics: Diagnostic[]): void {
       if (target.startsWith("{") || titles.has(target)) continue;
       // Message sourced from the submodule's Definitions registry template
       // (YS0012-UndefinedNode.md).
-      diagnostics.push(makeDiagnostic("YS0012", `Jump to undefined node: '${target}'`, { file: node.sourceFile }));
+      diagnostics.push(
+        makeDiagnostic("YS0012", `Jump to undefined node: '${target}'`, {
+          file: node.sourceFile,
+        }),
+      );
     }
   }
 }
@@ -593,18 +649,23 @@ function validateMarkup(
 ): void {
   const parser = new LineParser();
   const check = (text: string, file: string | undefined): void => {
-    const { diagnostics: markupDiagnostics } = parser.parseStringWithDiagnostics(
-      blankInlineExpressions(text),
-      "en",
-      // Character detection rewrites the text's prefix; it cannot affect
-      // markup validity and would only move positions — off.
-      { addImplicitCharacterAttribute: false },
-    );
+    const { diagnostics: markupDiagnostics } =
+      parser.parseStringWithDiagnostics(
+        blankInlineExpressions(text),
+        "en",
+        // Character detection rewrites the text's prefix; it cannot affect
+        // markup validity and would only move positions — off.
+        { addImplicitCharacterAttribute: false },
+      );
     if (markupDiagnostics.length === 0) return;
     push(
-      makeDiagnostic("YS0063", `Dialogue has malformed or invalid markup. ${markupDiagnostics[0].message}`, {
-        file,
-      }),
+      makeDiagnostic(
+        "YS0063",
+        `Dialogue has malformed or invalid markup. ${markupDiagnostics[0].message}`,
+        {
+          file,
+        },
+      ),
     );
   };
   const walk = (stmts: Statement[], file: string | undefined): void => {

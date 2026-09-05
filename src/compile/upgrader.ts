@@ -161,18 +161,26 @@ export function upgradeDiagnostics(result: UpgradeResult): Diagnostic[] {
  * their replacements sorted by start line then start (upstream
  * `OutputFile.Merge`).
  */
-export function mergeOutputFiles(a: UpgradeOutputFile, b: UpgradeOutputFile): UpgradeOutputFile {
+export function mergeOutputFiles(
+  a: UpgradeOutputFile,
+  b: UpgradeOutputFile,
+): UpgradeOutputFile {
   if (a.path !== b.path) {
     throw new Error(`Cannot merge ${a.path} and ${b.path}: path fields differ`);
   }
   if (a.originalSource !== b.originalSource) {
-    throw new Error(`Cannot merge ${a.path} and ${b.path}: originalSource fields differ`);
+    throw new Error(
+      `Cannot merge ${a.path} and ${b.path}: originalSource fields differ`,
+    );
   }
   if (a.isNewFile || b.isNewFile) {
-    throw new Error(`Cannot merge ${a.path} and ${b.path}: one or both of them are new files`);
+    throw new Error(
+      `Cannot merge ${a.path} and ${b.path}: one or both of them are new files`,
+    );
   }
   const mergedReplacements = [...a.replacements, ...b.replacements].sort(
-    (r1, r2) => (r1.startLine ?? 0) - (r2.startLine ?? 0) || r1.start - r2.start,
+    (r1, r2) =>
+      (r1.startLine ?? 0) - (r2.startLine ?? 0) || r1.start - r2.start,
   );
   return existingOutputFile(a.path, mergedReplacements, a.originalSource);
 }
@@ -182,14 +190,22 @@ export function mergeOutputFiles(a: UpgradeOutputFile, b: UpgradeOutputFile): Up
  * `UpgradeResult.Merge`): file pairs merge, unmatched files from both
  * sides pass through.
  */
-export function mergeUpgradeResults(a: UpgradeResult, b: UpgradeResult): UpgradeResult {
+export function mergeUpgradeResults(
+  a: UpgradeResult,
+  b: UpgradeResult,
+): UpgradeResult {
   const aPaths = new Set(a.files.map((f) => f.path));
   const bPaths = new Set(b.files.map((f) => f.path));
   const onlyA = a.files.filter((f) => !bPaths.has(f.path));
   const onlyB = b.files.filter((f) => !aPaths.has(f.path));
   const merged = a.files
     .filter((fa) => bPaths.has(fa.path))
-    .map((fa) => mergeOutputFiles(fa, b.files.find((fb) => fb.path === fa.path)!));
+    .map((fa) =>
+      mergeOutputFiles(
+        fa,
+        b.files.find((fb) => fb.path === fa.path)!,
+      ),
+    );
   return { files: [...onlyA, ...onlyB, ...merged] };
 }
 
@@ -212,7 +228,10 @@ export const languageUpgrader = {
    * Applies a collection of string replacements to a string (upstream
    * `LanguageUpgrader.ApplyReplacements`).
    */
-  applyReplacements(originalText: string, replacements: Iterable<TextReplacement>): string {
+  applyReplacements(
+    originalText: string,
+    replacements: Iterable<TextReplacement>,
+  ): string {
     return applyReplacements(originalText, replacements);
   },
 };
@@ -222,7 +241,10 @@ export const languageUpgrader = {
  * apply with a running offset, and throw when a replacement refers to an
  * invalid position or its original text does not match.
  */
-export function applyReplacements(originalText: string, replacements: Iterable<TextReplacement>): string {
+export function applyReplacements(
+  originalText: string,
+  replacements: Iterable<TextReplacement>,
+): string {
   // We need this in order of start position because replacements are very
   // likely to change the length of the string, which throws off our start
   // points. (JS Array#sort is stable, matching C# OrderBy.)
@@ -247,7 +269,10 @@ export function applyReplacements(originalText: string, replacements: Iterable<T
     // (taking into account any previous replacements that may have been made
     // by this method)
     const at = replacement.start + offset;
-    const existingSubstring = text.slice(at, at + replacement.originalText.length);
+    const existingSubstring = text.slice(
+      at,
+      at + replacement.originalText.length,
+    );
 
     if (existingSubstring !== replacement.originalText) {
       throw new RangeError(
@@ -263,7 +288,8 @@ export function applyReplacements(originalText: string, replacements: Iterable<T
 
     // This replacement has probably changed the length of the string leading
     // up to here, so update our offset
-    offset += replacement.replacementText.length - replacement.originalText.length;
+    offset +=
+      replacement.replacementText.length - replacement.originalText.length;
   }
 
   return text;

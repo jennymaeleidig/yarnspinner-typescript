@@ -29,13 +29,19 @@ import {
   loadProject,
 } from "../index.js";
 import type { CompileFile, YarnProjectFileSystem } from "../index.js";
-import { createCSV, csvEntriesToTable, parseCSV, stringTableToEntries } from "../compile/stringsFile.js";
+import {
+  createCSV,
+  csvEntriesToTable,
+  parseCSV,
+  stringTableToEntries,
+} from "../compile/stringsFile.js";
 import { nodeProjectFs } from "../compile/nodeProjectFs.js";
 
 const file = (name: string, source: string): CompileFile => ({ name, source });
 
 /** The fixture story compiled directly — the line-ID reference for lookups. */
-const baseCompile = (): ReturnType<typeof compile> => compile([file("story.yarn", STORY)]);
+const baseCompile = (): ReturnType<typeof compile> =>
+  compile([file("story.yarn", STORY)]);
 
 const STORY = `title: Start
 ---
@@ -103,7 +109,10 @@ function localisedFixture(csv = germanCSV()) {
 }
 
 /** The line ID the fixture's string table registers for the given text. */
-function idOf(table: Record<string, { text: string | null }>, text: string): string {
+function idOf(
+  table: Record<string, { text: string | null }>,
+  text: string,
+): string {
   const id = Object.keys(table).find((k) => table[k].text === text);
   assert.ok(id, `no line registered with text: ${text}`);
   return id;
@@ -117,7 +126,10 @@ test("the localisation map resolves each declared locale's strings CSV", () => {
   const compile = baseCompile();
   const goldId = idOf(compile.stringTable!, "Mae: Gold {0}.");
   const takeId = idOf(compile.stringTable!, "Take it");
-  assert.equal(localisation.translations["de"]?.[goldId], "Mae: Gold {0}. (DE)");
+  assert.equal(
+    localisation.translations["de"]?.[goldId],
+    "Mae: Gold {0}. (DE)",
+  );
   assert.equal(localisation.translations["de"]?.[takeId], "Nimm es");
 });
 
@@ -205,7 +217,10 @@ test("a strings file missing at read time diagnoses YP0006 and drops the locale"
   // warned; the localisation read reports the same failure and carries on.
   const fs = memoryFs({ "story.yarn": STORY });
   const loaded = loadProject({ project: PROJECT, fileSystem: fs });
-  assert.ok(loaded.program, "a missing strings file warns but does not block the compile");
+  assert.ok(
+    loaded.program,
+    "a missing strings file warns but does not block the compile",
+  );
   assert.ok(ypCodes(loaded.diagnostics).includes("YP0006"));
 
   const localisation = loadLocalisations(loaded, fs);
@@ -259,29 +274,47 @@ test("the provider plays the German locale end-to-end through Dialogue events", 
   dialogue.setVariable("gold", 25);
 
   const events = dialogue.continue();
-  const line = events.find((e): e is Extract<typeof e, { type: "line" }> => e.type === "line");
+  const line = events.find(
+    (e): e is Extract<typeof e, { type: "line" }> => e.type === "line",
+  );
   assert.ok(line, "a line event arrives");
-  assert.equal(line.text, "Gold 25. (DE)", "translated text keeps its substitution live");
+  assert.equal(
+    line.text,
+    "Gold 25. (DE)",
+    "translated text keeps its substitution live",
+  );
 
   const options = dialogue
     .continue()
-    .find((e): e is Extract<typeof e, { type: "options" }> => e.type === "options");
+    .find(
+      (e): e is Extract<typeof e, { type: "options" }> => e.type === "options",
+    );
   assert.ok(options, "an options event arrives");
-  assert.equal(options.options[0].text, "Nimm es", "option text resolves through the provider");
+  assert.equal(
+    options.options[0].text,
+    "Nimm es",
+    "option text resolves through the provider",
+  );
 
   dialogue.selectOption(0);
   const last = dialogue
     .continue()
     .find((e): e is Extract<typeof e, { type: "line" }> => e.type === "line");
   assert.ok(last);
-  assert.equal(last.text, "You took it.", "an empty CSV text row falls back to the base language");
+  assert.equal(
+    last.text,
+    "You took it.",
+    "an empty CSV text row falls back to the base language",
+  );
 });
 
 test("setLanguage switches locales on the runtime's language surface", () => {
   const { loaded, localisation } = localisedFixture();
   const provider = createProjectTextProvider(localisation);
   const lineOf = (d: Dialogue) =>
-    d.continue().find((e): e is Extract<typeof e, { type: "line" }> => e.type === "line");
+    d
+      .continue()
+      .find((e): e is Extract<typeof e, { type: "line" }> => e.type === "line");
 
   // Base language first (no setLanguage call — null is the default).
   const base = new Dialogue(loaded.program!, { textProvider: provider });
@@ -299,35 +332,61 @@ test("setLanguage switches locales on the runtime's language surface", () => {
   back.setLanguage(null);
   const options = back
     .continue()
-    .find((e): e is Extract<typeof e, { type: "options" }> => e.type === "options");
+    .find(
+      (e): e is Extract<typeof e, { type: "options" }> => e.type === "options",
+    );
   assert.ok(options);
-  assert.equal(options.options[0].text, "Take it", "null selects the base language");
+  assert.equal(
+    options.options[0].text,
+    "Take it",
+    "null selects the base language",
+  );
 });
 
 test("the provider's availability signal tracks the active locale over hinted lines", () => {
   // A fully translated locale: the whole node's hinted lines resolve.
-  const { loaded, localisation } = localisedFixture(germanCSV({ translateAll: true }));
+  const { loaded, localisation } = localisedFixture(
+    germanCSV({ translateAll: true }),
+  );
   const provider = createProjectTextProvider(localisation);
-  const dialogue = new Dialogue(loaded.program!, { textProvider: provider, lineHints: true });
+  const dialogue = new Dialogue(loaded.program!, {
+    textProvider: provider,
+    lineHints: true,
+  });
 
   dialogue.continue();
-  assert.equal(provider.areLinesAvailable(), true, "base language resolves every hinted line");
+  assert.equal(
+    provider.areLinesAvailable(),
+    true,
+    "base language resolves every hinted line",
+  );
 
   dialogue.setLanguage("de");
   dialogue.setNode("Start");
   dialogue.continue();
-  assert.equal(provider.areLinesAvailable(), true, "de resolves every hinted line");
+  assert.equal(
+    provider.areLinesAvailable(),
+    true,
+    "de resolves every hinted line",
+  );
 
   dialogue.setLanguage("fr");
   dialogue.setNode("Start");
   dialogue.continue();
-  assert.equal(provider.areLinesAvailable(), false, "fr has no translations at all");
+  assert.equal(
+    provider.areLinesAvailable(),
+    false,
+    "fr has no translations at all",
+  );
 });
 
 test("a partially translated locale reports unavailable lines (no fallback in the signal)", () => {
   const { loaded, localisation } = localisedFixture();
   const provider = createProjectTextProvider(localisation);
-  const dialogue = new Dialogue(loaded.program!, { textProvider: provider, lineHints: true });
+  const dialogue = new Dialogue(loaded.program!, {
+    textProvider: provider,
+    lineHints: true,
+  });
   dialogue.setLanguage("de");
   dialogue.continue();
   assert.equal(

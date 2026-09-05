@@ -9,13 +9,20 @@ import * as pkg from "../index.js";
 import { Dialogue } from "../runtime/dialogue.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
 
-function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
+function makeDialogue(
+  source: string,
+  opts?: ConstructorParameters<typeof Dialogue>[1],
+): Dialogue {
   const program = compileOk(source);
   return new Dialogue(program, { startAt: "Start", ...opts });
 }
 
 const lineTexts = (events: DialogueEvent[]) =>
-  events.filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line").map((e) => e.text);
+  events
+    .filter(
+      (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+    )
+    .map((e) => e.text);
 
 // The AST-level lowering seam is internal: real
 // for tooling and the compiler's own tests, unreachable from the package
@@ -38,12 +45,26 @@ test("the package root and its packaging are React-free", () => {
     exports: Record<string, unknown>;
     peerDependencies?: Record<string, unknown>;
     peerDependenciesMeta?: Record<string, unknown>;
-  } = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
-  ok(!("./react" in pkgJson.exports), 'exports must not carry a "./react" subpath');
+  } = JSON.parse(
+    readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+  );
+  ok(
+    !("./react" in pkgJson.exports),
+    'exports must not carry a "./react" subpath',
+  );
   ok(!pkgJson.peerDependencies?.react, "peerDependencies must not list react");
-  ok(!pkgJson.peerDependencies?.["react-dom"], "peerDependencies must not list react-dom");
-  ok(!pkgJson.peerDependenciesMeta?.react, "peerDependenciesMeta must not list react");
-  ok(!pkgJson.peerDependenciesMeta?.["react-dom"], "peerDependenciesMeta must not list react-dom");
+  ok(
+    !pkgJson.peerDependencies?.["react-dom"],
+    "peerDependencies must not list react-dom",
+  );
+  ok(
+    !pkgJson.peerDependenciesMeta?.react,
+    "peerDependenciesMeta must not list react",
+  );
+  ok(
+    !pkgJson.peerDependenciesMeta?.["react-dom"],
+    "peerDependenciesMeta must not list react-dom",
+  );
 
   // Same technique as nextjsHost's bundle-purity pin, scoped to the shipped
   // artifacts (the `files` tree): no emitted package file may reference
@@ -58,7 +79,8 @@ test("the package root and its packaging are React-free", () => {
         if (entry.name === "node_modules" || entry.name === "tests") continue;
         walk(path);
       } else if (/\.(js|cjs)$/.test(entry.name)) {
-        if (readFileSync(path, "utf8").includes("react/jsx-runtime")) offenders.push(path);
+        if (readFileSync(path, "utf8").includes("react/jsx-runtime"))
+          offenders.push(path);
       }
     }
   };
@@ -83,9 +105,12 @@ Narrator: Hi
 
   strictEqual(lineTexts(runner.continue())[0], "Hi");
 
-  const optionsEvent = runner.continue().find(
-    (e): e is Extract<DialogueEvent, { type: "options" }> => e.type === "options",
-  );
+  const optionsEvent = runner
+    .continue()
+    .find(
+      (e): e is Extract<DialogueEvent, { type: "options" }> =>
+        e.type === "options",
+    );
   strictEqual(optionsEvent?.options.length, 2);
   runner.selectOption(0);
 

@@ -187,5 +187,3 @@ export interface EnumBlock {
   name: string;
   cases: EnumCaseDef[];
 }
-
-

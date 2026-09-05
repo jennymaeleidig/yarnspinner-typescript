@@ -24,7 +24,10 @@ import { runUntilCompleteEvents } from "../runtime/transcript.js";
 /** Drain the dialogue, collecting non-empty line texts. */
 function drainLines(dialogue: Dialogue): string[] {
   return runUntilCompleteEvents(dialogue)
-    .filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line" && !!e.text.trim())
+    .filter(
+      (e): e is Extract<DialogueEvent, { type: "line" }> =>
+        e.type === "line" && !!e.text.trim(),
+    )
     .map((e) => e.text.trim());
 }
 import type { EnumType, ExternalDeclarations } from "../index.js";
@@ -55,7 +58,9 @@ Your favourite is {$favouriteFood}.
 test("auto-numbering: cases without raw values are numbered from 0", () => {
   const result = compile(FOOD_SCRIPT);
   assert.deepEqual(result.diagnostics, []);
-  const food = result.userDefinedTypes.find((t) => t.name === "Food") as EnumType;
+  const food = result.userDefinedTypes.find(
+    (t) => t.name === "Food",
+  ) as EnumType;
   assert.ok(food, "Food enum in userDefinedTypes");
   assert.equal(food.rawValueType, "number");
   assert.deepEqual(
@@ -79,7 +84,9 @@ test("explicit raw values: numbers are uniform and exposed in the compile result
 ===
 `);
   assert.deepEqual(result.diagnostics, []);
-  const planets = result.userDefinedTypes.find((t) => t.name === "Planets") as EnumType;
+  const planets = result.userDefinedTypes.find(
+    (t) => t.name === "Planets",
+  ) as EnumType;
   assert.deepEqual(
     planets.cases.map((c) => [c.name, c.rawValue]),
     [
@@ -100,7 +107,9 @@ test("string raw values: uniform strings exposed in the compile result", () => {
 ===
 `);
   assert.deepEqual(result.diagnostics, []);
-  const objectives = result.userDefinedTypes.find((t) => t.name === "QuestObjectives") as EnumType;
+  const objectives = result.userDefinedTypes.find(
+    (t) => t.name === "QuestObjectives",
+  ) as EnumType;
   assert.equal(objectives.rawValueType, "string");
   assert.equal(objectives.cases[0].rawValue, "DoObjective1");
 });
@@ -377,7 +386,10 @@ test("YS0038: an enum member access with an unknown case fails", () => {
 ===
 `);
   assert.deepEqual(codesOf(result.diagnostics), ["YS0038"]);
-  assert.match(result.diagnostics[0].message, /doesn't have a member named Failure/);
+  assert.match(
+    result.diagnostics[0].message,
+    /doesn't have a member named Failure/,
+  );
 });
 
 test("YS0050: a member access on an unknown type fails", () => {
@@ -468,7 +480,10 @@ test("set of a non-enum variable to an enum case is a YS0050", () => {
 
 test("host-defined enums: register from TypeScript, resolve .Case, appear in userDefinedTypes", () => {
   // Upstream EnumTypeBuilder.WithCase requires an explicit raw value.
-  const food = new EnumTypeBuilder("Food").addCase("Apple", 0).addCase("Orange", 1).build();
+  const food = new EnumTypeBuilder("Food")
+    .addCase("Apple", 0)
+    .addCase("Orange", 1)
+    .build();
   const result = compile(
     `title: Start
 ---
@@ -483,9 +498,14 @@ test("host-defined enums: register from TypeScript, resolve .Case, appear in use
     { declarations: { enums: [food] } },
   );
   assert.deepEqual(result.diagnostics, []);
-  const foodType = result.userDefinedTypes.find((t) => t.name === "Food") as EnumType;
+  const foodType = result.userDefinedTypes.find(
+    (t) => t.name === "Food",
+  ) as EnumType;
   assert.ok(foodType, "host enum in userDefinedTypes");
-  assert.deepEqual(foodType.cases.map((c) => c.rawValue), [0, 1]);
+  assert.deepEqual(
+    foodType.cases.map((c) => c.rawValue),
+    [0, 1],
+  );
   const dialogue = new Dialogue(result.program!, { startAt: "Start" });
   assert.equal(dialogue.getVariable("favouriteFood"), 1);
   const seen = drainLines(dialogue);
@@ -533,13 +553,19 @@ test("EnumTypeBuilder: duplicate case names throw at construction (upstream pari
 
 test("EnumTypeBuilder: duplicate raw values throw at construction (upstream parity)", () => {
   assert.throws(() => {
-    new EnumTypeBuilder("Food").addCase("Apple", 1).addCase("Orange", 1).build();
+    new EnumTypeBuilder("Food")
+      .addCase("Apple", 1)
+      .addCase("Orange", 1)
+      .build();
   }, /already exists/);
 });
 
 test("EnumTypeBuilder: mixed raw value types throw at construction (upstream parity)", () => {
   assert.throws(() => {
-    new EnumTypeBuilder("Food").addCase("Apple", 1).addCase("Orange", "Orange").build();
+    new EnumTypeBuilder("Food")
+      .addCase("Apple", 1)
+      .addCase("Orange", "Orange")
+      .build();
   }, /raw value type/);
 });
 

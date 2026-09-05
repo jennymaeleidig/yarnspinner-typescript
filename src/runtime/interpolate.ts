@@ -137,12 +137,21 @@ export class LineComposer {
   }
 
   /** The option-shape compose over already-substituted text. */
-  private composeOptionFrom(substituted: string): { text: string; markup?: MarkupParseResult } {
-    const { markup, diagnostics } = this.parser.parseStringWithDiagnostics(substituted, this.localeCode);
+  private composeOptionFrom(substituted: string): {
+    text: string;
+    markup?: MarkupParseResult;
+  } {
+    const { markup, diagnostics } = this.parser.parseStringWithDiagnostics(
+      substituted,
+      this.localeCode,
+    );
     if (diagnostics.length > 0) {
       return { text: substituted };
     }
-    return { text: markup.text, markup: markup.attributes.length > 0 ? markup : undefined };
+    return {
+      text: markup.text,
+      markup: markup.attributes.length > 0 ? markup : undefined,
+    };
   }
 
   /**
@@ -154,35 +163,58 @@ export class LineComposer {
    * markup, character resolution — composes exactly like `composeLine`.
    */
   composeLocalisedLine(text: string, authored: string): ComposedLine {
-    return this.composeSubstituted(expandPositionalSubstitutions(text, this.positionalSubstitutions(authored)));
+    return this.composeSubstituted(
+      expandPositionalSubstitutions(
+        text,
+        this.positionalSubstitutions(authored),
+      ),
+    );
   }
 
   /**
    * Compose one option from a localisation row — the option-shape twin of
    * `composeLocalisedLine` (full text, speaker prefix intact).
    */
-  composeLocalisedOption(text: string, authored: string): { text: string; markup?: MarkupParseResult } {
-    return this.composeOptionFrom(expandPositionalSubstitutions(text, this.positionalSubstitutions(authored)));
+  composeLocalisedOption(
+    text: string,
+    authored: string,
+  ): { text: string; markup?: MarkupParseResult } {
+    return this.composeOptionFrom(
+      expandPositionalSubstitutions(
+        text,
+        this.positionalSubstitutions(authored),
+      ),
+    );
   }
 
   /** The shared substituted-text compose: markup parse, character slicing
    * (the `composeLine` shape). */
   private composeSubstituted(substituted: string): ComposedLine {
-    const { markup, diagnostics } = this.parser.parseStringWithDiagnostics(substituted, this.localeCode);
+    const { markup, diagnostics } = this.parser.parseStringWithDiagnostics(
+      substituted,
+      this.localeCode,
+    );
     if (diagnostics.length > 0) {
       // The module composes failed parses as the input text with no
       // attributes; the speaker slice also can't be trusted then.
       return { text: substituted };
     }
 
-    const character = markup.attributes.find((attribute) => attribute.name === characterAttribute);
+    const character = markup.attributes.find(
+      (attribute) => attribute.name === characterAttribute,
+    );
     if (!character) {
-      return { text: markup.text, markup: markup.attributes.length > 0 ? markup : undefined };
+      return {
+        text: markup.text,
+        markup: markup.attributes.length > 0 ? markup : undefined,
+      };
     }
 
     // The character marker covers "Name: " at the head of the composed
     // text; the message is what follows it.
-    const messageText = markup.text.slice(character.position + character.length);
+    const messageText = markup.text.slice(
+      character.position + character.length,
+    );
     const nameProp = tryGetProperty(character, characterAttributeNameProperty);
     const speaker = nameProp?.stringValue;
 
@@ -257,7 +289,11 @@ export function inlineExpressionSpans(text: string): InlineExpressionSpan[] {
     if (char === "{") {
       const close = text.indexOf("}", i + 1);
       if (close !== -1) {
-        spans.push({ start: i, end: close + 1, source: text.slice(i + 1, close) });
+        spans.push({
+          start: i,
+          end: close + 1,
+          source: text.slice(i + 1, close),
+        });
         i = close + 1;
         continue;
       }
@@ -283,7 +319,10 @@ function unescapeBraces(text: string): string {
  * transform (via `unescapeBraces`) stays here — it is this function's
  * output shape, not a classification.
  */
-export function expandSubstitutions(text: string, evaluate: (expr: string) => string): string {
+export function expandSubstitutions(
+  text: string,
+  evaluate: (expr: string) => string,
+): string {
   let out = "";
   let pos = 0;
   for (const span of inlineExpressionSpans(text)) {
@@ -303,7 +342,10 @@ export function expandSubstitutions(text: string, evaluate: (expr: string) => st
  * index has no substitution composes literally (upstream: the loop runs
  * out before reaching it).
  */
-export function expandPositionalSubstitutions(text: string, substitutions: string[]): string {
+export function expandPositionalSubstitutions(
+  text: string,
+  substitutions: string[],
+): string {
   for (let i = 0; i < substitutions.length; i++) {
     text = text.split(`{${i}}`).join(substitutions[i]);
   }

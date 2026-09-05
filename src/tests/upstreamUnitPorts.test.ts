@@ -19,10 +19,14 @@ import { InMemoryVariableStorage } from "../runtime/variableStorage.js";
 import type { CompileResult } from "../compile/compileSource.js";
 import { loadDiagnosticDefinitions } from "./upstream/diagnosticDefinitions.js";
 
-const DEFINITIONS = new Map(loadDiagnosticDefinitions().map((d) => [d.code, d]));
+const DEFINITIONS = new Map(
+  loadDiagnosticDefinitions().map((d) => [d.code, d]),
+);
 
 function errorsOf(result: CompileResult): string[] {
-  return result.diagnostics.filter((d) => d.severity === "error").map((d) => d.code);
+  return result.diagnostics
+    .filter((d) => d.severity === "error")
+    .map((d) => d.code);
 }
 
 /** Cross-check emitted diagnostics against the submodule's Definitions
@@ -33,7 +37,11 @@ function checkAgainstDefinitions(result: CompileResult): void {
     const def = DEFINITIONS.get(d.code);
     assert.ok(def, `emitted ${d.code} has no upstream Definitions entry`);
     if (def.defaultSeverity) {
-      assert.equal(d.severity, def.defaultSeverity, `${d.code} severity drifts from the registry`);
+      assert.equal(
+        d.severity,
+        def.defaultSeverity,
+        `${d.code} severity drifts from the registry`,
+      );
     }
   }
 }
@@ -44,7 +52,10 @@ test("port: TestMalformedIfStatement — <<if>> without <<endif>> is an unclosed
   const result = compileSource("title: Start\n---\n<<if true>>\n===\n");
   checkAgainstDefinitions(result);
   const unclosed = result.diagnostics.filter((d) => d.code === "YS0007");
-  assert.ok(unclosedScopeReported(result), `expected an unclosed <<if>> error, got ${show(result)}`);
+  assert.ok(
+    unclosedScopeReported(result),
+    `expected an unclosed <<if>> error, got ${show(result)}`,
+  );
   assert.ok(
     result.diagnostics.some((d) => /expected an <<endif>>/.test(d.message)),
     `expected the expected-<<endif>> message, got ${show(result)}`,
@@ -52,11 +63,16 @@ test("port: TestMalformedIfStatement — <<if>> without <<endif>> is an unclosed
 });
 
 function unclosedScopeReported(result: CompileResult): boolean {
-  return result.diagnostics.some((d) => d.severity === "error" && /Unclosed scope/.test(d.message));
+  return result.diagnostics.some(
+    (d) => d.severity === "error" && /Unclosed scope/.test(d.message),
+  );
 }
 
 function show(result: CompileResult): string {
-  return result.diagnostics.map((d) => `${d.code}: ${d.message}`).join("; ") || "(none)";
+  return (
+    result.diagnostics.map((d) => `${d.code}: ${d.message}`).join("; ") ||
+    "(none)"
+  );
 }
 
 test("port: TestExtraneousElse — two <<else>> clauses yield two errors", () => {
@@ -70,7 +86,9 @@ test("port: TestExtraneousElse — two <<else>> clauses yield two errors", () =>
     `expected the multiple-else error, got: ${messages.join(" | ")}`,
   );
   assert.ok(
-    messages.some((m) => /Unexpected "endif" while reading a statement/.test(m)),
+    messages.some((m) =>
+      /Unexpected "endif" while reading a statement/.test(m),
+    ),
     `expected the unexpected-endif error, got: ${messages.join(" | ")}`,
   );
 });
@@ -94,28 +112,50 @@ test("port: TestEmptyCommand — an empty <<>> command errors with upstream's 'C
 test("port: TestEmptyNodesGenerateWarnings — a single empty node warns, exactly once", () => {
   const result = compileSource("title: Start\n---\n===\n");
   checkAgainstDefinitions(result);
-  assert.equal(result.diagnostics.length, 1, `expected exactly one diagnostic, got ${show(result)}`);
+  assert.equal(
+    result.diagnostics.length,
+    1,
+    `expected exactly one diagnostic, got ${show(result)}`,
+  );
   const warning = result.diagnostics[0];
   assert.equal(warning.severity, "warning");
-  assert.equal(warning.message, 'Node "Start" is empty and will not be included in the compiled output.');
+  assert.equal(
+    warning.message,
+    'Node "Start" is empty and will not be included in the compiled output.',
+  );
 });
 
-test("port: TestUnreferencedNodesCreateDiagnostics — skipped upstream, mirrored here", { skip: "upstream skips this theory: the diagnostic moved to the language server — whether a node being unreferenced is a problem depends on the use case, and at least one node will almost always be unreferenced (the entry point). Our compiler likewise does not emit YS0009." }, () => {
-  // Ported for the record; upstream's pins (UnreferencedNode, severity
-  // None, "Node 'A' is never referenced") hold only if the diagnostic
-  // existed. Kept as documentation of the upstream source.
-  const result = compileSource("title: A\n---\nThis node has no references\n===\n");
-  assert.ok(!result.diagnostics.some((d) => d.code === "YS0009"));
-});
+test(
+  "port: TestUnreferencedNodesCreateDiagnostics — skipped upstream, mirrored here",
+  {
+    skip: "upstream skips this theory: the diagnostic moved to the language server — whether a node being unreferenced is a problem depends on the use case, and at least one node will almost always be unreferenced (the entry point). Our compiler likewise does not emit YS0009.",
+  },
+  () => {
+    // Ported for the record; upstream's pins (UnreferencedNode, severity
+    // None, "Node 'A' is never referenced") hold only if the diagnostic
+    // existed. Kept as documentation of the upstream source.
+    const result = compileSource(
+      "title: A\n---\nThis node has no references\n===\n",
+    );
+    assert.ok(!result.diagnostics.some((d) => d.code === "YS0009"));
+  },
+);
 
 // ── TypeTests.cs ─────────────────────────────────────────────────────────────
 
 test("port: TestVariableDeclarationsDisallowDuplicates — redeclaration yields two errors", () => {
-  const result = compileSource("title: Start\n---\n<<declare $int = 5>>\n<<declare $int = 6>>\n===\n");
+  const result = compileSource(
+    "title: Start\n---\n<<declare $int = 5>>\n<<declare $int = 6>>\n===\n",
+  );
   checkAgainstDefinitions(result);
   const redecls = result.diagnostics.filter((d) => d.code === "YS0039");
-  assert.equal(redecls.length, 2, `expected two YS0039 emissions, got ${show(result)}`);
-  for (const d of redecls) assert.equal(d.message, "Redeclaration of existing variable $int");
+  assert.equal(
+    redecls.length,
+    2,
+    `expected two YS0039 emissions, got ${show(result)}`,
+  );
+  for (const d of redecls)
+    assert.equal(d.message, "Redeclaration of existing variable $int");
 });
 
 test("port: TestInitialValues — declared and external defaults reach the runtime", () => {
@@ -145,7 +185,10 @@ test("port: TestInitialValues — declared and external defaults reach the runti
       },
     },
   });
-  assert.ok(!result.diagnostics.some((d) => d.severity === "error"), show(result));
+  assert.ok(
+    !result.diagnostics.some((d) => d.severity === "error"),
+    show(result),
+  );
   checkAgainstDefinitions(result);
 
   // Upstream seeds the storage explicitly before running — external
@@ -158,7 +201,9 @@ test("port: TestInitialValues — declared and external defaults reach the runti
   storage.set("external_bool", true);
   const dialogue = new Dialogue(result.program!, { variableStorage: storage });
   const lines = runUntilCompleteEvents(dialogue)
-    .filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line")
+    .filter(
+      (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+    )
     .map((e) => e.text);
   assert.deepEqual(lines, [
     "42",
@@ -170,11 +215,32 @@ test("port: TestInitialValues — declared and external defaults reach the runti
   ]);
 });
 
-const OPERATOR_CASES: Array<{ op: string; decl: string; type: "number" | "bool" | "string" }> = [
-  ...["= 1 + 1", "= 1 / 1", "= 1 - 1", "= 1 * 1", "= 1 % 1", "+= 1", "-= 1", "/= 1", "*= 1"].map(
-    (op) => ({ op, decl: "<<declare $var = 0>>", type: "number" as const }),
-  ),
-  ...["= true and false", "= true or false", "= not true", "= true xor false"].map((op) => ({
+const OPERATOR_CASES: Array<{
+  op: string;
+  decl: string;
+  type: "number" | "bool" | "string";
+}> = [
+  ...[
+    "= 1 + 1",
+    "= 1 / 1",
+    "= 1 - 1",
+    "= 1 * 1",
+    "= 1 % 1",
+    "+= 1",
+    "-= 1",
+    "/= 1",
+    "*= 1",
+  ].map((op) => ({
+    op,
+    decl: "<<declare $var = 0>>",
+    type: "number" as const,
+  })),
+  ...[
+    "= true and false",
+    "= true or false",
+    "= not true",
+    "= true xor false",
+  ].map((op) => ({
     op,
     decl: "<<declare $var = false>>",
     type: "bool" as const,
@@ -188,12 +254,21 @@ const OPERATOR_CASES: Array<{ op: string; decl: string; type: "number" | "bool" 
 
 test("port: TestNumeric/Logic/StringOperatorsAreTypeChecked — every declared op type-checks", () => {
   for (const { op, decl, type } of OPERATOR_CASES) {
-    const result = compileSource(`title: Start\n---\n${decl}\n<<set $var ${op}>>\n===\n`);
-    assert.ok(!result.diagnostics.some((d) => d.severity === "error"), `${op}: ${show(result)}`);
+    const result = compileSource(
+      `title: Start\n---\n${decl}\n<<set $var ${op}>>\n===\n`,
+    );
+    assert.ok(
+      !result.diagnostics.some((d) => d.severity === "error"),
+      `${op}: ${show(result)}`,
+    );
     // Our seam's declaration names drop the `$` (upstream carries it).
     const declaration = result.declarations.find((d) => d.name === "var");
     assert.ok(declaration, `${op}: $var not in declarations`);
-    assert.equal(declaration.type, type, `${op}: expected ${type}, got ${declaration.type}`);
+    assert.equal(
+      declaration.type,
+      type,
+      `${op}: expected ${type}, got ${declaration.type}`,
+    );
   }
 });
 
@@ -204,10 +279,17 @@ test("port: the same operator matrix on an undeclared $var warns, never errors",
   // filed on the ticket; this port pins the part we do hold: the use is
   // never an error, and the registry's warning fires.
   for (const { op } of OPERATOR_CASES) {
-    const result = compileSource(`title: Start\n---\n<<set $var ${op}>>\n===\n`);
-    assert.ok(!result.diagnostics.some((d) => d.severity === "error"), `${op}: ${show(result)}`);
+    const result = compileSource(
+      `title: Start\n---\n<<set $var ${op}>>\n===\n`,
+    );
     assert.ok(
-      result.diagnostics.some((d) => d.code === "YS0003" && d.severity === "warning"),
+      !result.diagnostics.some((d) => d.severity === "error"),
+      `${op}: ${show(result)}`,
+    );
+    assert.ok(
+      result.diagnostics.some(
+        (d) => d.code === "YS0003" && d.severity === "warning",
+      ),
       `${op}: expected the YS0003 warning, got ${show(result)}`,
     );
   }
@@ -241,10 +323,15 @@ test("port: TestProjectFilesCanAllowPreviewFeatures — the flag loads and is ca
     fileSystem: memoryFs({}),
   });
   assert.ok(result.project, "project failed to load");
-  assert.equal(result.project.compilerOptions?.allowLanguagePreviewFeatures, true);
+  assert.equal(
+    result.project.compilerOptions?.allowLanguagePreviewFeatures,
+    true,
+  );
   // Upstream loads the known option silently — no "not recognised" warning.
   assert.ok(
-    !result.diagnostics.some((d) => YP_CODE(d) && /allowPreviewFeatures/.test(d.message)),
+    !result.diagnostics.some(
+      (d) => YP_CODE(d) && /allowPreviewFeatures/.test(d.message),
+    ),
     result.diagnostics.map((d) => d.message).join(" | "),
   );
 });
@@ -319,17 +406,24 @@ test("severity overrides apply in every mode and before strict's throw decision"
   // Placement pin: the overridden severity is the final severity everywhere,
   // so strict reacts to the overridden result — an error overridden to
   // "none" no longer throws.
-  const dupes = "title: Start\n---\n<<declare $int = 5>>\n<<declare $int = 6>>\n===\n";
+  const dupes =
+    "title: Start\n---\n<<declare $int = 5>>\n<<declare $int = 6>>\n===\n";
   assert.throws(() => compileSource(dupes, { strict: true }));
-  const overridden = compileSource(dupes, { strict: true, diagnosticsSeverity: { YS0039: "none" } });
+  const overridden = compileSource(dupes, {
+    strict: true,
+    diagnosticsSeverity: { YS0039: "none" },
+  });
   const ys0039 = overridden.diagnostics.find((d) => d.code === "YS0039");
   assert.ok(ys0039, "YS0039 still present at severity none");
   assert.equal(ys0039.severity, "none");
   // Non-full modes honour overrides too.
-  const typeOnly = compileSource("title: Start\n---\n<<set $undeclared = 1>>\n===\n", {
-    mode: "typeCheckOnly",
-    diagnosticsSeverity: { YS0003: "info" },
-  });
+  const typeOnly = compileSource(
+    "title: Start\n---\n<<set $undeclared = 1>>\n===\n",
+    {
+      mode: "typeCheckOnly",
+      diagnosticsSeverity: { YS0003: "info" },
+    },
+  );
   const ys0003 = typeOnly.diagnostics.find((d) => d.code === "YS0003");
   assert.ok(ys0003, "expected YS0003 in typeCheckOnly");
   assert.equal(ys0003.severity, "info");
@@ -341,8 +435,16 @@ test("port: TestVariadicFunctionsMustAllBeSameType — mixed-type variadic calls
     {
       declarations: {
         functions: {
-          variadic_add: { params: ["number"], variadic: true, returns: "number" },
-          variadic_string_add: { params: ["string", "number"], variadic: true, returns: "string" },
+          variadic_add: {
+            params: ["number"],
+            variadic: true,
+            returns: "number",
+          },
+          variadic_string_add: {
+            params: ["string", "number"],
+            variadic: true,
+            returns: "string",
+          },
         },
       },
     },
@@ -350,7 +452,10 @@ test("port: TestVariadicFunctionsMustAllBeSameType — mixed-type variadic calls
   checkAgainstDefinitions(result);
   const errors = result.diagnostics.filter((d) => d.severity === "error");
   assert.equal(errors.length, 2, `expected two errors, got ${show(result)}`);
-  assert.ok(errors.every((e) => e.code === "YS0050"), `expected YS0050s, got ${show(result)}`);
+  assert.ok(
+    errors.every((e) => e.code === "YS0050"),
+    `expected YS0050s, got ${show(result)}`,
+  );
   // Upstream also pins each error's Range.Start.Line (2 and 3, 0-based);
   // our diagnostics carry no ranges for signature mismatches yet — the
   // diagnostic-ranges gap is filed on the ticket.

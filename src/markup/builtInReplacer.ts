@@ -50,7 +50,11 @@ export interface PluralRulesResolver {
  * collapse), falling back to `other` when the runtime has no rules for the
  * locale.
  */
-export const defaultPluralRulesResolver: PluralRulesResolver = (localeCode, value, category) => {
+export const defaultPluralRulesResolver: PluralRulesResolver = (
+  localeCode,
+  value,
+  category,
+) => {
   const languageCode = languageSubtag(localeCode);
   try {
     return new Intl.PluralRules(languageCode, { type: category }).select(value);
@@ -123,7 +127,9 @@ export function formatNumberInCurrentCulture(numericValue: number): string {
 export class BuiltInMarkupReplacer implements AttributeMarkerProcessor {
   private readonly resolvePluralRules: PluralRulesResolver;
 
-  constructor(resolvePluralRules: PluralRulesResolver = defaultPluralRulesResolver) {
+  constructor(
+    resolvePluralRules: PluralRulesResolver = defaultPluralRulesResolver,
+  ) {
     this.resolvePluralRules = resolvePluralRules;
   }
 
@@ -138,7 +144,10 @@ export class BuiltInMarkupReplacer implements AttributeMarkerProcessor {
     if (childBuilder.length > 0 || _childAttributes.length > 0) {
       return {
         diagnostics: [
-          { message: `'${marker.name}' markup only works on self-closing tags.`, column: marker.position },
+          {
+            message: `'${marker.name}' markup only works on self-closing tags.`,
+            column: marker.position,
+          },
         ],
         invisibleCharacters: 0,
       };
@@ -159,7 +168,14 @@ export class BuiltInMarkupReplacer implements AttributeMarkerProcessor {
 
     switch (marker.name) {
       case "select":
-        return { diagnostics: selectReplace(marker, childBuilder, markupValueToString(valueProp)), invisibleCharacters: 0 };
+        return {
+          diagnostics: selectReplace(
+            marker,
+            childBuilder,
+            markupValueToString(valueProp),
+          ),
+          invisibleCharacters: 0,
+        };
 
       case "plural":
       case "ordinal": {
@@ -174,9 +190,18 @@ export class BuiltInMarkupReplacer implements AttributeMarkerProcessor {
             invisibleCharacters: 0,
           };
         }
-        const numericValue = valueProp.type === "integer" ? valueProp.integerValue : valueProp.floatValue;
+        const numericValue =
+          valueProp.type === "integer"
+            ? valueProp.integerValue
+            : valueProp.floatValue;
         return {
-          diagnostics: pluralReplace(marker, localeCode, childBuilder, numericValue, this.resolvePluralRules),
+          diagnostics: pluralReplace(
+            marker,
+            localeCode,
+            childBuilder,
+            numericValue,
+            this.resolvePluralRules,
+          ),
           invisibleCharacters: 0,
         };
       }
@@ -206,7 +231,12 @@ function selectReplace(
 ): MarkupDiagnostic[] {
   const replacementProp = tryGetProperty(marker, value);
   if (replacementProp === undefined) {
-    return [{ message: `no replacement value for ${value} was found`, column: marker.position }];
+    return [
+      {
+        message: `no replacement value for ${value} was found`,
+        column: marker.position,
+      },
+    ];
   }
 
   let replacement = markupValueToString(replacementProp);
@@ -264,11 +294,21 @@ function pluralReplace(
       },
     ];
     const input = markupValueToString(replacementValue);
-    childBuilder.append(input.replace(VALUE_PLACEHOLDER_REGEX, formatNumberInCurrentCulture(numericValue)));
+    childBuilder.append(
+      input.replace(
+        VALUE_PLACEHOLDER_REGEX,
+        formatNumberInCurrentCulture(numericValue),
+      ),
+    );
     return diagnostics;
   }
 
   const input = markupValueToString(replacementValue);
-  childBuilder.append(input.replace(VALUE_PLACEHOLDER_REGEX, formatNumberInCurrentCulture(numericValue)));
+  childBuilder.append(
+    input.replace(
+      VALUE_PLACEHOLDER_REGEX,
+      formatNumberInCurrentCulture(numericValue),
+    ),
+  );
   return [];
 }

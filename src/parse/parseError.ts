@@ -8,7 +8,12 @@
  */
 export class ParseError extends Error {
   /** 0-based source range of the offending token, when known. */
-  range?: { startLine: number; startCol: number; endLine: number; endCol: number };
+  range?: {
+    startLine: number;
+    startCol: number;
+    endLine: number;
+    endCol: number;
+  };
   /**
    * The registry YS-code the compile seam should report.
    * Upstream's error listener assigns codes beyond plain syntax errors —

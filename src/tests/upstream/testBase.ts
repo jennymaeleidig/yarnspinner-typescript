@@ -41,7 +41,10 @@
 
 import { Dialogue, Library, noOptionSelected } from "../../runtime/dialogue.js";
 import type { DialogueEvent } from "../../runtime/dialogue.js";
-import { saliencyStrategyForMode, SALIENCY_MODES } from "../../runtime/saliency.js";
+import {
+  saliencyStrategyForMode,
+  SALIENCY_MODES,
+} from "../../runtime/saliency.js";
 import type { Program } from "../../compile/program.js";
 import type { TestPlan, TestPlanRun, TestPlanStep } from "./testPlan.js";
 export class PlanFailure extends Error {}
@@ -69,7 +72,8 @@ export function createConformanceHarness(): ConformanceHarness {
       dummy_bool: () => true,
       dummy_number: () => 1,
       dummy_string: () => "string",
-      add_three_operands: (a: unknown, b: unknown, c: unknown) => Number(a) + Number(b) + Number(c),
+      add_three_operands: (a: unknown, b: unknown, c: unknown) =>
+        Number(a) + Number(b) + Number(c),
       set_objective_complete: () => true,
       is_objective_active: () => true,
       get_quest_status: () => "InProgress",
@@ -115,7 +119,11 @@ function composedText(event: Extract<DialogueEvent, { type: "line" }>): string {
  * hashtag at all — asserting here would fail content upstream's own suite
  * accepts.
  */
-function assertHashtags(_expected: string[], _actual: string[] | undefined, _what: string): void {}
+function assertHashtags(
+  _expected: string[],
+  _actual: string[] | undefined,
+  _what: string,
+): void {}
 
 /** The program under test: the instruction-stream artifact (ADR 0001). */
 
@@ -132,7 +140,10 @@ export function runTestPlan(program: Program, plan: TestPlan): void {
   for (const [name, fn] of Object.entries(harness.functions)) {
     library.registerFunction(name, fn);
   }
-  const dialogue = new Dialogue(program, { startAt: firstRun.startNode, library });
+  const dialogue = new Dialogue(program, {
+    startAt: firstRun.startNode,
+    library,
+  });
   // Batches are pulled lazily so plan `set:` steps land before the node body
   // first runs (upstream: VariableStorage writes precede the first Continue).
   let queue: DialogueEvent[] = [];
@@ -146,14 +157,19 @@ export function runTestPlan(program: Program, plan: TestPlan): void {
     let guard = 0;
     for (;;) {
       if (queue.length === 0) {
-        if (guard++ > 10_000) throw new PlanFailure("runtime stalled without emitting an event");
+        if (guard++ > 10_000)
+          throw new PlanFailure("runtime stalled without emitting an event");
         queue = dialogue.continue();
         if (queue.length === 0) {
           throw new PlanFailure("runtime stalled without emitting an event");
         }
       }
       const event = queue[0];
-      if (event.type === "nodeStart" || event.type === "nodeComplete" || event.type === "lineHints") {
+      if (
+        event.type === "nodeStart" ||
+        event.type === "nodeComplete" ||
+        event.type === "lineHints"
+      ) {
         queue.shift();
         continue;
       }
@@ -168,12 +184,17 @@ export function runTestPlan(program: Program, plan: TestPlan): void {
     return event;
   };
 
-  const expectLine = (event: DialogueStepEvent, step: Extract<TestPlanStep, { kind: "line" }>): void => {
+  const expectLine = (
+    event: DialogueStepEvent,
+    step: Extract<TestPlanStep, { kind: "line" }>,
+  ): void => {
     if (event.type !== "line") {
       throw new PlanFailure(`expected line, got ${describe(event)}`);
     }
     if (step.text !== null && composedText(event) !== step.text) {
-      throw new PlanFailure(`expected line "${step.text}", got "${composedText(event)}"`);
+      throw new PlanFailure(
+        `expected line "${step.text}", got "${composedText(event)}"`,
+      );
     }
     assertHashtags(step.hashtags, event.tags, "line");
   };
@@ -185,7 +206,9 @@ export function runTestPlan(program: Program, plan: TestPlan): void {
 
   function runOne(run: TestPlanRun): void {
     if (!program.nodes[run.startNode]) {
-      throw new PlanFailure(`run start node "${run.startNode}" does not exist in program`);
+      throw new PlanFailure(
+        `run start node "${run.startNode}" does not exist in program`,
+      );
     }
     if (firstOfPlan) {
       firstOfPlan = false; // the constructor already entered the first run's node
@@ -225,7 +248,9 @@ export function runTestPlan(program: Program, plan: TestPlan): void {
             const expectation = expectedOptions[i];
             const option = event.options[i];
             if (expectation.text !== null && option.text !== expectation.text) {
-              throw new PlanFailure(`expected option "${expectation.text}", got "${option.text}"`);
+              throw new PlanFailure(
+                `expected option "${expectation.text}", got "${option.text}"`,
+              );
             }
             if (option.isAvailable === expectation.disabled) {
               throw new PlanFailure(
@@ -241,10 +266,14 @@ export function runTestPlan(program: Program, plan: TestPlan): void {
           const anyAvailable = event.options.some((o) => o.isAvailable);
           if (anyAvailable) {
             if (step.optionIndex < 0) {
-              throw new PlanFailure("plan selects no option, but options are available");
+              throw new PlanFailure(
+                "plan selects no option, but options are available",
+              );
             }
             if (step.optionIndex >= event.options.length) {
-              throw new PlanFailure(`plan selects option ${step.optionIndex}, which does not exist`);
+              throw new PlanFailure(
+                `plan selects option ${step.optionIndex}, which does not exist`,
+              );
             }
           } else if (step.optionIndex !== noOptionSelected) {
             throw new PlanFailure(
@@ -258,17 +287,23 @@ export function runTestPlan(program: Program, plan: TestPlan): void {
         case "command": {
           const event = consume();
           if (event.type !== "command") {
-            throw new PlanFailure(`expected command "${step.text}", got ${describe(event)}`);
+            throw new PlanFailure(
+              `expected command "${step.text}", got ${describe(event)}`,
+            );
           }
           if (event.command !== step.text) {
-            throw new PlanFailure(`expected command "${step.text}", got "${event.command}"`);
+            throw new PlanFailure(
+              `expected command "${step.text}", got "${event.command}"`,
+            );
           }
           break;
         }
         case "stop": {
           const event = currentEvent();
           if (event.type !== "dialogueComplete") {
-            throw new PlanFailure(`expected stop (dialogue complete), got ${describe(event)}`);
+            throw new PlanFailure(
+              `expected stop (dialogue complete), got ${describe(event)}`,
+            );
           }
           queue.shift();
           return; // remaining steps of this run are skipped, as upstream does
@@ -283,7 +318,9 @@ export function runTestPlan(program: Program, plan: TestPlan): void {
           // the program (Program.InitialValues lookup), then sets it into the
           // run's variable storage.
           if (!(step.variable in program.initialValues)) {
-            throw new PlanFailure(`set: variable $${step.variable} is not valid in program`);
+            throw new PlanFailure(
+              `set: variable $${step.variable} is not valid in program`,
+            );
           }
           dialogue.setVariable(step.variable, step.value);
           break;

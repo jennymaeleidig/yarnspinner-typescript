@@ -2,41 +2,41 @@
 
 TypeScript parser, compiler, and runtime for Yarn Spinner 3.x. Framework-agnostic: hosts own their UI against `Dialogue`/`Transcript` directly.
 
-* [Github repository](https://github.com/oleksii-chekhovskyi/yarn-spinner-runner-ts) for more information.
-* [NPM package](https://www.npmjs.com/package/yarn-spinner-runner-ts)
+- [Github repository](https://github.com/oleksii-chekhovskyi/yarn-spinner-runner-ts) for more information.
+- [NPM package](https://www.npmjs.com/package/yarn-spinner-runner-ts)
 
 ## References
 
-* Old JS parser: `bondage.js` (Yarn 2.x) — [GitHub](https://github.com/mnbroatch/bondage.js/tree/master/src)
-* Official compiler (C#): YarnSpinner.Compiler — [GitHub](https://github.com/YarnSpinnerTool/YarnSpinner/tree/main/YarnSpinner.Compiler)
-* Existing dialogue runner API: YarnBound — [GitHub](https://github.com/mnbroatch/yarn-bound?tab=readme-ov-file)
+- Old JS parser: `bondage.js` (Yarn 2.x) — [GitHub](https://github.com/mnbroatch/bondage.js/tree/master/src)
+- Official compiler (C#): YarnSpinner.Compiler — [GitHub](https://github.com/YarnSpinnerTool/YarnSpinner/tree/main/YarnSpinner.Compiler)
+- Existing dialogue runner API: YarnBound — [GitHub](https://github.com/mnbroatch/yarn-bound?tab=readme-ov-file)
 
 ## Features
 
-* ✅ Full Yarn Spinner 3.x syntax support
-* ✅ Parser for `.yarn` files → AST
-* ✅ Compiler: AST → instruction-stream program (versioned JSON bytecode, ADR 0001)
-* ✅ Runtime with `Dialogue` class (pull-based event stream)
-* ✅ Direct import: `.yarn` / `.yarnproject` files as build-time modules via [yarn-spinner-vite-plugin](https://www.npmjs.com/package/yarn-spinner-vite-plugin) — see [Direct import](./docs/direct-import.md)
-* ✅ Markup parsing into structured attributes
-* ✅ Expression evaluator for conditions
-* ✅ Command system with built-in handlers (`<<set>>`, `<<declare>>`, etc.)
-* ✅ Scene system: the `scene:` header arrives on `NodeStartEvent`/`Transcript.scene`; scene/actor configuration is host input
-* ✅ Built-in functions (`visited`, `random`, `min`, `max`, etc.)
-* ✅ Support for:
-  * Lines with speakers
-  * Options with indented bodies
-  * Option-line conditions via `<<if expression>>`
-  * `<<if>>/<<elseif>>/<<else>>/<<endif>>` blocks
-  * `<<once>>...<<endonce>>` blocks
-  * `<<jump NodeName>>` commands
-  * `<<detour NodeName>>` commands
-  * Variables and expressions
-  * Enums (`<<enum>>` blocks)
-  * Smart variables (`<<declare $var = expr>>`)
-  * Node groups with `when:` conditions
-  * Tags and metadata on nodes, lines, and options
-  * Custom commands
+- ✅ Full Yarn Spinner 3.x syntax support
+- ✅ Parser for `.yarn` files → AST
+- ✅ Compiler: AST → instruction-stream program (versioned JSON bytecode, ADR 0001)
+- ✅ Runtime with `Dialogue` class (pull-based event stream)
+- ✅ Direct import: `.yarn` / `.yarnproject` files as build-time modules via [yarn-spinner-vite-plugin](https://www.npmjs.com/package/yarn-spinner-vite-plugin) — see [Direct import](./docs/direct-import.md)
+- ✅ Markup parsing into structured attributes
+- ✅ Expression evaluator for conditions
+- ✅ Command system with built-in handlers (`<<set>>`, `<<declare>>`, etc.)
+- ✅ Scene system: the `scene:` header arrives on `NodeStartEvent`/`Transcript.scene`; scene/actor configuration is host input
+- ✅ Built-in functions (`visited`, `random`, `min`, `max`, etc.)
+- ✅ Support for:
+  - Lines with speakers
+  - Options with indented bodies
+  - Option-line conditions via `<<if expression>>`
+  - `<<if>>/<<elseif>>/<<else>>/<<endif>>` blocks
+  - `<<once>>...<<endonce>>` blocks
+  - `<<jump NodeName>>` commands
+  - `<<detour NodeName>>` commands
+  - Variables and expressions
+  - Enums (`<<enum>>` blocks)
+  - Smart variables (`<<declare $var = expr>>`)
+  - Node groups with `when:` conditions
+  - Tags and metadata on nodes, lines, and options
+  - Custom commands
 
 ## Installation
 
@@ -208,49 +208,49 @@ must not be edited or auto-fixed by editor tooling.
 
 ### Parser
 
-* `parseYarn(text: string): YarnDocument` — Parse Yarn script text into AST
+- `parseYarn(text: string): YarnDocument` — Parse Yarn script text into AST
 
 ### Compiler
 
-* `compile(files: CompileFile[], opts?: CompileOptions): CompileResult` — Compile `{ name, source }` files (multi-file; four modes, string table, external declarations, diagnostics)
-* `compileSource(source: string, opts?: CompileSourceOptions): CompileResult` — Single-file convenience wrapper — **the public compile seam**: collect-don't-throw, diagnostics come back with the result
-* `compileDocument(doc: YarnDocument, opts?: CompileDocumentOptions): Program` — *Internal*: the AST-level lowering seam (throws `ParseError`/`LoweringError`); real for tooling and the compiler's own tests, not reachable from the package root
+- `compile(files: CompileFile[], opts?: CompileOptions): CompileResult` — Compile `{ name, source }` files (multi-file; four modes, string table, external declarations, diagnostics)
+- `compileSource(source: string, opts?: CompileSourceOptions): CompileResult` — Single-file convenience wrapper — **the public compile seam**: collect-don't-throw, diagnostics come back with the result
+- `compileDocument(doc: YarnDocument, opts?: CompileDocumentOptions): Program` — _Internal_: the AST-level lowering seam (throws `ParseError`/`LoweringError`); real for tooling and the compiler's own tests, not reachable from the package root
 
 ### YarnProject loader
 
 Loads upstream-style `.yarnproject` files (format v4, legacy v2 accepted; schema: <https://schemas.yarnspinner.dev/yarnproject.schema.json>) and compiles their sources in one call. File access is injected — the loader core performs no I/O, keeping it bundler-safe; problems surface as collectible `YP` diagnostics (this project's own code range; upstream has no project-file registry).
 
-* `loadProject({ project, fileSystem, projectFile?, ...compileOptions })` — Validate the project, resolve `sourceFiles`/`excludeFiles` globs relative to the project location, and return a `CompileResult` plus `{ project, sources }`. Validation errors skip the compile (`program: null`); referenced-but-missing localisation strings files warn without blocking the base-language compile; unrecognised `compilerOptions` keys warn (YP0005) rather than being silently dropped
-* `listSources({ project, fileSystem })` — `ysc list-sources` equivalent: the resolved source paths without compiling
-* `parseYarnProject(project, projectFile?)` — Pure project-file validation (types + schema conformance)
-* `loadLocalisations({ project, stringTable }, fileSystem)` — Resolve the project's `localisation` map: each declared locale's strings CSV becomes a per-locale id → text table, the compile result's string table becomes the base table (shadow lines excluded), and `assets` directories surface as configured language → path entries for the host (never loaded). Unreadable strings files warn (YP0006) and drop that locale's table
-* `createProjectTextProvider(localisation)` — Glue the localisation tables into a `StringTableTextProvider` for `Dialogue`'s `textProvider` option; switch locales with `Dialogue.setLanguage`
-* Node hosts: `import { loadYarnProject, nodeProjectFs } from "yarn-spinner-runner-ts/node"` — `loadYarnProject("path/to/MyProject.yarnproject")` loads and compiles from disk in one call; `nodeProjectFs(dir)` is the default `YarnProjectFileSystem` (skips `node_modules`/`.git`)
-* Frontend bundles: `import story from "./story.yarn"` — the companion [yarn-spinner-vite-plugin](https://www.npmjs.com/package/yarn-spinner-vite-plugin) compiles `.yarn`/`.yarnproject` files at build time; all import shapes, options, editor types, and the webpack-loader/SSR guidance are in [docs/direct-import.md](./docs/direct-import.md)
+- `loadProject({ project, fileSystem, projectFile?, ...compileOptions })` — Validate the project, resolve `sourceFiles`/`excludeFiles` globs relative to the project location, and return a `CompileResult` plus `{ project, sources }`. Validation errors skip the compile (`program: null`); referenced-but-missing localisation strings files warn without blocking the base-language compile; unrecognised `compilerOptions` keys warn (YP0005) rather than being silently dropped
+- `listSources({ project, fileSystem })` — `ysc list-sources` equivalent: the resolved source paths without compiling
+- `parseYarnProject(project, projectFile?)` — Pure project-file validation (types + schema conformance)
+- `loadLocalisations({ project, stringTable }, fileSystem)` — Resolve the project's `localisation` map: each declared locale's strings CSV becomes a per-locale id → text table, the compile result's string table becomes the base table (shadow lines excluded), and `assets` directories surface as configured language → path entries for the host (never loaded). Unreadable strings files warn (YP0006) and drop that locale's table
+- `createProjectTextProvider(localisation)` — Glue the localisation tables into a `StringTableTextProvider` for `Dialogue`'s `textProvider` option; switch locales with `Dialogue.setLanguage`
+- Node hosts: `import { loadYarnProject, nodeProjectFs } from "yarn-spinner-runner-ts/node"` — `loadYarnProject("path/to/MyProject.yarnproject")` loads and compiles from disk in one call; `nodeProjectFs(dir)` is the default `YarnProjectFileSystem` (skips `node_modules`/`.git`)
+- Frontend bundles: `import story from "./story.yarn"` — the companion [yarn-spinner-vite-plugin](https://www.npmjs.com/package/yarn-spinner-vite-plugin) compiles `.yarn`/`.yarnproject` files at build time; all import shapes, options, editor types, and the webpack-loader/SSR guidance are in [docs/direct-import.md](./docs/direct-import.md)
 
 ### Runtime
 
-* `new Dialogue(program: Program, options?: DialogueOptions)` — Pull-based dialogue runner
-  * `continue(): DialogueEvent[]` — Return events up to the next stopping point (line, command, option set, or dialogue end)
-  * `selectOption(index: number): void` — Resume after an Options event; `noOptionSelected` (-1) falls through past the options block
-  * `setLanguage(language: string | null): void` — Switch the injected text provider's language (`null` = the base language, the program's own text)
-  * `setNode(title: string): void` / `stop(): void` — Jump to a node / end the dialogue
-  * `getVariable(name: string): unknown` / `setVariable(name: string, value: unknown): void` / `getVariables(): Readonly<Record<string, unknown>>`
-  * `tryGetSmartVariable(name: string)` — Read a smart variable's current value
-  * `currentNode: string | null` — Current node title (the `scene:` header travels on the `NodeStartEvent`, not a getter)
-  * Options: `startAt` (default `"Start"`), `library`, `variables`, `variableStorage` (pluggable store for story and generated variables; the persistence seam — inject a pre-populated `VariableStorage` to restore state, see [docs/logic-and-variables.md](docs/logic-and-variables.md)), `lineHints` (opt-in `LineHintsEvent`), `textProvider` (line-ID → text resolver for localisation; lines a provider lacks fall back to the program's text), `logError` (default `console.error`), `logDebug` (default silent)
-  * Events (all camelCased): `LineEvent`, `OptionsEvent` (full option set with advisory `isAvailable` flags), `CommandEvent` (state commands like `<<set>>` never surface), `NodeStartEvent` (carries the node's `scene:` header as `scene?` when it declares one — the scene system is non-upstream), `NodeCompleteEvent`, `LineHintsEvent`, `DialogueCompleteEvent`
-* `VariableStorage` / `InMemoryVariableStorage` — The storage contract the runtime drives (`has`/`get`/`set`/`entries`) and its in-memory default; exported from `dialogue.ts` and the package root. Generated variables (once-state, visit tracking) live in the same storage and appear in `entries()` but not `getVariables()` snapshots
-* `Library` — Registry of host functions and command handlers (replaces the old `functions` map and `handleCommand` option)
-  * `registerFunction(name, fn)` — Throws on duplicate; `getFunction(name)` returns undefined when missing
-  * `registerCommandHandler(name, handler)` / `getCommandHandler(name)` — Handlers receive quote-stripped parameters
-  * `importLibrary(other)` — Merge another library; its entries take precedence
+- `new Dialogue(program: Program, options?: DialogueOptions)` — Pull-based dialogue runner
+  - `continue(): DialogueEvent[]` — Return events up to the next stopping point (line, command, option set, or dialogue end)
+  - `selectOption(index: number): void` — Resume after an Options event; `noOptionSelected` (-1) falls through past the options block
+  - `setLanguage(language: string | null): void` — Switch the injected text provider's language (`null` = the base language, the program's own text)
+  - `setNode(title: string): void` / `stop(): void` — Jump to a node / end the dialogue
+  - `getVariable(name: string): unknown` / `setVariable(name: string, value: unknown): void` / `getVariables(): Readonly<Record<string, unknown>>`
+  - `tryGetSmartVariable(name: string)` — Read a smart variable's current value
+  - `currentNode: string | null` — Current node title (the `scene:` header travels on the `NodeStartEvent`, not a getter)
+  - Options: `startAt` (default `"Start"`), `library`, `variables`, `variableStorage` (pluggable store for story and generated variables; the persistence seam — inject a pre-populated `VariableStorage` to restore state, see [docs/logic-and-variables.md](docs/logic-and-variables.md)), `lineHints` (opt-in `LineHintsEvent`), `textProvider` (line-ID → text resolver for localisation; lines a provider lacks fall back to the program's text), `logError` (default `console.error`), `logDebug` (default silent)
+  - Events (all camelCased): `LineEvent`, `OptionsEvent` (full option set with advisory `isAvailable` flags), `CommandEvent` (state commands like `<<set>>` never surface), `NodeStartEvent` (carries the node's `scene:` header as `scene?` when it declares one — the scene system is non-upstream), `NodeCompleteEvent`, `LineHintsEvent`, `DialogueCompleteEvent`
+- `VariableStorage` / `InMemoryVariableStorage` — The storage contract the runtime drives (`has`/`get`/`set`/`entries`) and its in-memory default; exported from `dialogue.ts` and the package root. Generated variables (once-state, visit tracking) live in the same storage and appear in `entries()` but not `getVariables()` snapshots
+- `Library` — Registry of host functions and command handlers (replaces the old `functions` map and `handleCommand` option)
+  - `registerFunction(name, fn)` — Throws on duplicate; `getFunction(name)` returns undefined when missing
+  - `registerCommandHandler(name, handler)` / `getCommandHandler(name)` — Handlers receive quote-stripped parameters
+  - `importLibrary(other)` — Merge another library; its entries take precedence
 
 ### Scene System
 
-* `SceneCollection` — Type for scene configuration (host input — the package ships no YAML scene parser; parse your collection host-side)
-* `SceneConfig` — Type for individual scene config
-* `ActorConfig` — Type for actor configuration
+- `SceneCollection` — Type for scene configuration (host input — the package ships no YAML scene parser; parse your collection host-side)
+- `SceneConfig` — Type for individual scene config
+- `ActorConfig` — Type for actor configuration
 
 The scene name itself is runtime output: it travels on the `NodeStartEvent`'s
 `scene` field (and `Transcript.scene`, carried forward across scene-less
@@ -260,35 +260,35 @@ See [Scene and Actor Setup Guide](./docs/scenes-actors-setup.md) for detailed do
 
 ### Expression Evaluator
 
-* `ExpressionEvaluator(variables, functions, enums?)` — Safe expression evaluator
-  * Supports: `===`, `!==`, `<`, `>`, `<=`, `>=`, `&&`, `||`, `!`
-  * Operator aliases: `eq/is`, `neq`, `gt`, `lt`, `lte`, `gte`, `and`, `or`, `not`, `xor`
-  * Function calls: `functionName(arg1, arg2)`
-  * Variables, numbers, strings, booleans
-  * Enum support with shorthand (`MyEnum.Case`)
+- `ExpressionEvaluator(variables, functions, enums?)` — Safe expression evaluator
+  - Supports: `===`, `!==`, `<`, `>`, `<=`, `>=`, `&&`, `||`, `!`
+  - Operator aliases: `eq/is`, `neq`, `gt`, `lt`, `lte`, `gte`, `and`, `or`, `not`, `xor`
+  - Function calls: `functionName(arg1, arg2)`
+  - Variables, numbers, strings, booleans
+  - Enum support with shorthand (`MyEnum.Case`)
 
 ### Commands
 
-* `Library.registerCommandHandler(name, handler)` — Register a custom command handler (see Runtime)
-* Built-in: `<<set>>`, `<<declare>>`, `<<call>>` are state statements handled internally and never surface as `Command` events
-* `parseCommand(content: string): ParsedCommand` — Parse command string
+- `Library.registerCommandHandler(name, handler)` — Register a custom command handler (see Runtime)
+- Built-in: `<<set>>`, `<<declare>>`, `<<call>>` are state statements handled internally and never surface as `Command` events
+- `parseCommand(content: string): ParsedCommand` — Parse command string
 
 ### Built-in Functions
 
 The runtime includes these built-in functions:
 
-* `visited(nodeName)` — Check if a node was visited
-* `visited_count(nodeName)` — Get visit count for a node
-* `random()` — Random float 0-1
-* `random_range(min, max)` — Random integer in range
-* `dice(sides)` — Roll a die
-* `min(a, b)`, `max(a, b)` — Min/max values
-* `round(n)`, `round_places(n, places)` — Rounding
-* `floor(n)`, `ceil(n)` — Floor/ceiling
-* `inc(n)`, `dec(n)` — Increment/decrement
-* `decimal(n)` — Convert to decimal
-* `int(n)` — Convert to integer
-* `string(n)`, `number(n)`, `bool(n)` — Type conversions
+- `visited(nodeName)` — Check if a node was visited
+- `visited_count(nodeName)` — Get visit count for a node
+- `random()` — Random float 0-1
+- `random_range(min, max)` — Random integer in range
+- `dice(sides)` — Roll a die
+- `min(a, b)`, `max(a, b)` — Min/max values
+- `round(n)`, `round_places(n, places)` — Rounding
+- `floor(n)`, `ceil(n)` — Floor/ceiling
+- `inc(n)`, `dec(n)` — Increment/decrement
+- `decimal(n)` — Convert to decimal
+- `int(n)` — Convert to integer
+- `string(n)`, `number(n)`, `bool(n)` — Type conversions
 
 ## Example Yarn Script
 
@@ -406,13 +406,13 @@ npm run sveltekit:build # Build library + SvelteKit host
 
 Tests are located in `src/tests/` and cover:
 
-* Basic dialogue flow
-* Options and branching
-* Variables and flow control
-* Commands (`<<set>>`, `<<declare>>`, etc.)
-* `<<once>>` blocks
-* `<<jump>>` and `<<detour>>`
-* Full featured Yarn scripts
+- Basic dialogue flow
+- Options and branching
+- Variables and flow control
+- Commands (`<<set>>`, `<<declare>>`, etc.)
+- `<<once>>` blocks
+- `<<jump>>` and `<<detour>>`
+- Full featured Yarn scripts
 
 Run tests:
 
@@ -424,27 +424,27 @@ npm test
 
 Additional documentation is available in the `docs/` folder:
 
-* [Lines, Nodes, and Options](./docs/lines-nodes-and-options.md)
-* [Options](./docs/options.md)
-* [Jumps](./docs/jumps.md)
-* [Detour](./docs/detour.md)
-* [Logic and Variables](./docs/logic-and-variables.md)
-* [Flow Control](./docs/flow-control.md)
-* [Once Blocks](./docs/once.md)
-* [Smart Variables](./docs/smart-variables.md)
-* [Enums](./docs/enums.md)
-* [Commands](./docs/commands.md)
-* [Functions](./docs/functions.md)
-* [Node Groups](./docs/node-groups.md)
-* [Tags and Metadata](./docs/tags-metadata.md)
-* [Line Groups](./docs/line-groups.md)
-* [Saliency](./docs/saliency.md)
-* [Shadow Lines](./docs/shadow-lines.md)
-* [Markup (Yarn Spinner)](./docs/markup.md)
-* [Migration Notes (0.2.0 breaking changes)](./docs/migration-notes.md)
-* [Compatibility](./docs/compatibility.md)
-* [Changelog](./CHANGELOG.md)
-* [Scene and Actor Setup](./docs/scenes-actors-setup.md)
+- [Lines, Nodes, and Options](./docs/lines-nodes-and-options.md)
+- [Options](./docs/options.md)
+- [Jumps](./docs/jumps.md)
+- [Detour](./docs/detour.md)
+- [Logic and Variables](./docs/logic-and-variables.md)
+- [Flow Control](./docs/flow-control.md)
+- [Once Blocks](./docs/once.md)
+- [Smart Variables](./docs/smart-variables.md)
+- [Enums](./docs/enums.md)
+- [Commands](./docs/commands.md)
+- [Functions](./docs/functions.md)
+- [Node Groups](./docs/node-groups.md)
+- [Tags and Metadata](./docs/tags-metadata.md)
+- [Line Groups](./docs/line-groups.md)
+- [Saliency](./docs/saliency.md)
+- [Shadow Lines](./docs/shadow-lines.md)
+- [Markup (Yarn Spinner)](./docs/markup.md)
+- [Migration Notes (0.2.0 breaking changes)](./docs/migration-notes.md)
+- [Compatibility](./docs/compatibility.md)
+- [Changelog](./CHANGELOG.md)
+- [Scene and Actor Setup](./docs/scenes-actors-setup.md)
 
 ## License
 

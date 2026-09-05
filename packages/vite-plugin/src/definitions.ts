@@ -6,7 +6,11 @@
 // behave identically — one conversion, one contract.
 
 import { readFileSync } from "node:fs";
-import type { ExternalDeclarations, FunctionSignature, DeclaredValueType } from "yarn-spinner-runner-ts";
+import type {
+  ExternalDeclarations,
+  FunctionSignature,
+  DeclaredValueType,
+} from "yarn-spinner-runner-ts";
 
 /** The .ysls.json shape this converter consumes (upstream schema v1). */
 interface YslsParameter {
@@ -44,7 +48,10 @@ function toSignature(entry: YslsEntry, hasReturn: boolean): FunctionSignature {
     params: (entry.parameters ?? []).map((p) => toValueType(p.type)),
     // Commands return nothing ("any" — no return-type constraint); a
     // function without a declared return is likewise unconstrained.
-    returns: hasReturn && entry.returns !== undefined ? toValueType(entry.returns) : "any",
+    returns:
+      hasReturn && entry.returns !== undefined
+        ? toValueType(entry.returns)
+        : "any",
   };
 }
 
@@ -58,12 +65,16 @@ function readYslsFile(path: string): YslsDefinitions {
   try {
     text = readFileSync(path, "utf8");
   } catch (e) {
-    throw new Error(`Cannot read definitions file ${path}: ${e instanceof Error ? e.message : String(e)}`);
+    throw new Error(
+      `Cannot read definitions file ${path}: ${e instanceof Error ? e.message : String(e)}`,
+    );
   }
   try {
     return JSON.parse(text) as YslsDefinitions;
   } catch (e) {
-    throw new Error(`${path} is not valid JSON: ${e instanceof Error ? e.message : String(e)}`);
+    throw new Error(
+      `${path} is not valid JSON: ${e instanceof Error ? e.message : String(e)}`,
+    );
   }
 }
 
@@ -72,13 +83,17 @@ function readYslsFile(path: string): YslsDefinitions {
  * .ysls.json file paths (read here, Node side), objects are the same shape
  * inline. All entries merge into one functions map — later entries win.
  */
-export function toDeclarations(definitions: Array<string | YslsDefinitions>): ExternalDeclarations {
+export function toDeclarations(
+  definitions: Array<string | YslsDefinitions>,
+): ExternalDeclarations {
   const functions: Record<string, FunctionSignature> = {};
   for (const definition of definitions) {
     const ysls: YslsDefinitions =
       typeof definition === "string" ? readYslsFile(definition) : definition;
-    for (const command of ysls.commands ?? []) functions[command.yarnName] = toSignature(command, false);
-    for (const fn of ysls.functions ?? []) functions[fn.yarnName] = toSignature(fn, true);
+    for (const command of ysls.commands ?? [])
+      functions[command.yarnName] = toSignature(command, false);
+    for (const fn of ysls.functions ?? [])
+      functions[fn.yarnName] = toSignature(fn, true);
   }
   return { functions };
 }

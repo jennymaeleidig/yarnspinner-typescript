@@ -65,10 +65,7 @@ and the module is pure data — no runtime file access.
 
 ```ts
 import project from "./project.yarnproject";
-import {
-  createProjectTextProvider,
-  Dialogue,
-} from "yarn-spinner-runner-ts";
+import { createProjectTextProvider, Dialogue } from "yarn-spinner-runner-ts";
 
 const provider = createProjectTextProvider(project);
 const dialogue = new Dialogue(project.program!, { textProvider: provider });
@@ -119,7 +116,7 @@ yarnSpinnerVitePlugin({
   // Unanchored glob-or-RegExp filters layered over extension matching.
   include: ["src/**"],
   exclude: ["**/draft/**"],
-})
+});
 ```
 
 ## Editor types

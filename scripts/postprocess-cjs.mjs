@@ -10,7 +10,14 @@
 // here. Run via `npm run build:cjs`, after the ESM `tsc` pass — the ESM tree
 // in dist/ is left untouched.
 
-import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 
 const root = process.cwd();
@@ -22,14 +29,17 @@ const distDir = join(root, "dist");
 // so a CJS artifact would require its ESM .js twin (invisible on require(esm)-
 // capable Node, ERR_REQUIRE_ESM below it). Each relative specifier therefore
 // lands on the CJS twin: .js → .cjs, extensionless → + .cjs.
-const RELATIVE_SPEC = /((?:from|import|require)\s*\(?\s*)(["'])(\.\.?\/[^"']+)\2/g;
+const RELATIVE_SPEC =
+  /((?:from|import|require)\s*\(?\s*)(["'])(\.\.?\/[^"']+)\2/g;
 
 const rewrite = (code) =>
   code.replace(RELATIVE_SPEC, (match, pre, quote, spec) => {
     if (spec.endsWith(".json")) return match;
     if (/\.cjs$/.test(spec)) return match;
-    if (/\.js$/.test(spec)) return pre + quote + spec.slice(0, -3) + ".cjs" + quote;
-    if (/\.mjs$/.test(spec)) return pre + quote + spec.slice(0, -4) + ".cjs" + quote;
+    if (/\.js$/.test(spec))
+      return pre + quote + spec.slice(0, -3) + ".cjs" + quote;
+    if (/\.mjs$/.test(spec))
+      return pre + quote + spec.slice(0, -4) + ".cjs" + quote;
     return pre + quote + spec + ".cjs" + quote;
   });
 
@@ -38,7 +48,8 @@ const rewrite = (code) =>
 const rewireSourceMap = (code) =>
   code.replace(/^(\/\/# sourceMappingURL=.*?)\.js\.map$/m, "$1.cjs.map");
 
-const rewireMapFileField = (map) => map.replace(/("file"\s*:\s*"[^"]*)\.js(")/, "$1.cjs$2");
+const rewireMapFileField = (map) =>
+  map.replace(/("file"\s*:\s*"[^"]*)\.js(")/, "$1.cjs$2");
 
 const walk = (dir) =>
   readdirSync(dir).flatMap((name) => {
@@ -47,7 +58,11 @@ const walk = (dir) =>
   });
 
 const RENAMES = [
-  { suffix: ".js", out: ".cjs", transform: (code) => rewireSourceMap(rewrite(code)) },
+  {
+    suffix: ".js",
+    out: ".cjs",
+    transform: (code) => rewireSourceMap(rewrite(code)),
+  },
   { suffix: ".d.ts", out: ".d.cts", transform: rewrite },
   { suffix: ".js.map", out: ".cjs.map", transform: rewireMapFileField },
 ];

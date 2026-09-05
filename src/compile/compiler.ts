@@ -61,16 +61,44 @@
  * an uncompilable initializer emits `pushNull`.
  */
 
-import type { YarnDocument, YarnNode, Statement, Line, LineGroup, OnceBlock } from "../model/ast";
-import type { Instruction, Program, ProgramNode, ProgramNodeGroup } from "./program.js";
+import type {
+  YarnDocument,
+  YarnNode,
+  Statement,
+  Line,
+  LineGroup,
+  OnceBlock,
+} from "../model/ast";
+import type {
+  Instruction,
+  Program,
+  ProgramNode,
+  ProgramNodeGroup,
+} from "./program.js";
 import { walkStatements } from "../model/walk.js";
 import { programLanguageVersion } from "./program.js";
-import { compileExpression, ExpressionCodegenError } from "./expressionCodegen.js";
-import { onceVariableKey, onceStatementVariableKey } from "../runtime/generatedVariables.js";
-import { booleanOperatorCount, nodeGroupMemberId } from "../runtime/saliency.js";
-import { commandKind, parseCommand, type ParsedCommand } from "../runtime/commands.js";
+import {
+  compileExpression,
+  ExpressionCodegenError,
+} from "./expressionCodegen.js";
+import {
+  onceVariableKey,
+  onceStatementVariableKey,
+} from "../runtime/generatedVariables.js";
+import {
+  booleanOperatorCount,
+  nodeGroupMemberId,
+} from "../runtime/saliency.js";
+import {
+  commandKind,
+  parseCommand,
+  type ParsedCommand,
+} from "../runtime/commands.js";
 import { isSmartVariableInitializer } from "./smartVariables.js";
-import { compoundOperatorToStackOp, parseStateStatement } from "../parse/stateStatement.js";
+import {
+  compoundOperatorToStackOp,
+  parseStateStatement,
+} from "../parse/stateStatement.js";
 import { buildEnumTypes, collectEnumBlocks } from "./enums.js";
 import type { EnumRawValue, EnumType } from "./enums.js";
 
@@ -91,7 +119,9 @@ function groupNodesByTitle(docs: YarnDocument[]): Map<string, YarnNode[]> {
 }
 
 /** Extract the tracking: header (visit-tracking mode) from node headers. */
-function trackingHeader(headers: Record<string, string>): "always" | "never" | undefined {
+function trackingHeader(
+  headers: Record<string, string>,
+): "always" | "never" | undefined {
   for (const [key, value] of Object.entries(headers)) {
     if (key.toLowerCase() === "tracking") {
       const v = value.trim().toLowerCase();
@@ -169,14 +199,20 @@ export interface VariableDeclarationSlice {
  */
 export class LoweringError extends Error {}
 
-export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions = {}): Program {
+export function compileDocument(
+  doc: YarnDocument,
+  opts: CompileDocumentOptions = {},
+): Program {
   // Enum registry: enum name → case name → raw value. The type checker
   // (compileSource) passes validated types; standalone compile() resolves
   // the document's <<enum>> blocks without diagnostics.
-  const enumTypes = opts.enumTypes ?? buildEnumTypes(collectEnumBlocks(doc), [], () => {});
+  const enumTypes =
+    opts.enumTypes ?? buildEnumTypes(collectEnumBlocks(doc), [], () => {});
   const enums: Program["enums"] = {};
   for (const [name, type] of enumTypes) {
-    enums[name] = Object.fromEntries(type.cases.map((c) => [c.name, c.rawValue]));
+    enums[name] = Object.fromEntries(
+      type.cases.map((c) => [c.name, c.rawValue]),
+    );
   }
 
   const genOnce =
@@ -186,7 +222,11 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
         ? // Upstream's once-statement key (TypeCheckerListener
           // ExitOnce_primary_clause): the CRC32 of the statement's location
           // description, under the once-state namespace.
-          onceStatementVariableKey({ sourceFileName: x.file, nodeTitle: x.node, lineNumber: x.line })
+          onceStatementVariableKey({
+            sourceFileName: x.file,
+            nodeTitle: x.node,
+            lineNumber: x.line,
+          })
         : `${x.node}#once#${x.index}`);
   let globalLineCounter = 0;
   /**
@@ -196,7 +236,9 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
    * registration (YS0017/YS0062) — the compile carries error diagnostics
    * there, and the program still needs a stable ID to lower.
    */
-  const ensureLineId = (tags?: string[]): { tags: string[] | undefined; lineId: string } => {
+  const ensureLineId = (
+    tags?: string[],
+  ): { tags: string[] | undefined; lineId: string } => {
     const t = tags ? [...tags] : [];
     const existing = t.find((x) => x.startsWith("line:"));
     if (existing) return { tags: t, lineId: existing };
@@ -227,7 +269,9 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
     // hub even when every member was omitted); duplicate plain nodes with
     // no survivors at all are simply absent.
     const members = nodesWithSameTitle.filter((n) => n.body.length > 0);
-    const isNodeGroup = nodesWithSameTitle.some((n) => n.when && n.when.length > 0);
+    const isNodeGroup = nodesWithSameTitle.some(
+      (n) => n.when && n.when.length > 0,
+    );
     if (members.length === 0) {
       if (isNodeGroup) hubs.push([title, { title, nodes: [] }]);
       continue;
@@ -254,7 +298,14 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
       const lowered = members.map((node, i) =>
         lowerNode(
           node,
-          { enums, ensureLineId, genOnce, initialValues, smartVariables, onceLines: opts.onceLines },
+          {
+            enums,
+            ensureLineId,
+            genOnce,
+            initialValues,
+            smartVariables,
+            onceLines: opts.onceLines,
+          },
           node.when && node.when.length > 0
             ? nodeGroupMemberId(title, memberProvenance(node), i)
             : node.title,
@@ -295,11 +346,15 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
     if (decl.isSmartVariable) continue;
     if (decl.name in initialValues || decl.name in smartVariables) continue;
     if (typeof decl.defaultValue === "number") {
-      initialValues[decl.name] = [{ op: "pushNumber", value: decl.defaultValue }];
+      initialValues[decl.name] = [
+        { op: "pushNumber", value: decl.defaultValue },
+      ];
     } else if (typeof decl.defaultValue === "boolean") {
       initialValues[decl.name] = [{ op: "pushBool", value: decl.defaultValue }];
     } else if (typeof decl.defaultValue === "string") {
-      initialValues[decl.name] = [{ op: "pushString", value: decl.defaultValue }];
+      initialValues[decl.name] = [
+        { op: "pushString", value: decl.defaultValue },
+      ];
     }
   }
 
@@ -324,7 +379,10 @@ function bareConditionVariable(condition: string | undefined): string | null {
  * `<<once if>>` conditions, option conditions, and `<<if>>` block branches
  * whose expression is just `$var` (optionally `not`-wrapped).
  */
-function collectImplicitConditionVariables(stmts: Statement[], into: Set<string>): void {
+function collectImplicitConditionVariables(
+  stmts: Statement[],
+  into: Set<string>,
+): void {
   const addBare = (condition: string | undefined): void => {
     const name = bareConditionVariable(condition);
     if (name) into.add(name);
@@ -372,7 +430,10 @@ function collectImplicitConditionVariables(stmts: Statement[], into: Set<string>
 /** Lowering context threaded through one compile() run. */
 interface LoweringContext {
   enums: Program["enums"];
-  ensureLineId: (tags?: string[]) => { tags: string[] | undefined; lineId: string };
+  ensureLineId: (tags?: string[]) => {
+    tags: string[] | undefined;
+    lineId: string;
+  };
   genOnce: (ctx: OnceIdContext) => string;
   initialValues: Program["initialValues"];
   smartVariables: Program["smartVariables"];
@@ -384,7 +445,10 @@ interface LoweringContext {
  * Compile an expression, or `null` when it cannot compile (context picks
  * the fallback).
  */
-function tryCompile(expr: string, enums: Program["enums"]): Instruction[] | null {
+function tryCompile(
+  expr: string,
+  enums: Program["enums"],
+): Instruction[] | null {
   try {
     return compileExpression(expr, enums);
   } catch (e) {
@@ -397,7 +461,10 @@ function tryCompile(expr: string, enums: Program["enums"]): Instruction[] | null
  * Compile a condition, falling back to `pushBool false` — the evaluator's
  * catch → false is the observable contract for uncompilable conditions.
  */
-function compileCondition(condition: string, enums: Program["enums"]): Instruction[] {
+function compileCondition(
+  condition: string,
+  enums: Program["enums"],
+): Instruction[] {
   return tryCompile(condition, enums) ?? [{ op: "pushBool", value: false }];
 }
 
@@ -406,8 +473,15 @@ function compileCondition(condition: string, enums: Program["enums"]): Instructi
  * invert it, and — when the modifier is conditional — AND the condition in.
  * Availability/gating = `not(seen) [AND condition]`.
  */
-function onceGate(onceKey: string, condition: string | undefined, enums: Program["enums"]): Instruction[] {
-  const gate: Instruction[] = [{ op: "pushVariable", name: onceKey }, { op: "not" }];
+function onceGate(
+  onceKey: string,
+  condition: string | undefined,
+  enums: Program["enums"],
+): Instruction[] {
+  const gate: Instruction[] = [
+    { op: "pushVariable", name: onceKey },
+    { op: "not" },
+  ];
   if (condition !== undefined) {
     gate.push(...compileCondition(condition, enums), { op: "and" });
   }
@@ -425,7 +499,11 @@ function onceGate(onceKey: string, condition: string | undefined, enums: Program
 class NodeLowering {
   readonly instructions: Instruction[] = [];
   private readonly labels = new Map<string, number>();
-  private readonly refs: Array<{ at: number; key: "index" | "destination"; label: string }> = [];
+  private readonly refs: Array<{
+    at: number;
+    key: "index" | "destination";
+    label: string;
+  }> = [];
   private labelCounter = 0;
 
   newLabel(): string {
@@ -454,9 +532,18 @@ class NodeLowering {
 
   /** Emit `addSaliencyCandidate` with a label destination (resolved at
    *  `resolve` time) — the line-group candidate record. */
-  addSaliencyCandidate(contentId: string, complexity: number, label: string): void {
+  addSaliencyCandidate(
+    contentId: string,
+    complexity: number,
+    label: string,
+  ): void {
     this.refs.push({ at: this.instructions.length, key: "destination", label });
-    this.instructions.push({ op: "addSaliencyCandidate", contentId, complexity, destination: -1 });
+    this.instructions.push({
+      op: "addSaliencyCandidate",
+      contentId,
+      complexity,
+      destination: -1,
+    });
   }
 
   /** Compile a condition and branch on it (pops the condition). */
@@ -470,9 +557,13 @@ class NodeLowering {
     for (const ref of this.refs) {
       const index = this.labels.get(ref.label);
       if (index === undefined) {
-        throw new LoweringError(`Unresolved label "${ref.label}" in the lowering pass`);
+        throw new LoweringError(
+          `Unresolved label "${ref.label}" in the lowering pass`,
+        );
       }
-      (this.instructions[ref.at] as unknown as Record<string, number>)[ref.key] = index;
+      (this.instructions[ref.at] as unknown as Record<string, number>)[
+        ref.key
+      ] = index;
     }
     return this.instructions;
   }
@@ -637,7 +728,10 @@ function lowerLine(
     lowering.instructions.push(...gate);
     lowering.jump("jumpIfFalse", end);
     if (onceKey) {
-      lowering.instructions.push({ op: "pushBool", value: true }, { op: "popVariable", name: onceKey });
+      lowering.instructions.push(
+        { op: "pushBool", value: true },
+        { op: "popVariable", name: onceKey },
+      );
     }
     const runLine = emitRunLine();
     lowering.place(end);
@@ -679,7 +773,8 @@ function lowerLineGroup(
     // its boolean-operator count + 1.
     const expression = item.once?.condition ?? item.condition;
     const complexity =
-      (item.once ? 1 : 0) + (expression !== undefined ? booleanOperatorCount(expression) + 1 : 0);
+      (item.once ? 1 : 0) +
+      (expression !== undefined ? booleanOperatorCount(expression) + 1 : 0);
     return { item, tags, lineId, onceKey, gate, complexity };
   });
   const bodies = prepared.map(() => lowering.newLabel());
@@ -693,7 +788,10 @@ function lowerLineGroup(
   prepared.forEach((p, i) => {
     lowering.place(bodies[i]);
     if (p.onceKey) {
-      lowering.instructions.push({ op: "pushBool", value: true }, { op: "popVariable", name: p.onceKey });
+      lowering.instructions.push(
+        { op: "pushBool", value: true },
+        { op: "popVariable", name: p.onceKey },
+      );
     }
     lowerLineBody(p.item, p.tags, lowering);
     // The item's indented body runs inside its region, after its line —
@@ -711,7 +809,11 @@ function lowerLineGroup(
  * Lower a plain line (no gating): the `runLine` keeps its authored text,
  * speaker, tags, and markup.
  */
-function lowerLineBody(line: Line, tags: string[] | undefined, lowering: NodeLowering): void {
+function lowerLineBody(
+  line: Line,
+  tags: string[] | undefined,
+  lowering: NodeLowering,
+): void {
   const runLine: { op: "runLine"; text: string; tags?: string[] } = {
     op: "runLine",
     text: line.text,
@@ -755,7 +857,11 @@ function lowerOptions(
     if (onceKey) {
       // A once option is available while its flag is unset — upstream
       // compiles `not(<onceVar>)` ANDed with the option's condition.
-      availability = onceGate(onceKey, once?.condition ?? option.condition, ctx.enums);
+      availability = onceGate(
+        onceKey,
+        once?.condition ?? option.condition,
+        ctx.enums,
+      );
     } else if (option.condition !== undefined) {
       availability = compileCondition(option.condition, ctx.enums);
     } else {
@@ -775,7 +881,10 @@ function lowerOptions(
   for (const p of prepared) {
     lowering.place(p.label);
     if (p.onceKey) {
-      lowering.instructions.push({ op: "pushBool", value: true }, { op: "popVariable", name: p.onceKey });
+      lowering.instructions.push(
+        { op: "pushBool", value: true },
+        { op: "popVariable", name: p.onceKey },
+      );
     }
     lowerStatements(p.option.body, lowering, ctx, counters);
     lowering.jump("jumpTo", end);
@@ -805,7 +914,10 @@ function lowerOnce(
     lowering.instructions.push({ op: "pushVariable", name: key });
     lowering.jump("jumpIfTrue", elseLabel);
   }
-  lowering.instructions.push({ op: "pushBool", value: true }, { op: "popVariable", name: key });
+  lowering.instructions.push(
+    { op: "pushBool", value: true },
+    { op: "popVariable", name: key },
+  );
   // Upstream's LastLineBeforeOptionsVisitor never descends into <<once>>
   // blocks (only if-bodies and option bodies), so lines inside a once block
   // are never tagged as lastline — mirrored here with tagLastLine=false.
@@ -818,7 +930,11 @@ function lowerOnce(
   lowering.place(end);
 }
 
-function lowerCommand(content: string, lowering: NodeLowering, enums: Program["enums"]): void {
+function lowerCommand(
+  content: string,
+  lowering: NodeLowering,
+  enums: Program["enums"],
+): void {
   let parsed: ParsedCommand;
   try {
     parsed = parseCommand(content);
@@ -867,7 +983,10 @@ function lowerCommand(content: string, lowering: NodeLowering, enums: Program["e
  * Returns `null` when the expression cannot compile (the caller keeps the
  * raw command).
  */
-function lowerSet(content: string, enums: Program["enums"]): Instruction[] | null {
+function lowerSet(
+  content: string,
+  enums: Program["enums"],
+): Instruction[] | null {
   const statement = parseStateStatement(content);
   if (statement?.kind !== "set" || statement.expression === "") return null;
   const { name: key, compoundOp, expression } = statement;
@@ -905,10 +1024,12 @@ function collectInitialValues(stmts: Statement[], ctx: LoweringContext): void {
       if (s.type !== "Command") return;
       const declare = parseStateStatement(s.content);
       if (!declare || declare.kind !== "declare") return;
-      const compiled =
-        tryCompile(declare.expression, ctx.enums) ?? [{ op: "pushNull" } as Instruction];
+      const compiled = tryCompile(declare.expression, ctx.enums) ?? [
+        { op: "pushNull" } as Instruction,
+      ];
       if (isSmartVariableInitializer(declare.expression)) {
-        if (!(declare.name in ctx.smartVariables)) ctx.smartVariables[declare.name] = compiled;
+        if (!(declare.name in ctx.smartVariables))
+          ctx.smartVariables[declare.name] = compiled;
       } else if (!(declare.name in ctx.initialValues)) {
         ctx.initialValues[declare.name] = compiled;
       }

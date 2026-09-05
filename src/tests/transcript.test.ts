@@ -29,10 +29,20 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compileOk } from "./compileOk.js";
 import { Dialogue, noOptionSelected } from "../index.js";
-import { EMPTY_TRANSCRIPT, mergeEvents, pullUntilStopped, runUntilComplete, runUntilCompleteEvents, runUntilStopped } from "../index.js";
+import {
+  EMPTY_TRANSCRIPT,
+  mergeEvents,
+  pullUntilStopped,
+  runUntilComplete,
+  runUntilCompleteEvents,
+  runUntilStopped,
+} from "../index.js";
 import type { Transcript } from "../index.js";
 
-function makeDialogue(source: string, opts?: ConstructorParameters<typeof Dialogue>[1]): Dialogue {
+function makeDialogue(
+  source: string,
+  opts?: ConstructorParameters<typeof Dialogue>[1],
+): Dialogue {
   const program = compileOk(source);
   return new Dialogue(program, opts);
 }
@@ -63,7 +73,10 @@ Narrator: Line two
     ["Line one", "Line two"],
   );
   // The prior transcript is never mutated.
-  assert.deepEqual(first.transcript.lines.map((l) => l.text), ["Line one"]);
+  assert.deepEqual(
+    first.transcript.lines.map((l) => l.text),
+    ["Line one"],
+  );
 });
 
 test("an option set stops the pull and awaits selection; all options deliver with advisory availability", () => {
@@ -76,7 +89,10 @@ Narrator: Choose
 ===
 `);
 
-  const result = runUntilStopped(dialogue, runUntilStopped(dialogue).transcript);
+  const result = runUntilStopped(
+    dialogue,
+    runUntilStopped(dialogue).transcript,
+  );
   assert.equal(result.stopped, "options");
   assert.deepEqual(
     result.transcript.options?.map((o) => [o.text, o.isAvailable]),
@@ -108,7 +124,11 @@ Narrator: Choose
   // the module guards the at-rest state instead of making the call.
   const again = runUntilStopped(dialogue, first.transcript);
   assert.equal(again.stopped, "options");
-  assert.equal(again.transcript, first.transcript, "the prior transcript is returned as-is");
+  assert.equal(
+    again.transcript,
+    first.transcript,
+    "the prior transcript is returned as-is",
+  );
   assert.deepEqual(logErrors, [], "no log-and-empty diagnostic was triggered");
 });
 
@@ -131,7 +151,11 @@ Narrator: After the flash
     second.transcript.lines.map((l) => l.text),
     ["After the flash"],
   );
-  assert.deepEqual(second.transcript.commands, ["flash red"], "commands accumulate in the merge");
+  assert.deepEqual(
+    second.transcript.commands,
+    ["flash red"],
+    "commands accumulate in the merge",
+  );
 
   // A second command surfaces with the first still in the transcript —
   // pinned through the module's own drain, with the prior transcript
@@ -204,7 +228,11 @@ Narrator: Two
   );
 
   const first = runUntilStopped(dialogue);
-  assert.equal(first.stopped, "line", "hints delivered at node entry do not stop the pull");
+  assert.equal(
+    first.stopped,
+    "line",
+    "hints delivered at node entry do not stop the pull",
+  );
   assert.equal(first.transcript.lines.length, 1);
 });
 
@@ -267,7 +295,11 @@ Narrator: Choose
   dialogue.selectOption(0);
   result = runUntilStopped(dialogue, result.transcript);
   assert.equal(result.stopped, "line", "the option body's line delivers next");
-  assert.equal(result.transcript.options, null, "the resolved set left the transcript");
+  assert.equal(
+    result.transcript.options,
+    null,
+    "the resolved set left the transcript",
+  );
   assert.deepEqual(
     result.transcript.lines.map((l) => l.text),
     ["Choose", "Taken"],
@@ -313,7 +345,10 @@ Narrator: Unreachable
   const result = runUntilStopped(dialogue);
   assert.equal(result.stopped, "complete");
   assert.deepEqual(result.transcript, EMPTY_TRANSCRIPT satisfies Transcript);
-  assert.ok(logErrors.length > 0, "the constructor's diagnostic still surfaced");
+  assert.ok(
+    logErrors.length > 0,
+    "the constructor's diagnostic still surfaced",
+  );
 });
 
 test("the empty transcript is the merge identity", () => {
@@ -326,7 +361,11 @@ Narrator: Hello
   const fromDefault = runUntilStopped(makeDialogue(source));
   const fromExplicit = runUntilStopped(makeDialogue(source), EMPTY_TRANSCRIPT);
   assert.deepEqual(fromExplicit.transcript, fromDefault.transcript);
-  assert.deepEqual(EMPTY_TRANSCRIPT, { lines: [], options: null, commands: [] } satisfies Transcript);
+  assert.deepEqual(EMPTY_TRANSCRIPT, {
+    lines: [],
+    options: null,
+    commands: [],
+  } satisfies Transcript);
 });
 
 // ── scene on NodeStartEvent ───────────────────────────────
@@ -374,7 +413,11 @@ Narrator: Line three
     "a scene-less node keeps the carried scene (the view keeps its last background)",
   );
   const third = runUntilStopped(dialogue, second.transcript);
-  assert.equal(third.transcript.scene, "interior", "a new header replaces the carried scene");
+  assert.equal(
+    third.transcript.scene,
+    "interior",
+    "a new header replaces the carried scene",
+  );
 });
 
 // --- runUntilCompleteEvents: the events-shaped drain (deepening-wave-2 ticket 01) ---
@@ -412,7 +455,9 @@ Narrator: Before
   const events = runUntilCompleteEvents(dialogue, () => 1);
   assert.equal(dialogue.isComplete, true);
   assert.deepEqual(
-    events.filter((e) => e.type === "line").map((e) => (e as { text: string }).text),
+    events
+      .filter((e) => e.type === "line")
+      .map((e) => (e as { text: string }).text),
     ["Before", "Chose B"],
   );
   assert.equal(events[events.length - 1].type, "dialogueComplete");
@@ -427,7 +472,11 @@ Narrator: Before
 ===
 `);
   const events = runUntilCompleteEvents(dialogue, () => noOptionSelected);
-  assert.equal(dialogue.isComplete, true, "the fall-through resolves the set and the run completes");
+  assert.equal(
+    dialogue.isComplete,
+    true,
+    "the fall-through resolves the set and the run completes",
+  );
   assert.equal(events[events.length - 1].type, "dialogueComplete");
 });
 
@@ -439,7 +488,10 @@ Narrator: Looping
 <<jump Start>>
 ===
 `);
-  assert.throws(() => runUntilCompleteEvents(dialogue), /stalled after 1000 pulls/);
+  assert.throws(
+    () => runUntilCompleteEvents(dialogue),
+    /stalled after 1000 pulls/,
+  );
   // The cap is the stated policy, not dialogue state: a run stopped before
   // the drain starts is the caller's pending/complete state, not a stall.
 });
@@ -463,7 +515,9 @@ Narrator: Two
   const second = pullUntilStopped(dialogue);
   assert.equal(second.stopped, "line");
   assert.deepEqual(
-    second.events.filter((e) => e.type === "line").map((e) => (e as { text: string }).text),
+    second.events
+      .filter((e) => e.type === "line")
+      .map((e) => (e as { text: string }).text),
     ["Two"],
   );
 });
@@ -493,7 +547,8 @@ Narrator: Choose
 test("pullUntilStopped accumulates lifecycle-only batches into the same pull's events", () => {
   // A node whose first batch rides nodeStart (and line hints) before the
   // line: the events arrive in delivery order across the internal pulls.
-  const dialogue = makeDialogue(`
+  const dialogue = makeDialogue(
+    `
 title: Start
 ---
 ===
@@ -502,11 +557,16 @@ scene: hall
 ---
 Narrator: Arrived
 ===
-`, { startAt: "Second" });
+`,
+    { startAt: "Second" },
+  );
   const { events, stopped } = pullUntilStopped(dialogue);
   assert.equal(stopped, "line");
   const kinds = events.map((e) => e.type);
-  assert.ok(kinds.indexOf("nodeStart") < kinds.indexOf("line"), "nodeStart rides before the line");
+  assert.ok(
+    kinds.indexOf("nodeStart") < kinds.indexOf("line"),
+    "nodeStart rides before the line",
+  );
 });
 
 test("mergeEvents reduces events into a transcript — the stateless pair", () => {
@@ -525,7 +585,11 @@ Narrator: Hello
   assert.equal(transcript.lines[0].text, "Hello");
   assert.deepEqual(transcript.commands, ["wave"]);
   // mergeEvents is the reduction over any events; prior is never mutated.
-  const withPrior = mergeEvents([...first.events, ...second.events], { lines: [], options: [{ index: 0, text: "x", isAvailable: true }], commands: [] });
+  const withPrior = mergeEvents([...first.events, ...second.events], {
+    lines: [],
+    options: [{ index: 0, text: "x", isAvailable: true }],
+    commands: [],
+  });
   assert.equal(withPrior.lines.length, 1);
   assert.equal(withPrior.commands.length, 1);
 });

@@ -76,11 +76,15 @@ test("document order: option text before its body, lines then structure", () => 
 
 test("includeOnce: false skips the whole <<once>> block (upstream LastLineBeforeOptionsVisitor shape)", () => {
   const seen: string[] = [];
-  walkStatements(tree, {
-    onLine: (l) => seen.push(l.text),
-    onOption: (o) => seen.push(o.text),
-    onStatement: (s) => seen.push(s.type),
-  }, { includeOnce: false });
+  walkStatements(
+    tree,
+    {
+      onLine: (l) => seen.push(l.text),
+      onOption: (o) => seen.push(o.text),
+      onStatement: (s) => seen.push(s.type),
+    },
+    { includeOnce: false },
+  );
   assert.ok(!seen.includes("onceBody"));
   assert.ok(!seen.includes("elseBody"), "the else body rides the once block");
   assert.ok(seen.includes("a"), "everything else still walks");
@@ -89,18 +93,24 @@ test("includeOnce: false skips the whole <<once>> block (upstream LastLineBefore
 test("contexts point at the node's own list and position", () => {
   const contexts: Array<[string, number]> = [];
   walkStatements([line("first"), line("second")], {
-    onLine: (_l, at) => contexts.push([at.list === undefined ? "" : "list", at.index]),
+    onLine: (_l, at) =>
+      contexts.push([at.list === undefined ? "" : "list", at.index]),
   });
-  assert.deepEqual(contexts, [["list", 0], ["list", 1]]);
+  assert.deepEqual(contexts, [
+    ["list", 0],
+    ["list", 1],
+  ]);
 
   const optionContexts: number[] = [];
-  const group: Statement[] = [{
-    type: "OptionGroup",
-    options: [
-      { type: "Option", text: "a", body: [] },
-      { type: "Option", text: "b", body: [] },
-    ],
-  }];
+  const group: Statement[] = [
+    {
+      type: "OptionGroup",
+      options: [
+        { type: "Option", text: "a", body: [] },
+        { type: "Option", text: "b", body: [] },
+      ],
+    },
+  ];
   walkStatements(group, {
     onOption: (_o, at) => optionContexts.push(at.index),
   });

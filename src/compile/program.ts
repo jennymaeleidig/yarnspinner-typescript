@@ -149,7 +149,12 @@ export type Instruction =
   | { op: "showOptions" } // delivers and clears the accumulated set; halts
   /** Records a line-group item as a saliency candidate: pops the
    *  item's evaluated condition (upstream AddSaliencyCandidate). */
-  | { op: "addSaliencyCandidate"; contentId: string; complexity: number; destination: number }
+  | {
+      op: "addSaliencyCandidate";
+      contentId: string;
+      complexity: number;
+      destination: number;
+    }
   /** Asks the saliency strategy to pick from the accumulated candidates
    *  (upstream SelectSaliencyCandidate): pushes the destination and `true`
    *  when content was selected, or `false` when none was. */

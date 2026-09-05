@@ -35,7 +35,10 @@ function shapeTokens(expr: string): ShapeToken[] {
         if (expr[j] === "\\") j++; // skip escaped characters
         j++;
       }
-      tokens.push({ kind: "str", text: expr.slice(i, Math.min(j + 1, expr.length)) });
+      tokens.push({
+        kind: "str",
+        text: expr.slice(i, Math.min(j + 1, expr.length)),
+      });
       i = j + 1;
       continue;
     }
@@ -71,16 +74,34 @@ function shapeTokens(expr: string): ShapeToken[] {
 export function isSmartVariableInitializer(expr: string): boolean {
   const tokens = shapeTokens(expr);
   // Stored shapes: exactly one of the following token sequences.
-  if (tokens.length === 1 && (tokens[0].kind === "num" || tokens[0].kind === "str")) return false;
-  if (tokens.length === 1 && tokens[0].kind === "ident" && (tokens[0].text === "true" || tokens[0].text === "false")) {
+  if (
+    tokens.length === 1 &&
+    (tokens[0].kind === "num" || tokens[0].kind === "str")
+  )
+    return false;
+  if (
+    tokens.length === 1 &&
+    tokens[0].kind === "ident" &&
+    (tokens[0].text === "true" || tokens[0].text === "false")
+  ) {
     return false;
   }
   // Unary minus over a number literal (upstream issue #421).
-  if (tokens.length === 2 && tokens[0].kind === "op" && tokens[0].text === "-" && tokens[1].kind === "num") {
+  if (
+    tokens.length === 2 &&
+    tokens[0].kind === "op" &&
+    tokens[0].text === "-" &&
+    tokens[1].kind === "num"
+  ) {
     return false;
   }
   // Enum member reference: Enum.Case or the .Case shorthand.
-  if (tokens.length === 2 && tokens[0].kind === "dot" && tokens[1].kind === "ident") return false;
+  if (
+    tokens.length === 2 &&
+    tokens[0].kind === "dot" &&
+    tokens[1].kind === "ident"
+  )
+    return false;
   if (
     tokens.length === 3 &&
     tokens[0].kind === "ident" &&

@@ -64,7 +64,8 @@ export function runBytecode(code: Instruction[], env: BytecodeEnv): unknown {
       env.executeOp(ins);
     }
     const value = env.stack.pop();
-    if (env.stack.length > 0 || value === undefined) throw new UnbalancedStackError();
+    if (env.stack.length > 0 || value === undefined)
+      throw new UnbalancedStackError();
     return value;
   } finally {
     env.stack.length = 0;

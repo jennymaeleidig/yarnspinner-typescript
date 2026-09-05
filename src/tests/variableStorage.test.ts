@@ -15,7 +15,10 @@ import { deepStrictEqual, ok, strictEqual } from "node:assert";
 import { compileOk } from "./compileOk.js";
 import { Dialogue } from "../runtime/dialogue.js";
 import type { DialogueOptions } from "../runtime/dialogue.js";
-import { InMemoryVariableStorage, type VariableStorage } from "../runtime/variableStorage.js";
+import {
+  InMemoryVariableStorage,
+  type VariableStorage,
+} from "../runtime/variableStorage.js";
 import { runUntilCompleteEvents } from "../runtime/transcript.js";
 
 function makeDialogue(source: string, opts?: DialogueOptions): Dialogue {
@@ -68,12 +71,19 @@ test("story writes and generated state land in the injected storage", () => {
   // Generated variables (the <<once>> flag) live in the same storage under
   // the reserved namespace (resetting storage resets all
   // story state together).
-  const generated = [...storage.entries()].filter(([key]) => key.startsWith("$Yarn.Internal."));
-  ok(generated.length > 0, "once-state should be a generated variable in the injected storage");
+  const generated = [...storage.entries()].filter(([key]) =>
+    key.startsWith("$Yarn.Internal."),
+  );
+  ok(
+    generated.length > 0,
+    "once-state should be a generated variable in the injected storage",
+  );
 
   // Snapshots stay story-only: generated keys are not host-visible state.
   deepStrictEqual(
-    Object.keys(dialogue.getVariables()).filter((key) => key.startsWith("$Yarn.Internal.")),
+    Object.keys(dialogue.getVariables()).filter((key) =>
+      key.startsWith("$Yarn.Internal."),
+    ),
     [],
   );
 });
@@ -94,9 +104,16 @@ test("generated state in the injected storage persists across a fresh Dialogue",
     for (const event of batch) {
       if (event.type === "line") texts.push(event.text);
     }
-    if (batch.length === 0 || batch[batch.length - 1].type === "dialogueComplete") break;
+    if (
+      batch.length === 0 ||
+      batch[batch.length - 1].type === "dialogueComplete"
+    )
+      break;
   }
-  ok(!texts.some((text) => text.includes("cameo")), "once-state must survive in the injected storage");
+  ok(
+    !texts.some((text) => text.includes("cameo")),
+    "once-state must survive in the injected storage",
+  );
   ok(texts.some((text) => text.includes("end")));
   strictEqual(second.getVariables()["gold"], 5);
 });
@@ -107,7 +124,11 @@ test("declare-default seeding skips names the injected storage already holds", (
   restored.set("gold", 50);
 
   const dialogue = makeDialogue(SCRIPT, { variableStorage: restored });
-  strictEqual(dialogue.getVariable("gold"), 50, "a restored value must survive construction");
+  strictEqual(
+    dialogue.getVariable("gold"),
+    50,
+    "a restored value must survive construction",
+  );
 
   // Names the storage does NOT hold are still seeded from the declares.
   const partial = new InMemoryVariableStorage();
@@ -117,7 +138,10 @@ test("declare-default seeding skips names the injected storage already holds", (
 
 test("host-provided `variables` still override after seeding (with injected storage)", () => {
   const storage = new InMemoryVariableStorage();
-  const dialogue = makeDialogue(SCRIPT, { variableStorage: storage, variables: { $gold: 99 } });
+  const dialogue = makeDialogue(SCRIPT, {
+    variableStorage: storage,
+    variables: { $gold: 99 },
+  });
   strictEqual(dialogue.getVariable("gold"), 99);
 });
 

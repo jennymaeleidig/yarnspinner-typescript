@@ -34,9 +34,17 @@ test("a declare initializer whose constant evaluation fails reports YS0037", () 
   // `5 % 0` is a constant expression whose evaluation fails (upstream
   // NumberType.MethodModulus throws DivideByZeroException on a zero
   // divisor). The compile must report the failure — never silence.
-  const { diagnostics } = compileSource("title: Start\n---\n<<declare $a = 5 % 0>>\n===");
-  const hits = diagnostics.filter((d) => d.code === "YS0037" && d.severity === "error");
-  assert.equal(hits.length, 1, `expected one YS0037 error, got ${JSON.stringify(diagnostics)}`);
+  const { diagnostics } = compileSource(
+    "title: Start\n---\n<<declare $a = 5 % 0>>\n===",
+  );
+  const hits = diagnostics.filter(
+    (d) => d.code === "YS0037" && d.severity === "error",
+  );
+  assert.equal(
+    hits.length,
+    1,
+    `expected one YS0037 error, got ${JSON.stringify(diagnostics)}`,
+  );
 });
 
 test("a valid constant declare (5 % 2) compiles clean and reads as 1", () => {
@@ -75,7 +83,15 @@ test("the failing initializer still lowers to a smart-variable slice (program sh
   // initializer remains a smart variable evaluated at read time (upstream
   // IsInlineExpansion), so the runtime still surfaces its failure through
   // the collect-don't-throw channel rather than a throw.
-  const { program } = compileSource("title: Start\n---\n<<declare $a = 5 % 0>>\n===");
-  assert.ok(program, "the program must stay observable (recorded keep-it-observable divergence)");
-  assert.ok(program.smartVariables.a, "the initializer still lowers to a smart-variable slice");
+  const { program } = compileSource(
+    "title: Start\n---\n<<declare $a = 5 % 0>>\n===",
+  );
+  assert.ok(
+    program,
+    "the program must stay observable (recorded keep-it-observable divergence)",
+  );
+  assert.ok(
+    program.smartVariables.a,
+    "the initializer still lowers to a smart-variable slice",
+  );
 });

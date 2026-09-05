@@ -73,7 +73,10 @@ test("port: TestOutOfRangeReplacementThrows — a start past the text's length t
     replacement(8, "Test", ""),
   ];
 
-  assert.throws(() => languageUpgrader.applyReplacements(text, replacements), RangeError);
+  assert.throws(
+    () => languageUpgrader.applyReplacements(text, replacements),
+    RangeError,
+  );
 });
 
 // ── LanguageUpgrader.Upgrade: upstream removed the v1→v2 upgrader ───────────

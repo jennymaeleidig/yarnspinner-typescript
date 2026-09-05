@@ -9,7 +9,14 @@
  */
 
 import { test } from "node:test";
-import { deepEqual, deepStrictEqual, equal, notEqual, ok, match } from "node:assert";
+import {
+  deepEqual,
+  deepStrictEqual,
+  equal,
+  notEqual,
+  ok,
+  match,
+} from "node:assert";
 
 import {
   BuiltInMarkupReplacer,
@@ -45,7 +52,10 @@ class BBCodeChevronReplacer implements AttributeMarkerProcessor {
     if (marker.name !== this.tag) {
       return {
         diagnostics: [
-          { message: `Asked to replace ${marker.name} but this only handles ${this.tag} markers.`, column: -1 },
+          {
+            message: `Asked to replace ${marker.name} but this only handles ${this.tag} markers.`,
+            column: -1,
+          },
         ],
         invisibleCharacters: 0,
       };
@@ -103,7 +113,10 @@ class MarkupTestsReplacer implements AttributeMarkerProcessor {
 }
 
 /** Upstream `MarkupAttribute.Shift`. */
-function shiftAttribute(attribute: MarkupAttribute, shift: number): MarkupAttribute {
+function shiftAttribute(
+  attribute: MarkupAttribute,
+  shift: number,
+): MarkupAttribute {
   return { ...attribute, position: attribute.position + shift };
 }
 
@@ -146,72 +159,399 @@ interface LexerCase {
 const lexerCases: LexerCase[] = [
   {
     input: "this is a line with [markup]a single markup[/markup] inside of it",
-    types: ["text", "openMarker", "identifier", "closeMarker", "text", "openMarker", "closeSlash", "identifier", "closeMarker", "text"],
-    texts: ["this is a line with ", "[", "markup", "]", "a single markup", "[", "/", "markup", "]", " inside of it"],
+    types: [
+      "text",
+      "openMarker",
+      "identifier",
+      "closeMarker",
+      "text",
+      "openMarker",
+      "closeSlash",
+      "identifier",
+      "closeMarker",
+      "text",
+    ],
+    texts: [
+      "this is a line with ",
+      "[",
+      "markup",
+      "]",
+      "a single markup",
+      "[",
+      "/",
+      "markup",
+      "]",
+      " inside of it",
+    ],
   },
   {
-    input: "this is a line with [markup = 1]a single markup[/markup] inside of it",
-    types: ["text", "openMarker", "identifier", "equals", "numberValue", "closeMarker", "text", "openMarker", "closeSlash", "identifier", "closeMarker", "text"],
-    texts: ["this is a line with ", "[", "markup", "=", "1", "]", "a single markup", "[", "/", "markup", "]", " inside of it"],
+    input:
+      "this is a line with [markup = 1]a single markup[/markup] inside of it",
+    types: [
+      "text",
+      "openMarker",
+      "identifier",
+      "equals",
+      "numberValue",
+      "closeMarker",
+      "text",
+      "openMarker",
+      "closeSlash",
+      "identifier",
+      "closeMarker",
+      "text",
+    ],
+    texts: [
+      "this is a line with ",
+      "[",
+      "markup",
+      "=",
+      "1",
+      "]",
+      "a single markup",
+      "[",
+      "/",
+      "markup",
+      "]",
+      " inside of it",
+    ],
   },
   {
-    input: "this is a line with [markup=12]a single markup[/markup] inside of it",
-    types: ["text", "openMarker", "identifier", "equals", "numberValue", "closeMarker", "text", "openMarker", "closeSlash", "identifier", "closeMarker", "text"],
-    texts: ["this is a line with ", "[", "markup", "=", "12", "]", "a single markup", "[", "/", "markup", "]", " inside of it"],
+    input:
+      "this is a line with [markup=12]a single markup[/markup] inside of it",
+    types: [
+      "text",
+      "openMarker",
+      "identifier",
+      "equals",
+      "numberValue",
+      "closeMarker",
+      "text",
+      "openMarker",
+      "closeSlash",
+      "identifier",
+      "closeMarker",
+      "text",
+    ],
+    texts: [
+      "this is a line with ",
+      "[",
+      "markup",
+      "=",
+      "12",
+      "]",
+      "a single markup",
+      "[",
+      "/",
+      "markup",
+      "]",
+      " inside of it",
+    ],
   },
   {
-    input: 'this is a line with [markup = "12" ]a single markup[/markup] inside of it',
-    types: ["text", "openMarker", "identifier", "equals", "stringValue", "closeMarker", "text", "openMarker", "closeSlash", "identifier", "closeMarker", "text"],
-    texts: ["this is a line with ", "[", "markup", "=", '"12"', "]", "a single markup", "[", "/", "markup", "]", " inside of it"],
+    input:
+      'this is a line with [markup = "12" ]a single markup[/markup] inside of it',
+    types: [
+      "text",
+      "openMarker",
+      "identifier",
+      "equals",
+      "stringValue",
+      "closeMarker",
+      "text",
+      "openMarker",
+      "closeSlash",
+      "identifier",
+      "closeMarker",
+      "text",
+    ],
+    texts: [
+      "this is a line with ",
+      "[",
+      "markup",
+      "=",
+      '"12"',
+      "]",
+      "a single markup",
+      "[",
+      "/",
+      "markup",
+      "]",
+      " inside of it",
+    ],
   },
   {
-    input: "this is a line with [markup=hello]a single markup[/markup] inside of it",
-    types: ["text", "openMarker", "identifier", "equals", "stringValue", "closeMarker", "text", "openMarker", "closeSlash", "identifier", "closeMarker", "text"],
-    texts: ["this is a line with ", "[", "markup", "=", "hello", "]", "a single markup", "[", "/", "markup", "]", " inside of it"],
+    input:
+      "this is a line with [markup=hello]a single markup[/markup] inside of it",
+    types: [
+      "text",
+      "openMarker",
+      "identifier",
+      "equals",
+      "stringValue",
+      "closeMarker",
+      "text",
+      "openMarker",
+      "closeSlash",
+      "identifier",
+      "closeMarker",
+      "text",
+    ],
+    texts: [
+      "this is a line with ",
+      "[",
+      "markup",
+      "=",
+      "hello",
+      "]",
+      "a single markup",
+      "[",
+      "/",
+      "markup",
+      "]",
+      " inside of it",
+    ],
   },
   {
-    input: "this is a line with [markup=true]a single markup[/markup] inside of it",
-    types: ["text", "openMarker", "identifier", "equals", "booleanValue", "closeMarker", "text", "openMarker", "closeSlash", "identifier", "closeMarker", "text"],
-    texts: ["this is a line with ", "[", "markup", "=", "true", "]", "a single markup", "[", "/", "markup", "]", " inside of it"],
+    input:
+      "this is a line with [markup=true]a single markup[/markup] inside of it",
+    types: [
+      "text",
+      "openMarker",
+      "identifier",
+      "equals",
+      "booleanValue",
+      "closeMarker",
+      "text",
+      "openMarker",
+      "closeSlash",
+      "identifier",
+      "closeMarker",
+      "text",
+    ],
+    texts: [
+      "this is a line with ",
+      "[",
+      "markup",
+      "=",
+      "true",
+      "]",
+      "a single markup",
+      "[",
+      "/",
+      "markup",
+      "]",
+      " inside of it",
+    ],
   },
   {
-    input: "this is a line with [markup=false var = 12]a single markup[/markup] inside of it",
-    types: ["text", "openMarker", "identifier", "equals", "booleanValue", "identifier", "equals", "numberValue", "closeMarker", "text", "openMarker", "closeSlash", "identifier", "closeMarker", "text"],
-    texts: ["this is a line with ", "[", "markup", "=", "false", "var", "=", "12", "]", "a single markup", "[", "/", "markup", "]", " inside of it"],
+    input:
+      "this is a line with [markup=false var = 12]a single markup[/markup] inside of it",
+    types: [
+      "text",
+      "openMarker",
+      "identifier",
+      "equals",
+      "booleanValue",
+      "identifier",
+      "equals",
+      "numberValue",
+      "closeMarker",
+      "text",
+      "openMarker",
+      "closeSlash",
+      "identifier",
+      "closeMarker",
+      "text",
+    ],
+    texts: [
+      "this is a line with ",
+      "[",
+      "markup",
+      "=",
+      "false",
+      "var",
+      "=",
+      "12",
+      "]",
+      "a single markup",
+      "[",
+      "/",
+      "markup",
+      "]",
+      " inside of it",
+    ],
   },
   {
-    input: "this is a line with [markup=false var = 12]two [markup2]markup[/] inside of it",
-    types: ["text", "openMarker", "identifier", "equals", "booleanValue", "identifier", "equals", "numberValue", "closeMarker", "text", "openMarker", "identifier", "closeMarker", "text", "openMarker", "closeSlash", "closeMarker", "text"],
-    texts: ["this is a line with ", "[", "markup", "=", "false", "var", "=", "12", "]", "two ", "[", "markup2", "]", "markup", "[", "/", "]", " inside of it"],
+    input:
+      "this is a line with [markup=false var = 12]two [markup2]markup[/] inside of it",
+    types: [
+      "text",
+      "openMarker",
+      "identifier",
+      "equals",
+      "booleanValue",
+      "identifier",
+      "equals",
+      "numberValue",
+      "closeMarker",
+      "text",
+      "openMarker",
+      "identifier",
+      "closeMarker",
+      "text",
+      "openMarker",
+      "closeSlash",
+      "closeMarker",
+      "text",
+    ],
+    texts: [
+      "this is a line with ",
+      "[",
+      "markup",
+      "=",
+      "false",
+      "var",
+      "=",
+      "12",
+      "]",
+      "two ",
+      "[",
+      "markup2",
+      "]",
+      "markup",
+      "[",
+      "/",
+      "]",
+      " inside of it",
+    ],
   },
   {
-    input: "this is a line with \\[markup=false var = 12]two [markup2]markup[/] inside of it",
-    types: ["text", "openMarker", "identifier", "closeMarker", "text", "openMarker", "closeSlash", "closeMarker", "text"],
-    texts: ["this is a line with \\[markup=false var = 12]two ", "[", "markup2", "]", "markup", "[", "/", "]", " inside of it"],
+    input:
+      "this is a line with \\[markup=false var = 12]two [markup2]markup[/] inside of it",
+    types: [
+      "text",
+      "openMarker",
+      "identifier",
+      "closeMarker",
+      "text",
+      "openMarker",
+      "closeSlash",
+      "closeMarker",
+      "text",
+    ],
+    texts: [
+      "this is a line with \\[markup=false var = 12]two ",
+      "[",
+      "markup2",
+      "]",
+      "markup",
+      "[",
+      "/",
+      "]",
+      " inside of it",
+    ],
   },
   {
-    input: "this is a line with [markup markup = 1]a single markup[/markup] inside of it",
-    types: ["text", "openMarker", "identifier", "identifier", "equals", "numberValue", "closeMarker", "text", "openMarker", "closeSlash", "identifier", "closeMarker", "text"],
-    texts: ["this is a line with ", "[", "markup", "markup", "=", "1", "]", "a single markup", "[", "/", "markup", "]", " inside of it"],
+    input:
+      "this is a line with [markup markup = 1]a single markup[/markup] inside of it",
+    types: [
+      "text",
+      "openMarker",
+      "identifier",
+      "identifier",
+      "equals",
+      "numberValue",
+      "closeMarker",
+      "text",
+      "openMarker",
+      "closeSlash",
+      "identifier",
+      "closeMarker",
+      "text",
+    ],
+    texts: [
+      "this is a line with ",
+      "[",
+      "markup",
+      "markup",
+      "=",
+      "1",
+      "]",
+      "a single markup",
+      "[",
+      "/",
+      "markup",
+      "]",
+      " inside of it",
+    ],
   },
   {
     input: "this is a line with [interpolated markup = {$property} /] inside",
-    types: ["text", "openMarker", "identifier", "identifier", "equals", "interpolatedValue", "closeSlash", "closeMarker", "text"],
-    texts: ["this is a line with ", "[", "interpolated", "markup", "=", "{$property}", "/", "]", " inside"],
+    types: [
+      "text",
+      "openMarker",
+      "identifier",
+      "identifier",
+      "equals",
+      "interpolatedValue",
+      "closeSlash",
+      "closeMarker",
+      "text",
+    ],
+    texts: [
+      "this is a line with ",
+      "[",
+      "interpolated",
+      "markup",
+      "=",
+      "{$property}",
+      "/",
+      "]",
+      " inside",
+    ],
   },
   {
     input: "á [a]S[/a]",
-    types: ["text", "openMarker", "identifier", "closeMarker", "text", "openMarker", "closeSlash", "identifier", "closeMarker"],
+    types: [
+      "text",
+      "openMarker",
+      "identifier",
+      "closeMarker",
+      "text",
+      "openMarker",
+      "closeSlash",
+      "identifier",
+      "closeMarker",
+    ],
     texts: ["á ", "[", "a", "]", "S", "[", "/", "a", "]"],
   },
   {
     input: "start [markup=-1 /] end",
-    types: ["text", "openMarker", "identifier", "equals", "numberValue", "closeSlash", "closeMarker", "text"],
+    types: [
+      "text",
+      "openMarker",
+      "identifier",
+      "equals",
+      "numberValue",
+      "closeSlash",
+      "closeMarker",
+      "text",
+    ],
     texts: ["start ", "[", "markup", "=", "-1", "/", "]", " end"],
   },
   {
     input: "start [markup=-1.0 /] end",
-    types: ["text", "openMarker", "identifier", "equals", "numberValue", "closeSlash", "closeMarker", "text"],
+    types: [
+      "text",
+      "openMarker",
+      "identifier",
+      "equals",
+      "numberValue",
+      "closeSlash",
+      "closeMarker",
+      "text",
+    ],
     texts: ["start ", "[", "markup", "=", "-1.0", "/", "]", " end"],
   },
 ];
@@ -236,19 +576,41 @@ test("lexer generates correct tokens", () => {
 });
 
 test("nomarkup in lexer consumes tokens", () => {
-  const line = 'this is a line with [nomarkup]bunch[ /] a = 2 of " [tag /] [anothertag]invalid shit[/anothertag] yes[/nomarkup]';
+  const line =
+    'this is a line with [nomarkup]bunch[ /] a = 2 of " [tag /] [anothertag]invalid shit[/anothertag] yes[/nomarkup]';
   const parser = new LineParser();
   const tokens = parser.lexMarkup(line);
   tokens.splice(0, 1);
   tokens.splice(tokens.length - 1, 1);
 
   const types = [
-    "text", "openMarker", "identifier", "closeMarker", "text",
-    "openMarker", "closeSlash", "closeMarker", "text",
-    "openMarker", "identifier", "closeSlash", "closeMarker", "text",
-    "openMarker", "identifier", "closeMarker", "text",
-    "openMarker", "closeSlash", "identifier", "closeMarker", "text",
-    "openMarker", "closeSlash", "identifier", "closeMarker",
+    "text",
+    "openMarker",
+    "identifier",
+    "closeMarker",
+    "text",
+    "openMarker",
+    "closeSlash",
+    "closeMarker",
+    "text",
+    "openMarker",
+    "identifier",
+    "closeSlash",
+    "closeMarker",
+    "text",
+    "openMarker",
+    "identifier",
+    "closeMarker",
+    "text",
+    "openMarker",
+    "closeSlash",
+    "identifier",
+    "closeMarker",
+    "text",
+    "openMarker",
+    "closeSlash",
+    "identifier",
+    "closeMarker",
   ];
   equal(tokens.length, types.length);
   for (let i = 0; i < types.length; i++) {
@@ -258,7 +620,10 @@ test("nomarkup in lexer consumes tokens", () => {
 
 // ── Unsquished trees ────────────────────────────────────────────────────
 
-function descendant(root: MarkupTreeNode, ...children: number[]): MarkupTreeNode {
+function descendant(
+  root: MarkupTreeNode,
+  ...children: number[]
+): MarkupTreeNode {
   let current = root;
   for (const child of children) {
     ok(current.children.length > child, `expected child ${child} to exist`);
@@ -268,7 +633,8 @@ function descendant(root: MarkupTreeNode, ...children: number[]): MarkupTreeNode
 }
 
 test("unsquished tree with single child is valid", () => {
-  const line = "this is a line with [markup]a single markup[/markup] inside of it";
+  const line =
+    "this is a line with [markup]a single markup[/markup] inside of it";
   const parser = new LineParser();
   const tokens = parser.lexMarkup(line);
   const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(tokens, line);
@@ -279,9 +645,13 @@ test("unsquished tree with single child is valid", () => {
 });
 
 test("unsquished tree with self-close markup is valid", () => {
-  const line = "this is a line with [markup /]a single self-closing markup inside of it";
+  const line =
+    "this is a line with [markup /]a single self-closing markup inside of it";
   const parser = new LineParser();
-  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(
+    parser.lexMarkup(line),
+    line,
+  );
 
   equal(tree.children.length, 3);
   equal(tree.children[1].children.length, 0);
@@ -289,9 +659,13 @@ test("unsquished tree with self-close markup is valid", () => {
 });
 
 test("unsquished tree with nested markup is valid", () => {
-  const line = "this is a line with [markup]a [inner]nested[/inner] markup[/markup] inside of it";
+  const line =
+    "this is a line with [markup]a [inner]nested[/inner] markup[/markup] inside of it";
   const parser = new LineParser();
-  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(
+    parser.lexMarkup(line),
+    line,
+  );
 
   equal(tree.children.length, 3);
   equal(tree.children[1].children.length, 3);
@@ -301,9 +675,13 @@ test("unsquished tree with nested markup is valid", () => {
 });
 
 test("unsquished tree with single child and self properties is valid", () => {
-  const line = "this is a line with [markup = 1]a single markup[/markup] inside of it";
+  const line =
+    "this is a line with [markup = 1]a single markup[/markup] inside of it";
   const parser = new LineParser();
-  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(
+    parser.lexMarkup(line),
+    line,
+  );
 
   equal(diagnostics.length, 0);
   equal(tree.children.length, 3);
@@ -314,9 +692,13 @@ test("unsquished tree with single child and self properties is valid", () => {
 });
 
 test("unsquished tree with single child and non-self property is valid", () => {
-  const line = "this is a line with [markup markup = 1]a single markup[/markup] inside of it";
+  const line =
+    "this is a line with [markup markup = 1]a single markup[/markup] inside of it";
   const parser = new LineParser();
-  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(
+    parser.lexMarkup(line),
+    line,
+  );
 
   equal(diagnostics.length, 0);
   equal(tree.children.length, 3);
@@ -326,9 +708,13 @@ test("unsquished tree with single child and non-self property is valid", () => {
 });
 
 test("unsquished tree with multiple non-self properties is valid", () => {
-  const line = "this is a line with [markup markup = 1 markup = 2]a single markup[/markup] inside of it";
+  const line =
+    "this is a line with [markup markup = 1 markup = 2]a single markup[/markup] inside of it";
   const parser = new LineParser();
-  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(
+    parser.lexMarkup(line),
+    line,
+  );
 
   equal(diagnostics.length, 0);
   equal(tree.children[1].properties.length, 2);
@@ -337,9 +723,13 @@ test("unsquished tree with multiple non-self properties is valid", () => {
 });
 
 test("unsquished tree with multiple non-self properties of multiple types is valid", () => {
-  const line = 'this is a line with [markup markup = 1 markup = markup markup = true markup = 1.1 markup = "markup"]a single markup[/markup] inside of it';
+  const line =
+    'this is a line with [markup markup = 1 markup = markup markup = true markup = 1.1 markup = "markup"]a single markup[/markup] inside of it';
   const parser = new LineParser();
-  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(
+    parser.lexMarkup(line),
+    line,
+  );
 
   equal(diagnostics.length, 0);
   const properties = tree.children[1].properties;
@@ -357,9 +747,13 @@ test("unsquished tree with multiple non-self properties of multiple types is val
 });
 
 test("unsquished tree with self-closing and self property is valid", () => {
-  const line = "this is a line with [markup = 1 /]a single self-closing markup inside of it";
+  const line =
+    "this is a line with [markup = 1 /]a single self-closing markup inside of it";
   const parser = new LineParser();
-  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(
+    parser.lexMarkup(line),
+    line,
+  );
 
   equal(diagnostics.length, 0);
   equal(tree.children[1].children.length, 0);
@@ -369,9 +763,13 @@ test("unsquished tree with self-closing and self property is valid", () => {
 });
 
 test("unsquished tree with self-closing and non-self property is valid", () => {
-  const line = "this is a line with [markup markup = 1 /]a single self-closing markup inside of it";
+  const line =
+    "this is a line with [markup markup = 1 /]a single self-closing markup inside of it";
   const parser = new LineParser();
-  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(
+    parser.lexMarkup(line),
+    line,
+  );
 
   equal(diagnostics.length, 0);
   equal(tree.children[1].properties.length, 2);
@@ -379,9 +777,13 @@ test("unsquished tree with self-closing and non-self property is valid", () => {
 });
 
 test("unsquished tree with nomarkup allows invalid characters", () => {
-  const line = 'this is a line with [nomarkup]bunch[ /] a = 2 of " [tag /] [anothertag]invalid shit[/anothertag] yes[/nomarkup]';
+  const line =
+    'this is a line with [nomarkup]bunch[ /] a = 2 of " [tag /] [anothertag]invalid shit[/anothertag] yes[/nomarkup]';
   const parser = new LineParser();
-  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(
+    parser.lexMarkup(line),
+    line,
+  );
 
   equal(diagnostics.length, 0);
   equal(tree.children.length, 2);
@@ -393,9 +795,13 @@ test("unsquished tree with nomarkup allows invalid characters", () => {
 });
 
 test("unsquished nested markup is valid", () => {
-  const line = "This is [outer][inner]some [inmost /]nested[/inner][/outer] markup";
+  const line =
+    "This is [outer][inner]some [inmost /]nested[/inner][/outer] markup";
   const parser = new LineParser();
-  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(
+    parser.lexMarkup(line),
+    line,
+  );
 
   equal(diagnostics.length, 0);
   equal(tree.children.length, 3);
@@ -404,7 +810,10 @@ test("unsquished nested markup is valid", () => {
 test("unsquished imbalanced markup is valid when imbalance occurs at end of line", () => {
   const line = "start[a]ab[b]bc[c]cb[/b][/c][/a]";
   const parser = new LineParser();
-  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+  const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(
+    parser.lexMarkup(line),
+    line,
+  );
 
   equal(diagnostics.length, 0);
   equal(tree.children.length, 2);
@@ -419,28 +828,40 @@ test("unsquished imbalanced markup is valid when imbalance occurs at end of line
 test("unsquished imbalanced markup with excess close is invalid", () => {
   const line = "start[a]ab[b]bc[c]cb[/b][/c][/a][/d]";
   const parser = new LineParser();
-  const { diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+  const { diagnostics } = parser.buildMarkupTreeFromTokens(
+    parser.lexMarkup(line),
+    line,
+  );
   equal(diagnostics.length, 1);
 });
 
 test("unsquished imbalanced markup with excess close and open is invalid", () => {
   const line = "start[a]ab[b]bc[c]cb[/b][/c][/d]";
   const parser = new LineParser();
-  const { diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+  const { diagnostics } = parser.buildMarkupTreeFromTokens(
+    parser.lexMarkup(line),
+    line,
+  );
   equal(diagnostics.length, 1);
 });
 
 test("unclosed markup is invalid", () => {
   const line = "start[a]end";
   const parser = new LineParser();
-  const { diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+  const { diagnostics } = parser.buildMarkupTreeFromTokens(
+    parser.lexMarkup(line),
+    line,
+  );
   equal(diagnostics.length, 1);
 });
 
 test("unopened markup is invalid", () => {
   const line = "end[/a]";
   const parser = new LineParser();
-  const { diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+  const { diagnostics } = parser.buildMarkupTreeFromTokens(
+    parser.lexMarkup(line),
+    line,
+  );
   equal(diagnostics.length, 1);
 });
 
@@ -452,7 +873,10 @@ interface TreeComparison {
   children: TreeComparison[];
 }
 
-function node(name: string | null, ...children: TreeComparison[]): TreeComparison {
+function node(
+  name: string | null,
+  ...children: TreeComparison[]
+): TreeComparison {
   return { name: name ?? undefined, children };
 }
 function text(value: string): TreeComparison {
@@ -477,59 +901,97 @@ function compareWalk(left: MarkupTreeNode, right: TreeComparison): void {
 const treeShapes: Array<[string, TreeComparison]> = [
   [
     "This [a] is [b] some [c] nested [/a] markup [/c] with [/b] invalid structure.",
-    node(null, text("This "),
-      node("a", text(" is "), node("b", text(" some "), node("c", text(" nested ")))),
+    node(
+      null,
+      text("This "),
+      node(
+        "a",
+        text(" is "),
+        node("b", text(" some "), node("c", text(" nested "))),
+      ),
       node("b", node("c", text(" markup ")), text(" with ")),
-      text(" invalid structure.")),
+      text(" invalid structure."),
+    ),
   ],
   [
     "This [outer] is [inner] some [/outer] invalid [/inner] markup",
-    node(null, text("This "),
+    node(
+      null,
+      text("This "),
       node("outer", text(" is "), node("inner", text(" some "))),
       node("inner", text(" invalid ")),
-      text(" markup")),
+      text(" markup"),
+    ),
   ],
   [
     "This [outer] is [inner] some [/outer][/inner] markup",
-    node(null, text("This "),
+    node(
+      null,
+      text("This "),
       node("outer", text(" is "), node("inner", text(" some "))),
-      text(" markup")),
+      text(" markup"),
+    ),
   ],
   [
     "[z] this [a] is [b] some [c] markup [d] with [e] both [/c][/e][/d][/z][/a] misclosed tags and double unclosable tags[/b]",
-    node(null,
-      node("z", text(" this "),
-        node("a", text(" is "),
-          node("b", text(" some "),
-            node("c", text(" markup "),
-              node("d", text(" with "), node("e", text(" both "))))))),
-      node("b", text(" misclosed tags and double unclosable tags"))),
+    node(
+      null,
+      node(
+        "z",
+        text(" this "),
+        node(
+          "a",
+          text(" is "),
+          node(
+            "b",
+            text(" some "),
+            node(
+              "c",
+              text(" markup "),
+              node("d", text(" with "), node("e", text(" both "))),
+            ),
+          ),
+        ),
+      ),
+      node("b", text(" misclosed tags and double unclosable tags")),
+    ),
   ],
   [
     "[a]This is [b]some [c]markup[/b] with[/c] closing tag issues inside a valid tag[/a]",
-    node(null,
-      node("a",
+    node(
+      null,
+      node(
+        "a",
         text("This is "),
         node("b", text("some "), node("c", text("markup"))),
         node("c", text(" with")),
-        text(" closing tag issues inside a valid tag"))),
+        text(" closing tag issues inside a valid tag"),
+      ),
+    ),
   ],
   [
     "[a][b]1 [c][X]2[/b] [d]3[/X][/c] 4[/d] [e]5[/e][/a]",
-    node(null,
-      node("a",
+    node(
+      null,
+      node(
+        "a",
         node("b", text("1 "), node("c", node("X", text("2")))),
         node("c", node("X", text(" "), node("d", text("3")))),
         node("d", text(" 4")),
         text(" "),
-        node("e", text("5")))),
+        node("e", text("5")),
+      ),
+    ),
   ],
 ];
 
 for (const [line, comparison] of treeShapes) {
   test(`unsquished tree conforms to expected shape: ${line.slice(0, 40)}`, () => {
     const parser = new LineParser();
-    const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(parser.lexMarkup(line), line);
+    const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(
+      parser.lexMarkup(line),
+      line,
+    );
     equal(diagnostics.length, 0);
     compareWalk(tree, comparison);
   });
@@ -540,10 +1002,22 @@ for (const [line, comparison] of treeShapes) {
 const unsquishedRewriterCases: Array<[string, string]> = [
   ["this is line without markup", "this is line without markup"],
   ["[a]this is line with basic markup[/a]", "this is line with basic markup"],
-  ["[a]this is line with [b]nested basic[/b] markup[/a]", "this is line with nested basic markup"],
-  ["this is a[nomarkup] line with [b]nomarkup hiding[/b] markup[/nomarkup] elements", "this is a line with [b]nomarkup hiding[/b] markup elements"],
-  ["This is a [bold]line testing basic[/bold] replacement markers", "This is a <b>line testing basic</b> replacement markers"],
-  ["[a]This is [b]some [c]markup[/b] with[/c] closing tag issues inside a valid tag[/a]", "This is some markup with closing tag issues inside a valid tag"],
+  [
+    "[a]this is line with [b]nested basic[/b] markup[/a]",
+    "this is line with nested basic markup",
+  ],
+  [
+    "this is a[nomarkup] line with [b]nomarkup hiding[/b] markup[/nomarkup] elements",
+    "this is a line with [b]nomarkup hiding[/b] markup elements",
+  ],
+  [
+    "This is a [bold]line testing basic[/bold] replacement markers",
+    "This is a <b>line testing basic</b> replacement markers",
+  ],
+  [
+    "[a]This is [b]some [c]markup[/b] with[/c] closing tag issues inside a valid tag[/a]",
+    "This is some markup with closing tag issues inside a valid tag",
+  ],
 ];
 
 test("unsquished markup strings with rewriters are valid", () => {
@@ -551,7 +1025,10 @@ test("unsquished markup strings with rewriters are valid", () => {
     const parser = new LineParser();
     parser.registerMarkerProcessor("bold", new MarkupTestsReplacer());
     const tokens = parser.lexMarkup(line);
-    const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(tokens, line);
+    const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(
+      tokens,
+      line,
+    );
     equal(diagnostics.length, 0);
 
     const builder = new StringBuilder();
@@ -566,11 +1043,31 @@ test("unsquished markup strings with rewriters are valid", () => {
 
 const squishedRewriterCases: Array<[string, string, number]> = [
   ["this is line without markup", "this is line without markup", 0],
-  ["[a]this is line with basic markup[/a]", "this is line with basic markup", 1],
-  ["[a]this is line with [b]nested basic[/b] markup[/a]", "this is line with nested basic markup", 2],
-  ["this is a[nomarkup] line with [b]nomarkup hiding[/b] markup[/nomarkup] elements", "this is a line with [b]nomarkup hiding[/b] markup elements", 1],
-  ["This is a [bold]line testing basic[/bold] replacement markers", "This is a <b>line testing basic</b> replacement markers", 0],
-  ["[a]This is [b]some [c]markup[/b] with[/c] closing tag issues inside a valid tag[/a]", "This is some markup with closing tag issues inside a valid tag", 3],
+  [
+    "[a]this is line with basic markup[/a]",
+    "this is line with basic markup",
+    1,
+  ],
+  [
+    "[a]this is line with [b]nested basic[/b] markup[/a]",
+    "this is line with nested basic markup",
+    2,
+  ],
+  [
+    "this is a[nomarkup] line with [b]nomarkup hiding[/b] markup[/nomarkup] elements",
+    "this is a line with [b]nomarkup hiding[/b] markup elements",
+    1,
+  ],
+  [
+    "This is a [bold]line testing basic[/bold] replacement markers",
+    "This is a <b>line testing basic</b> replacement markers",
+    0,
+  ],
+  [
+    "[a]This is [b]some [c]markup[/b] with[/c] closing tag issues inside a valid tag[/a]",
+    "This is some markup with closing tag issues inside a valid tag",
+    3,
+  ],
 ];
 
 test("squished markup strings with rewriters are valid", () => {
@@ -578,7 +1075,10 @@ test("squished markup strings with rewriters are valid", () => {
     const parser = new LineParser();
     parser.registerMarkerProcessor("bold", new MarkupTestsReplacer());
     const tokens = parser.lexMarkup(line);
-    const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(tokens, line);
+    const { tree, diagnostics } = parser.buildMarkupTreeFromTokens(
+      tokens,
+      line,
+    );
     equal(diagnostics.length, 0);
 
     const builder = new StringBuilder();
@@ -596,32 +1096,83 @@ test("squished markup strings with rewriters are valid", () => {
 // ── Invisible characters ────────────────────────────────────────────────
 
 const invisibleCharacterCases: Array<[string, string, string[], number[]]> = [
-  ["this is a line with non-replacement[a/]  markup", "this is a line with non-replacement markup", ["a"], [35]],
-  ["this is a line [bold]with some replacement[/bold] markup and a non-replacement[a/]  markup", "this is a line <b>with some replacement</b> markup and a non-replacement markup", ["a"], [65]],
-  ["this is a [bold]line with some [italics]nested[a trimwhitespace=false /] tags[/italics][b trimwhitespace=false /][/bold] in[c trimwhitespace=false /] it", "this is a <b>line with some <i>nested tags</i></b> in it", ["a", "b", "c"], [31, 36, 39]],
-  ["this is a line with [blocky]markup[/blocky] that actually has[a trimwhitespace=false /] visible characters", "this is a line with [markup] that actually has visible characters", ["a"], [46]],
-  ["this is a line with [wacky]markup[/wacky] that actually has[a trimwhitespace=false /] both", "this is a line with <b>[markup]</b> that actually has both", ["a"], [46]],
-  ["this is a line with [wacky]internal[a trimwhitespace=false /] both[/wacky] markup", "this is a line with <b>[internal both]</b> markup", ["a"], [29]],
-  ["this is a [wacky]line with some [blocky]nested[a trimwhitespace=false /] tags[/blocky][b trimwhitespace=false /][/wacky] in[c trimwhitespace=false /] it", "this is a <b>[line with some [nested tags]]</b> in it", ["a", "b", "c"], [33, 39, 43]],
+  [
+    "this is a line with non-replacement[a/]  markup",
+    "this is a line with non-replacement markup",
+    ["a"],
+    [35],
+  ],
+  [
+    "this is a line [bold]with some replacement[/bold] markup and a non-replacement[a/]  markup",
+    "this is a line <b>with some replacement</b> markup and a non-replacement markup",
+    ["a"],
+    [65],
+  ],
+  [
+    "this is a [bold]line with some [italics]nested[a trimwhitespace=false /] tags[/italics][b trimwhitespace=false /][/bold] in[c trimwhitespace=false /] it",
+    "this is a <b>line with some <i>nested tags</i></b> in it",
+    ["a", "b", "c"],
+    [31, 36, 39],
+  ],
+  [
+    "this is a line with [blocky]markup[/blocky] that actually has[a trimwhitespace=false /] visible characters",
+    "this is a line with [markup] that actually has visible characters",
+    ["a"],
+    [46],
+  ],
+  [
+    "this is a line with [wacky]markup[/wacky] that actually has[a trimwhitespace=false /] both",
+    "this is a line with <b>[markup]</b> that actually has both",
+    ["a"],
+    [46],
+  ],
+  [
+    "this is a line with [wacky]internal[a trimwhitespace=false /] both[/wacky] markup",
+    "this is a line with <b>[internal both]</b> markup",
+    ["a"],
+    [29],
+  ],
+  [
+    "this is a [wacky]line with some [blocky]nested[a trimwhitespace=false /] tags[/blocky][b trimwhitespace=false /][/wacky] in[c trimwhitespace=false /] it",
+    "this is a <b>[line with some [nested tags]]</b> in it",
+    ["a", "b", "c"],
+    [33, 39, 43],
+  ],
 ];
 
 test("squished markup strings with invisible characters are valid", () => {
-  for (const [line, comparison, markerNames, positions] of invisibleCharacterCases) {
+  for (const [
+    line,
+    comparison,
+    markerNames,
+    positions,
+  ] of invisibleCharacterCases) {
     const parser = new LineParser();
     for (const name of ["bold", "italics", "blocky", "wacky"]) {
       parser.registerMarkerProcessor(name, new MarkupTestsReplacer());
     }
 
-    const { markup, diagnostics } = parser.parseStringWithDiagnostics(line, "en");
+    const { markup, diagnostics } = parser.parseStringWithDiagnostics(
+      line,
+      "en",
+    );
 
     equal(diagnostics.length, 0);
     equal(markup.text, comparison);
-    equal(markup.attributes.length, markerNames.length, `attribute count for ${line}`);
+    equal(
+      markup.attributes.length,
+      markerNames.length,
+      `attribute count for ${line}`,
+    );
 
     for (let i = 0; i < markerNames.length; i++) {
       const attribute = tryGetAttributeWithName(markup, markerNames[i]);
       ok(attribute, `expected attribute ${markerNames[i]} in ${line}`);
-      equal(attribute.position, positions[i], `position of ${markerNames[i]} in ${line}`);
+      equal(
+        attribute.position,
+        positions[i],
+        `position of ${markerNames[i]} in ${line}`,
+      );
     }
   }
 });
@@ -648,7 +1199,12 @@ test("localised string replacement", () => {
 
 // ── Ranges ──────────────────────────────────────────────────────────────
 
-const rangeComparisons: Array<{ line: string; comparison: string; expectedAttributes: number; ranges: Record<string, [number, number]> }> = [
+const rangeComparisons: Array<{
+  line: string;
+  comparison: string;
+  expectedAttributes: number;
+  ranges: Record<string, [number, number]>;
+}> = [
   {
     line: "[a]this is line with basic markup[/a]",
     comparison: "this is line with basic markup",
@@ -663,39 +1219,78 @@ const rangeComparisons: Array<{ line: string; comparison: string; expectedAttrib
   },
   {
     line: "[a]This is [b]some [c]markup[/b] with[/c] closing tag issues inside a valid tag[/a]",
-    comparison: "This is some markup with closing tag issues inside a valid tag",
+    comparison:
+      "This is some markup with closing tag issues inside a valid tag",
     expectedAttributes: 3,
     ranges: { a: [0, 62], b: [8, 11], c: [13, 11] },
   },
   {
     line: "this[z] here[a] is[b] some[c] markup[d] with[e] both[/c][/e][/d][/a][/z] misclosed tags and double unclosable tags[/b]",
-    comparison: "this here is some markup with both misclosed tags and double unclosable tags",
+    comparison:
+      "this here is some markup with both misclosed tags and double unclosable tags",
     expectedAttributes: 6,
-    ranges: { z: [4, 30], a: [9, 25], c: [17, 17], d: [24, 10], e: [29, 5], b: [12, 64] },
+    ranges: {
+      z: [4, 30],
+      a: [9, 25],
+      c: [17, 17],
+      d: [24, 10],
+      e: [29, 5],
+      b: [12, 64],
+    },
   },
   {
     line: "[a][b]1 [c][X]2[/b] [d]3[/X][/c] 4[/d] [e]5[/e][/a]",
     comparison: "1 2 3 4 5",
     expectedAttributes: 6,
-    ranges: { a: [0, 9], b: [0, 3], c: [2, 3], X: [2, 3], d: [4, 3], e: [8, 1] },
+    ranges: {
+      a: [0, 9],
+      b: [0, 3],
+      c: [2, 3],
+      X: [2, 3],
+      d: [4, 3],
+      e: [8, 1],
+    },
   },
 ];
 
 test("squished ranges are valid", () => {
-  for (const { line, comparison, expectedAttributes, ranges } of rangeComparisons) {
+  for (const {
+    line,
+    comparison,
+    expectedAttributes,
+    ranges,
+  } of rangeComparisons) {
     const parser = new LineParser();
     parser.registerMarkerProcessor("bold", new MarkupTestsReplacer());
-    const { markup, diagnostics } = parser.parseStringWithDiagnostics(line, "en", { addImplicitCharacterAttribute: false });
+    const { markup, diagnostics } = parser.parseStringWithDiagnostics(
+      line,
+      "en",
+      {
+        addImplicitCharacterAttribute: false,
+      },
+    );
 
     equal(diagnostics.length, 0);
     equal(markup.text, comparison);
-    equal(markup.attributes.length, expectedAttributes, `attribute count for ${line}`);
+    equal(
+      markup.attributes.length,
+      expectedAttributes,
+      `attribute count for ${line}`,
+    );
 
     for (const attribute of markup.attributes) {
       const comparisonRange = ranges[attribute.name];
       ok(comparisonRange, `expected a range for ${attribute.name}`);
-      equal(attribute.length, comparisonRange[1], `length of ${attribute.name} in ${line}`);
-      equal(attribute.position, comparisonRange[0], `position of ${attribute.name} in ${line}`);
+      equal(
+        attribute.length,
+        comparisonRange[1],
+        `length of ${attribute.name} in ${line}`,
+      );
+      equal(
+        attribute.position,
+        comparisonRange[0],
+        `position of ${attribute.name} in ${line}`,
+      );
     }
   }
 });
@@ -705,7 +1300,9 @@ test("squished ranges are valid", () => {
 test("overlapping attributes", () => {
   const line = "[a][b][c]X[/b][/a]X[/c]";
   const parser = new LineParser();
-  const markup = parser.parseString(line, "en", { addImplicitCharacterAttribute: false });
+  const markup = parser.parseString(line, "en", {
+    addImplicitCharacterAttribute: false,
+  });
 
   equal(markup.attributes.length, 3);
   equal(markup.attributes[0].name, "a");
@@ -716,7 +1313,9 @@ test("overlapping attributes", () => {
 test("text extraction", () => {
   const line = "A [b]B [c]C[/c][/b]";
   const parser = new LineParser();
-  const markup = parser.parseString(line, "en", { addImplicitCharacterAttribute: false });
+  const markup = parser.parseString(line, "en", {
+    addImplicitCharacterAttribute: false,
+  });
 
   equal(textForAttribute(markup, markup.attributes[0]), "B C");
   equal(textForAttribute(markup, markup.attributes[1]), "C");
@@ -725,7 +1324,9 @@ test("text extraction", () => {
 test("attribute removal", () => {
   const line = "[a][b]A [c][X]x[/b] [d]x[/X][/c] B[/d] [e]C[/e][/a]";
   const parser = new LineParser();
-  const originalMarkup = parser.parseString(line, "en", { addImplicitCharacterAttribute: false });
+  const originalMarkup = parser.parseString(line, "en", {
+    addImplicitCharacterAttribute: false,
+  });
 
   const xAttribute = tryGetAttributeWithName(originalMarkup, "X");
   ok(xAttribute);
@@ -760,7 +1361,9 @@ test("attribute removal", () => {
 test("finding attributes", () => {
   const line = "A [b]B[/b] [b]C[/b]";
   const parser = new LineParser();
-  const markup = parser.parseString(line, "en", { addImplicitCharacterAttribute: false });
+  const markup = parser.parseString(line, "en", {
+    addImplicitCharacterAttribute: false,
+  });
 
   const attribute = tryGetAttributeWithName(markup, "b");
   ok(attribute);
@@ -782,7 +1385,9 @@ const multibyteCases = [
 test("multibyte character parsing", () => {
   for (const input of multibyteCases) {
     const parser = new LineParser();
-    const markup = parser.parseString(input, "en", { addImplicitCharacterAttribute: false });
+    const markup = parser.parseString(input, "en", {
+      addImplicitCharacterAttribute: false,
+    });
 
     equal(markup.attributes.length, 1, `one attribute for ${input}`);
     equal(markup.attributes[0].position, 2, `position for ${input}`);
@@ -791,7 +1396,14 @@ test("multibyte character parsing", () => {
 });
 
 test("multibyte character parsing with implicit character attributes", () => {
-  const cases = ["á: [á]S[/á]", "á: [a]á[/a]", "á: [a]S[/a]", "S: [á]S[/á]", "S: [a]á[/a]", "S: [a]S[/a]"];
+  const cases = [
+    "á: [á]S[/á]",
+    "á: [a]á[/a]",
+    "á: [a]S[/a]",
+    "S: [á]S[/á]",
+    "S: [a]á[/a]",
+    "S: [a]S[/a]",
+  ];
   for (const input of cases) {
     const parser = new LineParser();
     const markup = parser.parseString(input, "en");
@@ -815,7 +1427,9 @@ test("unexpected close marker errors", () => {
 test("markup shortcut property parsing", () => {
   const line = "[a=1]s[/a]";
   const parser = new LineParser();
-  const markup = parser.parseString(line, "en", { addImplicitCharacterAttribute: false });
+  const markup = parser.parseString(line, "en", {
+    addImplicitCharacterAttribute: false,
+  });
 
   const attribute = markup.attributes[0];
   equal(attribute.name, "a");
@@ -830,10 +1444,16 @@ test("markup shortcut property parsing", () => {
 test("markup multiple property parsing", () => {
   const line = "[a p1=1 p2=2]s[/a]";
   const parser = new LineParser();
-  const markup = parser.parseString(line, "en", { addImplicitCharacterAttribute: false });
+  const markup = parser.parseString(line, "en", {
+    addImplicitCharacterAttribute: false,
+  });
 
   equal(markup.attributes[0].name, "a");
-  equal(markup.attributes[0].properties && Object.keys(markup.attributes[0].properties).length, 2);
+  equal(
+    markup.attributes[0].properties &&
+      Object.keys(markup.attributes[0].properties).length,
+    2,
+  );
 
   const p1 = markup.attributes[0].properties["p1"];
   equal(p1.type, "integer");
@@ -854,9 +1474,15 @@ test("markup property parsing uses invariant number parsing", () => {
 });
 
 test("markup property parsing uses invariant number", () => {
-  for (const [input, propertyValue] of [["[p=1.1 /]", 1.1], ["[p=-1.1 /]", -1.1]] as const) {
+  for (const [input, propertyValue] of [
+    ["[p=1.1 /]", 1.1],
+    ["[p=-1.1 /]", -1.1],
+  ] as const) {
     const parser = new LineParser();
-    const { markup, diagnostics } = parser.parseStringWithDiagnostics(input, "en");
+    const { markup, diagnostics } = parser.parseStringWithDiagnostics(
+      input,
+      "en",
+    );
     equal(diagnostics.length, 0);
     equal(markup.attributes[0].properties["p"].floatValue, propertyValue);
   }
@@ -883,9 +1509,15 @@ const propertyParsingCases: Array<[string, string, string]> = [
 ];
 
 test("markup property parsing", () => {
-  for (const [input, expectedType, expectedValueAsString] of propertyParsingCases) {
+  for (const [
+    input,
+    expectedType,
+    expectedValueAsString,
+  ] of propertyParsingCases) {
     const parser = new LineParser();
-    const markup = parser.parseString(input, "en", { addImplicitCharacterAttribute: false });
+    const markup = parser.parseString(input, "en", {
+      addImplicitCharacterAttribute: false,
+    });
 
     equal(markup.attributes.length, 1, `one attribute for ${input}`);
 
@@ -893,17 +1525,32 @@ test("markup property parsing", () => {
     const propertyValue = attribute.properties["p"];
 
     equal(propertyValue.type, expectedType, `property type for ${input}`);
-    equal(stringifyMarkupValue(propertyValue), expectedValueAsString, `property value for ${input}`);
+    equal(
+      stringifyMarkupValue(propertyValue),
+      expectedValueAsString,
+      `property value for ${input}`,
+    );
   }
 });
 
-function stringifyMarkupValue(value: { type: string; integerValue: number; floatValue: number; stringValue: string; boolValue: boolean }): string {
+function stringifyMarkupValue(value: {
+  type: string;
+  integerValue: number;
+  floatValue: number;
+  stringValue: string;
+  boolValue: boolean;
+}): string {
   switch (value.type) {
-    case "integer": return String(value.integerValue);
-    case "float": return String(value.floatValue);
-    case "string": return value.stringValue;
-    case "bool": return value.boolValue ? "True" : "False";
-    default: return "";
+    case "integer":
+      return String(value.integerValue);
+    case "float":
+      return String(value.floatValue);
+    case "string":
+      return value.stringValue;
+    case "bool":
+      return value.boolValue ? "True" : "False";
+    default:
+      return "";
   }
 }
 
@@ -916,7 +1563,9 @@ const multipleAttributeCases = [
 test("multiple attributes", () => {
   for (const input of multipleAttributeCases) {
     const parser = new LineParser();
-    const markup = parser.parseString(input, "en", { addImplicitCharacterAttribute: false });
+    const markup = parser.parseString(input, "en", {
+      addImplicitCharacterAttribute: false,
+    });
 
     equal(markup.text, "A B C D", `text for ${input}`);
 
@@ -937,7 +1586,9 @@ test("multiple attributes", () => {
 test("self-closing attributes", () => {
   const line = "A [a/] B";
   const parser = new LineParser();
-  const markup = parser.parseString(line, "en", { addImplicitCharacterAttribute: false });
+  const markup = parser.parseString(line, "en", {
+    addImplicitCharacterAttribute: false,
+  });
 
   equal(markup.text, "A B");
   equal(markup.attributes.length, 1);
@@ -959,7 +1610,9 @@ const trimWhitespaceCases: Array<[string, string]> = [
 test("attributes may trim trailing whitespace", () => {
   for (const [input, expectedText] of trimWhitespaceCases) {
     const parser = new LineParser();
-    const markup = parser.parseString(input, "en", { addImplicitCharacterAttribute: false });
+    const markup = parser.parseString(input, "en", {
+      addImplicitCharacterAttribute: false,
+    });
     equal(markup.text, expectedText, `text for ${input}`);
   }
 });
@@ -1044,7 +1697,9 @@ test("implicit character attribute parsing with the leftmost colon", () => {
 test("nomarkup mode parsing", () => {
   const line = "S [a]S[/a] [nomarkup][a]S;][/a][/nomarkup]";
   const parser = new LineParser();
-  const markup = parser.parseString(line, "en", { addImplicitCharacterAttribute: false });
+  const markup = parser.parseString(line, "en", {
+    addImplicitCharacterAttribute: false,
+  });
 
   equal(markup.text, "S S [a]S;][/a]");
   equal(markup.attributes.length, 2);
@@ -1059,7 +1714,9 @@ test("nomarkup mode parsing", () => {
 test("markup escaping", () => {
   const line = "[a]hello \\[b\\]hello\\[/b\\][/a]";
   const parser = new LineParser();
-  const markup = parser.parseString(line, "en", { addImplicitCharacterAttribute: false });
+  const markup = parser.parseString(line, "en", {
+    addImplicitCharacterAttribute: false,
+  });
 
   equal(markup.text, "hello [b]hello[/b]");
   equal(markup.attributes.length, 1);
@@ -1073,7 +1730,9 @@ test("markup escaping", () => {
 test("numeric selection", () => {
   const line = "[select value=1 1=one 2=two 3=three /]";
   const parser = new LineParser();
-  const markup = parser.parseString(line, "en", { addImplicitCharacterAttribute: false });
+  const markup = parser.parseString(line, "en", {
+    addImplicitCharacterAttribute: false,
+  });
 
   equal(markup.attributes.length, 1);
   equal(markup.attributes[0].name, "select");
@@ -1086,7 +1745,9 @@ test("numeric selection", () => {
 
   // Now with the rewriter enabled, the select composes as its replacement.
   parser.registerMarkerProcessor("select", new BuiltInMarkupReplacer());
-  const replaced = parser.parseString(line, "en", { addImplicitCharacterAttribute: false });
+  const replaced = parser.parseString(line, "en", {
+    addImplicitCharacterAttribute: false,
+  });
   equal(replaced.text, "one");
 });
 
@@ -1103,8 +1764,14 @@ test("number pluralisation", () => {
     const line = `[plural value=${value} one="a single cat" other="% cats"/]`;
     const parser = new LineParser();
     parser.registerMarkerProcessor("plural", new BuiltInMarkupReplacer());
-    const markup = parser.parseString(line, locale, { addImplicitCharacterAttribute: false });
-    equal(markup.text, expected, `${value} in locale ${locale} should have the correct plural case`);
+    const markup = parser.parseString(line, locale, {
+      addImplicitCharacterAttribute: false,
+    });
+    equal(
+      markup.text,
+      expected,
+      `${value} in locale ${locale} should have the correct plural case`,
+    );
   }
 });
 
@@ -1122,7 +1789,9 @@ test("ordinal selection", () => {
     const line = `[ordinal value=${value} one="%st place" two="%nd place" few="%rd place" other="%th place"/]`;
     const parser = new LineParser();
     parser.registerMarkerProcessor("ordinal", new BuiltInMarkupReplacer());
-    const markup = parser.parseString(line, "en", { addImplicitCharacterAttribute: false });
+    const markup = parser.parseString(line, "en", {
+      addImplicitCharacterAttribute: false,
+    });
     equal(markup.text, expected, `ordinal for ${value}`);
   }
 });
@@ -1131,7 +1800,13 @@ test("replacement markers fail with a diagnostic when their value type cannot pl
   const line = '[plural value="cats" one="a cat" other="% cats"/]';
   const parser = new LineParser();
   parser.registerMarkerProcessor("plural", new BuiltInMarkupReplacer());
-  const { markup, diagnostics } = parser.parseStringWithDiagnostics(line, "en", { addImplicitCharacterAttribute: false });
+  const { markup, diagnostics } = parser.parseStringWithDiagnostics(
+    line,
+    "en",
+    {
+      addImplicitCharacterAttribute: false,
+    },
+  );
   equal(diagnostics.length, 1);
   match(diagnostics[0].message, /does not support pluralisation/);
   equal(markup.text, line, "a failed composition returns the input text");
@@ -1141,18 +1816,38 @@ test("select with no matching replacement produces a diagnostic", () => {
   const line = "[select value=4 1=one /]";
   const parser = new LineParser();
   parser.registerMarkerProcessor("select", new BuiltInMarkupReplacer());
-  const { diagnostics } = parser.parseStringWithDiagnostics(line, "en", { addImplicitCharacterAttribute: false });
+  const { diagnostics } = parser.parseStringWithDiagnostics(line, "en", {
+    addImplicitCharacterAttribute: false,
+  });
   equal(diagnostics.length, 1);
   match(diagnostics[0].message, /no replacement value for 4 was found/);
 });
 
 const olderSiblingCases: Array<[string, string]> = [
-  ["Yes... which I would have shown [emotion=\"frown\" /] had [b]you[/b] not interrupted me.", "Yes... which I would have shown had <b>you</b> not interrupted me."],
-  ["Yes... which I would have shown [emotion=\"frown\" trimwhitespace=false /] had [b]you[/b] not interrupted me.", "Yes... which I would have shown  had <b>you</b> not interrupted me."],
-  ["Yes... which I would have shown [emotion/] had [b]you[/b] not interrupted me.", "Yes... which I would have shown had <b>you</b> not interrupted me."],
-  ["Yes... which I would have shown [emotion/] had [b]you [emotion=\"frown\" /] not[/b] interrupted me.", "Yes... which I would have shown had <b>you not</b> interrupted me."],
-  ["Yes... which I would have [b]shown [emotion=\"frown\" /] [/b]had you not interrupted me.", "Yes... which I would have <b>shown </b>had you not interrupted me."],
-  ["Yes... which I would have [b]shown [emotion=\"frown\" /][/b]had you not interrupted me.", "Yes... which I would have <b>shown </b>had you not interrupted me."],
+  [
+    'Yes... which I would have shown [emotion="frown" /] had [b]you[/b] not interrupted me.',
+    "Yes... which I would have shown had <b>you</b> not interrupted me.",
+  ],
+  [
+    'Yes... which I would have shown [emotion="frown" trimwhitespace=false /] had [b]you[/b] not interrupted me.',
+    "Yes... which I would have shown  had <b>you</b> not interrupted me.",
+  ],
+  [
+    "Yes... which I would have shown [emotion/] had [b]you[/b] not interrupted me.",
+    "Yes... which I would have shown had <b>you</b> not interrupted me.",
+  ],
+  [
+    'Yes... which I would have shown [emotion/] had [b]you [emotion="frown" /] not[/b] interrupted me.',
+    "Yes... which I would have shown had <b>you not</b> interrupted me.",
+  ],
+  [
+    'Yes... which I would have [b]shown [emotion="frown" /] [/b]had you not interrupted me.',
+    "Yes... which I would have <b>shown </b>had you not interrupted me.",
+  ],
+  [
+    'Yes... which I would have [b]shown [emotion="frown" /][/b]had you not interrupted me.',
+    "Yes... which I would have <b>shown </b>had you not interrupted me.",
+  ],
 ];
 
 test("older sibling near replacement markers correctly respects whitespace consumption", () => {
@@ -1160,20 +1855,33 @@ test("older sibling near replacement markers correctly respects whitespace consu
     const parser = new LineParser();
     parser.registerMarkerProcessor("b", new BBCodeChevronReplacer("b"));
 
-    const { markup, diagnostics } = parser.parseStringWithDiagnostics(line, "en-AU", {
-      addImplicitCharacterAttribute: false,
-      squish: false,
-      sort: false,
-    });
+    const { markup, diagnostics } = parser.parseStringWithDiagnostics(
+      line,
+      "en-AU",
+      {
+        addImplicitCharacterAttribute: false,
+        squish: false,
+        sort: false,
+      },
+    );
     equal(diagnostics.length, 0);
     equal(markup.text, expected, `text for ${line}`);
   }
 });
 
 const selfClosingReplacementCases: Array<[string, string]> = [
-  ["a line with a self-closing[scr /] replacement tag", "a line with a self-closingscr replacement tag"],
-  ["a line with a self-closing[scnr /] -non-replacement tag", "a line with a self-closing-non-replacement tag"],
-  ["a line with a self-closing[scnr trimwhitespace=false /] non-replacement tag", "a line with a self-closing non-replacement tag"],
+  [
+    "a line with a self-closing[scr /] replacement tag",
+    "a line with a self-closingscr replacement tag",
+  ],
+  [
+    "a line with a self-closing[scnr /] -non-replacement tag",
+    "a line with a self-closing-non-replacement tag",
+  ],
+  [
+    "a line with a self-closing[scnr trimwhitespace=false /] non-replacement tag",
+    "a line with a self-closing non-replacement tag",
+  ],
 ];
 
 test("self-closing replacement markers do not consume whitespace", () => {
@@ -1181,7 +1889,10 @@ test("self-closing replacement markers do not consume whitespace", () => {
     const parser = new LineParser();
     parser.registerMarkerProcessor("scr", new MarkupTestsReplacer());
 
-    const { markup, diagnostics } = parser.parseStringWithDiagnostics(line, "en-AU");
+    const { markup, diagnostics } = parser.parseStringWithDiagnostics(
+      line,
+      "en-AU",
+    );
     equal(diagnostics.length, 0);
     equal(markup.text, expected, `text for ${line}`);
   }
@@ -1192,17 +1903,28 @@ test("marker processors can process character names", () => {
   parser.registerMarkerProcessor("character", new MarkerUppercaseReplacer());
 
   const markup = parser.parseString("Mae: I'm talkin' here", "en-AU");
-  equal(markup.text, "MAE: I'm talkin' here", "the character marker should be processed");
+  equal(
+    markup.text,
+    "MAE: I'm talkin' here",
+    "the character marker should be processed",
+  );
   const character = tryGetAttributeWithName(markup, "character");
   ok(character, "the marker should be left in place");
-  equal(character.properties["name"].stringValue, "Mae", "the marker's properties should be unmodified");
+  equal(
+    character.properties["name"].stringValue,
+    "Mae",
+    "the marker's properties should be unmodified",
+  );
 });
 
 test("underscores can be identifiers", () => {
   const parser = new LineParser();
 
   // Self-closing tags can have underscores in their name.
-  let markup = parser.parseString("Narrator: Self-closing tag [under_tag /]with an underscore.", "en-AU");
+  let markup = parser.parseString(
+    "Narrator: Self-closing tag [under_tag /]with an underscore.",
+    "en-AU",
+  );
   equal(markup.text, "Narrator: Self-closing tag with an underscore.");
   equal(markup.attributes.length, 2);
   ok(markup.attributes.some((m) => m.name === "under_tag"));
@@ -1211,15 +1933,24 @@ test("underscores can be identifiers", () => {
   equal(character.properties["name"].stringValue, "Narrator");
 
   // Regular markup can have underscores in their name.
-  markup = parser.parseString("Narrator: This is a [under_tag]regular markup[/under_tag] with underscores", "en-AU");
+  markup = parser.parseString(
+    "Narrator: This is a [under_tag]regular markup[/under_tag] with underscores",
+    "en-AU",
+  );
   equal(markup.text, "Narrator: This is a regular markup with underscores");
   equal(markup.attributes.length, 2);
   ok(markup.attributes.some((m) => m.name === "under_tag"));
   ok(tryGetAttributeWithName(markup, "character"));
 
   // Markup can have properties with underscores.
-  markup = parser.parseString('Line with a regular [under_tag under_property="hello"]underscored tag with an underscored property also[/under_tag] in it.', "en-AU");
-  equal(markup.text, "Line with a regular underscored tag with an underscored property also in it.");
+  markup = parser.parseString(
+    'Line with a regular [under_tag under_property="hello"]underscored tag with an underscored property also[/under_tag] in it.',
+    "en-AU",
+  );
+  equal(
+    markup.text,
+    "Line with a regular underscored tag with an underscored property also in it.",
+  );
   equal(markup.attributes.length, 1);
   const underTag = tryGetAttributeWithName(markup, "under_tag");
   ok(underTag);
@@ -1230,9 +1961,16 @@ test("underscores can be identifiers", () => {
 
 test("unclosed markup with an invalid property generates a diagnostic", () => {
   const parser = new LineParser();
-  const { diagnostics } = parser.parseStringWithDiagnostics("[attribute property", "en-AU");
+  const { diagnostics } = parser.parseStringWithDiagnostics(
+    "[attribute property",
+    "en-AU",
+  );
   ok(diagnostics.length > 0);
-  ok(diagnostics[0].message.startsWith('Expected to find a property and it\'s value, but instead found "property'));
+  ok(
+    diagnostics[0].message.startsWith(
+      "Expected to find a property and it's value, but instead found \"property",
+    ),
+  );
 });
 
 test("half-formed markup generates diagnostics", () => {
@@ -1245,13 +1983,19 @@ test("half-formed markup generates diagnostics", () => {
 
 test("isolated close marker generates a diagnostic", () => {
   const parser = new LineParser();
-  const { diagnostics } = parser.parseStringWithDiagnostics("normal line [/close]", "en-AU");
+  const { diagnostics } = parser.parseStringWithDiagnostics(
+    "normal line [/close]",
+    "en-AU",
+  );
   ok(diagnostics.length > 0);
 });
 
 test("isolated open marker generates a diagnostic", () => {
   const parser = new LineParser();
-  const { diagnostics } = parser.parseStringWithDiagnostics("[open]normal line", "en-AU");
+  const { diagnostics } = parser.parseStringWithDiagnostics(
+    "[open]normal line",
+    "en-AU",
+  );
   ok(diagnostics.length > 0);
 });
 
@@ -1259,21 +2003,46 @@ test("diagnostic position is valid", () => {
   const parser = new LineParser();
   const first = parser.parseStringWithDiagnostics("normal line [/a]", "en-AU");
   ok(first.diagnostics.length > 0);
-  const diag = first.diagnostics.filter((d) => d.message.startsWith('Asked to close "a"'));
+  const diag = first.diagnostics.filter((d) =>
+    d.message.startsWith('Asked to close "a"'),
+  );
   equal(diag.length, 1);
   equal(diag[0].column, 14);
 
-  const second = new LineParser().parseStringWithDiagnostics("[invalid.name]normal text[/invalid.name]", "en-AU");
-  const diag2 = second.diagnostics.filter((d) => d.message.startsWith("Error parsing markup, invalid name:"));
+  const second = new LineParser().parseStringWithDiagnostics(
+    "[invalid.name]normal text[/invalid.name]",
+    "en-AU",
+  );
+  const diag2 = second.diagnostics.filter((d) =>
+    d.message.startsWith("Error parsing markup, invalid name:"),
+  );
   equal(diag2.length, 1);
   equal(diag2[0].column, 1);
 });
 
 test("invalid period markup does not throw", () => {
   const parser = new LineParser();
-  equal(parser.parseStringWithDiagnostics("Normal line with invalid markup at the [end.]", "en-AU").diagnostics.length, 1);
-  equal(parser.parseStringWithDiagnostics("[end.] invalid markup at start.", "en-AU").diagnostics.length, 1);
-  equal(parser.parseStringWithDiagnostics("invalid markup in the [end.] middle of the line.", "en-AU").diagnostics.length, 1);
+  equal(
+    parser.parseStringWithDiagnostics(
+      "Normal line with invalid markup at the [end.]",
+      "en-AU",
+    ).diagnostics.length,
+    1,
+  );
+  equal(
+    parser.parseStringWithDiagnostics(
+      "[end.] invalid markup at start.",
+      "en-AU",
+    ).diagnostics.length,
+    1,
+  );
+  equal(
+    parser.parseStringWithDiagnostics(
+      "invalid markup in the [end.] middle of the line.",
+      "en-AU",
+    ).diagnostics.length,
+    1,
+  );
 });
 
 // ── Locale helpers ──────────────────────────────────────────────────────

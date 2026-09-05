@@ -10,7 +10,13 @@ import storyletsProgram from "../content/storylets.yarn";
 import { el } from "./dom.js";
 
 /** The built-in saliency strategy modes (upstream `<<set_saliency>>` vocabulary). */
-const STRATEGIES = ["first", "random", "best", "best_least_recent", "random_best_least_recent"] as const;
+const STRATEGIES = [
+  "first",
+  "random",
+  "best",
+  "best_least_recent",
+  "random_best_least_recent",
+] as const;
 const NODE_GROUP = "Storylets";
 const HISTORY_LENGTH = 8;
 
@@ -50,7 +56,10 @@ export function mountStoryletsDemo(root: HTMLElement): void {
     // stopping point (an option set can never be mistaken for over-drain).
     drawTranscript = runUntilComplete(d).transcript;
     if (drawTranscript.lines.length > 0) {
-      history = [...history.slice(-(HISTORY_LENGTH - 1)), drawTranscript.lines[0].text];
+      history = [
+        ...history.slice(-(HISTORY_LENGTH - 1)),
+        drawTranscript.lines[0].text,
+      ];
     }
     refresh();
   }
@@ -86,7 +95,8 @@ export function mountStoryletsDemo(root: HTMLElement): void {
         ? [el("p", "demo-muted", "Draw to see which storylet runs.")]
         : drawTranscript.lines.map((line) => {
             const p = el("p", "demo-line");
-            if (line.speaker) p.append(el("strong", "demo-speaker", line.speaker));
+            if (line.speaker)
+              p.append(el("strong", "demo-speaker", line.speaker));
             p.append(el("span", undefined, line.text));
             return p;
           })),
@@ -107,7 +117,11 @@ export function mountStoryletsDemo(root: HTMLElement): void {
 
   function actionRow(): HTMLElement[] {
     const row = el("div", "demo-controls");
-    const drawButton = el("button", "demo-button demo-button--primary", "Draw a storylet");
+    const drawButton = el(
+      "button",
+      "demo-button demo-button--primary",
+      "Draw a storylet",
+    );
     drawButton.type = "button";
     drawButton.addEventListener("click", drawStorylet);
     const resetButton = el("button", "demo-button", "Reset");
@@ -115,7 +129,13 @@ export function mountStoryletsDemo(root: HTMLElement): void {
     resetButton.addEventListener("click", reset);
     row.append(drawButton, resetButton);
     if (dialogue !== null && !dialogue.hasSalientContent(NODE_GROUP)) {
-      row.append(el("span", "demo-muted", "No salient content — every member's conditions fail."));
+      row.append(
+        el(
+          "span",
+          "demo-muted",
+          "No salient content — every member's conditions fail.",
+        ),
+      );
     }
     return [row];
   }

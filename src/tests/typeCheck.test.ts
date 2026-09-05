@@ -18,7 +18,10 @@ import type { Diagnostic } from "../index.js";
 /** Drive the public checker seam over one source; returns the collected
  * diagnostics (codes + messages), the result, and the (mutated-in-place)
  * document. */
-function typeCheckSource(source: string, opts: { declarations?: Parameters<typeof typeCheck>[1]["declarations"] } = {}) {
+function typeCheckSource(
+  source: string,
+  opts: { declarations?: Parameters<typeof typeCheck>[1]["declarations"] } = {},
+) {
   const doc = parseYarn(source);
   const diagnostics: Diagnostic[] = [];
   const result = typeCheck(doc, opts, (d) => diagnostics.push(d));
@@ -73,7 +76,9 @@ title: Start
     { declarations: { variables: { gold: { type: "number" } } } },
   );
   assert.deepEqual(diagnostics, []);
-  assert.ok(result.declarations.some((d) => d.name === "gold" && d.type === "number"));
+  assert.ok(
+    result.declarations.some((d) => d.name === "gold" && d.type === "number"),
+  );
 });
 
 // ── Smart variables: YS0045 loops ────────────────────────────────────────
@@ -108,7 +113,11 @@ title: Start
   // The in-place rewrite (ADR 0004): the statement text now names the full
   // member, and the declaration's default value is the case's raw value.
   const commands = doc.nodes[0].body.filter((s) => s.type === "Command");
-  assert.ok(commands.some((s) => (s as { content: string }).content.includes("Season.Spring")));
+  assert.ok(
+    commands.some((s) =>
+      (s as { content: string }).content.includes("Season.Spring"),
+    ),
+  );
   const [decl] = result.declarations;
   assert.equal(decl.type, "Season");
   assert.equal(decl.defaultValue, 0);
@@ -179,7 +188,13 @@ title: Start
 <<declare $f = Food.Apple as Food>>
 ===
 `,
-    { declarations: { enums: [new EnumTypeBuilder("Food").addCase("Apple", 1).addCase("Orange", 2)] } },
+    {
+      declarations: {
+        enums: [
+          new EnumTypeBuilder("Food").addCase("Apple", 1).addCase("Orange", 2),
+        ],
+      },
+    },
   );
   assert.deepEqual(diagnostics, []);
   const [decl] = result.declarations;
@@ -197,7 +212,9 @@ title: Start
 `,
     {
       declarations: {
-        functions: { twoArgs: { params: ["number", "number"], returns: "number" } },
+        functions: {
+          twoArgs: { params: ["number", "number"], returns: "number" },
+        },
       },
     },
   );

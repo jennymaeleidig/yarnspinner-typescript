@@ -1,0 +1,14 @@
+# Build outputs and generated files
+dist/
+dist-demo/
+packages/*/dist/
+node_modules/
+
+# Vendored upstream fixtures — must stay byte-identical to upstream sources
+test/fixtures/upstream/
+
+# Not source
+package-lock.json
+.scratch/
+.agents/
+.pi/

@@ -40,7 +40,8 @@ import { Dialogue } from "../runtime/dialogue.js";
 import { runUntilCompleteEvents } from "../runtime/transcript.js";
 import { parseYarn } from "../parse/parser.js";
 
-const node = (content: string): string => `title: Start\n---\n${content}\n===\n`;
+const node = (content: string): string =>
+  `title: Start\n---\n${content}\n===\n`;
 
 const drain = runUntilCompleteEvents;
 
@@ -59,14 +60,18 @@ test("a command with a trailing hashtag assigns at runtime", () => {
 });
 
 test("two <<set>> commands on one line both assign", () => {
-  const dialogue = new Dialogue(compileOk(node("<<set $x = 1>><<set $y = 2>>")));
+  const dialogue = new Dialogue(
+    compileOk(node("<<set $x = 1>><<set $y = 2>>")),
+  );
   drain(dialogue);
   assert.equal(dialogue.getVariable("x"), 1);
   assert.equal(dialogue.getVariable("y"), 2);
 });
 
 test("two <<set>> commands separated by whitespace both assign", () => {
-  const dialogue = new Dialogue(compileOk(node("<<set $x = 1>> <<set $y = 2>>")));
+  const dialogue = new Dialogue(
+    compileOk(node("<<set $x = 1>> <<set $y = 2>>")),
+  );
   drain(dialogue);
   assert.equal(dialogue.getVariable("x"), 1);
   assert.equal(dialogue.getVariable("y"), 2);
@@ -110,14 +115,19 @@ test("<<if someFunction(>><<endif>> reports YS0006, not YS0007 (upstream TestInv
 test("<<declare $x to 1>> accepts the upstream `to` spelling", () => {
   const result = compileSource(node("<<declare $x to 1>>"));
   assert.ok(result.program, JSON.stringify(result.diagnostics));
-  assert.equal(result.declarations.find((d) => d.name === "x")?.defaultValue, 1);
+  assert.equal(
+    result.declarations.find((d) => d.name === "x")?.defaultValue,
+    1,
+  );
   const dialogue = new Dialogue(result.program!);
   drain(dialogue);
   assert.equal(dialogue.getVariable("x"), 1);
 });
 
 test("the `to` spelling still works in <<set>> and compound operators are unaffected", () => {
-  const dialogue = new Dialogue(compileOk(node("<<set $x to 5>>\n<<set $x += 1>>")));
+  const dialogue = new Dialogue(
+    compileOk(node("<<set $x to 5>>\n<<set $x += 1>>")),
+  );
   drain(dialogue);
   assert.equal(dialogue.getVariable("x"), 6);
 });
@@ -166,9 +176,14 @@ test("an escaped \\# is NOT a hashtag (upstream ProjectTests escaped-hashtag lin
   // The main-grammar escape `\#` unescapes to the literal `#` in the
   // composed text (upstream TextEscapedMode yields the bare character);
   // the point is that it never becomes a hashtag.
-  const doc = parseYarn(node("This is a line with an embedded \\#hashtag in it."));
+  const doc = parseYarn(
+    node("This is a line with an embedded \\#hashtag in it."),
+  );
   const [line] = doc.nodes[0].body;
-  assert.equal((line as { text: string }).text, "This is a line with an embedded #hashtag in it.");
+  assert.equal(
+    (line as { text: string }).text,
+    "This is a line with an embedded #hashtag in it.",
+  );
   assert.equal((line as { tags?: string[] }).tags, undefined);
 });
 
@@ -185,12 +200,14 @@ test("<some command> warns YS0048 SingularCommandWrap", () => {
   assert.equal(ys48[0].severity, "warning");
   assert.equal(
     ys48[0].message,
-    'Line <some command> has single \'<\' and \'>\' wrapping it. Did you mean to make this a command?',
+    "Line <some command> has single '<' and '>' wrapping it. Did you mean to make this a command?",
   );
 });
 
 test("<<wait 1>> followed by dialogue warns YS0019 (upstream YS0019 registry example)", () => {
-  const { diagnostics } = compileSource(node("<<wait 1>> this is a line following a command"));
+  const { diagnostics } = compileSource(
+    node("<<wait 1>> this is a line following a command"),
+  );
   const ys19 = diagnostics.filter((d) => d.code === "YS0019");
   assert.equal(ys19.length, 1, JSON.stringify(diagnostics));
   assert.equal(ys19[0].severity, "warning");
@@ -202,7 +219,10 @@ test("<<wait 1>> followed by dialogue warns YS0019 (upstream YS0019 registry exa
 
 test("a command followed only by hashtags does not warn YS0019", () => {
   const { diagnostics } = compileSource(node("<<wait 1>> #color:red"));
-  assert.ok(!diagnostics.some((d) => d.code === "YS0019"), JSON.stringify(diagnostics));
+  assert.ok(
+    !diagnostics.some((d) => d.code === "YS0019"),
+    JSON.stringify(diagnostics),
+  );
 });
 
 test("empty <<>> reports 'Command text expected' as YS0005 (upstream TestEmptyCommand)", () => {
@@ -211,5 +231,8 @@ test("empty <<>> reports 'Command text expected' as YS0005 (upstream TestEmptyCo
   const errors = diagnostics.filter((d) => d.severity === "error");
   assert.equal(errors.length, 1, JSON.stringify(diagnostics));
   assert.equal(errors[0].code, "YS0005");
-  assert.ok(errors[0].message.includes("Command text expected"), errors[0].message);
+  assert.ok(
+    errors[0].message.includes("Command text expected"),
+    errors[0].message,
+  );
 });

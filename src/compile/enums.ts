@@ -61,12 +61,17 @@ export class EnumTypeBuilder {
     if (rawValue === undefined) {
       // Upstream has no valueless WithCase overload; accept it in the type
       // so JS callers get a thrown error rather than a compile error.
-      throw new Error(`Can't add case ${caseName} to enum ${this.name}: cases require an explicit raw value`);
+      throw new Error(
+        `Can't add case ${caseName} to enum ${this.name}: cases require an explicit raw value`,
+      );
     }
     if (this.cases.some((c) => c.name === caseName)) {
-      throw new Error(`Can't add case ${caseName} to enum ${this.name}: a case with this name already exists`);
+      throw new Error(
+        `Can't add case ${caseName} to enum ${this.name}: a case with this name already exists`,
+      );
     }
-    const rawType: EnumRawValueType = typeof rawValue === "number" ? "number" : "string";
+    const rawType: EnumRawValueType =
+      typeof rawValue === "number" ? "number" : "string";
     if (this.rawValueType === null) {
       this.rawValueType = rawType;
     } else if (this.rawValueType !== rawType) {
@@ -85,7 +90,9 @@ export class EnumTypeBuilder {
 
   build(): EnumType {
     if (this.cases.length === 0) {
-      throw new Error(`Can't build enum ${this.name}: an enum must have at least one case`);
+      throw new Error(
+        `Can't build enum ${this.name}: an enum must have at least one case`,
+      );
     }
     return {
       name: this.name,
@@ -139,7 +146,10 @@ export function buildEnumTypes(
 
   const register = (type: EnumType): boolean => {
     if (registry.has(type.name)) {
-      emit("YS0040", `Can't create a new type ${type.name}: a type with this name already exists`);
+      emit(
+        "YS0040",
+        `Can't create a new type ${type.name}: a type with this name already exists`,
+      );
       return false;
     }
     registry.set(type.name, type);
@@ -175,7 +185,8 @@ export function buildEnumTypes(
     }
     const resolvedCases: ResolvedCase[] = enumBlock.cases.map((c) => ({
       name: c.name,
-      literal: c.rawValue !== undefined ? parseRawValueLiteral(c.rawValue) : null,
+      literal:
+        c.rawValue !== undefined ? parseRawValueLiteral(c.rawValue) : null,
     }));
 
     const casesWithRawValue = resolvedCases.filter((c) => c.literal !== null);
@@ -183,7 +194,9 @@ export function buildEnumTypes(
     // Any non-literal raw value (function call, member reference, bare word)
     // is not a constant.
     const nonConstant = resolvedCases.filter(
-      (c) => c.literal === null && enumBlock.cases.find((s) => s.name === c.name)?.rawValue !== undefined,
+      (c) =>
+        c.literal === null &&
+        enumBlock.cases.find((s) => s.name === c.name)?.rawValue !== undefined,
     );
     if (nonConstant.length > 0) {
       emit("YS0037", "Expected a constant type");
@@ -192,7 +205,10 @@ export function buildEnumTypes(
 
     if (casesWithRawValue.length === 0) {
       // No case has a raw value: number type, auto-numbered from 0.
-      const cases = resolvedCases.map((c, index) => ({ name: c.name, rawValue: index as EnumRawValue }));
+      const cases = resolvedCases.map((c, index) => ({
+        name: c.name,
+        rawValue: index as EnumRawValue,
+      }));
       register({ name: enumBlock.name, rawValueType: "number", cases });
       continue;
     }
@@ -210,7 +226,9 @@ export function buildEnumTypes(
     }
 
     // All raw values must be of a single type: number or string.
-    const rawValueTypes = new Set(casesWithRawValue.map((c) => c.literal!.rawValueType));
+    const rawValueTypes = new Set(
+      casesWithRawValue.map((c) => c.literal!.rawValueType),
+    );
     if (rawValueTypes.size > 1) {
       emit(
         "YS0035",
@@ -253,7 +271,10 @@ export function buildEnumTypes(
       if (nonInteger) continue;
     }
 
-    const cases = casesWithRawValue.map((c) => ({ name: c.name, rawValue: c.literal!.value }));
+    const cases = casesWithRawValue.map((c) => ({
+      name: c.name,
+      rawValue: c.literal!.value,
+    }));
     register({ name: enumBlock.name, rawValueType, cases });
   }
 
@@ -272,7 +293,11 @@ export function collectEnumBlocks(doc: {
         blocks.push(s as EnumBlock);
         continue;
       }
-      const nested = (s as { branches?: Array<{ body: Array<{ type: string }> }>; body?: Array<{ type: string }>; options?: Array<{ body: Array<{ type: string }> }> });
+      const nested = s as {
+        branches?: Array<{ body: Array<{ type: string }> }>;
+        body?: Array<{ type: string }>;
+        options?: Array<{ body: Array<{ type: string }> }>;
+      };
       for (const b of nested.branches ?? []) walk(b.body);
       if (nested.body) walk(nested.body);
       for (const o of nested.options ?? []) walk(o.body);
@@ -281,4 +306,3 @@ export function collectEnumBlocks(doc: {
   for (const node of doc.nodes) walk(node.body);
   return blocks;
 }
-

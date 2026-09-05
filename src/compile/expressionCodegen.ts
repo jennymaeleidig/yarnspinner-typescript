@@ -37,7 +37,12 @@ const VARIABLE = new RegExp(`^\\$(${IDENTIFIER})`, "u");
 const IDENT = new RegExp(`^${IDENTIFIER}`, "u");
 
 /** The literal-push ops: infallible, so they are not stack *producers* in the failure sense. */
-export const LITERAL_OPS: ReadonlySet<Instruction["op"]> = new Set(["pushString", "pushNumber", "pushBool", "pushNull"]);
+export const LITERAL_OPS: ReadonlySet<Instruction["op"]> = new Set([
+  "pushString",
+  "pushNumber",
+  "pushBool",
+  "pushNull",
+]);
 
 /** Ops the codegen may emit for an expression slice: exactly the subset
  * this emitter produces (for `when:` conditions, initializers, and any
@@ -115,7 +120,10 @@ function tokenize(input: string): Token[] {
         value += input[j];
         j++;
       }
-      if (j >= input.length) throw new ExpressionCodegenError(`Unterminated string in expression: ${input}`);
+      if (j >= input.length)
+        throw new ExpressionCodegenError(
+          `Unterminated string in expression: ${input}`,
+        );
       tokens.push({ kind: "string", value });
       i = j + 1;
       continue;
@@ -128,7 +136,10 @@ function tokenize(input: string): Token[] {
     }
     if (c === "$") {
       const m = VARIABLE.exec(input.slice(i));
-      if (!m) throw new ExpressionCodegenError(`Expected a variable name after "$": ${input}`);
+      if (!m)
+        throw new ExpressionCodegenError(
+          `Expected a variable name after "$": ${input}`,
+        );
       tokens.push({ kind: "variable", name: m[1] });
       i += m[0].length;
       continue;
@@ -140,7 +151,16 @@ function tokenize(input: string): Token[] {
       continue;
     }
     const two = input.slice(i, i + 2);
-    if (two === "===" || two === "!==" || two === "==" || two === "!=" || two === "<=" || two === ">=" || two === "&&" || two === "||") {
+    if (
+      two === "===" ||
+      two === "!==" ||
+      two === "==" ||
+      two === "!=" ||
+      two === "<=" ||
+      two === ">=" ||
+      two === "&&" ||
+      two === "||"
+    ) {
       tokens.push({ kind: "op", text: two });
       i += 2;
       continue;
@@ -150,7 +170,9 @@ function tokenize(input: string): Token[] {
       i++;
       continue;
     }
-    throw new ExpressionCodegenError(`Unexpected character "${c}" in expression: ${input}`);
+    throw new ExpressionCodegenError(
+      `Unexpected character "${c}" in expression: ${input}`,
+    );
   }
   return tokens;
 }
@@ -179,7 +201,9 @@ class Parser {
   compile(): Instruction[] {
     const code = this.parseOr();
     if (this.pos !== this.tokens.length) {
-      throw new ExpressionCodegenError(`Unexpected trailing input in expression: ${this.source}`);
+      throw new ExpressionCodegenError(
+        `Unexpected trailing input in expression: ${this.source}`,
+      );
     }
     return code;
   }
@@ -214,7 +238,9 @@ class Parser {
 
   private expectOp(text: string): void {
     if (!this.matchOp(text)) {
-      throw new ExpressionCodegenError(`Expected "${text}" in expression: ${this.source}`);
+      throw new ExpressionCodegenError(
+        `Expected "${text}" in expression: ${this.source}`,
+      );
     }
   }
 
@@ -247,7 +273,9 @@ class Parser {
   private parseEquality(): Instruction[] {
     let left = this.parseRelational();
     while (true) {
-      const op = this.matchOp("eq", "neq") ?? this.matchOp("==", "!=", "===", "!==", "=");
+      const op =
+        this.matchOp("eq", "neq") ??
+        this.matchOp("==", "!=", "===", "!==", "=");
       if (!op) return left;
       const right = this.parseRelational();
       const instruction: Instruction =
@@ -264,7 +292,9 @@ class Parser {
   private parseRelational(): Instruction[] {
     let left = this.parseAdditive();
     while (true) {
-      const op = this.matchOp("gt", "lt", "gte", "lte") ?? this.matchOp("<", ">", "<=", ">=");
+      const op =
+        this.matchOp("gt", "lt", "gte", "lte") ??
+        this.matchOp("<", ">", "<=", ">=");
       if (!op) return left;
       const right = this.parseAdditive();
       left = [...left, ...right, { op: RELATIONAL_OPS[op] } as Instruction];
@@ -278,7 +308,11 @@ class Parser {
       const op = this.matchOp("+", "-");
       if (!op) return left;
       const right = this.parseMultiplicative();
-      left = [...left, ...right, { op: op === "+" ? "add" : "subtract" } as Instruction];
+      left = [
+        ...left,
+        ...right,
+        { op: op === "+" ? "add" : "subtract" } as Instruction,
+      ];
     }
   }
 
@@ -290,7 +324,11 @@ class Parser {
       if (!op) return left;
       const right = this.parseUnary();
       const instruction: Instruction =
-        op === "*" ? { op: "multiply" } : op === "/" ? { op: "divide" } : { op: "modulo" };
+        op === "*"
+          ? { op: "multiply" }
+          : op === "/"
+            ? { op: "divide" }
+            : { op: "modulo" };
       left = [...left, ...right, instruction];
     }
   }
@@ -317,7 +355,10 @@ class Parser {
   // primary: literals, variables, function calls, enum members, parens
   private parsePrimary(): Instruction[] {
     const t = this.peek();
-    if (!t) throw new ExpressionCodegenError(`Unexpected end of expression: ${this.source}`);
+    if (!t)
+      throw new ExpressionCodegenError(
+        `Unexpected end of expression: ${this.source}`,
+      );
 
     if (t.kind === "number") {
       this.pos++;
@@ -344,7 +385,9 @@ class Parser {
       this.pos++;
       const member = this.peek();
       if (member?.kind !== "ident") {
-        throw new ExpressionCodegenError(`Expected a member name after ".": ${this.source}`);
+        throw new ExpressionCodegenError(
+          `Expected a member name after ".": ${this.source}`,
+        );
       }
       this.pos++;
       return [{ op: "pushNull" }];
@@ -379,11 +422,15 @@ class Parser {
         this.pos++;
         const member = this.peek();
         if (member?.kind !== "ident") {
-          throw new ExpressionCodegenError(`Expected a member name after ".": ${this.source}`);
+          throw new ExpressionCodegenError(
+            `Expected a member name after ".": ${this.source}`,
+          );
         }
         this.pos++;
         if (this.peekIsOp(".")) {
-          throw new ExpressionCodegenError(`Chained member access is not supported: ${this.source}`);
+          throw new ExpressionCodegenError(
+            `Chained member access is not supported: ${this.source}`,
+          );
         }
         const cases = this.enums[t.text];
         if (cases && Object.prototype.hasOwnProperty.call(cases, member.text)) {
@@ -400,7 +447,9 @@ class Parser {
       // Bare identifiers read as variables (the evaluator's contract).
       return [{ op: "pushVariable", name: t.text }];
     }
-    throw new ExpressionCodegenError(`Unexpected token in expression: ${this.source}`);
+    throw new ExpressionCodegenError(
+      `Unexpected token in expression: ${this.source}`,
+    );
   }
 }
 
@@ -408,7 +457,10 @@ class Parser {
  * Compile one expression to postfix stack bytecode. Throws
  * `ExpressionCodegenError` when the expression cannot be compiled.
  */
-export function compileExpression(expr: string, enums: EnumTable = {}): Instruction[] {
+export function compileExpression(
+  expr: string,
+  enums: EnumTable = {},
+): Instruction[] {
   const trimmed = expr.trim();
   if (!trimmed) throw new ExpressionCodegenError("Empty expression");
   return new Parser(tokenize(trimmed), enums, trimmed).compile();

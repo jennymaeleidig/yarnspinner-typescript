@@ -21,7 +21,10 @@ import type { Diagnostic, DiagnosticSeverity } from "yarn-spinner-runner-ts";
 // a loader author calls the same functions the plugin's load hook calls,
 // instead of reaching past the exports map (which blocks deep imports).
 export { compileYarnModule, compileYarnProjectModule };
-export type { CompiledYarnModule, CompileYarnOptions } from "./compileModule.js";
+export type {
+  CompiledYarnModule,
+  CompileYarnOptions,
+} from "./compileModule.js";
 
 const PROJECT_FILE = /\.yarnproject$/;
 /** A content id of either kind: a .yarn story or a .yarnproject. */
@@ -68,7 +71,10 @@ export interface YarnSpinnerVitePluginOptions {
 /** Match one path segment against one pattern segment (`*`/`?` within it). */
 function matchSegment(seg: string, value: string): boolean {
   const rx = new RegExp(
-    `^${seg.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]")}$`,
+    `^${seg
+      .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+      .replace(/\*/g, "[^/]*")
+      .replace(/\?/g, "[^/]")}$`,
   );
   return rx.test(value);
 }
@@ -110,7 +116,9 @@ function matchesAny(
 /** Split an id into its file part and query (Vite ids: `file?query`). */
 function splitQuery(id: string): { file: string; query: string } {
   const q = id.indexOf("?");
-  return q === -1 ? { file: id, query: "" } : { file: id.slice(0, q), query: id.slice(q + 1) };
+  return q === -1
+    ? { file: id, query: "" }
+    : { file: id.slice(0, q), query: id.slice(q + 1) };
 }
 
 /**
@@ -152,7 +160,10 @@ async function asBuildError(
     const text =
       file === id
         ? source
-        : await readFile(isAbsolute(file) ? file : join(baseDir, file), "utf8").catch(() => "");
+        : await readFile(
+            isAbsolute(file) ? file : join(baseDir, file),
+            "utf8",
+          ).catch(() => "");
     context = text.split("\n")[line - 1] ?? "";
   }
   return {
@@ -193,7 +204,9 @@ export function yarnSpinnerVitePlugin(
   };
   // The definitions' Library surface, derived once at plugin creation
   // (.ysls.json files are read here, Node side).
-  const declarations = opts.definitions ? toDeclarations(opts.definitions) : undefined;
+  const declarations = opts.definitions
+    ? toDeclarations(opts.definitions)
+    : undefined;
 
   // Both compile steps take the same derived options — derived once here.
   const compileOpts = { diagnosticsSeverity, declarations };
@@ -201,7 +214,8 @@ export function yarnSpinnerVitePlugin(
   // Extension matching first (in load), then the include/exclude layer.
   const filtered = (file: string): boolean => {
     if (matchesAny(opts.exclude, file)) return false;
-    if (opts.include !== undefined && !matchesAny(opts.include, file)) return false;
+    if (opts.include !== undefined && !matchesAny(opts.include, file))
+      return false;
     return true;
   };
 
@@ -232,15 +246,25 @@ export function yarnSpinnerVitePlugin(
       // The .yarnproject itself, or a .yarn import pinned to a project:
       // the project compiles as one job and the module emits its result.
       const projectFile = opts.project ?? file;
-      const projectText = await readFile(projectFile, "utf8").catch((e: unknown) => {
-        throw fileReadError(projectFile, e);
-      });
-      return emit(compileYarnProjectModule(projectFile, compileOpts), projectText, dirname(projectFile));
+      const projectText = await readFile(projectFile, "utf8").catch(
+        (e: unknown) => {
+          throw fileReadError(projectFile, e);
+        },
+      );
+      return emit(
+        compileYarnProjectModule(projectFile, compileOpts),
+        projectText,
+        dirname(projectFile),
+      );
     }
     const source = await readFile(file, "utf8").catch((e: unknown) => {
       throw fileReadError(file, e);
     });
-    return emit(compileYarnModule(source, file, compileOpts), source, dirname(file));
+    return emit(
+      compileYarnModule(source, file, compileOpts),
+      source,
+      dirname(file),
+    );
   };
 
   return {
@@ -249,7 +273,8 @@ export function yarnSpinnerVitePlugin(
     async load(id) {
       const { file, query } = splitQuery(id);
       if (!ANY_YARN_FILE.test(file)) return;
-      if (query === "raw") return `export default ${JSON.stringify(await readFile(file, "utf8"))};`;
+      if (query === "raw")
+        return `export default ${JSON.stringify(await readFile(file, "utf8"))};`;
       if (query !== "") return;
       if (!filtered(file)) return;
       return loadAndCompile(id, file, (m) => this.warn(m));

@@ -27,19 +27,43 @@ export interface MarkupValue {
 }
 
 export function integerMarkupValue(value: number): MarkupValue {
-  return { type: "integer", integerValue: value, floatValue: 0, stringValue: "", boolValue: false };
+  return {
+    type: "integer",
+    integerValue: value,
+    floatValue: 0,
+    stringValue: "",
+    boolValue: false,
+  };
 }
 
 export function floatMarkupValue(value: number): MarkupValue {
-  return { type: "float", integerValue: 0, floatValue: value, stringValue: "", boolValue: false };
+  return {
+    type: "float",
+    integerValue: 0,
+    floatValue: value,
+    stringValue: "",
+    boolValue: false,
+  };
 }
 
 export function stringMarkupValue(value: string): MarkupValue {
-  return { type: "string", integerValue: 0, floatValue: 0, stringValue: value, boolValue: false };
+  return {
+    type: "string",
+    integerValue: 0,
+    floatValue: 0,
+    stringValue: value,
+    boolValue: false,
+  };
 }
 
 export function boolMarkupValue(value: boolean): MarkupValue {
-  return { type: "bool", integerValue: 0, floatValue: 0, stringValue: "", boolValue: value };
+  return {
+    type: "bool",
+    integerValue: 0,
+    floatValue: 0,
+    stringValue: "",
+    boolValue: value,
+  };
 }
 
 /** Renders a markup value the way upstream `MarkupValue.ToString` does. */
@@ -109,7 +133,10 @@ export function tryGetAttributeWithName(
  * Gets a property named `name` from an attribute, if present — property
  * names compare case-insensitively (upstream `MarkupAttribute.TryGetProperty`).
  */
-export function tryGetProperty(attribute: MarkupAttribute, name: string): MarkupValue | undefined {
+export function tryGetProperty(
+  attribute: MarkupAttribute,
+  name: string,
+): MarkupValue | undefined {
   for (const [key, value] of Object.entries(attribute.properties)) {
     if (key.toLowerCase() === name.toLowerCase()) {
       return value;
@@ -123,7 +150,10 @@ export function tryGetProperty(attribute: MarkupAttribute, name: string): Markup
  * and length (upstream `MarkupParseResult.TextForAttribute`): the empty
  * string for a zero-length attribute.
  */
-export function textForAttribute(result: MarkupParseResult, attribute: MarkupAttribute): string {
+export function textForAttribute(
+  result: MarkupParseResult,
+  attribute: MarkupAttribute,
+): string {
   if (attribute.length === 0) {
     return "";
   }
@@ -135,7 +165,10 @@ export function textForAttribute(result: MarkupParseResult, attribute: MarkupAtt
       "Attribute represents a range not representable by this text. Does this MarkupAttribute belong to this MarkupParseResult?",
     );
   }
-  return result.text.slice(attribute.position, attribute.position + attribute.length);
+  return result.text.slice(
+    attribute.position,
+    attribute.position + attribute.length,
+  );
 }
 
 /**
@@ -145,7 +178,10 @@ export function textForAttribute(result: MarkupParseResult, attribute: MarkupAtt
  * deleted as upstream documents. A zero-length attribute deletes only
  * itself; the text is unmodified.
  */
-export function deleteRange(result: MarkupParseResult, attributeToDelete: MarkupAttribute): MarkupParseResult {
+export function deleteRange(
+  result: MarkupParseResult,
+  attributeToDelete: MarkupAttribute,
+): MarkupParseResult {
   // The trivial case: a zero-length attribute didn't apply to any text, so
   // the plain text is left unmodified and only the attribute is removed.
   if (attributeToDelete.length === 0) {
@@ -286,7 +322,10 @@ export class StringBuilder {
  * (MarkupAttribute.Shift), https://github.com/YarnSpinnerTool/YarnSpinner
  * (MIT). The upstream license survives this adaptation.
  */
-export function shiftAttribute(attribute: MarkupAttribute, shift: number): MarkupAttribute {
+export function shiftAttribute(
+  attribute: MarkupAttribute,
+  shift: number,
+): MarkupAttribute {
   return {
     ...attribute,
     position: attribute.position + shift,

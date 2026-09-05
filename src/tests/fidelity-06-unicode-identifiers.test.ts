@@ -22,11 +22,15 @@ import { Dialogue } from "../runtime/dialogue.js";
 import type { DialogueEvent } from "../runtime/dialogue.js";
 import { runUntilCompleteEvents } from "../runtime/transcript.js";
 
-const node = (content: string): string => `title: Start\n---\n${content}\n===\n`;
+const node = (content: string): string =>
+  `title: Start\n---\n${content}\n===\n`;
 
 function drainLines(dialogue: Dialogue): string[] {
   return runUntilCompleteEvents(dialogue)
-    .filter((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line" && !!e.text.trim())
+    .filter(
+      (e): e is Extract<DialogueEvent, { type: "line" }> =>
+        e.type === "line" && !!e.text.trim(),
+    )
     .map((e) => e.text.trim());
 }
 
@@ -50,7 +54,9 @@ test("a non-ASCII header key parses with its value (跳线: 1)", () => {
 test("a non-ASCII variable assigns and reads in conditions", () => {
   const dialogue = new Dialogue(
     compileOk(
-      node("<<set $生命 to 5>>\n<<if $生命 > 3>>\nAlive\n<<else>>\nGone\n<<endif>>"),
+      node(
+        "<<set $生命 to 5>>\n<<if $生命 > 3>>\nAlive\n<<else>>\nGone\n<<endif>>",
+      ),
     ),
   );
   assert.deepEqual(drainLines(dialogue), ["Alive"]);
@@ -67,7 +73,7 @@ test("a non-ASCII variable name in an inline expression composes", () => {
 
 test("a non-ASCII enum case compiles and resolves (Color.红色)", () => {
   const source = node(
-    '<<enum Color>>\n    <<case 红色 = 1>>\n<<endenum>>\n<<declare $favourite = Color.红色 as Color>>\n<<if $favourite == Color.红色>>\nRed\n<<else>>\nNot red\n<<endif>>',
+    "<<enum Color>>\n    <<case 红色 = 1>>\n<<endenum>>\n<<declare $favourite = Color.红色 as Color>>\n<<if $favourite == Color.红色>>\nRed\n<<else>>\nNot red\n<<endif>>",
   );
   const result = compileSource(source);
   assert.deepEqual(
@@ -88,7 +94,7 @@ test("non-ASCII `.Case` shorthand resolves through the checker's rewrite", () =>
   // The checker rewrites resolvable shorthand to the full form before
   // lowering (ADR 0004); a unicode case name must resolve too.
   const source = node(
-    '<<enum Color>>\n    <<case 红色 = 1>>\n<<endenum>>\n<<declare $favourite = Color.红色 as Color>>\n<<if $favourite == .红色>>\nRed\n<<else>>\nNot red\n<<endif>>',
+    "<<enum Color>>\n    <<case 红色 = 1>>\n<<endenum>>\n<<declare $favourite = Color.红色 as Color>>\n<<if $favourite == .红色>>\nRed\n<<else>>\nNot red\n<<endif>>",
   );
   const dialogue = new Dialogue(compileOk(source));
   assert.deepEqual(drainLines(dialogue), ["Red"]);
@@ -106,5 +112,8 @@ test("title/subtitle YS0027 keeps the recorded ASCII simplification", () => {
   // ASCII-simplification rule for generated names (docs/compatibility.md) —
   // acceptance is lexical only; the YS0027 pass is untouched.
   const result = compileSource(`title: 跳线\n---\nHello\n===\n`);
-  assert.deepEqual(result.diagnostics.map((d) => d.code), ["YS0027"]);
+  assert.deepEqual(
+    result.diagnostics.map((d) => d.code),
+    ["YS0027"],
+  );
 });

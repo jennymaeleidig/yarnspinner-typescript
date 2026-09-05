@@ -37,7 +37,10 @@ import { runUntilCompleteEvents } from "../index.js";
 /** Compile a source, asserting it compiles clean. */
 function compile(source: string) {
   const { program, diagnostics } = compileSource(source);
-  assert.ok(program, `compilation failed: ${diagnostics.map((d) => `${d.code} ${d.message}`).join("; ")}`);
+  assert.ok(
+    program,
+    `compilation failed: ${diagnostics.map((d) => `${d.code} ${d.message}`).join("; ")}`,
+  );
   return program;
 }
 
@@ -48,14 +51,20 @@ function runLines(
   configure?: (d: Dialogue) => void,
   startAt?: string,
 ): string[][] {
-  const dialogue = new Dialogue(compile(source), startAt ? { startAt } : undefined);
+  const dialogue = new Dialogue(
+    compile(source),
+    startAt ? { startAt } : undefined,
+  );
   configure?.(dialogue);
   const result: string[][] = [];
   for (let i = 0; i < runs; i++) {
     if (i > 0) dialogue.setNode(startAt ?? "Start");
     const lines: string[] = [];
     for (const event of drain(dialogue)) {
-      if (event.type === "line") lines.push(event.speaker ? `${event.speaker}: ${event.text}` : event.text);
+      if (event.type === "line")
+        lines.push(
+          event.speaker ? `${event.speaker}: ${event.text}` : event.text,
+        );
     }
     result.push(lines);
   }
@@ -68,7 +77,8 @@ const drain = runUntilCompleteEvents;
 /** First line text a dialogue delivers. */
 function firstLine(dialogue: Dialogue): string | null {
   for (const event of drain(dialogue)) {
-    if (event.type === "line") return event.speaker ? `${event.speaker}: ${event.text}` : event.text;
+    if (event.type === "line")
+      return event.speaker ? `${event.speaker}: ${event.text}` : event.text;
   }
   return null;
 }
@@ -137,7 +147,11 @@ test("node-group member complexity: always=0, once=+1, expression = boolean-oper
 
 // ── Built-in strategies (upstream Yarn.Saliency semantics) ───────────────
 
-function option(contentId: string, complexity: number, failing = 0): ContentSaliencyOption {
+function option(
+  contentId: string,
+  complexity: number,
+  failing = 0,
+): ContentSaliencyOption {
   return {
     contentId,
     complexityScore: complexity,
@@ -152,12 +166,20 @@ test("first strategy: first non-failing candidate", () => {
   const content = [option("a", 0, 1), option("b", 5), option("c", 9)];
   assert.equal(strategy.queryBestContent([]), null);
   assert.equal(strategy.queryBestContent(content)?.contentId, "b");
-  assert.equal(strategy.queryBestContent([option("a", 0, 1), option("b", 0, 2)]), null);
+  assert.equal(
+    strategy.queryBestContent([option("a", 0, 1), option("b", 0, 2)]),
+    null,
+  );
 });
 
 test("best strategy: highest complexity among non-failing, first of ties", () => {
   const strategy = new BestSaliencyStrategy();
-  const content = [option("a", 1), option("b", 3), option("c", 3), option("d", 9, 2)];
+  const content = [
+    option("a", 1),
+    option("b", 3),
+    option("c", 3),
+    option("d", 9, 2),
+  ];
   assert.equal(strategy.queryBestContent(content)?.contentId, "b");
   assert.equal(strategy.queryBestContent([option("a", 0, 1)]), null);
 });
@@ -171,7 +193,12 @@ test("best-least-recently-viewed: least seen wins, then best complexity, then fi
     },
   };
   const strategy = new BestLeastRecentlyViewedSaliencyStrategy(state);
-  const content = [option("a", 9), option("b", 1), option("c", 2), option("d", 5, 1)];
+  const content = [
+    option("a", 9),
+    option("b", 1),
+    option("c", 2),
+    option("d", 5, 1),
+  ];
   // b and c share the least view count (1); c has the higher complexity.
   assert.equal(strategy.queryBestContent(content)?.contentId, "c");
   // Selection records a view (the two-method interface: state updates live here).
@@ -184,11 +211,19 @@ test("best-least-recently-viewed: least seen wins, then best complexity, then fi
 test("random BLRV: picks within the least-seen, most-complex group", () => {
   const state: SaliencyState = { getViewCount: () => 0, recordView: () => {} };
   const strategy = new RandomBestLeastRecentlyViewedSaliencyStrategy(state);
-  const content = [option("low", 0), option("high1", 5), option("high2", 5), option("failed", 9, 1)];
+  const content = [
+    option("low", 0),
+    option("high1", 5),
+    option("high2", 5),
+    option("failed", 9, 1),
+  ];
   for (let i = 0; i < 50; i++) {
     const pick = strategy.queryBestContent(content);
     assert.ok(pick);
-    assert.ok(["high1", "high2"].includes(pick.contentId), `unexpected pick ${pick.contentId}`);
+    assert.ok(
+      ["high1", "high2"].includes(pick.contentId),
+      `unexpected pick ${pick.contentId}`,
+    );
   }
   assert.equal(strategy.queryBestContent([option("a", 0, 1)]), null);
 });
@@ -206,12 +241,28 @@ test("saliency modes map to the four built-in strategies", () => {
     "random_best_least_recent",
     "random_best_least_recently_seen",
   ]);
-  assert.ok(saliencyStrategyForMode("first", state) instanceof FirstSaliencyStrategy);
-  assert.ok(saliencyStrategyForMode("best", state) instanceof BestSaliencyStrategy);
-  assert.ok(saliencyStrategyForMode("random", state) instanceof RandomBestLeastRecentlyViewedSaliencyStrategy);
-  assert.ok(saliencyStrategyForMode("best_least_recent", state) instanceof BestLeastRecentlyViewedSaliencyStrategy);
-  assert.ok(saliencyStrategyForMode("random_best_least_recent", state) instanceof RandomBestLeastRecentlyViewedSaliencyStrategy);
-  assert.ok(saliencyStrategyForMode("best_least_recently_seen", state) instanceof BestLeastRecentlyViewedSaliencyStrategy);
+  assert.ok(
+    saliencyStrategyForMode("first", state) instanceof FirstSaliencyStrategy,
+  );
+  assert.ok(
+    saliencyStrategyForMode("best", state) instanceof BestSaliencyStrategy,
+  );
+  assert.ok(
+    saliencyStrategyForMode("random", state) instanceof
+      RandomBestLeastRecentlyViewedSaliencyStrategy,
+  );
+  assert.ok(
+    saliencyStrategyForMode("best_least_recent", state) instanceof
+      BestLeastRecentlyViewedSaliencyStrategy,
+  );
+  assert.ok(
+    saliencyStrategyForMode("random_best_least_recent", state) instanceof
+      RandomBestLeastRecentlyViewedSaliencyStrategy,
+  );
+  assert.ok(
+    saliencyStrategyForMode("best_least_recently_seen", state) instanceof
+      BestLeastRecentlyViewedSaliencyStrategy,
+  );
   assert.equal(saliencyStrategyForMode("nonsense", state), null);
 });
 
@@ -250,11 +301,15 @@ test("deterministic BLRV node-group selection matches upstream's stable ordering
 
 test("default strategy is random best-least-recently-viewed", () => {
   const dialogue = new Dialogue(compile(NODE_GROUP_SOURCE));
-  assert.ok(dialogue.contentSaliencyStrategy instanceof RandomBestLeastRecentlyViewedSaliencyStrategy);
+  assert.ok(
+    dialogue.contentSaliencyStrategy instanceof
+      RandomBestLeastRecentlyViewedSaliencyStrategy,
+  );
 });
 
 test("a node group with no salient content completes the dialogue (upstream hub Return)", () => {
-  const runs = runLines(`title: Start
+  const runs = runLines(
+    `title: Start
 ---
 <<jump Empty>>
 ===
@@ -263,12 +318,15 @@ when: false
 ---
 never
 ===
-`, 1);
+`,
+    1,
+  );
   assert.deepEqual(runs, [[]]);
 });
 
 test("a single node with when: headers is a one-member node group", () => {
-  const runs = runLines(`title: Start
+  const runs = runLines(
+    `title: Start
 ---
 <<jump Solo>>
 ===
@@ -277,7 +335,10 @@ when: $open
 ---
 solo content
 ===
-`, 2, (d) => d.setSaliencyStrategy("best_least_recently_seen"));
+`,
+    2,
+    (d) => d.setSaliencyStrategy("best_least_recently_seen"),
+  );
   // $open is undeclared (unset → false): no content on either run — the
   // group machinery applies uniformly to single-member groups.
   assert.deepEqual(runs, [[], []]);
@@ -291,7 +352,9 @@ test("node-group saliency history lives as generated variables in variable stora
   // the first selection is reproduced from a clean store (view counts are
   // not module state — coding standards §4).
   assert.ok(
-    !Object.keys(dialogue.getVariables()).some((k) => k.startsWith("$Yarn.Internal.")),
+    !Object.keys(dialogue.getVariables()).some((k) =>
+      k.startsWith("$Yarn.Internal."),
+    ),
   );
   const fresh = new Dialogue(compile(NODE_GROUP_SOURCE));
   fresh.setSaliencyStrategy("best_least_recently_seen");
@@ -418,7 +481,12 @@ test("query APIs: isNodeGroup, getSaliencyOptionsForNodeGroup, hasSalientContent
 
 test("has_any_content() builtin: missing=false, plain node=true, group=any salient", () => {
   assert.deepEqual(runLines(QUERY_SOURCE, 1), [
-    ["Has conditional: False", "Has always: True", "Has plain: True", "Has missing: False"],
+    [
+      "Has conditional: False",
+      "Has always: True",
+      "Has plain: True",
+      "Has missing: False",
+    ],
   ]);
 });
 
@@ -435,24 +503,32 @@ test("host libraries may override has_any_content", () => {
 // ── Line groups (`=>`) ──────────────────────────────────────────────────
 
 test("line groups: exactly one alternative runs, cycling under BLRV", () => {
-  const runs = runLines(`title: Start
+  const runs = runLines(
+    `title: Start
 ---
 => first
 => second
 => third
 ===
-`, 3, (d) => d.setSaliencyStrategy("best_least_recently_seen"));
+`,
+    3,
+    (d) => d.setSaliencyStrategy("best_least_recently_seen"),
+  );
   // Equal complexity; least-recently-seen with stable tie-break cycles them.
   assert.deepEqual(runs, [["first"], ["second"], ["third"]]);
 });
 
 test("line groups: a once item runs once, then the fallback carries", () => {
-  const runs = runLines(`title: Start
+  const runs = runLines(
+    `title: Start
 ---
 => intro <<once>>
 => fallback
 ===
-`, 3, (d) => d.setSaliencyStrategy("best_least_recently_seen"));
+`,
+    3,
+    (d) => d.setSaliencyStrategy("best_least_recently_seen"),
+  );
   assert.deepEqual(runs, [["intro"], ["fallback"], ["fallback"]]);
 });
 
@@ -465,7 +541,12 @@ test("line groups: complexity scoring picks the most specific available line", (
 ===
 `;
   // Run 1: only the generic line passes → generic.
-  assert.deepEqual(runLines(source, 1, (d) => d.setSaliencyStrategy("best_least_recently_seen")), [["generic"]]);
+  assert.deepEqual(
+    runLines(source, 1, (d) =>
+      d.setSaliencyStrategy("best_least_recently_seen"),
+    ),
+    [["generic"]],
+  );
 
   // Fresh dialogue with a host-set variable: both pass; the conditional
   // line's complexity (1) beats the plain line's (0) → specific.
@@ -493,13 +574,16 @@ test("line groups: speaker prefixes, line IDs, and comments work on => lines", (
 });
 
 test("line groups: no salient candidate skips the whole group", () => {
-  const runs = runLines(`title: Start
+  const runs = runLines(
+    `title: Start
 ---
 Before
 => never <<if $off>>
 After
 ===
-`, 1);
+`,
+    1,
+  );
   assert.deepEqual(runs, [["Before", "After"]]);
 });
 
@@ -510,7 +594,10 @@ test("a host-provided strategy selects content through queryBestContent/contentW
   const strategy: ContentSaliencyStrategy = {
     // The member's upstream unique name (crc32 of file+title+startLine —
     // the second member's title header sits on source line 10).
-    queryBestContent: (content) => content.find((c) => c.contentId === "Group.e1b95b9c") ?? content[0] ?? null,
+    queryBestContent: (content) =>
+      content.find((c) => c.contentId === "Group.e1b95b9c") ??
+      content[0] ??
+      null,
     contentWasSelected: (content) => selections.push(content.contentId),
   };
   const source = `title: Start
@@ -528,7 +615,9 @@ when: always
 two
 ===
 `;
-  const dialogue = new Dialogue(compile(source), { contentSaliencyStrategy: strategy });
+  const dialogue = new Dialogue(compile(source), {
+    contentSaliencyStrategy: strategy,
+  });
   assert.equal(firstLine(dialogue), "two");
   assert.deepEqual(selections, ["Group.e1b95b9c"]);
 
@@ -552,7 +641,10 @@ b
 ===
 `);
   const codes = missingWhen.diagnostics.map((d) => d.code);
-  assert.ok(codes.includes("YS0031"), `expected YS0031, got ${codes.join(", ")}`);
+  assert.ok(
+    codes.includes("YS0031"),
+    `expected YS0031, got ${codes.join(", ")}`,
+  );
 
   const duplicateSubtitle = compileSource(`title: Group
 when: always
@@ -568,7 +660,10 @@ b
 ===
 `);
   const codes2 = duplicateSubtitle.diagnostics.map((d) => d.code);
-  assert.ok(codes2.includes("YS0032"), `expected YS0032, got ${codes2.join(", ")}`);
+  assert.ok(
+    codes2.includes("YS0032"),
+    `expected YS0032, got ${codes2.join(", ")}`,
+  );
 });
 
 // ── Storylet demo walk: saliency strategies switch mid-story and steer the
@@ -672,7 +767,9 @@ test("storylet demo: saliency strategies switch mid-story and steer the draws", 
   // Best least-recently-seen walks the story open deterministically:
   // rumor → first_meeting (unlocks $metRogue) → duel (unlocks $trustHigh)
   // → heist — each draw the least-seen, most-complex available member.
-  assert.deepEqual(drawStorylet(dialogue), ["Travellers whisper of a Rogue who works the far road."]);
+  assert.deepEqual(drawStorylet(dialogue), [
+    "Travellers whisper of a Rogue who works the far road.",
+  ]);
   assert.deepEqual(drawStorylet(dialogue), [
     "Well met. You don't look like the usual pilgrims.",
     "You've met the Rogue. New roads just opened up.",

@@ -20,7 +20,10 @@ function makeDialogue(
 /** Drain the dialogue, collecting line text (as delivered, without speaker prefix). */
 function drainTexts(dialogue: Dialogue): string[] {
   return runUntilCompleteEvents(dialogue)
-    .filter((event): event is Extract<DialogueEvent, { type: "line" }> => event.type === "line")
+    .filter(
+      (event): event is Extract<DialogueEvent, { type: "line" }> =>
+        event.type === "line",
+    )
     .map((event) => event.text);
 }
 
@@ -42,8 +45,16 @@ title: Start
 
   // `<<set>>` is internal; the branch line arrives in the first batch.
   const events: DialogueEvent[] = dialogue.continue();
-  strictEqual(events.some((e) => e.type === "command"), false, "state commands never surface");
-  strictEqual(events.some((e) => e.type === "line" && e.text === "High"), true, "Expected High branch");
+  strictEqual(
+    events.some((e) => e.type === "command"),
+    false,
+    "state commands never surface",
+  );
+  strictEqual(
+    events.some((e) => e.type === "line" && e.text === "High"),
+    true,
+    "Expected High branch",
+  );
   strictEqual(dialogue.getVariable("score"), 10, "Variable should be set");
 });
 
@@ -67,9 +78,21 @@ title: Start
   const dialogue = makeDialogue(script);
   const seen = drainTexts(dialogue);
 
-  strictEqual(seen.includes("Single equals ok"), true, "Single equals comparison should succeed");
-  strictEqual(seen.includes("Double equals ok"), true, "Double equals comparison should succeed");
-  strictEqual(seen.includes("Not equals ok"), true, "Not equals comparison should succeed");
+  strictEqual(
+    seen.includes("Single equals ok"),
+    true,
+    "Single equals comparison should succeed",
+  );
+  strictEqual(
+    seen.includes("Double equals ok"),
+    true,
+    "Double equals comparison should succeed",
+  );
+  strictEqual(
+    seen.includes("Not equals ok"),
+    true,
+    "Not equals comparison should succeed",
+  );
 });
 
 test("set command supports equals syntax with arithmetic reassignment", () => {
@@ -85,8 +108,16 @@ Narrator: Current street cred: {$reputation}
   const dialogue = makeDialogue(script, { startAt: "StreetCred" });
   const seen = drainTexts(dialogue);
 
-  strictEqual(seen.includes("Current street cred: 75"), true, "Should reflect arithmetic subtraction");
-  strictEqual(dialogue.getVariable("reputation"), 75, "Variable should store updated numeric value");
+  strictEqual(
+    seen.includes("Current street cred: 75"),
+    true,
+    "Should reflect arithmetic subtraction",
+  );
+  strictEqual(
+    dialogue.getVariable("reputation"),
+    75,
+    "Variable should store updated numeric value",
+  );
 });
 
 test("set command respects arithmetic precedence and parentheses", () => {
@@ -103,8 +134,16 @@ Narrator: Score now {$score}
   const dialogue = makeDialogue(script, { startAt: "MathChecks" });
   const lines = drainTexts(dialogue);
 
-  strictEqual(lines.includes("Score now 20"), true, "Should honor operator precedence and parentheses");
-  strictEqual(dialogue.getVariable("score"), 20, "Final numeric value should be 20");
+  strictEqual(
+    lines.includes("Score now 20"),
+    true,
+    "Should honor operator precedence and parentheses",
+  );
+  strictEqual(
+    dialogue.getVariable("score"),
+    20,
+    "Final numeric value should be 20",
+  );
 });
 
 test("variables passed from host accept $ prefix and mutate via arithmetic set", () => {
@@ -117,12 +156,27 @@ Narrator: After {$reputation}
 ===
 `;
 
-  const dialogue = makeDialogue(script, { startAt: "HostVars", variables: { $reputation: 100 } });
+  const dialogue = makeDialogue(script, {
+    startAt: "HostVars",
+    variables: { $reputation: 100 },
+  });
   const lines = drainTexts(dialogue);
 
-  strictEqual(lines.includes("Start 100"), true, "Initial host variable should be visible");
-  strictEqual(lines.includes("After 75"), true, "Arithmetic mutation should be reflected");
-  strictEqual(dialogue.getVariable("reputation"), 75, "Runner variable store should update");
+  strictEqual(
+    lines.includes("Start 100"),
+    true,
+    "Initial host variable should be visible",
+  );
+  strictEqual(
+    lines.includes("After 75"),
+    true,
+    "Arithmetic mutation should be reflected",
+  );
+  strictEqual(
+    dialogue.getVariable("reputation"),
+    75,
+    "Runner variable store should update",
+  );
 });
 
 test("host variables work with math helpers and propagate results", () => {
@@ -137,16 +191,42 @@ Narrator: Residual {$residual}
 ===
 `;
 
-  const dialogue = makeDialogue(script, { startAt: "MathHost", variables: { $energy: 37 } }, {
-    declarations: { variables: { energy: { type: "number" }, residual: { type: "number" } } },
-  });
+  const dialogue = makeDialogue(
+    script,
+    { startAt: "MathHost", variables: { $energy: 37 } },
+    {
+      declarations: {
+        variables: { energy: { type: "number" }, residual: { type: "number" } },
+      },
+    },
+  );
   const lines = drainTexts(dialogue);
 
-  strictEqual(lines.includes("Incoming 37"), true, "Should read initial host variable");
-  strictEqual(lines.includes("After max 50"), true, "max() should clamp the variable");
-  strictEqual(lines.includes("Residual 16"), true, "floor division should be reflected");
-  strictEqual(dialogue.getVariable("energy"), 50, "Host variable should hold updated max result");
-  strictEqual(dialogue.getVariable("residual"), 16, "New variables from math operations should be stored");
+  strictEqual(
+    lines.includes("Incoming 37"),
+    true,
+    "Should read initial host variable",
+  );
+  strictEqual(
+    lines.includes("After max 50"),
+    true,
+    "max() should clamp the variable",
+  );
+  strictEqual(
+    lines.includes("Residual 16"),
+    true,
+    "floor division should be reflected",
+  );
+  strictEqual(
+    dialogue.getVariable("energy"),
+    50,
+    "Host variable should hold updated max result",
+  );
+  strictEqual(
+    dialogue.getVariable("residual"),
+    16,
+    "New variables from math operations should be stored",
+  );
 });
 
 test("host variables use custom add/subtract functions", () => {
@@ -160,24 +240,54 @@ Narrator: Final {$credits}
 ===
 `;
 
-  const dialogue = makeDialogue(script, {
-    startAt: "HostMathFns",
-    variables: { $credits: 15 },
-    library: (() => {
-      const lib = new Library();
-      lib.registerFunction("add", (a: unknown, b: unknown) => Number(a) + Number(b), { params: ["any", "any"], returns: "number" });
-      lib.registerFunction("subtract", (a: unknown, b: unknown) => Number(a) - Number(b), { params: ["any", "any"], returns: "number" });
-      return lib;
-    })(),
-  }, {
-    declarations: { variables: { credits: { type: "number" } } },
-  });
+  const dialogue = makeDialogue(
+    script,
+    {
+      startAt: "HostMathFns",
+      variables: { $credits: 15 },
+      library: (() => {
+        const lib = new Library();
+        lib.registerFunction(
+          "add",
+          (a: unknown, b: unknown) => Number(a) + Number(b),
+          {
+            params: ["any", "any"],
+            returns: "number",
+          },
+        );
+        lib.registerFunction(
+          "subtract",
+          (a: unknown, b: unknown) => Number(a) - Number(b),
+          {
+            params: ["any", "any"],
+            returns: "number",
+          },
+        );
+        return lib;
+      })(),
+    },
+    {
+      declarations: { variables: { credits: { type: "number" } } },
+    },
+  );
 
   const lines = drainTexts(dialogue);
 
-  strictEqual(lines.includes("Credits 15"), true, "Should read initial credits");
-  strictEqual(lines.includes("Final 30"), true, "Custom add/subtract functions should apply math");
-  strictEqual(dialogue.getVariable("credits"), 30, "Stored variable should reflect final value");
+  strictEqual(
+    lines.includes("Credits 15"),
+    true,
+    "Should read initial credits",
+  );
+  strictEqual(
+    lines.includes("Final 30"),
+    true,
+    "Custom add/subtract functions should apply math",
+  );
+  strictEqual(
+    dialogue.getVariable("credits"),
+    30,
+    "Stored variable should reflect final value",
+  );
 });
 
 test("<<call>> invokes the registered host function and discards the result (upstream CallStatement pin)", () => {
@@ -209,7 +319,11 @@ Mae: done
   const lines = drainTexts(dialogue);
   strictEqual(callCount, 2, "each <<call>> invokes its function once");
   strictEqual(observed, "second", "arguments evaluate; the last call wins");
-  strictEqual(lines.includes("done"), true, "the dialogue continues after <<call>>");
+  strictEqual(
+    lines.includes("done"),
+    true,
+    "the dialogue continues after <<call>>",
+  );
   // `<<call>>` is a state statement: internal, never a Command event.
   strictEqual(lines.includes("spy"), false);
 });
@@ -229,10 +343,18 @@ Mae: still here
 
   const lines = drainTexts(dialogue);
   ok(
-    errors.some((message) => message.includes("<<call>> failed") && message.includes("no_such_function")),
+    errors.some(
+      (message) =>
+        message.includes("<<call>> failed") &&
+        message.includes("no_such_function"),
+    ),
     `expected a <<call>> diagnostic, got: ${errors.join(" | ")}`,
   );
-  strictEqual(lines.includes("still here"), true, "the run continues after the diagnostic");
+  strictEqual(
+    lines.includes("still here"),
+    true,
+    "the run continues after the diagnostic",
+  );
 });
 
 test("<<wait>> is a consumer-timed command: delivered as a command event, then the batch stops", () => {
@@ -266,7 +388,9 @@ Mae: after the wait
       commandText = commandEvent.command;
       break;
     }
-    sawBefore ||= batch.some((event) => event.type === "line" && event.text.includes("before"));
+    sawBefore ||= batch.some(
+      (event) => event.type === "line" && event.text.includes("before"),
+    );
   }
   ok(sawBefore, "the line before the wait delivered first");
   strictEqual(commandText, "wait 2");

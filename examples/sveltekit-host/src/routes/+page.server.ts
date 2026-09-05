@@ -15,21 +15,26 @@ import { loadYarnProject } from "yarn-spinner-runner-ts/node";
  * build time; the static page ships the opening pull's SSR output.
  */
 export function load() {
-	// `vite dev`/`vite build` run from the host directory (the sveltekit:*
-	// npm targets cd here — the standard SvelteKit workflow), so the shared
-	// demo content dir (`examples/content/`) resolves one level up.
-	const projectPath = join(process.cwd(), "..", "content", "project.yarnproject");
-	const result = loadYarnProject(projectPath);
+  // `vite dev`/`vite build` run from the host directory (the sveltekit:*
+  // npm targets cd here — the standard SvelteKit workflow), so the shared
+  // demo content dir (`examples/content/`) resolves one level up.
+  const projectPath = join(
+    process.cwd(),
+    "..",
+    "content",
+    "project.yarnproject",
+  );
+  const result = loadYarnProject(projectPath);
 
-	if (result.program === null) {
-		// Error diagnostics from the loader: legible failure, never a throw (§3).
-		return { ok: false as const, diagnostics: result.diagnostics };
-	}
-	return {
-		ok: true as const,
-		program: result.program,
-		projectName: result.project?.projectName ?? null,
-		sources: result.sources,
-		diagnostics: result.diagnostics,
-	};
+  if (result.program === null) {
+    // Error diagnostics from the loader: legible failure, never a throw (§3).
+    return { ok: false as const, diagnostics: result.diagnostics };
+  }
+  return {
+    ok: true as const,
+    program: result.program,
+    projectName: result.project?.projectName ?? null,
+    sources: result.sources,
+    diagnostics: result.diagnostics,
+  };
 }

@@ -12,11 +12,13 @@ layer.
 ## Running the Demos
 
 1. Install dependencies (if not already done):
+
    ```bash
    npm install
    ```
 
 2. Start the development server:
+
    ```bash
    npm run demo
    ```
@@ -24,6 +26,7 @@ layer.
    This will start a Vite dev server at `http://localhost:3000` and open it in your browser.
 
 3. Build for production:
+
    ```bash
    npm run demo:build
    ```

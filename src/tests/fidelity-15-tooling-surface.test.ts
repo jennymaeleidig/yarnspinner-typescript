@@ -72,7 +72,10 @@ test("generateYarnFileWithDeclarations output round-trips through compile() with
 
   const first = compileSource(originalText);
   const generated = generateYarnFileWithDeclarations(first.declarations);
-  assert.ok(!generated.startsWith("\n"), "generated output must not start with a blank line");
+  assert.ok(
+    !generated.startsWith("\n"),
+    "generated output must not start with a blank line",
+  );
 
   const second = compileSource(generated);
   assert.ok(
@@ -80,8 +83,16 @@ test("generateYarnFileWithDeclarations output round-trips through compile() with
     `recompiling the generated file errored: ${second.diagnostics.map((d) => `${d.code} ${d.message}`).join("; ")}`,
   );
   assert.deepEqual(
-    second.declarations.map((d) => ({ name: d.name, type: d.type, defaultValue: d.defaultValue })),
-    first.declarations.map((d) => ({ name: d.name, type: d.type, defaultValue: d.defaultValue })),
+    second.declarations.map((d) => ({
+      name: d.name,
+      type: d.type,
+      defaultValue: d.defaultValue,
+    })),
+    first.declarations.map((d) => ({
+      name: d.name,
+      type: d.type,
+      defaultValue: d.defaultValue,
+    })),
   );
 });
 
@@ -93,7 +104,10 @@ test("port: TestDebugOutputIsProduced — the compile result exposes per-node by
   const result: CompileResult = compileSource(input, { file: "input" });
 
   // We should have a single NodeDebugInfo, because we compiled a single node
-  assert.ok(result.projectDebugInfo, "expected ProjectDebugInfo on the compile result");
+  assert.ok(
+    result.projectDebugInfo,
+    "expected ProjectDebugInfo on the compile result",
+  );
   const debugNodes = result.projectDebugInfo.nodes;
   assert.equal(
     debugNodes.filter((n) => n.nodeName === "DebugTesting").length,

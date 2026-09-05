@@ -31,18 +31,18 @@ values) was proposed. The deferral gated the merge on a careful diff.
 
 ## The diff (the gate's evidence)
 
-| Rule | typeCheck ExprParser | expressionCodegen | evaluator |
-| --- | --- | --- | --- |
-| and/or/xor level | one level, left-assoc (`|| && ^`) | one level, left-assoc (`or and xor`) | one flat level via `evaluateLogical` |
-| equality vs relational | merged into ONE left-assoc comparison level | separate: equality ABOVE relational | comparison dispatch before logical; regex splits at the FIRST comparison operator |
-| mixed `a == b && c` | `(a == b) && c` | `(a == b) && c` | ~~`a == ((b) && (c…))`~~ **fixed** (the logical level now splits first, quote/paren-aware; primary parens unwrap; negation reachable) |
-| `=` tolerance | alias of `==` | alias of equality | alias of `==` |
-| word aliases | tokenizer maps to symbols (10 incl. `xor`) | parser matches words (9 — **no `xor`**: word-xor content never compiles, rides the fallback; found while fixing the lost xor) | regex preprocess to symbols (10 incl. `xor`) |
-| string escapes | none (raw text to closing quote) | `\x` → literal char; unterminated throws | quoted strings stripped by regex heuristics |
-| unknown characters | skipped silently (parse-failure territory) | throw `ExpressionCodegenError` | regex dispatch never sees them; degrades to value lookup |
-| positions | start/end per token (feeds `.Case` rewrites) | none needed | none |
-| trailing garbage | parse returns null (unchecked) | throw | never reached (regexes match substrings) |
-| error mode | collect-don't-throw | throw → documented fallbacks | best-effort (throw → caller's catch → `false`/`""`) |
+| Rule                   | typeCheck ExprParser                         | expressionCodegen                                                                                                             | evaluator                                                                                                                             |
+| ---------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| and/or/xor level       | one level, left-assoc (`                     |                                                                                                                               | && ^`)                                                                                                                                | one level, left-assoc (`or and xor`) | one flat level via `evaluateLogical` |
+| equality vs relational | merged into ONE left-assoc comparison level  | separate: equality ABOVE relational                                                                                           | comparison dispatch before logical; regex splits at the FIRST comparison operator                                                     |
+| mixed `a == b && c`    | `(a == b) && c`                              | `(a == b) && c`                                                                                                               | ~~`a == ((b) && (c…))`~~ **fixed** (the logical level now splits first, quote/paren-aware; primary parens unwrap; negation reachable) |
+| `=` tolerance          | alias of `==`                                | alias of equality                                                                                                             | alias of `==`                                                                                                                         |
+| word aliases           | tokenizer maps to symbols (10 incl. `xor`)   | parser matches words (9 — **no `xor`**: word-xor content never compiles, rides the fallback; found while fixing the lost xor) | regex preprocess to symbols (10 incl. `xor`)                                                                                          |
+| string escapes         | none (raw text to closing quote)             | `\x` → literal char; unterminated throws                                                                                      | quoted strings stripped by regex heuristics                                                                                           |
+| unknown characters     | skipped silently (parse-failure territory)   | throw `ExpressionCodegenError`                                                                                                | regex dispatch never sees them; degrades to value lookup                                                                              |
+| positions              | start/end per token (feeds `.Case` rewrites) | none needed                                                                                                                   | none                                                                                                                                  |
+| trailing garbage       | parse returns null (unchecked)               | throw                                                                                                                         | never reached (regexes match substrings)                                                                                              |
+| error mode             | collect-don't-throw                          | throw → documented fallbacks                                                                                                  | best-effort (throw → caller's catch → `false`/`""`)                                                                                   |
 
 The decisive row is the mixed-precedence one. It is live today: the
 fallback evaluator returns `true` for `$a == 1 && $b > 2`
@@ -56,7 +56,7 @@ hypothetical.
 
 **The merge is deferred.** Two reasons:
 
-1. The divergence a shared parser exists to fix is *behavior*, not
+1. The divergence a shared parser exists to fix is _behavior_, not
    structure: adopting the shared parser changes the fallback evaluator's
    observable output for mixed-precedence expressions — a parity fix, not
    a refactor. Per the precedent of the standalone xor fix above, parity
@@ -96,6 +96,7 @@ The merge stops being deferrable when any of these holds:
   stands.
 - The three grammars' operators stay pinned by their respective suites;
   the conformance corpus and golden bytecode remain the net.
+
 ## The string-table split (2026-09, fidelity ticket 03)
 
 The string table originally registered each line's authored text —

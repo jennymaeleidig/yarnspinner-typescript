@@ -28,7 +28,10 @@
 
 import type { ExpressionEvaluator } from "./evaluator.js";
 import { applyBinaryOp } from "./operands.js";
-import { compoundOperatorToStackOp, parseStateStatement } from "../parse/stateStatement.js";
+import {
+  compoundOperatorToStackOp,
+  parseStateStatement,
+} from "../parse/stateStatement.js";
 import { describeError } from "../describeError.js";
 import type { VariableStorage } from "./variableStorage.js";
 
@@ -42,7 +45,8 @@ export interface ParsedCommand {
  * once for both drivers that branch on it — the compiler's `lowerCommand`
  * and the VM's `runCommand` (see the module header's policy table for each
  * driver's per-kind obligation). */
-export type CommandKind = "set" | "declare" | "call" | "setSaliency" | "stop" | "return" | "host";
+export type CommandKind =
+  "set" | "declare" | "call" | "setSaliency" | "stop" | "return" | "host";
 
 export function commandKind(name: string): CommandKind {
   switch (name.toLowerCase()) {
@@ -169,7 +173,9 @@ function evaluateStatementValue(
 ): { ok: true; value: unknown } | { ok: false } {
   const result = evaluator.tryEvaluateExpression(expression);
   if (!result.ok) {
-    logError(`Failed to evaluate expression "${expression}" in statement "${content}"`);
+    logError(
+      `Failed to evaluate expression "${expression}" in statement "${content}"`,
+    );
   }
   return result;
 }
@@ -190,7 +196,10 @@ function evaluateStatementValue(
  * Collect-don't-throw (coding standards §3): a failing statement is a
  * runtime diagnostic, not a crash.
  */
-export function executeStateStatement(host: StateStatementHost, content: string): void {
+export function executeStateStatement(
+  host: StateStatementHost,
+  content: string,
+): void {
   const { variables, evaluator, logError } = host;
   const setVariable = (name: string, value: unknown): void => {
     variables.set(name, value);
@@ -208,9 +217,18 @@ export function executeStateStatement(host: StateStatementHost, content: string)
         // The compound assignment applies the base operator through the
         // operand-semantics module — the same add/concat rule the VM's add
         // op applies (one statement, not a third copy).
-        const rhs = evaluateStatementValue(evaluator, expression, content, logError);
+        const rhs = evaluateStatementValue(
+          evaluator,
+          expression,
+          content,
+          logError,
+        );
         if (!rhs.ok) return;
-        const value = applyBinaryOp(compoundOperatorToStackOp(compoundOp), variables.get(key), rhs.value);
+        const value = applyBinaryOp(
+          compoundOperatorToStackOp(compoundOp),
+          variables.get(key),
+          rhs.value,
+        );
         setVariable(key, value);
         return;
       }
@@ -220,7 +238,12 @@ export function executeStateStatement(host: StateStatementHost, content: string)
       // expression logs a diagnostic and skips the write instead of
       // silently clobbering a prior value (docs/compatibility.md, the
       // fallback-execution divergence).
-      const result = evaluateStatementValue(evaluator, expression, content, logError);
+      const result = evaluateStatementValue(
+        evaluator,
+        expression,
+        content,
+        logError,
+      );
       if (!result.ok) return;
       const value = result.value;
       // A script-level set of a smart variable is a compile error (YS0030),
@@ -258,7 +281,12 @@ export function executeStateStatement(host: StateStatementHost, content: string)
       // out-of-band signal the set branch consumes — declares are
       // fallback-path initializers, and a failed initializer must not
       // write `undefined` over a host-seeded value either).
-      const declared = evaluateStatementValue(evaluator, expr, content, logError);
+      const declared = evaluateStatementValue(
+        evaluator,
+        expr,
+        content,
+        logError,
+      );
       if (!declared.ok) return;
       setVariable(key, declared.value);
     }

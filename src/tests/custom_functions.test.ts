@@ -19,9 +19,13 @@ function makeDialogue(
 
 const drain = runUntilCompleteEvents;
 
-const firstLine = (dialogue: Dialogue): Extract<DialogueEvent, { type: "line" }> => {
+const firstLine = (
+  dialogue: Dialogue,
+): Extract<DialogueEvent, { type: "line" }> => {
   const events = drain(dialogue);
-  const line = events.find((e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line");
+  const line = events.find(
+    (e): e is Extract<DialogueEvent, { type: "line" }> => e.type === "line",
+  );
   if (!line) throw new Error("Expected a line event");
   return line;
 };
@@ -45,10 +49,30 @@ Result: {$doubled}, {$concatenated}, {$power}, {$conditionalValue}
     startAt: "CustomFuncs",
     library: (() => {
       const lib = new Library();
-      lib.registerFunction("multiply", (a, b) => Number(a) * Number(b), { params: ["any", "any"], returns: "number" });
-      lib.registerFunction("concat", (a, b) => String(a) + String(b), { params: ["any", "any"], returns: "string" });
-      lib.registerFunction("pow", (base, exp) => Math.pow(Number(base), Number(exp)), { params: ["any", "any"], returns: "number" });
-      lib.registerFunction("ifThen", (cond, yes, no) => Boolean(cond) ? yes : no, { params: ["any", "any", "any"], returns: "string" });
+      lib.registerFunction("multiply", (a, b) => Number(a) * Number(b), {
+        params: ["any", "any"],
+        returns: "number",
+      });
+      lib.registerFunction("concat", (a, b) => String(a) + String(b), {
+        params: ["any", "any"],
+        returns: "string",
+      });
+      lib.registerFunction(
+        "pow",
+        (base, exp) => Math.pow(Number(base), Number(exp)),
+        {
+          params: ["any", "any"],
+          returns: "number",
+        },
+      );
+      lib.registerFunction(
+        "ifThen",
+        (cond, yes, no) => (Boolean(cond) ? yes : no),
+        {
+          params: ["any", "any", "any"],
+          returns: "string",
+        },
+      );
       return lib;
     })(),
   });
@@ -74,9 +98,22 @@ Result: {$numFromStr}, {$concatNums}, {$boolStr}
     startAt: "TypeCoercion",
     library: (() => {
       const lib = new Library();
-      lib.registerFunction("multiply", (a, b) => Number(a) * Number(b), { params: ["any", "any"], returns: "number" });
-      lib.registerFunction("concat", (a, b) => String(a) + String(b), { params: ["any", "any"], returns: "string" });
-      lib.registerFunction("ifThen", (cond, yes, no) => Boolean(cond) ? yes : no, { params: ["any", "any", "any"], returns: "string" });
+      lib.registerFunction("multiply", (a, b) => Number(a) * Number(b), {
+        params: ["any", "any"],
+        returns: "number",
+      });
+      lib.registerFunction("concat", (a, b) => String(a) + String(b), {
+        params: ["any", "any"],
+        returns: "string",
+      });
+      lib.registerFunction(
+        "ifThen",
+        (cond, yes, no) => (Boolean(cond) ? yes : no),
+        {
+          params: ["any", "any", "any"],
+          returns: "string",
+        },
+      );
       return lib;
     })(),
   });
@@ -98,11 +135,17 @@ Result: {$result}
     startAt: "ErrorHandling",
     library: (() => {
       const lib = new Library();
-      lib.registerFunction("safeDivide", (a, b) => {
-        const numerator = Number(a);
-        const denominator = Number(b);
-        return denominator === 0 ? "Cannot divide by zero" : numerator / denominator;
-      }, { params: ["any", "any"], returns: "string" });
+      lib.registerFunction(
+        "safeDivide",
+        (a, b) => {
+          const numerator = Number(a);
+          const denominator = Number(b);
+          return denominator === 0
+            ? "Cannot divide by zero"
+            : numerator / denominator;
+        },
+        { params: ["any", "any"], returns: "string" },
+      );
       return lib;
     })(),
   });
@@ -122,19 +165,31 @@ Result: {$formatted}
 ===
 `;
 
-  const dialogue = makeDialogue(yarnText, {
-    startAt: "MixedFunctions",
-    library: (() => {
-      const lib = new Library();
-      lib.registerFunction("multiply", (a, b) => Number(a) * Number(b), { params: ["any", "any"], returns: "number" });
-      lib.registerFunction("format_number", (n) => Number(n).toFixed(2), { params: ["any"], returns: "string" });
-      return lib;
-    })(),
-  }, {
-    // `random` is a runtime built-in; the type checker still needs its
-    // signature declared to type the <<declare>> initializer.
-    declarations: { functions: { random: { params: [], returns: "number" } } },
-  });
+  const dialogue = makeDialogue(
+    yarnText,
+    {
+      startAt: "MixedFunctions",
+      library: (() => {
+        const lib = new Library();
+        lib.registerFunction("multiply", (a, b) => Number(a) * Number(b), {
+          params: ["any", "any"],
+          returns: "number",
+        });
+        lib.registerFunction("format_number", (n) => Number(n).toFixed(2), {
+          params: ["any"],
+          returns: "string",
+        });
+        return lib;
+      })(),
+    },
+    {
+      // `random` is a runtime built-in; the type checker still needs its
+      // signature declared to type the <<declare>> initializer.
+      declarations: {
+        functions: { random: { params: [], returns: "number" } },
+      },
+    },
+  );
 
   const line = firstLine(dialogue);
   const fullText = composed(line);

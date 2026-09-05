@@ -23,7 +23,10 @@ import { Dialogue } from "../runtime/dialogue.js";
 
 function compile(source: string) {
   const { program, diagnostics } = compileSource(source);
-  assert.ok(program, `compilation failed: ${diagnostics.map((d) => `${d.code} ${d.message}`).join("; ")}`);
+  assert.ok(
+    program,
+    `compilation failed: ${diagnostics.map((d) => `${d.code} ${d.message}`).join("; ")}`,
+  );
   return program;
 }
 
@@ -93,7 +96,9 @@ test("port: TestNodeGroups — NodeExists and IsNodeGroup over a group and a pla
   // Upstream throws ArgumentException for an invalid node name; this port
   // logs a diagnostic and returns no options (recorded divergence).
   const errors: string[] = [];
-  const probing = new Dialogue(compile(GROUP_SOURCE), { logError: (m) => errors.push(m) });
+  const probing = new Dialogue(compile(GROUP_SOURCE), {
+    logError: (m) => errors.push(m),
+  });
   assert.equal(probing.getSaliencyOptionsForNodeGroup("DoesntExist").length, 0);
   assert.ok(errors.some((m) => m.includes("not a valid node name")));
 });
@@ -127,7 +132,9 @@ test("port: TestNodeGroupWithSparseSubtitles — members are jump-addressable by
   // the program should now contain nodes named
   // ["Start.Special", "Start.<UUID>", "Start.<a different UUID"]
   const program = compile(SPARSE_SOURCE);
-  const memberNames = Object.keys(program.nodes).filter((n) => n.startsWith("Start."));
+  const memberNames = Object.keys(program.nodes).filter((n) =>
+    n.startsWith("Start."),
+  );
   assert.equal(memberNames.length, 3);
 
   // Every unique member name is queryable through the Dialogue too.
@@ -164,7 +171,9 @@ test("nodeNames on a program with no nodes is empty (upstream: empty collection)
 
 test("getStringIDForNode returns the line:-prefixed ID for present nodes, null otherwise", () => {
   const errors: string[] = [];
-  const dialogue = new Dialogue(compile(GROUP_SOURCE), { logError: (m) => errors.push(m) });
+  const dialogue = new Dialogue(compile(GROUP_SOURCE), {
+    logError: (m) => errors.push(m),
+  });
 
   // A node's source text is only in the string table when its tags header
   // contains rawText — the method itself does not check (upstream remark).
@@ -176,11 +185,20 @@ test("getStringIDForNode returns the line:-prefixed ID for present nodes, null o
 test("getStringIDForNode on a program with no nodes logs and returns null", () => {
   const errors: string[] = [];
   const empty = new Dialogue(
-    { languageVersion: 2, enums: {}, nodes: {}, initialValues: {}, smartVariables: {} },
+    {
+      languageVersion: 2,
+      enums: {},
+      nodes: {},
+      initialValues: {},
+      smartVariables: {},
+    },
     { logError: (m) => errors.push(m) },
   );
   // Construction itself logs the default start node being absent (this
   // port enters the start node at construction; upstream does not auto-start).
   assert.equal(empty.getStringIDForNode("NotAGroup"), null);
-  assert.ok(errors.includes("No nodes are loaded!"), `expected the no-nodes diagnostic, got ${JSON.stringify(errors)}`);
+  assert.ok(
+    errors.includes("No nodes are loaded!"),
+    `expected the no-nodes diagnostic, got ${JSON.stringify(errors)}`,
+  );
 });

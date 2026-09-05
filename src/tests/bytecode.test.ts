@@ -147,7 +147,9 @@ title: Third
 <<stop>>
 ===
 `);
-  assert.deepEqual(streamOf(program, "Start"), [{ op: "runNode", node: "Next" }]);
+  assert.deepEqual(streamOf(program, "Start"), [
+    { op: "runNode", node: "Next" },
+  ]);
   assert.deepEqual(streamOf(program, "Side"), [{ op: "return" }]);
   assert.deepEqual(streamOf(program, "Third"), [{ op: "stop" }]);
 });
@@ -233,7 +235,9 @@ test("enum member access folds to the case's raw value at compile time", () => {
 ===
 `);
   assert.deepEqual(program.enums, { Color: { Red: 1, Green: 2 } });
-  assert.deepEqual(program.initialValues, { c: [{ op: "pushNumber", value: 1 }] });
+  assert.deepEqual(program.initialValues, {
+    c: [{ op: "pushNumber", value: 1 }],
+  });
   assert.deepEqual(streamOf(program, "Start"), [
     { op: "pushNumber", value: 2 }, // Color.Green folded to its raw value
     { op: "pushNumber", value: 2 },
@@ -289,7 +293,10 @@ Inside pick
       ins.op === "runLine" && ins.text === "Inside pick",
   );
   assert.ok(inside, "the once-block line lowers to a runLine");
-  assertNoLastline(inside, "no lastline tag for a line inside a preceding <<once>> block");
+  assertNoLastline(
+    inside,
+    "no lastline tag for a line inside a preceding <<once>> block",
+  );
 });
 
 test("option groups lower to addOption/showOptions with resolved destinations", () => {
@@ -340,15 +347,30 @@ test("nested option groups each get their own addOption/showOptions cycle", () =
     { op: "pushBool", value: true }, // 0: Outer's availability
     { op: "addOption", text: "Outer", tags: ["line:db1929bc"], destination: 6 }, // 1
     { op: "pushBool", value: true }, // 2: Outer2's availability
-    { op: "addOption", text: "Outer2", tags: ["line:eebc4a55"], destination: 18 }, // 3
+    {
+      op: "addOption",
+      text: "Outer2",
+      tags: ["line:eebc4a55"],
+      destination: 18,
+    }, // 3
     { op: "showOptions" }, // 4: delivers and clears the outer set
     { op: "jumpTo", index: 20 }, // 5
     // Outer's body: an inner option group (the inner showOptions delivers
     // and clears only the inner set).
     { op: "pushBool", value: true }, // 6: Inner's availability
-    { op: "addOption", text: "Inner", tags: ["line:4d292ecb"], destination: 12 }, // 7
+    {
+      op: "addOption",
+      text: "Inner",
+      tags: ["line:4d292ecb"],
+      destination: 12,
+    }, // 7
     { op: "pushBool", value: true }, // 8: Inner2's availability
-    { op: "addOption", text: "Inner2", tags: ["line:61482025"], destination: 14 }, // 9
+    {
+      op: "addOption",
+      text: "Inner2",
+      tags: ["line:61482025"],
+      destination: 14,
+    }, // 9
     { op: "showOptions" }, // 10: delivers and clears the inner set
     { op: "jumpTo", index: 16 }, // 11
     { op: "runLine", text: "Deep", tags: ["line:f7782752"] }, // 12: Inner's body
@@ -426,7 +448,12 @@ B
     nodes: [
       {
         title: "Start.4d292ecb",
-        headers: { title: "Start.4d292ecb", when: "always", scene: "Kitchen", tracking: "never" },
+        headers: {
+          title: "Start.4d292ecb",
+          when: "always",
+          scene: "Kitchen",
+          tracking: "never",
+        },
         sourceFile: "input",
         startLine: 1,
         instructions: [{ op: "runLine", text: "A", tags: ["line:db1929bc"] }],
@@ -539,7 +566,10 @@ function auditInstructions(instructions: Instruction[], where: string): void {
     const keys = Object.keys(ins).sort();
     const allowed = [...shape.required, ...shape.optional].sort();
     for (const key of shape.required) {
-      assert.ok(keys.includes(key), `${where}[${index}]: ${ins.op} is missing "${key}"`);
+      assert.ok(
+        keys.includes(key),
+        `${where}[${index}]: ${ins.op} is missing "${key}"`,
+      );
     }
     assert.ok(
       keys.every((k) => allowed.includes(k)),

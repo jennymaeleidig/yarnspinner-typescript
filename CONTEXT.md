@@ -107,7 +107,7 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 
 ## Retired terms
 
-Fork-era vocabulary, superseded by the parity API. Kept here so old docs and conversations stay decipherable. Removed *syntax* (option `[if]` suffixes, inline `{if}` blocks, `&css{}`, bare `<<set>>` variables) is documented with before/after examples in [docs/migration-notes.md](docs/migration-notes.md).
+Fork-era vocabulary, superseded by the parity API. Kept here so old docs and conversations stay decipherable. Removed _syntax_ (option `[if]` suffixes, inline `{if}` blocks, `&css{}`, bare `<<set>>` variables) is documented with before/after examples in [docs/migration-notes.md](docs/migration-notes.md).
 
 - **YarnRunner** → `Dialogue` (the runtime)
 - **`advance()`** → `continue()` / `selectOption()` / `setNode()` / `stop()`

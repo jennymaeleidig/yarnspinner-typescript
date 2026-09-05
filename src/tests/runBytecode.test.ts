@@ -11,14 +11,25 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { EXPRESSION_OPS, LITERAL_OPS, compileExpression } from "../compile/expressionCodegen.js";
-import { ForeignOpError, UnbalancedStackError, runBytecode } from "../runtime/bytecode.js";
+import {
+  EXPRESSION_OPS,
+  LITERAL_OPS,
+  compileExpression,
+} from "../compile/expressionCodegen.js";
+import {
+  ForeignOpError,
+  UnbalancedStackError,
+  runBytecode,
+} from "../runtime/bytecode.js";
 import { applyBinaryOp } from "../runtime/operands.js";
 import type { Instruction } from "../compile/program.js";
 
 /** A minimal driver: literal pushes and one binary op — enough to exercise
  * the runner's contract without standing up a VM. */
-function makeEnv(stack: unknown[]): { stack: unknown[]; executeOp(ins: Instruction): void } {
+function makeEnv(stack: unknown[]): {
+  stack: unknown[];
+  executeOp(ins: Instruction): void;
+} {
   return {
     stack,
     executeOp(ins: Instruction): void {
@@ -58,12 +69,24 @@ test("every op compileExpression emits is inside the runner's gate — the emitt
   // passes the gate (a codegen op missing from EXPRESSION_OPS fails here —
   // ForeignOpError at run time).
   const battery = [
-    "1 + 2", "5 - 3", "4 * 2", "6 / 2", "7 % 3", // arithmetic → add..modulo
+    "1 + 2",
+    "5 - 3",
+    "4 * 2",
+    "6 / 2",
+    "7 % 3", // arithmetic → add..modulo
     "-1", // unary minus folds to a literal (pushNumber)
     "$gold + 1", // pushVariable
-    "1 == 1", "1 != 2", "1 < 2", "1 <= 1", "2 > 1", "2 >= 2", // comparisons
-    "true && false", "true || false", "not false", // logical (xor: the VM supports the op but codegen has no xor source spelling — the recorded ADR 0005 gap)
-    "true", "\"text\"", // literal pushes
+    "1 == 1",
+    "1 != 2",
+    "1 < 2",
+    "1 <= 1",
+    "2 > 1",
+    "2 >= 2", // comparisons
+    "true && false",
+    "true || false",
+    "not false", // logical (xor: the VM supports the op but codegen has no xor source spelling — the recorded ADR 0005 gap)
+    "true",
+    '"text"', // literal pushes
   ];
   for (const expr of battery) {
     const code = compileExpression(expr);
@@ -86,7 +109,11 @@ test("compiled slices run end to end: arithmetic leaves one value", () => {
   const stack: unknown[] = ["saved-kept"];
   const value = runBytecode(code, makeEnv(stack));
   assert.equal(value, 3);
-  assert.deepEqual(stack, ["saved-kept"], "the caller's stack is restored after a successful run");
+  assert.deepEqual(
+    stack,
+    ["saved-kept"],
+    "the caller's stack is restored after a successful run",
+  );
 });
 
 // ── Failure modes ────────────────────────────────────────────────────────
@@ -94,21 +121,34 @@ test("compiled slices run end to end: arithmetic leaves one value", () => {
 test("a foreign op throws ForeignOpError naming the op", () => {
   const stack: unknown[] = ["saved-kept"];
   assert.throws(
-    () => runBytecode([ins("pushNumber", 1), ins("runLine" as Instruction["op"], "x")], makeEnv(stack)),
-    (e: unknown) => e instanceof ForeignOpError && e.message.includes("runLine"),
+    () =>
+      runBytecode(
+        [ins("pushNumber", 1), ins("runLine" as Instruction["op"], "x")],
+        makeEnv(stack),
+      ),
+    (e: unknown) =>
+      e instanceof ForeignOpError && e.message.includes("runLine"),
   );
-  assert.deepEqual(stack, ["saved-kept"], "the caller's stack is restored even on a foreign op");
+  assert.deepEqual(
+    stack,
+    ["saved-kept"],
+    "the caller's stack is restored even on a foreign op",
+  );
 });
 
 test("an unbalanced slice throws UnbalancedStackError and restores the stack", () => {
   const stack: unknown[] = ["saved-kept"];
   // Two values left over.
   assert.throws(
-    () => runBytecode([ins("pushNumber", 1), ins("pushNumber", 2)], makeEnv(stack)),
+    () =>
+      runBytecode([ins("pushNumber", 1), ins("pushNumber", 2)], makeEnv(stack)),
     (e: unknown) => e instanceof UnbalancedStackError,
   );
   // No value at all.
-  assert.throws(() => runBytecode([], makeEnv(stack)), (e: unknown) => e instanceof UnbalancedStackError);
+  assert.throws(
+    () => runBytecode([], makeEnv(stack)),
+    (e: unknown) => e instanceof UnbalancedStackError,
+  );
   assert.deepEqual(stack, ["saved-kept"]);
 });
 
@@ -117,7 +157,15 @@ test("a failing op propagates its error; the stack is restored in the finally", 
   // 1 * "not-a-number" — the operand-semantics module throws on the
   // non-numeric operand (add would string-concat; multiply is purely numeric).
   assert.throws(
-    () => runBytecode([ins("pushNumber", 1), ins("pushString", "not-a-number"), ins("multiply")], makeEnv(stack)),
+    () =>
+      runBytecode(
+        [
+          ins("pushNumber", 1),
+          ins("pushString", "not-a-number"),
+          ins("multiply"),
+        ],
+        makeEnv(stack),
+      ),
     /Cannot convert/,
   );
   assert.deepEqual(stack, ["saved-kept"]);

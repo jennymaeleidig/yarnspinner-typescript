@@ -268,14 +268,18 @@ function registerAllLines(stmts: Statement[], ctx: WalkContext): void {
  * when the line already carries one.
  */
 function flagLastLines(stmts: Statement[], flags: Set<LineBearing>): void {
-  walkStatements(stmts, {
-    onStatement: (s, at) => {
-      if (s.type === "OptionGroup" && at.index > 0) {
-        const prev = at.list[at.index - 1];
-        if (prev.type === "Line") flags.add(prev);
-      }
+  walkStatements(
+    stmts,
+    {
+      onStatement: (s, at) => {
+        if (s.type === "OptionGroup" && at.index > 0) {
+          const prev = at.list[at.index - 1];
+          if (prev.type === "Line") flags.add(prev);
+        }
+      },
     },
-  }, { includeOnce: false });
+    { includeOnce: false },
+  );
 }
 
 /**
@@ -301,14 +305,38 @@ function registerLine(line: LineBearing, ctx: WalkContext): void {
       // message carries no parameters, so identical diagnostics result.
       const pairs = lineIDTags.length * shadowIDTags.length;
       for (let i = 0; i < pairs; i++) {
-        ctx.emit(makeDiagnostic("YS0017", "Lines cannot have both a '#line' tag and a '#shadow' tag.", { file: ctx.fileName }));
-        ctx.emit(makeDiagnostic("YS0017", "Lines cannot have both a '#line' tag and a '#shadow' tag.", { file: ctx.fileName }));
+        ctx.emit(
+          makeDiagnostic(
+            "YS0017",
+            "Lines cannot have both a '#line' tag and a '#shadow' tag.",
+            {
+              file: ctx.fileName,
+            },
+          ),
+        );
+        ctx.emit(
+          makeDiagnostic(
+            "YS0017",
+            "Lines cannot have both a '#line' tag and a '#shadow' tag.",
+            {
+              file: ctx.fileName,
+            },
+          ),
+        );
       }
       return;
     }
     const offenders = lineIDTags.length > 1 ? lineIDTags : shadowIDTags;
     offenders.forEach(() => {
-      ctx.emit(makeDiagnostic("YS0062", "Dialogue has multiple '#line' or '#shadow' IDs.", { file: ctx.fileName }));
+      ctx.emit(
+        makeDiagnostic(
+          "YS0062",
+          "Dialogue has multiple '#line' or '#shadow' IDs.",
+          {
+            file: ctx.fileName,
+          },
+        ),
+      );
     });
     return;
   }
@@ -338,7 +366,9 @@ function registerLine(line: LineBearing, ctx: WalkContext): void {
     if (ctx.manager.hasLineID(explicitTag)) {
       const existing = ctx.manager.stringTable[explicitTag];
       ctx.emit(
-        makeDiagnostic("YS0018", `Duplicate line ID '${explicitTag}'`, { file: ctx.fileName }),
+        makeDiagnostic("YS0018", `Duplicate line ID '${explicitTag}'`, {
+          file: ctx.fileName,
+        }),
       );
       ctx.emit(
         makeDiagnostic("YS0018", `Duplicate line ID '${explicitTag}'`, {
@@ -347,15 +377,27 @@ function registerLine(line: LineBearing, ctx: WalkContext): void {
       );
       return;
     }
-    ctx.manager.registerString({ ...entry, existingLineID: explicitTag, metadata, shadowID: null });
+    ctx.manager.registerString({
+      ...entry,
+      existingLineID: explicitTag,
+      metadata,
+      shadowID: null,
+    });
     return;
   }
 
   // Upstream resolves `#shadow:<id>` with the `line:` prefix prepended —
   // authors write the target without it.
-  const shadowLineID = shadowTag !== undefined ? `line:${shadowTag.slice("shadow:".length)}` : null;
+  const shadowLineID =
+    shadowTag !== undefined
+      ? `line:${shadowTag.slice("shadow:".length)}`
+      : null;
 
-  const lineID = ctx.manager.registerString({ ...entry, metadata, shadowID: shadowLineID });
+  const lineID = ctx.manager.registerString({
+    ...entry,
+    metadata,
+    shadowID: shadowLineID,
+  });
   // Write the implicit ID back so the compiler's lowering reuses it —
   // shadow lines too: the program carries the shadow's own ID.
   tags.push(lineID);
@@ -371,13 +413,24 @@ function registerLine(line: LineBearing, ctx: WalkContext): void {
  * the content from the source line. Diagnostics attribute to the shadow
  * line's file (upstream reads the file from the shadow's own entry).
  */
-function validateShadowLines(manager: StringTableManager, emit: (d: Diagnostic) => void): void {
+function validateShadowLines(
+  manager: StringTableManager,
+  emit: (d: Diagnostic) => void,
+): void {
   for (const info of Object.values(manager.stringTable)) {
     if (info.shadowLineID === null) continue;
 
     const source = manager.stringTable[info.shadowLineID];
     if (!source) {
-      emit(makeDiagnostic("YS0042", `Unknown line ID ${info.shadowLineID} for shadow line`, { file: info.fileName }));
+      emit(
+        makeDiagnostic(
+          "YS0042",
+          `Unknown line ID ${info.shadowLineID} for shadow line`,
+          {
+            file: info.fileName,
+          },
+        ),
+      );
       continue;
     }
     if (source.text === null) {
@@ -397,12 +450,25 @@ function validateShadowLines(manager: StringTableManager, emit: (d: Diagnostic) 
     // Upstream checks the source line's PARSED expressions — not the
     // composed text — so the placeholder form (`{0}`) must not read as one:
     // the check reads the authored text recorded at registration.
-    const sourceAuthored = manager.authoredText(info.shadowLineID) ?? source.text ?? "";
+    const sourceAuthored =
+      manager.authoredText(info.shadowLineID) ?? source.text ?? "";
     if (hasInlineExpression(sourceAuthored)) {
-      emit(makeDiagnostic("YS0043", "Shadow lines must not have expressions", { file: info.fileName }));
+      emit(
+        makeDiagnostic("YS0043", "Shadow lines must not have expressions", {
+          file: info.fileName,
+        }),
+      );
     }
     if (source.text !== info.text) {
-      emit(makeDiagnostic("YS0044", "Shadow lines must have the same text as their source", { file: info.fileName }));
+      emit(
+        makeDiagnostic(
+          "YS0044",
+          "Shadow lines must have the same text as their source",
+          {
+            file: info.fileName,
+          },
+        ),
+      );
     }
     info.text = null;
   }

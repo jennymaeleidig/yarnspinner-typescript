@@ -11,7 +11,10 @@ Narrator: Later {$reputation}
 
 const ast = parseYarn(script);
 const program = compile(ast);
-const runner = new YarnRunner(program, { startAt: "Start", variables: { reputation: 100 } });
+const runner = new YarnRunner(program, {
+  startAt: "Start",
+  variables: { reputation: 100 },
+});
 
 const outputs = [];
 for (let i = 0; i < 10; i++) {

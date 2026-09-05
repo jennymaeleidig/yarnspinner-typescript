@@ -14,7 +14,7 @@ Create a YAML file with the following structure:
 scenes:
   scene1: https://example.com/background1.jpg
   scene2: https://example.com/background2.jpg
-  
+
 actors:
   user: https://example.com/user.png
   Narrator: https://example.com/narrator.png
@@ -73,12 +73,14 @@ actors:
 Actors can be defined in two ways:
 
 **Shorthand** (direct URL):
+
 ```yaml
 actors:
   user: https://example.com/user.png
 ```
 
 **Full format** (object):
+
 ```yaml
 actors:
   user:
@@ -140,7 +142,7 @@ scenes:
     actors:
       guide:
         image: /assets/actors/guide.png
-  
+
 actors:
   user: /assets/actors/user.png
   Narrator: /assets/actors/narrator.png
@@ -148,6 +150,7 @@ actors:
 ```
 
 In this example:
+
 - `intro` scene uses the intro background and all global actors (user, Narrator, merchant)
 - `forest` scene uses the forest background, includes all global actors, plus a scene-specific `guide` actor
 
@@ -192,4 +195,3 @@ example of styling a plain-text UI; write your own to match your game.
 3. **Background persistence**: Scenes persist until changed, so you don't need to repeat `scene:` in every node
 4. **Case sensitivity**: if you follow the suggested matching convention, actor names match case-insensitively; treat scene names as case-sensitive
 5. **Image loading**: Use optimized images (WebP or compressed PNG/JPG) for better performance
-

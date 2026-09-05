@@ -31,7 +31,10 @@ const DEFINITIONS_DIR = path.resolve(
   "../../test/fixtures/upstream/YarnSpinner/YarnSpinner.Diagnostics/Definitions",
 );
 
-function compile(source: string, opts?: { file?: string; strict?: boolean }): Diagnostic[] {
+function compile(
+  source: string,
+  opts?: { file?: string; strict?: boolean },
+): Diagnostic[] {
   return compileSource(source, opts).diagnostics;
 }
 
@@ -61,7 +64,12 @@ test("YS0004 MissingDelimiter ranges are 0-based half-open over the offending to
 Body
 `);
   assert.deepEqual(codesOf(diagnostics), ["YS0004"]);
-  assert.deepEqual(diagnostics[0].range, { startLine: 1, startCol: 0, endLine: 1, endCol: 3 });
+  assert.deepEqual(diagnostics[0].range, {
+    startLine: 1,
+    startCol: 0,
+    endLine: 1,
+    endCol: 3,
+  });
 });
 
 test("strict mode throws on the first error diagnostic", () => {
@@ -133,7 +141,11 @@ Two
   // headers at all is a plain duplicate-title duplication — one YS0011 per
   // member, and no YS0031 (that code is reserved for mixed groups).
   const dupes = diagnostics.filter((d) => d.code === "YS0011");
-  assert.equal(dupes.length, 2, `one YS0011 per member: ${codesOf(diagnostics)}`);
+  assert.equal(
+    dupes.length,
+    2,
+    `one YS0011 per member: ${codesOf(diagnostics)}`,
+  );
   assert.ok(
     !diagnostics.some((d) => d.code === "YS0031"),
     `memberless duplicates report no YS0031: ${codesOf(diagnostics)}`,
@@ -343,10 +355,17 @@ title: StartTrue
   // advisory; the set is not filtered).
   const result = compileSource(source);
   const dialogue = new Dialogue(result.program!, { startAt: "StartFalse" });
-  const options = runUntilCompleteEvents(dialogue).find((e): e is Extract<DialogueEvent, { type: "options" }> => e.type === "options");
+  const options = runUntilCompleteEvents(dialogue).find(
+    (e): e is Extract<DialogueEvent, { type: "options" }> =>
+      e.type === "options",
+  );
   if (!options) throw new Error("Failed to reach options");
   assert.equal(options.options.length, 2, "the full set is delivered");
-  assert.equal(options.options[0].isAvailable, false, "Hidden option is delivered as unavailable");
+  assert.equal(
+    options.options[0].isAvailable,
+    false,
+    "Hidden option is delivered as unavailable",
+  );
   assert.equal(options.options[1].text, "Visible");
   assert.equal(options.options[1].isAvailable, true);
 });
@@ -375,10 +394,19 @@ test("an option with two different <<if>> conditions is a diagnostic", () => {
 
 test("every emitted code exists in the upstream 3.2.2 definitions registry", () => {
   const registry = new Set(
-    fs.readdirSync(DEFINITIONS_DIR).map((f) => f.match(/^(YS\d+)-/)?.[1]).filter(Boolean),
+    fs
+      .readdirSync(DEFINITIONS_DIR)
+      .map((f) => f.match(/^(YS\d+)-/)?.[1])
+      .filter(Boolean),
   );
-  assert.ok(registry.size > 40, `expected the full registry, got ${registry.size}`);
+  assert.ok(
+    registry.size > 40,
+    `expected the full registry, got ${registry.size}`,
+  );
   for (const code of Object.keys(DIAGNOSTIC_REGISTRY)) {
-    assert.ok(registry.has(code), `code ${code} has no upstream definition file`);
+    assert.ok(
+      registry.has(code),
+      `code ${code} has no upstream definition file`,
+    );
   }
 });

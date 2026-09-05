@@ -134,7 +134,7 @@ Parity here means the observable contract upstream's own test suite pins:
     `TextReplacement`/`applyReplacements` and the `UpgradeJob`/
     `UpgradeResult` shapes (`src/compile/upgrader.ts`) — and
     `languageUpgrader.upgrade` throws `Upgrade type {type} is not
-    supported.` for every upgrade type, exactly as upstream does. Legacy
+supported.` for every upgrade type, exactly as upstream does. Legacy
     v1/v2 content is not auto-migrated, matching upstream.
 
 ## Program format: version 2 (upstream 3.2.2 parity)

@@ -3,12 +3,14 @@
 Source: [docs.yarnspinner.dev — Options](https://docs.yarnspinner.dev/write-yarn-scripts/scripting-fundamentals/options)
 
 ### What it covers
+
 - **Options**: player choices written as lines prefixed with `->`.
 - **Grouping**: options that appear consecutively (uninterrupted by non-indented lines) are delivered together.
 - **Indented content**: lines under an option run only when that option is selected.
 - **Nested options**: options can nest under options.
 
 ### Basic options
+
 ```yarn
 title: Start
 ---
@@ -19,6 +21,7 @@ Navigator: We're arriving before we left.
 ```
 
 ### Options with lines
+
 ```yarn
 title: Start
 ---
@@ -30,6 +33,7 @@ title: Start
 ```
 
 ### Nested options
+
 ```yarn
 title: Start
 ---
@@ -41,5 +45,3 @@ title: Start
         Navigator: Standing by.
 ===
 ```
-
-
