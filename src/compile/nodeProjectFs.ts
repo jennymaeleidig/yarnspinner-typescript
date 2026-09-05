@@ -6,7 +6,7 @@
  * This module is the ONLY place the loader's I/O touches Node `fs` — the
  * loader core (`yarnProject.ts`) never imports it (coding standard §2). It
  * is exported from the `./node` subpath rather than the main entry so
- * browser bundlers pulling in `yarn-spinner-runner-ts` never see `node:fs`.
+ * browser bundlers pulling in `yarnspinner-typescript` never see `node:fs`.
  */
 
 import { readdirSync, readFileSync, statSync } from "node:fs";

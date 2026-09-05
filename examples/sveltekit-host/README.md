@@ -43,7 +43,7 @@ and the server load resolves the content directory relative to it
 - **Prerendering** (`+layout.js` + adapter-static): the page is prerendered,
   so the loader call and the first pull's server-rendered dialogue output
   run at build time and ship baked into the static HTML.
-- **Resolution**: the app imports `yarn-spinner-runner-ts` by package name;
+- **Resolution**: the app imports `yarnspinner-typescript` by package name;
   Node and Vite resolve it through the root package.json's `exports`
   self-reference, to the built `dist/`. Build the library first
   (`sveltekit:build` does).

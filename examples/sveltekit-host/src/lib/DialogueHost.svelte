@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Dialogue, noOptionSelected, runUntilStopped } from "yarn-spinner-runner-ts";
-	import type { Diagnostic, Program, Transcript } from "yarn-spinner-runner-ts";
+	import { Dialogue, noOptionSelected, runUntilStopped } from "yarnspinner-typescript";
+	import type { Diagnostic, Program, Transcript } from "yarnspinner-typescript";
 
 	/**
 	 * The SvelteKit host's dialogue component: `Dialogue`'s pull-based continue loop runs natively in Svelte —

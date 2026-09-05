@@ -7,7 +7,7 @@ import { deepStrictEqual, ok, strictEqual } from "node:assert";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Dialogue, type DialogueEvent } from "yarn-spinner-runner-ts";
+import { Dialogue, type DialogueEvent } from "yarnspinner-typescript";
 import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
 import {
   callHook,

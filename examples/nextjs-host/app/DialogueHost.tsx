@@ -7,8 +7,8 @@ import {
   EMPTY_TRANSCRIPT,
   noOptionSelected,
   runUntilStopped,
-} from "yarn-spinner-runner-ts";
-import type { Diagnostic, Program, Transcript } from "yarn-spinner-runner-ts";
+} from "yarnspinner-typescript";
+import type { Diagnostic, Program, Transcript } from "yarnspinner-typescript";
 
 /**
  * The Next.js host's client component — the vanilla runtime in plain React

@@ -1,12 +1,24 @@
-# This file records external code incorporated into this project.
+# This file records external code and design influences for this project.
 # New, original code is CC0-1.0 and is not listed here.
 cff-version: 1.2.0
 message: >-
-  External sources incorporated into yarn-spinner-runner-ts. Language and
-  behavior parity target: Yarn Spinner 3.2.x (algorithms and diagnostics
+  External sources and design influences for yarnspinner-typescript. Language
+  and behavior parity target: Yarn Spinner 3.2.x (algorithms and diagnostics
   mirrored; TypeScript reimplementation unless noted as a code borrow).
-title: yarn-spinner-runner-ts external sources
+title: yarnspinner-typescript external sources and influences
 references:
+  - type: software
+    title: yarn-spinner-runner-ts (inspiration)
+    authors:
+      - name: Oleksii Chekhovskyi
+    urls:
+      - https://github.com/oleksii-chekhovskyi/yarn-spinner-runner-ts
+    notes: >-
+      Prior TypeScript runner for Yarn Spinner that inspired this project.
+      Not a fork and not code-incorporated: yarnspinner-typescript is an
+      independent implementation, but this project's starting point, README
+      structure, and feature set derive from studying that codebase.
+      Accessed 2026-09-02.
   - type: software
     title: YarnSpinner
     authors:
@@ -28,7 +40,7 @@ references:
       (Utility.TagLines) and the LineTaggers/ generators (ILineTagGenerator,
       RandomLineTagGenerator, DescriptiveLineTagGenerator) at v3.2.2 —
       including the Descriptive insertion/generation algorithm and message
-      texts (the fork keeps the preceeding-dialogue typo verbatim).
+      texts (this project keeps the preceeding-dialogue typo verbatim).
       src/markup/lineParser.ts and src/markup/builtInReplacer.ts adapt
       YarnSpinner/YarnSpinner.Markup/LineParser.cs at v3.2.2 (markup
       parity edges, 2026-09-04: duplicate-property throw per
@@ -82,7 +94,7 @@ references:
       Design and API-shape reference for the runtime (not a code borrow).
       ADR 0002 adopts the Rust port's pull API — `continue()` returning the
       events up to the next stopping point — as the third shape between
-      upstream .NET's push handlers and this fork's earlier
+      upstream .NET's push handlers and this project's earlier
       mutate-and-read runner; line hints ship as the Rust treatment of
       upstream's PrepareForLines (accept_line_hints → opt-in LineHintsEvent).
       src/runtime/textProvider.ts mirrors the Rust TextProvider trait's

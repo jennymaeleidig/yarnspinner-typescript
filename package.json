@@ -1,8 +1,8 @@
 {
-  "name": "yarn-spinner-runner-ts",
+  "name": "yarnspinner-typescript",
   "version": "0.2.0",
   "private": false,
-  "description": "TypeScript parser, compiler, and runtime for Yarn Spinner 3.x [NPM package](https://www.npmjs.com/package/yarn-spinner-runner-ts)",
+  "description": "TypeScript parser, compiler, and runtime for Yarn Spinner 3.x [NPM package](https://www.npmjs.com/package/yarnspinner-typescript)",
   "license": "CC0-1.0",
   "type": "module",
   "workspaces": [

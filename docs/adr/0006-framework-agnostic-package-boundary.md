@@ -9,7 +9,7 @@ The root package shipped React imports on its main surface, forcing non-React co
 
 ## Consequences
 
-The companion plugin declares `yarn-spinner-runner-ts` and `vite` as peerDependencies, not workspace/file dependencies: npm rejects `workspace:*` ranges, cannot link a workspace package to the root by name, and packs a `file:` dependency verbatim (the tarball would ship an uninstallable `file:../..`). All root-package exports carry dual ESM/CJS conditions (`build:cjs` + `scripts/postprocess-cjs.mjs`), so CJS consumers get the same surface; the companion plugin is ESM-only by design (Vite's Node API is ESM).
+The companion plugin declares `yarnspinner-typescript` and `vite` as peerDependencies, not workspace/file dependencies: npm rejects `workspace:*` ranges, cannot link a workspace package to the root by name, and packs a `file:` dependency verbatim (the tarball would ship an uninstallable `file:../..`). All root-package exports carry dual ESM/CJS conditions (`build:cjs` + `scripts/postprocess-cjs.mjs`), so CJS consumers get the same surface; the companion plugin is ESM-only by design (Vite's Node API is ESM).
 
 ## Amendment (2026-09-04): the React adapter is removed
 

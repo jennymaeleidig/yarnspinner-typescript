@@ -4,8 +4,8 @@
 // setSaliencyStrategy, setNode, runUntilComplete, getVariables,
 // hasSalientContent. The storage-backed view-count history lives and dies
 // with the Dialogue instance (Reset proves it). Vanilla, plain text.
-import { Dialogue, runUntilComplete } from "yarn-spinner-runner-ts";
-import type { Transcript } from "yarn-spinner-runner-ts";
+import { Dialogue, runUntilComplete } from "yarnspinner-typescript";
+import type { Transcript } from "yarnspinner-typescript";
 import storyletsProgram from "../content/storylets.yarn";
 import { el } from "./dom.js";
 

@@ -3,7 +3,7 @@
 // arrive as {handler} wrappers or bare functions, every hook call carries a
 // plugin context, and emitted ESM is evaluated via a data-URL import.
 import { ok } from "node:assert";
-import type { DialogueEvent } from "yarn-spinner-runner-ts";
+import type { DialogueEvent } from "yarnspinner-typescript";
 
 /** Vite wraps hooks as {handler} | fn; call them the way Vite would. */
 export const callHook = (

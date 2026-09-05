@@ -1,4 +1,4 @@
-# yarn-spinner-runner-ts
+# yarnspinner-typescript
 
 TypeScript parser, compiler, and runtime for Yarn Spinner 3.x, in language-and-behavior parity with upstream Yarn Spinner 3.2.x. Framework-agnostic: no UI layer ships — hosts own their UI against `Dialogue`/`Transcript` directly (ADR 0006, amended); `.yarn`/`.yarnproject` content imports as build-time modules via the companion `yarn-spinner-vite-plugin` package.
 

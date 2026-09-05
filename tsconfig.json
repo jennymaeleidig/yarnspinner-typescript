@@ -12,7 +12,7 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "paths": {
-      "yarn-spinner-runner-ts": ["./src/index.ts"]
+      "yarnspinner-typescript": ["./src/index.ts"]
     },
     "sourceMap": true,
     "lib": ["ES2021", "DOM"]

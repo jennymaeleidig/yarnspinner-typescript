@@ -1,6 +1,6 @@
 {
     "projectFileVersion": 4,
-    "projectName": "yarn-spinner-runner-ts",
+    "projectName": "yarnspinner-typescript",
     "sourceFiles": [
         "examples/yarn/**/*.yarn"
     ],

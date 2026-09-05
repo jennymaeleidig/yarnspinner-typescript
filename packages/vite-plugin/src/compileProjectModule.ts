@@ -14,8 +14,8 @@
 // plugin layers no pass of its own.
 
 import { dirname } from "node:path";
-import { loadYarnProject, nodeProjectFs } from "yarn-spinner-runner-ts/node";
-import { loadLocalisations } from "yarn-spinner-runner-ts";
+import { loadYarnProject, nodeProjectFs } from "yarnspinner-typescript/node";
+import { loadLocalisations } from "yarnspinner-typescript";
 import {
   partitionDiagnostics,
   type CompileYarnOptions,

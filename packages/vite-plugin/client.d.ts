@@ -8,7 +8,7 @@
 //   /// <reference types="yarn-spinner-vite-plugin/client" />
 //
 // This file doubles as the zero-dependency paste-in snippet: it references
-// only yarn-spinner-runner-ts types (which the host has installed), never
+// only yarnspinner-typescript types (which the host has installed), never
 // this package — so it can be pasted verbatim into a project's ambient
 // types file instead. It stays a declaration script (no top-level
 // import/export) so the paste-in cannot change the host file's module-ness,
@@ -22,7 +22,7 @@
  * a project as its compilation context (see the `*.yarn` note below).
  */
 interface YarnProjectLoadResult {
-  program: import("yarn-spinner-runner-ts").Program | null;
+  program: import("yarnspinner-typescript").Program | null;
   projectName?: string;
   baseLanguage: string;
   /** The base language's id → text table (the string table, shadow lines excluded). */
@@ -32,7 +32,7 @@ interface YarnProjectLoadResult {
   /** The configured assets directory per declared locale, verbatim. */
   assets: Record<string, string>;
   /** Diagnostics from reading the strings files (YP0006 warnings). */
-  diagnostics: import("yarn-spinner-runner-ts").Diagnostic[];
+  diagnostics: import("yarnspinner-typescript").Diagnostic[];
 }
 
 declare module "*.yarn" {
@@ -44,10 +44,10 @@ declare module "*.yarn" {
   // plugin option, so the pinned deviation is stated here rather than unioned
   // into the common case: a pinned host types its import as
   // YarnProjectLoadResult (in scope once this file is referenced).
-  const program: import("yarn-spinner-runner-ts").Program;
+  const program: import("yarnspinner-typescript").Program;
   export default program;
   /** The compiled string table: line id → text/node/line info. */
-  export const stringTable: import("yarn-spinner-runner-ts").StringTable;
+  export const stringTable: import("yarnspinner-typescript").StringTable;
   /** Whether the compiler created line IDs for lines lacking #line: tags. */
   export const containsImplicitStringTags: boolean;
   /** Per-file file-level hashtags (the .yarn file's own tags). */

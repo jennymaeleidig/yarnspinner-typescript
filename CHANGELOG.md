@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Renamed the project from `yarn-spinner-runner-ts` to `yarnspinner-typescript`.
+  The package is no longer positioned as a fork of
+  [oleksii-chekhovskyi/yarn-spinner-runner-ts](https://github.com/oleksii-chekhovskyi/yarn-spinner-runner-ts)
+  — the original is now cited as inspiration in [`CITATION.cff`](./CITATION.cff).
+  All import specifiers (`"yarnspinner-typescript"`, `"yarnspinner-typescript/node"`)
+  and the repo-root `yarnspinner-typescript.yarnproject` carry the new name.
+
 ## 0.2.0 — Yarn Spinner 3.2 parity
 
 The 3.2 parity release: full language + behavior parity with **Yarn Spinner

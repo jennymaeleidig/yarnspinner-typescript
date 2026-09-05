@@ -10,7 +10,7 @@ import type {
   ExternalDeclarations,
   FunctionSignature,
   DeclaredValueType,
-} from "yarn-spinner-runner-ts";
+} from "yarnspinner-typescript";
 
 /** The .ysls.json shape this converter consumes (upstream schema v1). */
 interface YslsParameter {

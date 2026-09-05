@@ -1,9 +1,11 @@
-# yarn-spinner-runner-ts
+# yarnspinner-typescript
 
 TypeScript parser, compiler, and runtime for Yarn Spinner 3.x. Framework-agnostic: hosts own their UI against `Dialogue`/`Transcript` directly.
 
-- [Github repository](https://github.com/oleksii-chekhovskyi/yarn-spinner-runner-ts) for more information.
-- [NPM package](https://www.npmjs.com/package/yarn-spinner-runner-ts)
+- [Github repository](https://github.com/jennymaeleidig/yarnspinner-typescript) for more information.
+- [NPM package](https://www.npmjs.com/package/yarnspinner-typescript)
+
+Inspired by [yarn-spinner-runner-ts](https://github.com/oleksii-chekhovskyi/yarn-spinner-runner-ts) by Oleksii Chekhovskyi — this is an independent implementation, not a fork (see [`CITATION.cff`](./CITATION.cff)).
 
 ## References
 
@@ -53,7 +55,7 @@ npm run build
 ### Basic Usage
 
 ```typescript
-import { compileSource, Dialogue, Library } from "yarn-spinner-runner-ts";
+import { compileSource, Dialogue, Library } from "yarnspinner-typescript";
 
 const yarnText = `
 title: Start
@@ -196,7 +198,7 @@ with `svelte/compiler` and renders it with `svelte/server`.
 
 ### Editing the Yarn scripts
 
-The repo root contains `yarn-spinner-runner-ts.yarnproject`, so the
+The repo root contains `yarnspinner-typescript.yarnproject`, so the
 [Yarn Spinner extension for VS Code](https://marketplace.visualstudio.com/items?itemName=SecretLab.yarn-spinner)
 (the committed `.vscode/extensions.json` recommends it) treats the workspace as
 a Yarn project: syntax highlighting, node navigation, and error checking are
@@ -226,7 +228,7 @@ Loads upstream-style `.yarnproject` files (format v4, legacy v2 accepted; schema
 - `parseYarnProject(project, projectFile?)` — Pure project-file validation (types + schema conformance)
 - `loadLocalisations({ project, stringTable }, fileSystem)` — Resolve the project's `localisation` map: each declared locale's strings CSV becomes a per-locale id → text table, the compile result's string table becomes the base table (shadow lines excluded), and `assets` directories surface as configured language → path entries for the host (never loaded). Unreadable strings files warn (YP0006) and drop that locale's table
 - `createProjectTextProvider(localisation)` — Glue the localisation tables into a `StringTableTextProvider` for `Dialogue`'s `textProvider` option; switch locales with `Dialogue.setLanguage`
-- Node hosts: `import { loadYarnProject, nodeProjectFs } from "yarn-spinner-runner-ts/node"` — `loadYarnProject("path/to/MyProject.yarnproject")` loads and compiles from disk in one call; `nodeProjectFs(dir)` is the default `YarnProjectFileSystem` (skips `node_modules`/`.git`)
+- Node hosts: `import { loadYarnProject, nodeProjectFs } from "yarnspinner-typescript/node"` — `loadYarnProject("path/to/MyProject.yarnproject")` loads and compiles from disk in one call; `nodeProjectFs(dir)` is the default `YarnProjectFileSystem` (skips `node_modules`/`.git`)
 - Frontend bundles: `import story from "./story.yarn"` — the companion [yarn-spinner-vite-plugin](https://www.npmjs.com/package/yarn-spinner-vite-plugin) compiles `.yarn`/`.yarnproject` files at build time; all import shapes, options, editor types, and the webpack-loader/SSR guidance are in [docs/direct-import.md](./docs/direct-import.md)
 
 ### Runtime
@@ -370,7 +372,7 @@ See [Scene and Actor Setup Guide](./docs/scenes-actors-setup.md) for complete do
 ## Project Structure
 
 ```
-yarn-spinner-runner-ts/
+yarnspinner-typescript/
 ├── src/
 │   ├── model/          # AST types
 │   ├── parse/          # Lexer and parser

@@ -10,12 +10,12 @@
 // Severity "none" means present but user-hidden (upstream DiagnosticSeverity
 // .None): it reaches neither bucket, so it produces no build signal.
 
-import { compileSource } from "yarn-spinner-runner-ts";
+import { compileSource } from "yarnspinner-typescript";
 import type {
   Diagnostic,
   DiagnosticSeverity,
   ExternalDeclarations,
-} from "yarn-spinner-runner-ts";
+} from "yarnspinner-typescript";
 
 export interface CompileYarnOptions {
   /**

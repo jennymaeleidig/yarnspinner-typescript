@@ -18,7 +18,7 @@
 // Source: https://github.com/YarnSpinnerTool/YarnSpinner — YarnSpinner.Compiler/Utility.cs
 //         (Utility.GenerateYarnFileWithDeclarations)
 // Accessed: 2026-09-04
-// Modified by yarn-spinner-runner-ts on 2026-09-04 — ported to TypeScript over
+// Modified by yarnspinner-typescript on 2026-09-04 — ported to TypeScript over
 // this project's `VariableDeclaration` shape (bare variable names; upstream
 // `Declaration.Name` carries the `$` sigil, so the generator adds it).
 

@@ -14,13 +14,13 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Dialogue } from "yarn-spinner-runner-ts";
+import { Dialogue } from "yarnspinner-typescript";
 import {
   compileSource,
   createProjectTextProvider,
   createCSV,
   stringTableToEntries,
-} from "yarn-spinner-runner-ts";
+} from "yarnspinner-typescript";
 import { yarnSpinnerVitePlugin } from "yarn-spinner-vite-plugin";
 import { callHook, firstLine, importEmitted } from "./pluginHarness.js";
 

@@ -44,7 +44,7 @@ The scene collection is host input — plain data you parse, validate, and key
 your presentation on:
 
 ```ts
-import type { SceneCollection } from "yarn-spinner-runner-ts";
+import type { SceneCollection } from "yarnspinner-typescript";
 
 const scenes: SceneCollection = {
   scenes: {

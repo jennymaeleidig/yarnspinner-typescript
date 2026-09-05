@@ -32,7 +32,7 @@ relative to `process.cwd()`.
   `noOptionSelected` fall-through); Reset demonstrates variable-storage
   reset — a fresh `Dialogue` is a fresh storage, so `<<declare>>` seeds
   reapply and the story replays from the top (coding standard §4).
-- **Resolution**: the app imports `yarn-spinner-runner-ts` by package name;
+- **Resolution**: the app imports `yarnspinner-typescript` by package name;
   Node and the Next bundler resolve it through the root package.json's
   `exports` self-reference, to the built `dist/`. Build the library first
   (`host:build` does).

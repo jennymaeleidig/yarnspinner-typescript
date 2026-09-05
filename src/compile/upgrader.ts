@@ -27,7 +27,7 @@
 //         (LanguageUpgrader.Upgrade, LanguageUpgrader.ApplyReplacements,
 //         UpgradeJob, UpgradeResult, OutputFile, TextReplacement)
 // Accessed: 2026-09-05
-// Modified by yarn-spinner-runner-ts on 2026-09-05 — ported to TypeScript
+// Modified by yarnspinner-typescript on 2026-09-05 — ported to TypeScript
 // (camelCase surface; ArgumentOutOfRangeException → RangeError; the
 // LINQ-based ordering becomes stable sorts with the same keys).
 

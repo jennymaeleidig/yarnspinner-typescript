@@ -7,8 +7,8 @@ import {
   Dialogue,
   EMPTY_TRANSCRIPT,
   runUntilStopped,
-} from "yarn-spinner-runner-ts";
-import type { StoppingPoint, Transcript } from "yarn-spinner-runner-ts";
+} from "yarnspinner-typescript";
+import type { StoppingPoint, Transcript } from "yarnspinner-typescript";
 import wayside from "../content/project.yarnproject";
 import { el } from "./dom.js";
 

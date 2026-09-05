@@ -1,4 +1,4 @@
-# yarn-spinner-runner-ts
+# yarnspinner-typescript
 
 TypeScript parser, compiler, and runtime for Yarn Spinner 3.x. Framework-agnostic: hosts own their UI against `Dialogue`/`Transcript` directly.
 

@@ -1,6 +1,6 @@
 # Browser Demo
 
-Interactive browser demos of yarn-spinner-runner-ts, built with Vite. The demo
+Interactive browser demos of yarnspinner-typescript, built with Vite. The demo
 is the acceptance harness for the package's public surface: if it builds and
 runs against the published API (dist/, the package root) through the plugin,
 the consumption story works.

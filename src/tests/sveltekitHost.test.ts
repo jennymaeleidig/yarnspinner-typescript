@@ -191,7 +191,7 @@ test("the host's sources keep Node access in +page.server.ts and React out of th
     // file must reach neither the loader's Node provider nor node builtins.
     if (!rel.endsWith(".server.ts")) {
       assert.ok(
-        !text.includes("yarn-spinner-runner-ts/node"),
+        !text.includes("yarnspinner-typescript/node"),
         `${rel} must not import the Node-only ./node subpath`,
       );
       assert.ok(
@@ -204,7 +204,7 @@ test("the host's sources keep Node access in +page.server.ts and React out of th
   // The client code's only package import is the browser-safe main entry
   // (coding standard §2): the built artifact carries no node: builtins.
   const component = readFileSync(HOST_COMPONENT, "utf8");
-  assert.match(component, /from "yarn-spinner-runner-ts";/);
+  assert.match(component, /from "yarnspinner-typescript";/);
   const index = readFileSync(DIST_INDEX, "utf8");
   assert.ok(
     !index.includes("node:"),

@@ -88,11 +88,11 @@ is removed in the release after 0.2.0:
 
 ```typescript
 // Before (0.1.x)
-import { YarnRunner } from "yarn-spinner-runner-ts";
+import { YarnRunner } from "yarnspinner-typescript";
 const runner = new YarnRunner(program);
 
 // After (0.2.0)
-import { Dialogue } from "yarn-spinner-runner-ts";
+import { Dialogue } from "yarnspinner-typescript";
 const dialogue = new Dialogue(program);
 ```
 

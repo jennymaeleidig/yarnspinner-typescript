@@ -15,7 +15,7 @@ export default {
 
 ```ts
 import program from "./story.yarn";
-import { Dialogue } from "yarn-spinner-runner-ts";
+import { Dialogue } from "yarnspinner-typescript";
 
 const dialogue = new Dialogue(program, { startAt: "Start" });
 ```
@@ -23,7 +23,7 @@ const dialogue = new Dialogue(program, { startAt: "Start" });
 ## What you get
 
 - **`.yarn` import** — default export is the compiled
-  [Program](https://github.com/oleksii-chekhovskyi/yarn-spinner-runner-ts);
+  [Program](https://github.com/jennymaeleidig/yarnspinner-typescript);
   named exports `stringTable`, `containsImplicitStringTags`, `fileTags`.
   (With the `project` option pinned, the default is the full project load
   result instead — see docs/direct-import.md.)
@@ -57,7 +57,7 @@ yarnSpinnerVitePlugin({
 ```
 
 in an ambient types file (or paste `client.d.ts` — it references only
-`yarn-spinner-runner-ts`, so the paste-in needs nothing else).
+`yarnspinner-typescript`, so the paste-in needs nothing else).
 
 The full story — result shapes, the generic loader contract for webpack
 hosts, and when the SSR load path applies instead — lives in

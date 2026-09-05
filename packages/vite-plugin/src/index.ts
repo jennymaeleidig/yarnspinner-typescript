@@ -13,7 +13,7 @@ import { dirname, isAbsolute, join } from "node:path";
 import { compileYarnModule, type CompiledYarnModule } from "./compileModule.js";
 import { compileYarnProjectModule } from "./compileProjectModule.js";
 import { toDeclarations, type YslsDefinitions } from "./definitions.js";
-import type { Diagnostic, DiagnosticSeverity } from "yarn-spinner-runner-ts";
+import type { Diagnostic, DiagnosticSeverity } from "yarnspinner-typescript";
 
 // The generic-loader seam, made reachable: the compile steps are pure and
 // bundler-agnostic (no Vite types cross their modules), so the documented

@@ -10,7 +10,7 @@ loader contract below.
 ## Setup
 
 ```bash
-npm install yarn-spinner-runner-ts yarn-spinner-vite-plugin
+npm install yarnspinner-typescript yarn-spinner-vite-plugin
 ```
 
 ```ts
@@ -39,7 +39,7 @@ The default export is the compiled, serializable
 
 ```ts
 import program from "./story.yarn";
-import { Dialogue } from "yarn-spinner-runner-ts";
+import { Dialogue } from "yarnspinner-typescript";
 
 const dialogue = new Dialogue(program, { startAt: "Start" });
 ```
@@ -65,7 +65,7 @@ and the module is pure data — no runtime file access.
 
 ```ts
 import project from "./project.yarnproject";
-import { createProjectTextProvider, Dialogue } from "yarn-spinner-runner-ts";
+import { createProjectTextProvider, Dialogue } from "yarnspinner-typescript";
 
 const provider = createProjectTextProvider(project);
 const dialogue = new Dialogue(project.program!, { textProvider: provider });
@@ -129,8 +129,8 @@ Either reference the shipped file (one line in an ambient types file, e.g.
 /// <reference types="yarn-spinner-vite-plugin/client" />
 ```
 
-or paste [`packages/vite-plugin/client.d.ts`](https://github.com/oleksii-chekhovskyi/yarn-spinner-runner-ts/blob/main/packages/vite-plugin/client.d.ts)
-verbatim into your ambient types — it references only `yarn-spinner-runner-ts`
+or paste [`packages/vite-plugin/client.d.ts`](https://github.com/jennymaeleidig/yarnspinner-typescript/blob/main/packages/vite-plugin/client.d.ts)
+verbatim into your ambient types — it references only `yarnspinner-typescript`
 types (which you have installed), never the plugin package, so the paste-in
 works with zero extra dependencies.
 
@@ -172,7 +172,7 @@ below.
 compile once per deploy (Next.js server components, SvelteKit `+page.server.ts`)
 can skip bundler integration entirely: call
 `loadYarnProject("path/to/project.yarnproject")` from
-`yarn-spinner-runner-ts/node` at request/build time and pass the program
+`yarnspinner-typescript/node` at request/build time and pass the program
 across the serialization boundary. Choose the plugin when content should be
 baked into client bundles and versioned with them; choose the SSR path when
 content is deployment data (CMS-updatable without a rebuild) or when your

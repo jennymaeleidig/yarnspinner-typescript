@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { loadYarnProject } from "yarn-spinner-runner-ts/node";
+import { loadYarnProject } from "yarnspinner-typescript/node";
 
 /**
  * The SvelteKit host's server load: the
