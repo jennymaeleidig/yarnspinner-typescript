@@ -83,7 +83,10 @@ const WORD_OPS: Record<string, string> = {
   lte: "lte",
 };
 
-/** Quote-aware scanner. Escapes only matter for token boundaries. */
+/** Quote-aware scanner. Escapes only matter for token boundaries.
+ *  Upstream lexer STRING: `\"` and `\\` keep the literal next character.
+ *  LOCKSTEP: the type checker's tokenizer (typeCheck.ts tokenize)
+ *  implements the same escape walk — change both together. */
 function tokenize(input: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
@@ -208,12 +211,12 @@ class Parser {
     }
   }
 
-  // or → and
+  // or → equality
   // Upstream's ExpAndOrXor grammar rule: and/or/xor share ONE precedence
   // level (left-associative) — deliberately not C's two-level split.
   // LOCKSTEP: the type checker's ExprParser (typeCheck.ts parseOr) mirrors
-  // this rule and its operator order — change both together (one upstream
-  // grammar, two hand-rolled parsers).
+  // this rule and its operator order (its operands are parseEquality)
+  // — change both together (one upstream grammar, two hand-rolled parsers).
   private parseOr(): Instruction[] {
     let left = this.parseEquality();
     for (;;) {
@@ -230,6 +233,10 @@ class Parser {
   }
 
   // equality → relational: == != = eq is neq (and === !==)
+  // LOCKSTEP: the type checker's ExprParser (typeCheck.ts parseEquality)
+  // mirrors this level — comparison (parseRelational) binds TIGHTER than
+  // equality (upstream's expComparison sits below expEquality). Change both
+  // together.
   private parseEquality(): Instruction[] {
     let left = this.parseRelational();
     while (true) {
@@ -245,6 +252,8 @@ class Parser {
   }
 
   // relational → additive: < <= > >= (and word aliases)
+  // LOCKSTEP: the type checker's ExprParser (typeCheck.ts parseComparison)
+  // mirrors this level — change both together.
   private parseRelational(): Instruction[] {
     let left = this.parseAdditive();
     while (true) {

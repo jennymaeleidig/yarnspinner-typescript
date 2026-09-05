@@ -34,6 +34,16 @@ Parity here means the observable contract upstream's own test suite pins:
     (letters, numbers, underscores; leading letter/underscore per upstream's
     `IDENTIFIER_HEAD`); upstream's extended Unicode ID ranges are not
     accepted — a recorded simplification, not permissive drift.
+  - Expression operators accept tolerated upstream-foreign spellings
+    (ADR 0005): a single `=` reads as equality, `===`/`!==` read as
+    `==`/`!=`, and the operator word aliases (`and`, `or`, `not`, `xor`,
+    `eq`, `is`, `neq`, `gt`, `lt`, `gte`, `lte`) match case-insensitively.
+    Upstream 3.2.2's lexer only defines `=`, `==`, `!=` and the lowercase
+    alias set (`YarnSpinnerLexer.g4`, the `OPERATOR_LOGICAL_*` rules); the
+    extra spellings are permissive drift surfaced by the review, kept for
+    content compatibility and recorded here rather than silently
+    inherited. Precedence itself matches upstream: comparison binds
+    tighter than equality (`expComparison` below `expEquality`).
   - Comparing against an unset variable applies the compared side's
     implicit default (bool→false, number→0, string→""); upstream 3.2.2
     falls back to the program's declared initial values and throws when a

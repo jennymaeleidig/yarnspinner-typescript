@@ -61,8 +61,10 @@ const COMPOUND_SET = /^set\s+\$([A-Za-z_][A-Za-z0-9_]*)\s*(\+=|-=|\*=|\/=|%=)\s*
  * `set $x to 1` (backtracking into the identifier is forbidden).
  */
 const PLAIN_SET = /^set\s+\$([A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_])\s*(?:(to)|=)\s*([\s\S]+)$/;
-/** Declaration: `=` (optionally attached), expression, optional ` as TYPE`. */
-const DECLARE = /^declare\s+\$([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/;
+/** Declaration: `=` or `to` (upstream OPERATOR_ASSIGNMENT is `'=' | 'to'`,
+ *  so `<<declare $x to 1>>` is the same statement as `<<declare $x = 1>>`),
+ *  expression, optional ` as TYPE`. */
+const DECLARE = /^declare\s+\$([A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_])\s*(?:(to)|=)\s*([\s\S]+)$/;
 /** The `as TYPE` postfix (anchored at the end, outside any quoted string). */
 const AS_TYPE = /\s+as\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/;
 
@@ -91,7 +93,7 @@ export function parseStateStatement(content: string): StateStatement | null {
 
   const declare = DECLARE.exec(trimmed);
   if (declare) {
-    const rest = declare[2];
+    const rest = declare[3];
     const asMatch = AS_TYPE.exec(rest);
     return {
       kind: "declare",

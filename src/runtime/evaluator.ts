@@ -172,16 +172,21 @@ export class ExpressionEvaluator {
       return this.evaluateComparison(trimmed);
     }
 
-    // Handle negation (unary `!` binds tightest — after the comparison
-    // level, matching the checker's parseUnary placement).
-    if (trimmed.startsWith("!")) {
-      return !this.evaluateExpression(trimmed.slice(1).trim());
-    }
-
-     // Handle arithmetic expressions (+, -, *, /, %)
+     // Handle arithmetic expressions (+, -, *, /, %) BEFORE the prefix-
+     // negation dispatch: upstream's ExpNot binds TIGHTER than the
+     // arithmetic levels (the checker's parseUnary placement), so
+     // `not 0 + 1` is `(!0) + 1` — the whole-rest negation below would
+     // build `not (0 + 1)` and disagree with the checker's tree.
+     // evaluateArithmetic's parseUnary consumes the leading `!`.
      if (this.containsArithmetic(trimmed)) {
        return this.evaluateArithmetic(trimmed);
      }
+
+    // Handle negation (no comparison/arithmetic operator in the rest —
+    // a plain `!value`).
+    if (trimmed.startsWith("!")) {
+      return !this.evaluateExpression(trimmed.slice(1).trim());
+    }
 
     // Simple variable or literal
     return this.resolveValue(trimmed);
@@ -341,6 +346,13 @@ export class ExpressionEvaluator {
 
     const parseUnary = (): unknown => {
       skipWhitespace();
+      if (input[index] === "!") {
+        // Upstream ExpNot: the prefix operator binds tighter than the
+        // arithmetic levels (the checker's parseUnary placement), so the
+        // arithmetic parser must consume it — `!0 + 1` is `(!0) + 1`.
+        index++;
+        return applyUnaryOp("not", parseUnary());
+      }
       if (input[index] === "+") {
         index++;
         return parseUnary();

@@ -4,8 +4,9 @@ export type Position = { line: number; column: number };
 /**
  * A soft (non-throwing) parser finding: semantic line-content
  * warnings/errors the parser reports without aborting the parse — YS0019,
- * YS0020, YS0022. The compile seam converts these to registry diagnostics.
- * Lines/columns are 1-based token positions (the lexer's convention).
+ * YS0020, YS0022, YS0048. The compile seam converts these to registry
+ * diagnostics. Lines/columns are 1-based token positions (the lexer's
+ * convention).
  */
 export interface ParserDiagnostic {
   code: string;
@@ -90,6 +91,11 @@ export interface Line {
 export interface Command {
   type: "Command";
   content: string; // inside << >>
+  /**
+   * Hashtags on the same line after the closing `>>` (upstream
+   * `command_statement`'s `hashtag*`): `<<cmd>> #color:red`.
+   */
+  tags?: string[];
   /**
    * `///` documentation comment lines immediately above the command, one
    * per line joined with `\n`. Upstream attaches them to
