@@ -111,6 +111,29 @@ Parity here means the observable contract upstream's own test suite pins:
     supported.` for every upgrade type, exactly as upstream does. Legacy
     v1/v2 content is not auto-migrated, matching upstream.
 
+## Program format: version 2 (upstream 3.2.2 parity)
+
+The compiled program is this project's own versioned JSON (ADR 0003), now
+at `languageVersion` **2** (`programLanguageVersion`, `src/compile/program.ts`):
+
+- **Node headers are retained** — every compiled node carries its raw
+  `headers` as authored (upstream `Node.Headers`), including the `tags:`
+  header's raw text, plus `sourceFile`/`startLine` provenance. This is what
+  the `Dialogue` query surface reads (`nodeExists`, `nodeNames`,
+  `getStringIDForNode` — upstream `Dialogue.cs:939/1014–1060/1113` — and
+  `GetHeaders`/`GetHeaderValue`).
+- **Node-group members carry upstream's unique names** (upstream
+  `Utility.GetNodeUniqueName`): `when:`-bearing members are renamed to
+  `Title.Subtitle` or `Title.<crc32(fileName + title + startLine)>` and
+  registered in the node table under it, so each member is individually
+  jump-addressable; the hub node keeps the source title and selects a
+  member by saliency when jumped to. Member saliency content IDs and
+  once-state keys derive from the unique name — upstream's shape, replacing
+  the pre-upgrade `Title.<index>` fallback.
+- Node-table insertion order matches upstream `Compiler.cs`: source-order
+  nodes (members under their unique names) first, then the appended hub
+  entries.
+
 ## Historical fork syntax
 
 Fork-era extensions removed for parity (option `[if]` suffixes, inline
