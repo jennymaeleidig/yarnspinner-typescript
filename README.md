@@ -419,7 +419,7 @@ Additional documentation is available in the `docs/` folder:
 - [Saliency](./docs/saliency.md)
 - [Shadow Lines](./docs/shadow-lines.md)
 - [Markup (Yarn Spinner)](./docs/markup.md)
-- [Migration Notes (0.2.0 breaking changes)](./docs/migration-notes.md)
+- [Migration Notes (1.0.0 breaking changes)](./docs/migration-notes.md)
 - [Compatibility](./docs/compatibility.md)
 - [Changelog](./CHANGELOG.md)
 - [Scene and Actor Setup](./docs/scenes-actors-setup.md)

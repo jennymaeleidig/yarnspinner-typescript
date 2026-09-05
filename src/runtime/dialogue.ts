@@ -335,17 +335,3 @@ export class Dialogue {
     this.engine.setLanguage(language);
   }
 }
-
-/**
- * Deprecated 0.1.x name of {@link Dialogue}, kept as an exact alias for one
- * release (removed in the release after 0.2.0). The glossary
- * concept is upstream's `Dialogue` — "runner" is a retired term.
- *
- * @deprecated Renamed to `Dialogue` in 0.2.0.
- */
-export const YarnRunner: typeof Dialogue = Dialogue;
-/** @deprecated Renamed to `Dialogue` in 0.2.0. */
-// eslint-disable-next-line no-redeclare -- deliberate TS value+type merge: the deprecated alias keeps both the class value and its instance type
-export type YarnRunner = Dialogue;
-/** @deprecated Renamed to `DialogueOptions` in 0.2.0. */
-export type YarnRunnerOptions = DialogueOptions;

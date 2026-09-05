@@ -99,10 +99,9 @@ Fork-era vocabulary, superseded by the parity API. Kept here so old docs and con
 - **`docs/compatibility-checklist.md`** → replaced by [docs/compatibility.md](docs/compatibility.md)
 
 The one code-level rename above that shipped as part of the parity API —
-`YarnRunner` → `Dialogue` — keeps a
-**deprecated alias for one release** (0.2.0 only; removed in the release
-after), so pre-0.2.0 consumers keep compiling while they migrate. The
-React adapter — and with it `useYarnRunner`/`useDialogue`, the view
+`YarnRunner` → `Dialogue` — lands with no compatibility alias: 1.0.0 is the
+first public release, so there are no existing consumers to keep compiling.
+The React adapter — and with it `useYarnRunner`/`useDialogue`, the view
 components, and the prop-vocabulary renames (`advance` → `continue`,
 `onStoryEnd` → `onDialogueComplete`, `autoAdvanceAfterTyping` →
 `autoContinueAfterTyping`) — is gone entirely (ADR 0006, amended). Everything

@@ -10,7 +10,7 @@
  *
  * Seam note: these golden assertions pin the EMITTED ARTIFACT — the program
  * format is public contract per ADR 0003 ("the format's schema is part of
- * the public contract once 0.2.0 ships"), and the artifact is observed
+ * the public contract once 1.0.0 ships"), and the artifact is observed
  * through the public compile seam (`compileSource().program`). Coding
  * standards §6's "no tests against opcode layout" governs the VM's private
  * execution machinery, not the documented program format.

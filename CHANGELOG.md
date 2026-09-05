@@ -1,31 +1,27 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 — Yarn Spinner 3.2 parity (first public release)
 
-- Renamed the project from `yarn-spinner-runner-ts` to `yarnspinner-typescript`.
-  The package is no longer positioned as a fork of
-  [oleksii-chekhovskyi/yarn-spinner-runner-ts](https://github.com/oleksii-chekhovskyi/yarn-spinner-runner-ts)
-  — the original is now cited as inspiration in [`CITATION.cff`](./CITATION.cff).
-  All import specifiers (`"yarnspinner-typescript"`, `"yarnspinner-typescript/node"`)
-  and the repo-root `yarnspinner-typescript.yarnproject` carry the new name.
-
-## 0.2.0 — Yarn Spinner 3.2 parity
+First public release, published as `yarnspinner-typescript`. The project is
+no longer positioned as a fork of
+[oleksii-chekhovskyi/yarn-spinner-runner-ts](https://github.com/oleksii-chekhovskyi/yarn-spinner-runner-ts)
+— the original is cited as inspiration in [`CITATION.cff`](./CITATION.cff).
 
 The 3.2 parity release: full language + behavior parity with **Yarn Spinner
 3.2.2**, shipped as one breaking wave — all breaking changes land together in
-this release, with no staged breaking-change windows (the one rename carries
-a one-release deprecated alias, below).
+this release, with no staged breaking-change windows and no compatibility
+aliases (there are no prior published versions to stay compatible with).
 
 **Targeted upstream version: 3.2.2** — re-checked at release time against the
 upstream tag list (`YarnSpinnerTool/YarnSpinner`): `v3.2.2` is the newest tag;
 no `v3.2.3` or `v3.3.0` exists yet (a future 3.3 has been announced upstream
 but not shipped). The vendored conformance corpus is pinned at `v3.2.2`.
 
-### Breaking: rename with one-release deprecated alias
+### Breaking: rename
 
 - **`YarnRunner` → `Dialogue`**: the glossary concept is
-  upstream's `Dialogue`; "runner" is retired vocabulary. The old name remains
-  as an exact, deprecated alias in 0.2.0 only.
+  upstream's `Dialogue`; "runner" is retired vocabulary. No deprecated
+  alias ships — 1.0.0 is the first public release.
 
 See [docs/migration-notes.md](docs/migration-notes.md) — which now also
 covers these renames — and CONTEXT.md "Retired terms".

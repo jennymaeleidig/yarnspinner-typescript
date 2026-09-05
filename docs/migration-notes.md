@@ -1,6 +1,6 @@
 # Migration notes — removed fork syntax & strictness
 
-The 3.2 parity release ("0.2.0") aligns the language with Yarn Spinner 3.2.2.
+The 3.2 parity release ("1.0.0") aligns the language with Yarn Spinner 3.2.2.
 Three fork-era extensions were removed outright, and `<<set>>`/`<<declare>>`
 now require the `$` variable prefix. Scripts using the removed syntaxes fail
 compilation with a `YS0005` (SyntaxError) diagnostic whose message points here.
@@ -82,28 +82,27 @@ the mismatch now surfaces as a `YS0005` diagnostic at compile time.
 ## 5. `YarnRunner` → `Dialogue`
 
 The glossary concept is upstream's `Dialogue` — "runner" is retired
-vocabulary (CONTEXT.md). The runtime class ships under the new name; the
-old one remains as a **deprecated, exact alias for this release only** and
-is removed in the release after 0.2.0:
+vocabulary (CONTEXT.md). The runtime class ships under the new name, with
+no deprecated alias (1.0.0 is the first public release):
 
 ```typescript
-// Before (0.1.x)
-import { YarnRunner } from "yarnspinner-typescript";
+// Before (the original yarn-spinner-runner-ts)
+import { YarnRunner } from "yarn-spinner-runner-ts";
 const runner = new YarnRunner(program);
 
-// After (0.2.0)
+// After (yarnspinner-typescript 1.0.0)
 import { Dialogue } from "yarnspinner-typescript";
 const dialogue = new Dialogue(program);
 ```
 
-Note that the 0.1.x `YarnRunner` class already spoke the pull-based API
+Note that the original yarn-spinner-runner-ts `YarnRunner` class already spoke the pull-based API
 (`continue()`/`selectOption()`) — only the name changed. The retired
 mutate-and-read surface (`advance()`, `currentResult`, `TextResult`) was
 removed earlier in the parity wave; see CONTEXT.md "Retired terms".
 
 ## 6. The React adapter → removed
 
-0.2.0 also renamed the React adapter's fork-era prop vocabulary
+1.0.0 also renamed the React adapter's fork-era prop vocabulary
 (`advance` → `continue`, `onStoryEnd` → `onDialogueComplete`, the
 typing-flow props to their `Continue` spellings). That surface no longer
 exists to migrate to: the adapter has since been removed entirely (ADR 0006,

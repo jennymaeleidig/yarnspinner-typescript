@@ -1,7 +1,7 @@
 # Compatibility
 
 This library targets **behavioral parity with Yarn Spinner 3.2.2** — the
-newest upstream tag (re-checked at the 0.2.0 release: no `v3.2.3` or `v3.3.0`
+newest upstream tag (re-checked at the 1.0.0 release: no `v3.2.3` or `v3.3.0`
 exists yet; upstream has announced a future 3.3 but not shipped it).
 
 Parity here means the observable contract upstream's own test suite pins:
