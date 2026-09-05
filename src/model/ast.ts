@@ -131,10 +131,19 @@ export interface Option {
  * saliency selects exactly one item to run. Each item is an
  * ordinary line; its `<<if>>`/`<<once>>`/`<<once if>>` modifier becomes the
  * item's saliency condition rather than a line gate.
+ *
+ * An item may carry an indented body (upstream `line_group_item`'s
+ * `INDENT statement* DEDENT`): it belongs to the item and runs only when
+ * that item is selected.
  */
+export interface LineGroupItem extends Line {
+  /** The item's indented body statements (empty when the item has none). */
+  body?: Statement[];
+}
+
 export interface LineGroup {
   type: "LineGroup";
-  items: Line[];
+  items: LineGroupItem[];
 }
 
 /** A `<<once>>`/`<<once if expr>>` modifier shared by lines and options. */

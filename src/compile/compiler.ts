@@ -431,7 +431,7 @@ function lowerStatements(
         lastLine = null;
         break;
       case "LineGroup":
-        lowerLineGroup(s, lowering, ctx);
+        lowerLineGroup(s, lowering, ctx, counters);
         lastLine = null;
         break;
       case "If": {
@@ -512,12 +512,15 @@ function lowerLine(
  * marker adds 1; an expression adds its boolean-operator count + 1); the
  * strategy then picks — the selected item's body stores its once flag (the
  * store is the body's first instruction, like a once option) and runs the
- * line; no selection skips the whole group.
+ * line, then the item's indented body statements (upstream visits each
+ * `line_group_item.statement()` inside the selected item's region, before
+ * the jump to the group's end); no selection skips the whole group.
  */
 function lowerLineGroup(
   group: LineGroup,
   lowering: NodeLowering,
   ctx: LoweringContext,
+  counters: NodeCounters,
 ): void {
   const end = lowering.newLabel();
   const prepared = group.items.map((item) => {
@@ -552,6 +555,12 @@ function lowerLineGroup(
       lowering.instructions.push({ op: "pushBool", value: true }, { op: "popVariable", name: p.onceKey });
     }
     lowerLineBody(p.item, p.tags, lowering);
+    // The item's indented body runs inside its region, after its line —
+    // only the selected item's body executes (upstream: the child
+    // statements are visited between the RunLine and the jump to end).
+    if (p.item.body && p.item.body.length > 0) {
+      lowerStatements(p.item.body, lowering, ctx, counters);
+    }
     lowering.jump("jumpTo", end);
   });
   lowering.place(end);

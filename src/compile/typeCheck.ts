@@ -1107,7 +1107,12 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
         checkLineStatement(s, ctx);
         break;
       case "LineGroup":
-        for (const item of s.items) checkLineStatement(item, ctx);
+        for (const item of s.items) {
+          checkLineStatement(item, ctx);
+          // The item's indented body checks as part of the item (upstream
+          // visits line_group_item's statements with the node body).
+          if (item.body) walkStatements(item.body, ctx);
+        }
         break;
       case "Jump": {
         // Jump-target expressions must resolve to strings (upstream
