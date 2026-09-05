@@ -495,7 +495,7 @@ Narrator: Gold {$gold}
   assert.equal(dialogue.getVariable("gold"), 25);
   assert.deepEqual(dialogue.getVariables()["gold"], 25);
   for (const key of Object.keys(dialogue.getVariables())) {
-    assert.ok(!key.startsWith("Yarn.Internal."), "generated variables are not story variables");
+    assert.ok(!key.startsWith("$Yarn.Internal."), "generated variables are not story variables");
   }
 });
 

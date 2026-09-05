@@ -208,7 +208,7 @@ Narrator: You have {$gold} ({$doubled} doubled)
   const visible = dialogue.getVariables();
   assert.equal(visible["gold"], 7);
   for (const key of Object.keys(visible)) {
-    assert.ok(!key.startsWith("Yarn.Internal."), "generated variables are not story variables");
+    assert.ok(!key.startsWith("$Yarn.Internal."), "generated variables are not story variables");
   }
 });
 

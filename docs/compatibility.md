@@ -24,10 +24,12 @@ Parity here means the observable contract upstream's own test suite pins:
   - On error diagnostics upstream nulls the program; this fork keeps it
     observable.
   - Generated-variable keys mirror upstream's `$Yarn.Internal.*` names and
-    separators (once-state `Yarn.Internal.Once.<id>`, view counts
-    `Yarn.Internal.Content.ViewCount.<id>`); upstream's leading `$` sigil is
-    normalized away — this fork's variable storage strips `$` from every
-    variable name (authored and generated alike) at the storage seam.
+    separators exactly, leading `$` sigil included (once-state
+    `$Yarn.Internal.Once.<id>`, view counts
+    `$Yarn.Internal.Content.ViewCount.<id>`), so host-visible storage
+    inspection matches upstream. Authored variables keep this fork's
+    `$`-stripping at the variable-resolution seam; generated keys are
+    runtime-internal and read straight from storage.
   - Node-title identifiers validate against the ASCII identifier set
     (letters, numbers, underscores; leading letter/underscore per upstream's
     `IDENTIFIER_HEAD`); upstream's extended Unicode ID ranges are not

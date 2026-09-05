@@ -667,9 +667,17 @@ export class VirtualMachine {
         this.push(null);
         return;
       case "pushVariable":
-        // The evaluator owns the read contract: unset names read
-        // undefined; a smart variable recomputes; a stored value wins when
-        // a host has shadowed it.
+        // Generated-variable keys carry upstream's `$` sigil (they are never
+        // authored variables or smart variables), so they read straight from
+        // storage — the evaluator's `$`-stripping variable resolution would
+        // miss the sigil'd key. Authored names (emitted without the sigil by
+        // the expression codegen) resolve through the evaluator, which owns
+        // the read contract: unset names read undefined; a smart variable
+        // recomputes; a stored value wins when a host has shadowed it.
+        if (ins.name.startsWith("$")) {
+          this.push(this.storage.get(ins.name));
+          return;
+        }
         this.push(this.evaluator.getVariable(ins.name));
         return;
       case "popVariable":

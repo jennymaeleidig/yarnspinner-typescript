@@ -377,7 +377,7 @@ Side line
 <<return>>
 ===
 `);
-  const onceKey = "Yarn.Internal.Once.Start#once#0";
+  const onceKey = "$Yarn.Internal.Once.Start#once#0";
   assert.deepEqual(streamOf(program, "Start"), [
     { op: "pushVariable", name: onceKey },
     { op: "jumpIfTrue", index: 5 }, // already seen → skip the block

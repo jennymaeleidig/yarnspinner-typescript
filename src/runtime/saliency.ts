@@ -228,18 +228,59 @@ export function defaultSaliencyStrategy(state: SaliencyState): ContentSaliencySt
 
 /**
  * Count the binary boolean operators in an expression — upstream
- * `GetBooleanOperatorCountInExpression` walks the parse tree for
- * `ExpAndOrXorContext` nodes (`and`/`&&`, `or`/`||`, `xor`/`^`); this
- * string-level count matches it for well-formed expressions (quoted strings
- * are excluded so a literal cannot contribute).
+ * `GetBooleanOperatorCountInExpression` (Compiler.cs:1618) walks the parse
+ * tree for `ExpAndOrXorContext` nodes (`and`/`&&`, `or`/`||`, `xor`/`^`),
+ * one node per operator. This count is taken over a token scan rather than
+ * a raw string match, so a quoted string contributes nothing and a variable
+ * named `$or` is a variable, not an operator. For well-formed expressions
+ * the operator-token count equals upstream's parse-tree count (each binary
+ * boolean operator occurrence is one context node).
  */
 export function booleanOperatorCount(expression: string): number {
-  const withoutStrings = expression.replace(
-    /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g,
-    '""',
-  );
-  const matches = withoutStrings.match(/\b(?:and|or|xor)\b|&&|\|\||\^/g);
-  return matches ? matches.length : 0;
+  let count = 0;
+  let i = 0;
+  while (i < expression.length) {
+    const c = expression[i];
+    if (/\s/.test(c)) {
+      i++;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      // A quoted string is one literal token; it cannot contribute.
+      i++;
+      while (i < expression.length && expression[i] !== c) {
+        i += expression[i] === "\\" ? 2 : 1;
+      }
+      i++;
+      continue;
+    }
+    if (c === "$" || /[A-Za-z_]/.test(c)) {
+      // A variable ($name) or identifier: consumed whole, so a variable
+      // named `$or` never reads as the operator.
+      const start = c === "$" ? i + 1 : i;
+      let end = start;
+      while (end < expression.length && /[A-Za-z0-9_]/.test(expression[end])) end++;
+      if (c !== "$") {
+        const word = expression.slice(start, end);
+        if (word === "and" || word === "or" || word === "xor") count++;
+      }
+      i = end;
+      continue;
+    }
+    const two = expression.slice(i, i + 2);
+    if (two === "&&" || two === "||") {
+      count++;
+      i += 2;
+      continue;
+    }
+    if (c === "^") {
+      count++;
+      i++;
+      continue;
+    }
+    i++;
+  }
+  return count;
 }
 
 /** One parsed `when:` header condition (or a line-group item's modifier). */

@@ -12,20 +12,46 @@
  * and the runtime reference state by one contract.
  */
 
+import { crc32Hex } from "../compile/crc32.js";
+
 /** Reserved namespace for generated variables — never authored content.
  *
  * Keys mirror upstream's `$Yarn.Internal.*` generated-variable names
- * (upstream Library.cs `GenerateUniqueContentViewedVariableName`,
- * `ContentSaliencyOption.ViewCountKey`) without the leading `$`: the
- * storage layer normalizes away Yarn's `$` sigil on every variable
- * (see the `$`-stripping in the VM's initial-value seeding and the
- * evaluator's variable resolution), so generated keys omit it too. */
-export const generatedVariablePrefix = "Yarn.Internal.";
+ * exactly, leading sigil included (upstream Library.cs
+ * `GenerateUniqueContentViewedVariableName`,
+ * `GenerateUniqueVisitedVariableForNode`,
+ * `ContentSaliencyOption.ViewCountKey`), so host-visible storage
+ * inspection matches upstream's shape. The runtime reads generated keys
+ * straight from storage — they are never authored variables, so the
+ * evaluator's `$`-stripping variable resolution never applies to them. */
+export const generatedVariablePrefix = "$Yarn.Internal.";
 
 /** Storage key for a piece of content's seen-state (`<<once>>` blocks,
  * line/option `<<once>>` modifiers, and node-group members' `when: once`
- * headers — upstream `$Yarn.Internal.Once.<lineID|nodeTitle>`). */
+ * headers — upstream `$Yarn.Internal.Once.<lineID>`). */
 export const onceVariableKey = (id: string) => `${generatedVariablePrefix}Once.${id}`;
+
+/**
+ * The once-state key for a `<<once>>` STATEMENT (upstream
+ * `TypeCheckerListener.ExitOnce_primary_clause`): the CRC32 of the
+ * statement's location description,
+ *
+ *     'once' statement in file {sourceFileName}, node {nodeTitle}, line {lineNumber}
+ *
+ * rendered little-endian lowercase hex (upstream
+ * `CRC32.GetChecksumString`), under the once-state namespace —
+ * `$Yarn.Internal.Once.<checksum>`. This is the key shape the compile
+ * seam's `generateOnceIds` hook should emit statement ids against (the
+ * default `${node}#once#${index}` lowering lives in src/compile/compiler.ts).
+ */
+export function onceStatementVariableKey(ctx: {
+  sourceFileName: string;
+  nodeTitle: string;
+  lineNumber: number;
+}): string {
+  const description = `'once' statement in file ${ctx.sourceFileName}, node ${ctx.nodeTitle}, line ${ctx.lineNumber}`;
+  return onceVariableKey(crc32Hex(description));
+}
 
 /** Storage key for a piece of content's saliency view count
  * upstream `$Yarn.Internal.Content.ViewCount.<contentID>`. */
