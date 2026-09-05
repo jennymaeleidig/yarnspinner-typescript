@@ -70,14 +70,14 @@ test("a project import emits the full load result and drives localised dialogue"
     });
     strictEqual(
       firstLine(base.continue()),
-      "Gold .",
-      "base-language text (speaker prefix stripped, {$gold} unset)",
+      "Gold 0.",
+      "base-language text (speaker prefix stripped; $gold has no declare, so it seeds its implicit number default 0 per upstream)",
     );
     const de = new Dialogue(mod.default.program, {
       textProvider: createProjectTextProvider(mod.default),
     });
     de.setLanguage("de");
-    strictEqual(firstLine(de.continue()), "Gold . (DE)", "localised text");
+    strictEqual(firstLine(de.continue()), "Gold 0. (DE)", "localised text");
   } finally {
     cleanup();
   }
