@@ -33,20 +33,12 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 ### Compiler
 
 - **Program**: the compiled, serializable artifact of a set of `.yarn` sources; consumed by the runtime. This project's program format is its own versioned JSON (not upstream's protobuf).
-- **Compilation result**: what `compile()` returns — program,
-  string table, declarations, diagnostics, file tags,
-  containsImplicitStringTags, user-defined types (upstream camelCased
-  shape). `compile()` takes `{name, source}` files; the program is the
-  instruction-stream artifact (the versioned-JSON
-  bytecode of the "Program" entry, ADR 0001/0003); the tree-IR program is
-  retired and the VM executes this artifact behind the public runtime API.
-  A program is only lowered in `full` mode; upstream nulls it on error
-  diagnostics while this fork keeps it observable.
+- **Compilation result**: what `compile()` returns — program, string table, declarations, diagnostics, file tags, containsImplicitStringTags, user-defined types (upstream camelCased shape). `compile()` takes `{name, source}` files. A program is only lowered in `full` mode; upstream nulls it on error diagnostics while this fork keeps it observable.
 - **Compilation mode**: full, strings-only, declarations-only, or
   type-check-only (which also emits the string table); declarations-only is
   the obsolete upstream alias of type-check-only.
 - **External declaration**: a variable, function, or enum provided by the host, known to the compiler without appearing in `.yarn`.
-- **YarnProject**: an upstream-format `.yarnproject` (v4 schema, legacy v2 accepted; the dead dev v3 rejected) describing source files, localisation, and compiler options. Loaded via `loadProject`/`listSources` behind an injected file-access seam (Node provider under the `./node` subpath); loader diagnostics use this project's local `YP`-code range — upstream has no registry for project files. Its `localisation` map resolves each declared locale's strings CSV into a per-locale strings table feeding a text provider (`loadLocalisations` + `createProjectTextProvider`); `assets` directories surface as configured paths for the host — the library never loads assets.
+- **YarnProject**: an upstream-format `.yarnproject` (v4 schema, legacy v2 accepted; the dead dev v3 rejected) describing source files, localisation, and compiler options. Loaded via `loadProject`/`listSources` behind an injected file-access seam (Node provider under the `./node` subpath); loader diagnostics use this project's local `YP`-code range — upstream has no registry for project files. Its `localisation` map resolves each locale's strings CSV into a per-locale strings table feeding a text provider (`loadLocalisations`, `createProjectTextProvider`); `assets` directories surface as configured paths for the host — the library never loads assets.
 - **Diagnostic**: a problem report with a stable code, severity, message, file, and range; collected by default, thrown in strict mode.
 - **YS-code**: the stable diagnostic identifier shared with upstream's registry (the upstream per-code registry is authoritative, not the docs errors page).
 - **Conformance corpus**: the submodule's testplan-driven fixture sweep — `Tests/TestCases/*.yarn` with sibling `.testplan` plans, plus `Tests/Example.yarn` — the only fixtures carrying upstream's own pinned expectations; the harness mirrors them 1:1.
@@ -71,38 +63,23 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 - **Visit tracking**: per-node view counts recorded on node return; `tracking: never` suppresses, `tracking: always` equals default; node-group visits aggregate under the shared title.
 - **Saliency strategy**: the pluggable selection policy for node groups and line groups; four built-ins with Random Best-Least-Recently-Viewed as default.
 - **Line parser**: the runtime stage that expands `{expr}` substitutions, then parses markup into structured attributes; composed text flows from here.
-- **Inline-expression spans**: the `{expr}` spans the line parser's substitution stage evaluates — scan contract owned by the runtime composer (`\{`/`\}` are the only escapes; any other backslash is literal; a span runs from `{` to the next `}`; an unclosed `{` composes literally). Compile-side classifiers (markup validation, string-table detection, type checking) consume the same spans, so compile-time classification cannot disagree with delivery.
+- **Inline-expression spans**: the `{expr}` spans the line parser's substitution stage evaluates — the scan contract is owned by the runtime composer, and compile-side classifiers (markup validation, string-table detection, type checking) consume the same spans, so compile-time classification cannot disagree with delivery.
 - **Replacement marker**: built-in value-driven text selection markup — `[select]`, `[plural]`, `[ordinal]`.
 - **Character marker**: the implicit `[character name=]` markup generated from a line's character-name prefix, before other processing.
 - **Text provider**: injectable resolver from line ID to text for the current language; the runtime is string-table-unaware.
 
 ### Packaging & consumption
 
-- **Framework-agnostic core**: the package has no UI layer and no framework surface — no React, no adapter, no subpath for one (ADR 0006, amended). Hosts own their UI against `Dialogue`/`Transcript` directly. The runtime, compiler, and parser all import from the root.
+- **Framework-agnostic core**: the package has no UI layer and no framework surface — no React, no adapter, no subpath for one (ADR 0006, amended); hosts own their UI against `Dialogue`/`Transcript` directly.
 - **Companion plugin**: the workspace package `yarn-spinner-vite-plugin` (npm name of the same shape) — the Vite integration that makes direct import work. Vite-only by design, with the compile step extracted as pure, bundler-agnostic functions (`compileYarnModule`, `compileYarnProjectModule`) so a future thin webpack loader reuses them verbatim; core and Vite are peer dependencies (ADR 0006 records the npm constraint that forces this).
-- **Direct import**: consuming `.yarn` and `.yarnproject` files as build-time modules through the companion plugin — content compiles at build time, the compiled program rides the bundle, and a compile error fails the build. Import shapes: a `.yarn` file yields the Program (plus named `stringTable`/`containsImplicitStringTags`/`fileTags`), `?raw` yields the source string, a `.yarnproject` yields the full load result (program, project name, base language, per-locale tables, assets, diagnostics) ready for a text provider. Severity overrides merge in a fixed order — the project file's own map first, then the plugin's top-level option, then the `compilerOptions` passthrough (most specific wins); the per-code merge is the loader's own semantics (`loadProject` composes the project map under the host-supplied `diagnosticsSeverity`), so a direct `loadProject` call gets the same precedence and the plugin layers no pass of its own. Full surface: [docs/direct-import.md](docs/direct-import.md).
+- **Direct import**: consuming `.yarn` and `.yarnproject` files as build-time modules through the companion plugin — content compiles at build time, the compiled program rides the bundle, and a compile error fails the build. Import shapes: a `.yarn` file yields the Program (plus named `stringTable`/`containsImplicitStringTags`/`fileTags`), `?raw` yields the source string, a `.yarnproject` yields the full load result (program, project name, base language, per-locale tables, assets, diagnostics) ready for a text provider. Full surface: [docs/direct-import.md](docs/direct-import.md).
 - **Editor types**: the plugin's types-only `./client` subpath — one file declaring all three import shapes for TypeScript, served both as a triple-slash reference and as a zero-dependency paste-in.
 
 ### Runtime helpers (non-upstream)
 
-- **Transcript**: the accumulator over a dialogue run — every
-  delivered line in order, the live option set (a resolved set leaves the
-  transcript), and surfaced commands. Hosts adopt it as state and read it
-  raw; `runUntilStopped` produces it by merging each pull into the prior one.
-- **Stopping point**: where the runtime pauses a `continue()` batch for the
-  consumer — a delivered line, an option set, or a command, with node
-  lifecycle and line-hint events riding through; completion is the
-  terminal stopping point. `pullUntilStopped` is the family's stateless
-  member — one pull to the next stopping point as raw events, the at-rest
-  states delivered as data (empty events + the stopping point), and
-  `mergeEvents` reduces events into a Transcript — so a stateless consumer
-  reads "nothing new" off the result instead of pre-empting the contract;
-  `runUntilStopped` pulls to the next stopping point, names it, and merges
-  into `prior`; `runUntilComplete` drains through line and command stops to
-  the terminal one, and `runUntilCompleteEvents` returns the raw event
-  stream to that terminal (the runtime/scripts drain), so no consumer
-  re-derives the contract.
-- **Scene system**: scene/actor images reached via the `scene:` header (which itself is an ordinary upstream-compatible header). The name travels on its one channel — the `NodeStartEvent`'s optional `scene` field (absent when the node declares none), surfaced to hosts as `Transcript.scene`, carried forward across scene-less nodes; hosts cross-check it against their `SceneCollection` at that seam and own all rendering — backgrounds, actors, transitions. The package ships no scene parser (YAML or otherwise) and no scene dependency. Non-upstream; not part of language parity.
+- **Transcript**: the accumulator over a dialogue run — every delivered line in order, the live option set (a resolved set leaves the transcript), and surfaced commands. Hosts adopt it as state and read it raw.
+- **Stopping point**: where the runtime pauses a `continue()` batch for the consumer — a delivered line, an option set, or a command, with node lifecycle and line-hint events riding through; completion is the terminal stopping point. The helper family: `pullUntilStopped` (the stateless member — one pull to the next stopping point as raw events, the at-rest states delivered as data), `mergeEvents` (reduces events into a Transcript), `runUntilStopped` (pulls and merges into `prior`), and the drains `runUntilComplete` / `runUntilCompleteEvents` (through line and command stops to the terminal one — raw event stream in the latter) — so no consumer re-derives the contract.
+- **Scene system**: scene/actor images reached via the `scene:` header (an ordinary upstream-compatible header). The name travels on its one channel — the `NodeStartEvent`'s optional `scene` field (absent when the node declares none), surfaced to hosts as `Transcript.scene` and carried forward across scene-less nodes; hosts cross-check it against their `SceneCollection` at that seam and own all rendering. The package ships no scene parser and no scene dependency. Non-upstream; not part of language parity.
 - **Storylet**: the browser demo's presentation name for a node-group member drawn by saliency (`examples/browser/StoryletsDemo.ts`); demo-layer vocabulary, not upstream's — the glossary term for the thing being drawn is **node-group member**.
 
 ## Retired terms

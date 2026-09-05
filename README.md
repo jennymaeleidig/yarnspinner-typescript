@@ -10,6 +10,7 @@ TypeScript parser, compiler, and runtime for Yarn Spinner 3.x. Framework-agnosti
 - Old JS parser: `bondage.js` (Yarn 2.x) — [GitHub](https://github.com/mnbroatch/bondage.js/tree/master/src)
 - Official compiler (C#): YarnSpinner.Compiler — [GitHub](https://github.com/YarnSpinnerTool/YarnSpinner/tree/main/YarnSpinner.Compiler)
 - Existing dialogue runner API: YarnBound — [GitHub](https://github.com/mnbroatch/yarn-bound?tab=readme-ov-file)
+- Pull-based runtime API shape: YarnSpinner-Rust — [GitHub](https://github.com/YarnSpinnerTool/YarnSpinner-Rust) (Apache-2.0; design and naming reference, see [`CITATION.cff`](./CITATION.cff))
 
 ## Features
 
@@ -256,8 +257,6 @@ The scene name itself is runtime output: it travels on the `NodeStartEvent`'s
 `scene` field (and `Transcript.scene`, carried forward across scene-less
 nodes) — the seam where you cross-check your collection.
 
-See [Scene and Actor Setup Guide](./docs/scenes-actors-setup.md) for detailed documentation.
-
 ### Expression Evaluator
 
 - `ExpressionEvaluator(variables, functions, enums?)` — Safe expression evaluator
@@ -341,7 +340,7 @@ tags, markup attributes) that your components can key presentation on.
 
 ## Scene Configuration
 
-Configure scenes and actors using YAML:
+Scenes and actors are host input — the package ships no scene parser (YAML or otherwise); you parse your collection host-side and pass it as a `SceneCollection`. A typical host-side YAML collection:
 
 ```yaml
 scenes:
@@ -375,7 +374,7 @@ yarn-spinner-runner-ts/
 ├── src/
 │   ├── model/          # AST types
 │   ├── parse/          # Lexer and parser
-│   ├── compile/        # Compiler (AST → IR)
+│   ├── compile/        # Compiler (AST → program)
 │   ├── runtime/        # Runtime execution
 │   ├── scene/          # Scene system
 │   └── tests/          # Test files
@@ -389,32 +388,9 @@ yarn-spinner-runner-ts/
 └── dist/               # Compiled output
 ```
 
-## Development
-
-```bash
-npm run build     # Build TypeScript
-npm run dev       # Watch mode
-npm run lint      # Run ESLint
-npm test          # Run tests
-npm run demo      # Start browser demo
-npm run demo:build # Build browser demo
-npm run host:build # Build library + Next.js host
-npm run sveltekit:build # Build library + SvelteKit host
-```
-
 ## Testing
 
-Tests are located in `src/tests/` and cover:
-
-- Basic dialogue flow
-- Options and branching
-- Variables and flow control
-- Commands (`<<set>>`, `<<declare>>`, etc.)
-- `<<once>>` blocks
-- `<<jump>>` and `<<detour>>`
-- Full featured Yarn scripts
-
-Run tests:
+Tests live in `src/tests/` and assert observable behavior through the public seams — compiled outputs and runtime event streams — against the upstream fixture corpus (mounted as a git submodule, pinned to an upstream tag; see Installation).
 
 ```bash
 npm test
@@ -452,5 +428,6 @@ The original code of this project is dedicated to the public domain under
 [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/) (see
 `LICENSE`). Code borrowed or adapted from external sources keeps its original
 license and is recorded in [`CITATION.cff`](./CITATION.cff) — notably the
-Yarn Spinner material (MIT) this project mirrors and ports from, mounted as
-the pinned git submodule under `test/fixtures/upstream/`.
+Yarn Spinner material (the MIT C# repository this project mirrors and ports
+from, mounted as the pinned git submodule under `test/fixtures/upstream/`,
+and the Apache-2.0 Rust runtime referenced for the pull-based API shape).
