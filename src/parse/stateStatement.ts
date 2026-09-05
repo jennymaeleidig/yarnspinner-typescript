@@ -51,8 +51,16 @@ export interface StateStatement {
 
 /** Compound assignment: the operator token directly after the variable. */
 const COMPOUND_SET = /^set\s+\$([A-Za-z_][A-Za-z0-9_]*)\s*(\+=|-=|\*=|\/=|%=)\s*([\s\S]+)$/;
-/** Plain assignment: `to` or `=` after whitespace, then the expression. */
-const PLAIN_SET = /^set\s+\$([A-Za-z_][A-Za-z0-9_]*)\s+(to|=)\s*([\s\S]+)$/;
+/**
+ * Plain assignment: `to` or `=` after the variable, then the expression.
+ * The `=` may be attached (`set $x= 1`, `set $x=1` — upstream lexes the
+ * attached `=` as the OPERATOR_ASSIGNMENT token); `to` may even run into
+ * the expression (`set $x to1` — upstream's OPERATOR_ASSIGNMENT has no
+ * word-boundary predicate). The identifier-boundary lookahead after the
+ * name keeps `$xto` whole: `set $xto 1` must not mis-read as
+ * `set $x to 1` (backtracking into the identifier is forbidden).
+ */
+const PLAIN_SET = /^set\s+\$([A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_])\s*(?:(to)|=)\s*([\s\S]+)$/;
 /** Declaration: `=` (optionally attached), expression, optional ` as TYPE`. */
 const DECLARE = /^declare\s+\$([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/;
 /** The `as TYPE` postfix (anchored at the end, outside any quoted string). */
@@ -77,7 +85,7 @@ export function parseStateStatement(content: string): StateStatement | null {
       kind: "set",
       name: plain[1],
       expression: plain[3].trim(),
-      assignment: plain[2] as "to" | "=",
+      assignment: plain[2] ? ("to" as const) : ("=" as const),
     };
   }
 
