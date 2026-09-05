@@ -377,7 +377,10 @@ Side line
 <<return>>
 ===
 `);
-  const onceKey = "$Yarn.Internal.Once.Start#once#0";
+  // Upstream's once-statement key: the CRC32 of the statement's location
+  // description — here file "input", node Start, line 3 (the `<<once>>`
+  // line) — under the once-state namespace.
+  const onceKey = "$Yarn.Internal.Once.bc028f9b";
   assert.deepEqual(streamOf(program, "Start"), [
     { op: "pushVariable", name: onceKey },
     { op: "jumpIfTrue", index: 5 }, // already seen → skip the block

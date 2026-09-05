@@ -66,7 +66,7 @@ import type { Instruction, Program, ProgramNode } from "./program.js";
 import { walkStatements } from "../model/walk.js";
 import { programLanguageVersion } from "./program.js";
 import { compileExpression, ExpressionCodegenError } from "./expressionCodegen.js";
-import { onceVariableKey } from "../runtime/generatedVariables.js";
+import { onceVariableKey, onceStatementVariableKey } from "../runtime/generatedVariables.js";
 import { booleanOperatorCount } from "../runtime/saliency.js";
 import { commandKind, parseCommand, type ParsedCommand } from "../runtime/commands.js";
 import { isSmartVariableInitializer } from "./smartVariables.js";
@@ -108,13 +108,36 @@ function subtitleHeader(headers: Record<string, string>): string | undefined {
 }
 
 export interface CompileDocumentOptions {
-  generateOnceIds?: (ctx: { node: string; index: number }) => string;
+  generateOnceIds?: (ctx: { node: string; index: number; file?: string; line?: number }) => string;
   /**
    * Pre-validated enum types (from the type-checking pass). When omitted,
    * the program's `<<enum>>` blocks are resolved best-effort without
    * diagnostics (the compile seam owns diagnostics).
    */
   enumTypes?: Map<string, EnumType>;
+  /**
+   * The type-checked declarations (explicit + implicit). Non-smart
+   * declarations the lowering didn't already seed get their default value
+   * compiled into `initialValues` (upstream Compiler.Compile's final
+   * initial-values pass over every declaration).
+   */
+  declarations?: VariableDeclarations;
+  /**
+   * `<<once>>` block → 1-based source line, built by the compile seam from
+   * the raw sources (the AST's command statements carry no positions). The
+   * default once-key derivation needs the statement's line number
+   * (upstream TypeCheckerListener.ExitOnce_primary_clause's location
+   * checksum); blocks missing from the map fall back to the node+index key.
+   */
+  onceLines?: Map<object, number>;
+}
+
+/** The declaration shape the lowering consumes (a structural slice of the
+ *  type checker's VariableDeclaration, avoiding a compile→typeCheck cycle). */
+export interface VariableDeclarations {
+  name: string;
+  type: string;
+  isSmartVariable?: boolean;
 }
 
 /**
@@ -136,7 +159,15 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
     enums[name] = Object.fromEntries(type.cases.map((c) => [c.name, c.rawValue]));
   }
 
-  const genOnce = opts.generateOnceIds ?? ((x) => `${x.node}#once#${x.index}`);
+  const genOnce =
+    opts.generateOnceIds ??
+    ((x: { node: string; index: number; file?: string; line?: number }) =>
+      x.file !== undefined && x.line !== undefined
+        ? // Upstream's once-statement key (TypeCheckerListener
+          // ExitOnce_primary_clause): the CRC32 of the statement's location
+          // description, under the once-state namespace.
+          onceStatementVariableKey({ sourceFileName: x.file, nodeTitle: x.node, lineNumber: x.line })
+        : `${x.node}#once#${x.index}`);
   let globalLineCounter = 0;
   /**
    * Assign the line's `line:` ID. The string-table pass writes
@@ -164,16 +195,42 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
 
   const nodes: Program["nodes"] = {};
   for (const [title, nodesWithSameTitle] of nodesByTitle) {
-    if (nodesWithSameTitle.length === 1 && !nodesWithSameTitle[0].when) {
-      nodes[title] = lowerNode(nodesWithSameTitle[0], { enums, ensureLineId, genOnce, initialValues, smartVariables });
+    // Empty nodes are excluded from the program (upstream
+    // AddDiagnosticsForEmptyNodes + FileCompiler.NodesToSkip: they warn
+    // YS0033 and are never lowered). A group whose members all emptied
+    // still gets its hub entry (upstream's NodeGroupCompiler creates the
+    // hub even when every member was omitted); duplicate plain nodes with
+    // no survivors at all are simply absent.
+    const members = nodesWithSameTitle.filter((n) => n.body.length > 0);
+    const isNodeGroup = nodesWithSameTitle.some((n) => n.when && n.when.length > 0);
+    if (members.length === 0) {
+      if (isNodeGroup) nodes[title] = { title, nodes: [] };
+      continue;
+    }
+    if (members.length === 1 && !members[0].when) {
+      nodes[title] = lowerNode(members[0], {
+        enums,
+        ensureLineId,
+        genOnce,
+        initialValues,
+        smartVariables,
+        onceLines: opts.onceLines,
+      });
     } else {
       // A single node with `when:` headers is a one-member node group
       // (upstream: the NodeGroupVisitor processes any node with when:
       // headers, so it gets the hub/selection machinery too).
       nodes[title] = {
         title,
-        nodes: nodesWithSameTitle.map((node) =>
-          lowerNode(node, { enums, ensureLineId, genOnce, initialValues, smartVariables }),
+        nodes: members.map((node) =>
+          lowerNode(node, {
+            enums,
+            ensureLineId,
+            genOnce,
+            initialValues,
+            smartVariables,
+            onceLines: opts.onceLines,
+          }),
         ),
       };
     }
@@ -193,6 +250,24 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
   for (const name of implicitBools) {
     if (!(name in initialValues) && !(name in smartVariables)) {
       initialValues[name] = [{ op: "pushBool", value: false }];
+    }
+  }
+
+  // Every declaration seeds an initial value (upstream Compiler.Compile's
+  // final pass over `declarations`): explicit declares were compiled during
+  // lowering; what remains — implicit declarations and host-provided
+  // externals — seeds the type's default (upstream sets an implicit
+  // declaration's DefaultValue from the type, then stores it as an
+  // Operand). Smart variables are computed on access, never stored.
+  for (const decl of opts.declarations ?? []) {
+    if (decl.isSmartVariable) continue;
+    if (decl.name in initialValues || decl.name in smartVariables) continue;
+    if (typeof decl.defaultValue === "number") {
+      initialValues[decl.name] = [{ op: "pushNumber", value: decl.defaultValue }];
+    } else if (typeof decl.defaultValue === "boolean") {
+      initialValues[decl.name] = [{ op: "pushBool", value: decl.defaultValue }];
+    } else if (typeof decl.defaultValue === "string") {
+      initialValues[decl.name] = [{ op: "pushString", value: decl.defaultValue }];
     }
   }
 
@@ -266,9 +341,11 @@ function collectImplicitConditionVariables(stmts: Statement[], into: Set<string>
 interface LoweringContext {
   enums: Program["enums"];
   ensureLineId: (tags?: string[]) => { tags: string[] | undefined; lineId: string };
-  genOnce: (ctx: { node: string; index: number }) => string;
+  genOnce: (ctx: { node: string; index: number; file?: string; line?: number }) => string;
   initialValues: Program["initialValues"];
   smartVariables: Program["smartVariables"];
+  /** `<<once>>` block → 1-based source line (see CompileDocumentOptions). */
+  onceLines?: Map<object, number>;
 }
 
 /**
@@ -376,7 +453,13 @@ function lowerNode(
   const lowering = new NodeLowering();
   let onceCounter = 0;
   const counters: NodeCounters = {
-    once: () => ctx.genOnce({ node: node.title, index: onceCounter++ }),
+    once: (block) =>
+      ctx.genOnce({
+        node: node.title,
+        index: onceCounter++,
+        file: node.sourceFile,
+        line: ctx.onceLines?.get(block),
+      }),
   };
   lowerStatements(node.body, lowering, ctx, counters);
   const result: ProgramNode = { title: node.title, instructions: lowering.resolve() };
@@ -392,7 +475,7 @@ function lowerNode(
 
 /** Per-node lowering counters (only the once-block counter today). */
 interface NodeCounters {
-  once: () => string;
+  once: (block: OnceBlock) => string;
 }
 
 function lowerStatements(
@@ -644,7 +727,7 @@ function lowerOnce(
   ctx: LoweringContext,
   counters: NodeCounters,
 ): void {
-  const key = onceVariableKey(counters.once());
+  const key = counters.once(block);
   const end = lowering.newLabel();
   const elseLabel = block.elseBody ? lowering.newLabel() : end;
   if (block.condition !== undefined) {

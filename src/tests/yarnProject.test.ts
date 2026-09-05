@@ -297,14 +297,17 @@ test("severity precedence: the host option merges per-code over the project's ow
     "host entry wins per-code over the project map");
 
   // Merged maps compose per-code: the project's entry for YS0011 survives
-  // while the host's entry for YS0031 applies alongside it.
+  // while the host's entry for YS0033 applies alongside it. (The fixture's
+  // duplicate-title pair emits YS0011 only — the upstream emission pattern;
+  // YS0031 is reserved for mixed groups — so an empty node carries the
+  // host's entry instead.)
   const merged = loadProject({
     project: { ...base, compilerOptions: { diagnosticsSeverity: { YS0011: "warning" } } },
-    fileSystem: fs,
-    diagnosticsSeverity: { YS0031: "warning" },
+    fileSystem: memoryFs({ ...files, "c.yarn": "title: C\n---\n===\n" }),
+    diagnosticsSeverity: { YS0033: "none" },
   });
   assert.ok(merged.diagnostics.some((d) => code(d) === "YS0011:warning"), "project entry survives the merge");
-  assert.ok(merged.diagnostics.some((d) => code(d) === "YS0031:warning"), "host entry applies alongside it");
+  assert.ok(merged.diagnostics.some((d) => code(d) === "YS0033:none"), "host entry applies alongside it");
 
   // The host layer also reaches codes the project never mentions: a
   // downgrade for a project-error code holds when the project carries no map.
