@@ -1231,17 +1231,11 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           const optionBase =
             o.lineNumber !== undefined ? { line: o.lineNumber - 1, col: 0 } : undefined;
           if (o.condition) {
-            const at = optionBase ? locateCondition(o.text, o.condition) : undefined;
-            ctx.currentRange = at ? { line: optionBase!.line, col: optionBase!.col + at } : undefined;
-            const { rewritten } = checkCondition(o.condition, ctx);
-            ctx.currentRange = undefined;
+            const { rewritten } = withRange(o.condition, o.text, optionBase, ctx);
             if (rewritten !== o.condition) o.condition = rewritten;
           }
           if (o.once?.condition) {
-            const at = optionBase ? locateCondition(o.text, o.once.condition) : undefined;
-            ctx.currentRange = at ? { line: optionBase!.line, col: optionBase!.col + at } : undefined;
-            const { rewritten } = checkCondition(o.once.condition, ctx);
-            ctx.currentRange = undefined;
+            const { rewritten } = withRange(o.once.condition, o.text, optionBase, ctx);
             if (rewritten !== o.once.condition) o.once.condition = rewritten;
           }
           collectInlineExpressionVars(o.text, ctx, optionBase);
@@ -1292,6 +1286,26 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
   }
 }
 
+/** Check a line's condition with the diagnostic range pinned to the
+ *  condition's columns within its line's text: the `currentRange`
+ *  set-reset invariant around `checkCondition`, stated once (the
+ *  review's Duplicated-Code smell — it used to be hand-rolled at every
+ *  condition site). `base` is the statement's 0-based file position, and
+ *  the range is undefined when the statement has no position or the
+ *  condition text can't be located. */
+function withRange(
+  condition: string,
+  text: string,
+  base: { line: number; col: number } | undefined,
+  ctx: CheckContext,
+): { type: ExprType; rewritten: string } {
+  const at = base ? locateCondition(text, condition) : undefined;
+  ctx.currentRange = at !== undefined && base ? { line: base.line, col: base.col + at } : undefined;
+  const checked = checkCondition(condition, ctx);
+  ctx.currentRange = undefined;
+  return checked;
+}
+
 /** Collect inline-expression uses and bool-constrain a line's conditions
  *  (lines and line-group items share the shape). */
 function checkLineStatement(line: Line, ctx: CheckContext): void {
@@ -1303,10 +1317,7 @@ function checkLineStatement(line: Line, ctx: CheckContext): void {
   collectInlineExpressionVars(line.text, ctx, base);
   for (const condition of [line.condition, line.once?.condition]) {
     if (!condition) continue;
-    const at = base ? locateCondition(line.text, condition) : undefined;
-    ctx.currentRange = at ? { line: base!.line, col: base!.col + at } : undefined;
-    const { rewritten } = checkCondition(condition, ctx);
-    ctx.currentRange = undefined;
+    const { rewritten } = withRange(condition, line.text, base, ctx);
     if (rewritten !== condition) {
       if (line.condition === condition) line.condition = rewritten;
       else if (line.once) line.once.condition = rewritten;
