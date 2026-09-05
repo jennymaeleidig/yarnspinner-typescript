@@ -55,6 +55,17 @@ Parity here means the observable contract upstream's own test suite pins:
     variable is unset (`VirtualMachine.PushVariable`) — a deliberate
     adaptation so comparisons stay total in the collect-don't-throw
     runtime (coding standards §3).
+  - A `<<declare>>` initializer whose constant evaluation fails (a modulo
+    by a constant zero — upstream's `NumberType.MethodModulus` throws
+    `DivideByZeroException`) reports YS0037 (`InvalidLiteralValue`) at
+    compile. Upstream compiles the declare with no diagnostic
+    (`ResolveInitialValues` marks the non-literal initializer
+    inline-expanded) and fails at runtime when the value is first read;
+    the port keeps that runtime behavior (the initializer still lowers to
+    a smart-variable slice) and adds the compile-time report so the
+    failure is visible at the collect-don't-throw compile seam (coding
+    standards §3). A constant `/` by zero stays clean — upstream's
+    `NumberType.MethodDivide` is float division (Infinity, no exception).
   - Line-ID collision handling: upstream throws after 1000 suffix attempts;
     this fork emits YS0041 and keeps retrying past that cap — no throw
     crosses the seam (coding standards §3).

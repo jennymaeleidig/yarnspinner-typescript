@@ -37,6 +37,7 @@ import { parseStateStatement } from "../parse/stateStatement.js";
 import { parseSaliencyCondition } from "../runtime/saliency.js";
 import type { DeclaredValueType, FunctionSignature } from "../runtime/library.js";
 import { inlineExpressionSpans } from "../runtime/interpolate.js";
+import { applyBinaryOp, applyUnaryOp, type BinaryOperator } from "../runtime/operands.js";
 import { describeError } from "../describeError.js";
 
 // Re-exported so the declarations surface keeps its historical home in the
@@ -948,6 +949,85 @@ function describeUpstream(type: ExprType): string | undefined {
   return type.enumName ?? (type.base === "unknown" ? undefined : PRIM_NAME[type.base]);
 }
 
+/** The checker's bin-node operator text → the runtime's binary op (the
+ *  evaluation rules are applyBinaryOp's, stated once there). */
+const CONSTANT_BIN_OPS: Record<string, BinaryOperator> = {
+  "+": "add",
+  "-": "subtract",
+  "*": "multiply",
+  "/": "divide",
+  "%": "modulo",
+  "==": "equalTo",
+  "!=": "notEqualTo",
+  "<": "lessThan",
+  ">": "greaterThan",
+  "<=": "lessThanOrEqualTo",
+  ">=": "greaterThanOrEqualTo",
+  "&&": "and",
+  "||": "or",
+  "^": "xor",
+};
+
+/** The outcome of a declare initializer's compile-time constant
+ *  evaluation. */
+type ConstantEvaluation =
+  | { state: "not-constant" }
+  | { state: "ok"; value: unknown }
+  | { state: "failed"; error: unknown };
+
+/**
+ * Compile-time constant evaluation of a declare initializer, over the
+ * checker's ExprParser AST. The evaluation rules are the runtime's
+ * `applyBinaryOp`/`applyUnaryOp`, so a compile-time result cannot disagree
+ * with the runtime's evaluation of the same expression. Anything that is
+ * not a constant — a variable reference, a function call, an unresolvable
+ * enum member, an unparseable node — reports `not-constant` and never
+ * evaluates (those initializers are smart variables, upstream
+ * ResolveInitialValues → Declaration.IsInlineExpansion). The one failure a
+ * well-typed constant expression can raise is applyBinaryOp's zero-divisor
+ * check on `%` (upstream NumberType.MethodModulus's DivideByZeroException;
+ * `/` is float division — Infinity, no exception) — reported as `failed`.
+ */
+function evaluateConstantInitializer(node: ExprNode, enumTypes: Map<string, EnumType>): ConstantEvaluation {
+  switch (node.kind) {
+    case "num":
+    case "str":
+    case "bool":
+      return { state: "ok", value: node.value };
+    case "var":
+    case "call":
+    case "bad":
+      return { state: "not-constant" };
+    case "member": {
+      const cases = node.typeName ? enumTypes.get(node.typeName) : undefined;
+      const raw = cases?.cases.find((c) => c.name === node.member)?.rawValue;
+      return raw === undefined ? { state: "not-constant" } : { state: "ok", value: raw };
+    }
+    case "un": {
+      const inner = evaluateConstantInitializer(node.operand, enumTypes);
+      if (inner.state !== "ok") return inner;
+      try {
+        return { state: "ok", value: applyUnaryOp(node.op === "-" ? "negate" : "not", inner.value) };
+      } catch (e) {
+        return { state: "failed", error: e };
+      }
+    }
+    case "bin": {
+      const left = evaluateConstantInitializer(node.left, enumTypes);
+      if (left.state !== "ok") return left;
+      const right = evaluateConstantInitializer(node.right, enumTypes);
+      if (right.state !== "ok") return right;
+      const op = CONSTANT_BIN_OPS[node.op];
+      if (!op) return { state: "not-constant" };
+      try {
+        return { state: "ok", value: applyBinaryOp(op, left.value, right.value) };
+      } catch (e) {
+        return { state: "failed", error: e };
+      }
+    }
+  }
+}
+
 /** YS0029 (upstream ExpressionTypeUndetermined): the type of this expression
  *  could not be determined. `text` is the expression's source text. */
 function emitUndetermined(text: string, ctx: CheckContext): void {
@@ -1122,6 +1202,31 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
                 `$${name} is declared to be a ${declaredDisplay}, but its initial value '${expr.trim()}' is a ${valueDisplay}`,
                 ctx.currentFile,
               );
+            }
+          }
+          // Compile-time constant evaluation: a constant initializer whose
+          // evaluation fails (applyBinaryOp's zero-divisor check on `%` —
+          // upstream NumberType.MethodModulus throws DivideByZeroException)
+          // reports YS0037 (InvalidLiteralValue: a constant value that
+          // cannot be evaluated) instead of compiling silently. Only a
+          // well-typed initializer evaluates (a type error is this pass's
+          // own diagnostic); a non-constant shape never evaluates (it is a
+          // smart variable, lowered unchanged below). Recorded divergence:
+          // upstream compiles the declare with no diagnostic and fails at
+          // runtime on first read (docs/compatibility.md) — the port keeps
+          // that runtime behavior and adds the compile-time report
+          // (coding standards §3: collect, don't throw).
+          if (!type.error) {
+            const parsedInitializer = parseExpression(rewritten);
+            if (parsedInitializer) {
+              const evaluation = evaluateConstantInitializer(parsedInitializer, ctx.enumTypes);
+              if (evaluation.state === "failed") {
+                ctx.emit(
+                  "YS0037",
+                  `Failed to evaluate the constant initial value of $${name} '${expr.trim()}': ${describeError(evaluation.error)}`,
+                  ctx.currentFile,
+                );
+              }
             }
           }
           ctx.declarations.push({
