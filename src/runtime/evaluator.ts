@@ -6,6 +6,7 @@
 
 import { InMemoryVariableStorage, type VariableStorage } from "./variableStorage.js";
 import { applyBinaryOp, applyUnaryOp } from "./operands.js";
+import { IDENTIFIER } from "../parse/identifier.js";
 
 // The operand primitives moved to ./operands.ts (the one operand-semantics
 // module); this re-export keeps their historical import path — and the
@@ -24,6 +25,10 @@ class EvaluationFailure extends Error {
     this.name = "EvaluationFailure";
   }
 }
+
+/** Enum member access `EnumName.Case` — both names are upstream IDs (the
+ *  shared unicode identifier classes). */
+const ENUM_MEMBER_ACCESS = new RegExp(`^(${IDENTIFIER})\\.(${IDENTIFIER})$`, "u");
 
 /** One character's structural position in an expression: the open-paren
  * depth once the character is consumed, and whether it sits inside a
@@ -510,7 +515,8 @@ export class ExpressionEvaluator {
     // Enum member access: EnumName.Case evaluates to the case's raw value
     // (upstream contract — the raw value is what variables hold at runtime;
     // string()/number() conversions of enum cases yield the raw value).
-    const enumMatch = expr.match(/^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/);
+    // Both names are upstream IDs (the shared unicode identifier classes).
+    const enumMatch = expr.match(ENUM_MEMBER_ACCESS);
     if (enumMatch && Object.prototype.hasOwnProperty.call(this.enums, enumMatch[1])) {
       return this.enums[enumMatch[1]][enumMatch[2]];
     }
@@ -534,10 +540,13 @@ export class ExpressionEvaluator {
       return this.smartVariables[key]();
     }
 
-    // Try as number
-    const num = Number(expr);
-    if (!isNaN(num) && expr.trim() === String(num)) {
-      return num;
+    // Try as number. Upstream NUMBER is INT('.'INT)? — no sign (unary
+    // minus is parseUnary's job), no exponent (YarnSpinnerLexer.g4 NUMBER).
+    // The old String() round-trip check rejected decimals that don't
+    // round-trip — "1.0" !== String(1) — which composed {1.0/3} as 0;
+    // accept the grammar's shape directly and return Number(expr).
+    if (/^[0-9]+(?:\.[0-9]+)?$/.test(expr)) {
+      return Number(expr);
     }
 
     // Try as boolean
