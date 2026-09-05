@@ -84,8 +84,9 @@ function germanProvider() {
   // The "translator": parse the base CSV and replace the text column.
   const baseEntries = parseCSV(baseCsv);
   const german: Record<string, string> = {
-    // The string table keeps the authored text verbatim, speaker prefix included.
-    "Mae: Gold {$gold}.": "Mae: Gold {$gold}. (DE)",
+    // The string table ships upstream's placeholder form (`{0}`); the
+    // "translator" localises the placeholder row.
+    "Mae: Gold {0}.": "Mae: Gold {0}. (DE)",
     "Take it": "Nimm es",
     "Mae: You took it.": "Mae: You took it. (DE)",
   };

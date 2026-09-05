@@ -3,6 +3,13 @@
 > Status: deferred. The three expression
 > grammars stay separate; the LOCKSTEP cross-references between them are
 > the load-bearing coordination mechanism.
+>
+> Amended (2026-09, fidelity ticket 03): the string table now stores
+> upstream's positional-placeholder text (`{0}`, `{1}`, … —
+> `StringTableGeneratorVisitor.GenerateFormattedText`), superseding the
+> authored-text choice for the **table artifact only**; delivery keeps the
+> span-based `{expr}` expansion described below. See "The string-table
+> split" at the end.
 
 ## Context
 
@@ -89,3 +96,28 @@ The merge stops being deferrable when any of these holds:
   stands.
 - The three grammars' operators stay pinned by their respective suites;
   the conformance corpus and golden bytecode remain the net.
+## The string-table split (2026-09, fidelity ticket 03)
+
+The string table originally registered each line's authored text —
+`{2+2}` stayed `{2+2}` — on the same authored-text principle as delivery.
+That broke the interchange artifact the table exists for: upstream
+`StringTableEntry.text` carries positional placeholders (`GenerateFormattedText`
+replaces every inline expression with `{n}`), so upstream-produced CSV
+locks hashed different bytes, and upstream tooling's translation rows
+(`du hast {0} Äpfel`) rendered the placeholder literally.
+
+The split now in force (superseding the authored-text row for the table
+artifact only):
+
+- **The table** stores the placeholder-composed text
+  (`src/compile/stringTable.ts` `composePlaceholderText`, riding the same
+  `inlineExpressionSpans` contract as delivery); the CSV `lock` hashes it,
+  so upstream tables interoperate.
+- **Delivery** keeps the authored-text span expansion for the program's
+  own text — the internal mechanism this ADR records — while text
+  resolved through the text provider (a localisation row, in placeholder
+  form) substitutes positionally against the line's evaluated expressions
+  (upstream `LineParser.ExpandSubstitutions`), in
+  `src/runtime/interpolate.ts`.
+
+Pinned by `src/tests/fidelity-03-string-table-placeholders.test.ts`.

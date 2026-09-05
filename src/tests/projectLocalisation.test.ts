@@ -69,8 +69,9 @@ function germanCSV(opts: { translateAll?: boolean } = {}): string {
   const result = baseCompile();
   assert.ok(result.stringTable);
   const german: Record<string, string> = {
-    // The string table keeps the authored text verbatim, speaker prefix included.
-    "Mae: Gold {$gold}.": "Mae: Gold {$gold}. (DE)",
+    // The string table ships upstream's placeholder form (`{0}`); the
+    // translator localises it as upstream tooling produces it.
+    "Mae: Gold {0}.": "Mae: Gold {0}. (DE)",
     "Take it": "Nimm es",
     // Left untranslated by default: an empty text row falls back to the base language.
     "Mae: You took it.": opts.translateAll ? "Du hast es genommen. (DE)" : "",
@@ -114,9 +115,9 @@ test("the localisation map resolves each declared locale's strings CSV", () => {
   const { localisation } = localisedFixture();
   assert.deepEqual(localisation.diagnostics, []);
   const compile = baseCompile();
-  const goldId = idOf(compile.stringTable!, "Mae: Gold {$gold}.");
+  const goldId = idOf(compile.stringTable!, "Mae: Gold {0}.");
   const takeId = idOf(compile.stringTable!, "Take it");
-  assert.equal(localisation.translations["de"]?.[goldId], "Mae: Gold {$gold}. (DE)");
+  assert.equal(localisation.translations["de"]?.[goldId], "Mae: Gold {0}. (DE)");
   assert.equal(localisation.translations["de"]?.[takeId], "Nimm es");
 });
 
@@ -154,8 +155,8 @@ A shadowed line. #shadow:source
   assert.ok(loaded.program);
   const localisation = loadLocalisations(loaded, fs);
 
-  const goldId = idOf(result.stringTable!, "Mae: Gold {$gold}.");
-  assert.equal(localisation.baseTable[goldId], "Mae: Gold {$gold}.");
+  const goldId = idOf(result.stringTable!, "Mae: Gold {0}.");
+  assert.equal(localisation.baseTable[goldId], "Mae: Gold {0}.");
   assert.equal(
     localisation.baseTable[shadowId],
     undefined,
