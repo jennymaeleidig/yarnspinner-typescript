@@ -18,10 +18,12 @@
  *   postfix (compile metadata; the postfix is stripped from the value
  *   expression and reported as `declaredType`).
  *
- * Identifiers follow the upstream rule `[A-Za-z_][A-Za-z0-9_]*` (the
- * stricter read — the type checker's old `$(\w+)` accepted `$1abc`, which
- * upstream's lexer never would). Command keywords are lowercase, as every
- * consumer's matcher assumed.
+ * Identifiers follow the upstream lexer's ID rule (the shared unicode
+ * identifier classes in `identifier.ts` — the full `IDENTIFIER_HEAD`
+ * ranges, not the old ASCII read; the earlier stricter-than-upstream
+ * `[A-Za-z_][A-Za-z0-9_]*` rejected localized names like `$生命` the g4
+ * accepts). Command keywords are lowercase, as every consumer's matcher
+ * assumed.
  *
  * Consumers keep their own semantics over the shared parse: the checker
  * validates, the compiler lowers, the runtime executes the fallback, the
@@ -30,6 +32,8 @@
  * truncation shapes this parser simply rejects, and its regexes are
  * looser by design so it can name what went wrong.
  */
+
+import { IDENTIFIER, NOT_IDENTIFIER_CHARACTER } from "./identifier.js";
 
 /** The compound-assignment operators (upstream's assignment-operator set). */
 export type CompoundOperator = "+=" | "-=" | "*=" | "/=" | "%=";
@@ -50,7 +54,10 @@ export interface StateStatement {
 }
 
 /** Compound assignment: the operator token directly after the variable. */
-const COMPOUND_SET = /^set\s+\$([A-Za-z_][A-Za-z0-9_]*)\s*(\+=|-=|\*=|\/=|%=)\s*([\s\S]+)$/;
+const COMPOUND_SET = new RegExp(
+  `^set\\s+\\$(${IDENTIFIER})\\s*(\\+=|-=|\\*=|/=|%=)\\s*([\\s\\S]+)$`,
+  "u",
+);
 /**
  * Plain assignment: `to` or `=` after the variable, then the expression.
  * The `=` may be attached (`set $x= 1`, `set $x=1` — upstream lexes the
@@ -60,13 +67,19 @@ const COMPOUND_SET = /^set\s+\$([A-Za-z_][A-Za-z0-9_]*)\s*(\+=|-=|\*=|\/=|%=)\s*
  * name keeps `$xto` whole: `set $xto 1` must not mis-read as
  * `set $x to 1` (backtracking into the identifier is forbidden).
  */
-const PLAIN_SET = /^set\s+\$([A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_])\s*(?:(to)|=)\s*([\s\S]+)$/;
+const PLAIN_SET = new RegExp(
+  `^set\\s+\\$(${IDENTIFIER})${NOT_IDENTIFIER_CHARACTER}\\s*(?:(to)|=)\\s*([\\s\\S]+)$`,
+  "u",
+);
 /** Declaration: `=` or `to` (upstream OPERATOR_ASSIGNMENT is `'=' | 'to'`,
  *  so `<<declare $x to 1>>` is the same statement as `<<declare $x = 1>>`),
  *  expression, optional ` as TYPE`. */
-const DECLARE = /^declare\s+\$([A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_])\s*(?:(to)|=)\s*([\s\S]+)$/;
+const DECLARE = new RegExp(
+  `^declare\\s+\\$(${IDENTIFIER})${NOT_IDENTIFIER_CHARACTER}\\s*(?:(to)|=)\\s*([\\s\\S]+)$`,
+  "u",
+);
 /** The `as TYPE` postfix (anchored at the end, outside any quoted string). */
-const AS_TYPE = /\s+as\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/;
+const AS_TYPE = new RegExp(`\\s+as\\s+(${IDENTIFIER})\\s*$`, "u");
 
 /**
  * Parse a state statement's command content. Returns `null` when the

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 import { ParseError } from "./parseError.js";
+import { IDENTIFIER } from "./identifier.js";
 
 export interface Token {
   type:
@@ -34,6 +35,12 @@ export interface Token {
 }
 
 // Minimal indentation-sensitive lexer to support options and their bodies.
+
+/**
+ * Header key: an upstream ID (the shared unicode identifier classes, the
+ * full `IDENTIFIER_HEAD` ranges — `跳线: 1` parses with its value).
+ */
+const HEADER_KEY = new RegExp(`^(${IDENTIFIER})\\s*:\\s*(.*)$`, "u");
 
 /**
  * The index of a command's closing `>>` in a line whose command span starts
@@ -187,7 +194,7 @@ export function lex(input: string): Token[] {
     // HeaderMode's HEADER_COMMENT strips a `//` comment from the value
     // (comments go to the COMMENTS channel; the value text ends there).
     if (inHeaders) {
-      const m = content.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$/);
+      const m = content.match(HEADER_KEY);
       if (m) {
         let value = m[2];
         const comment = value.indexOf("//");

@@ -28,6 +28,7 @@
 
 import type { YarnDocument, Statement, Line } from "../model/ast.js";
 import { EnumTypeBuilder, buildEnumTypes, collectEnumBlocks } from "./enums.js";
+import { IDENTIFIER, IDENTIFIER_HEAD_TEST } from "../parse/identifier.js";
 import type { EnumRawValue, EnumType } from "./enums.js";
 import { makeDiagnostic } from "./diagnostics.js";
 import type { Diagnostic, YarnRange } from "./diagnostics.js";
@@ -217,6 +218,16 @@ const WORD_OPS = new Map(
   }),
 );
 
+/** A variable reference `$name` — the name is an upstream ID (the shared
+ *  unicode identifier classes). */
+const VARIABLE_TOKEN = new RegExp(`^\\$${IDENTIFIER}`, "u");
+/** An identifier token (keyword aliases and bare names share the read). */
+const IDENT_TOKEN = new RegExp(`^${IDENTIFIER}`, "u");
+/** `EnumName.Case` — both names are upstream IDs. */
+const MEMBER_ACCESS = new RegExp(`^(${IDENTIFIER})\\.(${IDENTIFIER})$`, "u");
+/** `<<call name(args)>>` — the function name is an upstream ID. */
+const CALL_STATEMENT = new RegExp(`^call\\s+(${IDENTIFIER})\\s*\\(([\\s\\S]*)\\)\\s*$`, "u");
+
 function tokenize(expr: string): Tok[] {
   const toks: Tok[] = [];
   let i = 0;
@@ -253,7 +264,7 @@ function tokenize(expr: string): Tok[] {
       continue;
     }
     if (c === "$") {
-      const m = /^\$[A-Za-z_][A-Za-z0-9_]*/.exec(expr.slice(i));
+      const m = VARIABLE_TOKEN.exec(expr.slice(i));
       if (!m) {
         i++;
         continue;
@@ -262,8 +273,8 @@ function tokenize(expr: string): Tok[] {
       i += m[0].length;
       continue;
     }
-    if (/[A-Za-z_]/.test(c)) {
-      const m = /^[A-Za-z_][A-Za-z0-9_]*/.exec(expr.slice(i))!;
+    if (IDENTIFIER_HEAD_TEST.test(c)) {
+      const m = IDENT_TOKEN.exec(expr.slice(i))!;
       const word = m[0].toLowerCase();
       if (WORD_OPS.has(word)) {
         toks.push({ kind: "wordop", text: WORD_OPS.get(word)!, start: i, end: i + m[0].length });
@@ -273,7 +284,7 @@ function tokenize(expr: string): Tok[] {
       i += m[0].length;
       continue;
     }
-    if (c === "." && /[A-Za-z_]/.test(expr[i + 1] ?? "")) {
+    if (c === "." && IDENTIFIER_HEAD_TEST.test(expr[i + 1] ?? "")) {
       toks.push({ kind: "dot", text: ".", start: i, end: i + 1 });
       i++;
       continue;
@@ -923,7 +934,7 @@ function primOrDefault(expr: string, enumTypes: Map<string, EnumType>): Variable
   ) {
     return trimmed.slice(1, -1);
   }
-  const member = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/);
+  const member = trimmed.match(MEMBER_ACCESS);
   if (member) {
     const rawValue = enumTypes.get(member[1])?.cases.find((c) => c.name === member[2])?.rawValue;
     if (rawValue !== undefined) return rawValue;
@@ -1187,7 +1198,7 @@ function walkStatements(stmts: Statement[], ctx: CheckContext): void {
           break;
         }
 
-        const call = content.match(/^call\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*)\)\s*$/);
+        const call = content.match(CALL_STATEMENT);
         if (call) {
           const [, fnName, argsSrc] = call;
           const args = argsSrc.trim() ? splitArgs(argsSrc) : [];

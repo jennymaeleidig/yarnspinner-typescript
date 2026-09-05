@@ -30,10 +30,15 @@ Parity here means the observable contract upstream's own test suite pins:
     inspection matches upstream. Authored variables keep this fork's
     `$`-stripping at the variable-resolution seam; generated keys are
     runtime-internal and read straight from storage.
-  - Node-title identifiers validate against the ASCII identifier set
-    (letters, numbers, underscores; leading letter/underscore per upstream's
-    `IDENTIFIER_HEAD`); upstream's extended Unicode ID ranges are not
-    accepted — a recorded simplification, not permissive drift.
+  - Identifiers (header keys, variable names, enum case names, function
+    and type names) use upstream's full ID rule — the shared character
+    classes in `src/parse/identifier.ts`, transcribed from the lexer
+    grammar's `IDENTIFIER_HEAD`/`IDENTIFIER_CHARACTER` fragments. The one
+    remaining ASCII simplification is the YS0027 title/subtitle pass:
+    generated node names validate against the ASCII identifier set
+    (letters, numbers, underscores), where upstream's lexer would accept
+    the extended Unicode ID ranges for titles — a recorded
+    simplification, not permissive drift.
   - Expression operators accept tolerated upstream-foreign spellings
     (ADR 0005): a single `=` reads as equality, `===`/`!==` read as
     `==`/`!=`, and the operator word aliases (`and`, `or`, `not`, `xor`,

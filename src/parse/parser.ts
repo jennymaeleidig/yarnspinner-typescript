@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: CC0-1.0
 import { lex, Token, readHashtagText } from "./lexer.js";
 import { ParseError } from "./parseError.js";
+import { IDENTIFIER } from "./identifier.js";
+
+// The YS0005/unclosed shape-validation probes for state commands and bare
+// calls: the variable/function names are upstream IDs (the shared unicode
+// identifier classes).
+const DECLARE_SHAPE = new RegExp(`^declare\\s+\\$${IDENTIFIER}\\s*([\\s\\S]*)$`, "u");
+const SET_SHAPE = new RegExp(`^set\\s+\\$${IDENTIFIER}\\s*([\\s\\S]*)$`, "u");
+const CALL_BARE_NAME = new RegExp(`^call\\s+${IDENTIFIER}$`, "u");
 
 // Historical home of ParseError (now in ./parseError.js so the lexer can
 // raise it without an import cycle).
@@ -638,9 +646,9 @@ class Parser {
         if (!value) throw unclosed();
         if (!value[1].trim()) throw badExpr();
       };
-      const declareCmd = cmd.match(/^declare\s+\$[A-Za-z_]\w*\s*([\s\S]*)$/);
+      const declareCmd = cmd.match(DECLARE_SHAPE);
       if (declareCmd) requireValue(declareCmd[1], /^(?:=|to)\s*([\s\S]*)$/);
-      const setCmd = cmd.match(/^set\s+\$[A-Za-z_]\w*\s*([\s\S]*)$/);
+      const setCmd = cmd.match(SET_SHAPE);
       if (setCmd) requireValue(setCmd[1], /^(?:=|to|\+=|-=|\*=|\/=|%=)\s*([\s\S]*)$/);
       // The grammar's call_statement requires a function_call: a bare
       // <<call>> with no expression is invalid, and <<call name>> without
@@ -652,7 +660,7 @@ class Parser {
           this.rangeAt(t),
         );
       }
-      const callBareName = cmd.match(/^call\s+[A-Za-z_][A-Za-z0-9_]*$/);
+      const callBareName = cmd.match(CALL_BARE_NAME);
       if (callBareName) throw unclosed();
       return {
         type: "Command",
@@ -968,9 +976,10 @@ class Parser {
           this.take("COMMAND");
           // `<<case Name>>` or `<<case Name = <constant raw value>>` (upstream
           // 3.x enum grammar; the raw value's constant-ness is validated by
-          // the enum type builder).
+          // the enum type builder). The case name is an upstream ID (the
+          // shared unicode identifier classes).
           const caseText = cmd.slice(5).trim();
-          const caseMatch = caseText.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*(?:=\s*([\s\S]+))?$/);
+          const caseMatch = caseText.match(new RegExp(`^(${IDENTIFIER})\\s*(?:=\\s*([\\s\\S]+))?$`, "u"));
           if (!caseMatch) {
             throw new ParseError(`Invalid enum case: <<${cmd}>>`, this.rangeAt(this.peek()));
           }

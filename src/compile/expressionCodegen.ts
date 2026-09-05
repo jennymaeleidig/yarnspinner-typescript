@@ -25,9 +25,16 @@
  */
 
 import type { Instruction } from "./program.js";
+import { IDENTIFIER, IDENTIFIER_HEAD_TEST } from "../parse/identifier.js";
 
 /** Raised when an expression cannot be compiled to bytecode. */
 export class ExpressionCodegenError extends Error {}
+
+/** A variable reference `$name` — the name is an upstream ID (the shared
+ *  unicode identifier classes). */
+const VARIABLE = new RegExp(`^\\$(${IDENTIFIER})`, "u");
+/** An identifier token (keyword aliases and bare names share the read). */
+const IDENT = new RegExp(`^${IDENTIFIER}`, "u");
 
 /** The literal-push ops: infallible, so they are not stack *producers* in the failure sense. */
 export const LITERAL_OPS: ReadonlySet<Instruction["op"]> = new Set(["pushString", "pushNumber", "pushBool", "pushNull"]);
@@ -120,14 +127,14 @@ function tokenize(input: string): Token[] {
       continue;
     }
     if (c === "$") {
-      const m = /^\$([A-Za-z_][A-Za-z0-9_]*)/.exec(input.slice(i));
+      const m = VARIABLE.exec(input.slice(i));
       if (!m) throw new ExpressionCodegenError(`Expected a variable name after "$": ${input}`);
       tokens.push({ kind: "variable", name: m[1] });
       i += m[0].length;
       continue;
     }
-    if (/[A-Za-z_]/.test(c)) {
-      const m = /^[A-Za-z_][A-Za-z0-9_]*/.exec(input.slice(i))!;
+    if (IDENTIFIER_HEAD_TEST.test(c)) {
+      const m = IDENT.exec(input.slice(i))!;
       tokens.push({ kind: "ident", text: m[0] });
       i += m[0].length;
       continue;

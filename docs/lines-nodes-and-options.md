@@ -11,8 +11,10 @@ Source: [docs.yarnspinner.dev — Nodes and Lines](https://docs.yarnspinner.dev/
   Implementation note: this runtime's YS0027 pass enforces the leading
   letter/underscore rule (upstream lexer `IDENTIFIER_HEAD`) and the
   letters/numbers/underscores set for titles and subtitles; upstream's
-  extended Unicode ID ranges are not accepted (a recorded simplification —
-  see docs/compatibility.md).
+  extended Unicode ID ranges are not accepted for titles/subtitles — the
+  recorded ASCII simplification (see docs/compatibility.md). Other
+  identifiers (header keys, variables, enum cases) accept the full
+  upstream ID ranges via the shared classes in `src/parse/identifier.ts`.
 
 ### Basic structure
 ```yarn
