@@ -6,10 +6,12 @@
  * (`Dialogue` dispatches here).
  *
  * Semantics mirror upstream 3.2.2 `VirtualMachine.cs`:
- * - `NodeStart` fires when a node is entered (`setNode`, `runNode`, detour);
- *   `NodeComplete` when a node is left (end, `runNode`, `<<return>>`,
- *   `<<stop>>`) — and a node left records its visit (upstream records on
- *   node return).
+ * - `NodeStart` fires when a node is entered (`setNode`, `runNode`, detour,
+ *   a detour's return re-entering the caller); `NodeComplete` when a node is
+ *   left (end, `runNode`, `<<return>>`, `<<stop>>`) — and a node left records
+ *   its visit (upstream records on node return). A jump unwinds the whole
+ *   call stack with a `NodeComplete` per frame; a detour return re-fires
+ *   `nodeStart` for the resumed caller.
  * - `runNode` (a jump) exits the current node entirely: the visit is
  *   recorded, detoured nodes on the return stack record theirs, the return
  *   stack is cleared, and the target node is entered.
@@ -330,7 +332,16 @@ export class VirtualMachine {
    */
   setNode(title: string): void {
     if (!this.program.nodes[title]) {
+      // Upstream SetNode stops the dialogue (ExecutionState.Stopped, which
+      // resets state) before throwing; the collect-don't-throw port keeps
+      // the stop and the diagnostic, not the throw. No dialogue-complete
+      // event fires (upstream's SetNode failure never invokes the handler).
       this.logError(`No node named "${title}" exists in the program`);
+      this.returnStack.length = 0;
+      this.pendingOptions = null;
+      this.completed = true;
+      this.nodeTitle = null;
+      this.queuedEvents = [];
       return;
     }
     this.returnStack.length = 0;
@@ -345,10 +356,10 @@ export class VirtualMachine {
   /**
    * Immediately stop the dialogue: execution state is discarded and the
    * dialogue-complete event is delivered by the next `continue()`
-   * (upstream `Dialogue.Stop`).
+   * (upstream `Dialogue.Stop`, which always invokes the complete handler —
+   * after completion too).
    */
   stop(): void {
-    if (this.completed) return;
     this.returnStack.length = 0;
     this.pendingOptions = null;
     this.complete();
@@ -458,9 +469,7 @@ export class VirtualMachine {
         batch.push({ type: "nodeComplete", nodeName: this.nodeTitle! });
         const frame = this.returnStack.pop();
         if (frame) {
-          this.nodeTitle = frame.title;
-          this.ip = frame.ip;
-          this.currentNodeIndex = frame.nodeIndex;
+          this.resumeNode(frame, batch);
           continue;
         }
         this.complete(batch);
@@ -521,7 +530,18 @@ export class VirtualMachine {
             if (this.runReturn(batch) === "halted") return;
             continue;
           case "stop":
+            // Upstream's stop opcode (VirtualMachine.cs:844-858): the current
+            // node returns (NodeComplete + visit), then every node on the
+            // call stack unwinds with its own NodeComplete + visit (deepest
+            // first), and only then does the dialogue complete.
+            this.recordVisit(this.nodeTitle!, this.currentNodeIndex);
             batch.push({ type: "nodeComplete", nodeName: this.nodeTitle! });
+            for (let i = this.returnStack.length - 1; i >= 0; i--) {
+              const frame = this.returnStack[i];
+              this.recordVisit(frame.title, frame.nodeIndex);
+              batch.push({ type: "nodeComplete", nodeName: frame.title });
+            }
+            this.returnStack.length = 0;
             this.complete(batch);
             return;
           case "addOption": {
@@ -717,12 +737,13 @@ export class VirtualMachine {
   }
 
   /**
-   * Enter a node: resolve node-group membership, queue the opt-in line
-   * hints and the node-start event. A failed entry (unknown node, node
-   * group with no salient content) completes the dialogue — execution
-   * cannot proceed. An unknown node reports a diagnostic; a node group
-   * with no salient content is normal flow (upstream's hub node simply
-   * returns) and completes silently.
+   * Enter the named node: resolve node-group membership, queue the
+   * node-start event and the opt-in line hints — in upstream `SetNode`'s
+   * order: `nodeStart` first, then the line-hint delivery. A failed entry
+   * (unknown node, node group with no salient content) completes the
+   * dialogue — execution cannot proceed. An unknown node reports a
+   * diagnostic; a node group with no salient content is normal flow
+   * (upstream's hub node simply returns) and completes silently.
    */
   private enterNode(title: string, sink: DialogueEvent[]): boolean {
     const resolved = this.resolveNodeForEntry(title);
@@ -735,15 +756,24 @@ export class VirtualMachine {
     this.ip = 0;
     this.currentNodeIndex = resolved.nodeIndex;
     this.accumulatedOptions = [];
-    const lineIds = this.lineIdsForNode(resolved.node);
+    this.refireNodeEntry(sink, resolved.node, title);
+    return true;
+  }
+
+  /**
+   * Queue a node's entry events — the `nodeStart` event, then the line-hint
+   * lookahead (upstream `SetNode`: `NodeStartHandler` fires before
+   * `PrepareForLinesHandler`).
+   */
+  private refireNodeEntry(sink: DialogueEvent[], node: ProgramNode | undefined, title: string): void {
+    sink.push({ type: "nodeStart", nodeName: title, scene: node?.scene });
+    const lineIds = this.lineIdsForNode(node);
     // The provider's lookahead runs whether or not the opt-in LineHints
     // event is enabled (Rust `accept_line_hints` feeds availability).
     this.textProvider?.acceptLineHints?.(lineIds);
     if (this.lineHintsEnabled) {
       sink.push({ type: "lineHints", lineIds });
     }
-    sink.push({ type: "nodeStart", nodeName: title, scene: resolved.node.scene });
-    return true;
   }
 
   private resolveNodeForEntry(
@@ -889,10 +919,16 @@ export class VirtualMachine {
    * is entered.
    */
   private jumpTo(target: string, batch: DialogueEvent[]): void {
+    // Upstream ExecuteJumpToNode (non-detour): the current node returns
+    // (NodeComplete + visit), then EVERY node on the call stack unwinds with
+    // its own NodeComplete + visit — deepest first — before the target
+    // starts (VirtualMachine.cs:1008-1031).
     batch.push({ type: "nodeComplete", nodeName: this.nodeTitle! });
     this.recordVisit(this.nodeTitle!, this.currentNodeIndex);
-    for (const frame of this.returnStack) {
+    for (let i = this.returnStack.length - 1; i >= 0; i--) {
+      const frame = this.returnStack[i];
       this.recordVisit(frame.title, frame.nodeIndex);
+      batch.push({ type: "nodeComplete", nodeName: frame.title });
     }
     this.returnStack.length = 0;
     this.enterNode(this.resolveDestination(target), batch);
@@ -904,19 +940,33 @@ export class VirtualMachine {
    */
   private runReturn(batch: DialogueEvent[]): CommandOutcome {
     const frame = this.returnStack[this.returnStack.length - 1];
+    // Upstream Return: the current node returns (NodeComplete + visit)
+    // before the return site is entered.
+    batch.push({ type: "nodeComplete", nodeName: this.nodeTitle! });
+    this.recordVisit(this.nodeTitle!, this.currentNodeIndex); // <<return>> is a node return
     if (!frame) {
       // Not inside a detour: <<return>> acts as stop.
-      batch.push({ type: "nodeComplete", nodeName: this.nodeTitle! });
       this.complete(batch);
       return "halted";
     }
-    batch.push({ type: "nodeComplete", nodeName: this.nodeTitle! });
-    this.recordVisit(this.nodeTitle!, this.currentNodeIndex); // <<return>> is a node return
     this.returnStack.pop();
+    // Upstream re-enters the caller via SetNode(clearState: false) — which
+    // fires nodeStart (and the line-hint lookahead) for the resumed node.
+    this.resumeNode(frame, batch);
+    return "continued";
+  }
+
+  /**
+   * Resume a saved call-stack frame: restore the node position and re-fire
+   * the node-entry events (upstream's return path runs through
+   * `SetNode(clearState: false)`, which fires `nodeStart` + the line-hint
+   * lookahead for the resumed caller).
+   */
+  private resumeNode(frame: ReturnFrame, batch: DialogueEvent[]): void {
     this.nodeTitle = frame.title;
     this.ip = frame.ip;
     this.currentNodeIndex = frame.nodeIndex;
-    return "continued";
+    this.refireNodeEntry(batch, this.memberFor(frame.title, frame.nodeIndex), frame.title);
   }
 
   /**
@@ -1090,9 +1140,9 @@ export class VirtualMachine {
    * canonical `line:`-prefixed ID in the node's stream — option bodies are
    * inline instructions, so a flat walk covers them all.
    */
-  private lineIdsForNode(node: ProgramNode): string[] {
+  private lineIdsForNode(node: ProgramNode | undefined): string[] {
     const ids = new Set<string>();
-    for (const ins of node.instructions) {
+    for (const ins of node?.instructions ?? []) {
       if (ins.op === "runLine" || ins.op === "addOption") {
         const id = lineIdFromTags(ins.tags);
         if (id !== undefined) ids.add(id);
