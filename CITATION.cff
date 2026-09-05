@@ -68,3 +68,30 @@ references:
       "Line metadata: " comment), and Editor/Importers/YarnImporter.cs
       GetHashString (the first-8-hex SHA-256 lock).
       Accessed 2026-09-03.
+  - type: software
+    title: YarnSpinner-Rust
+    authors:
+      - name: Yarn Spinner Pty. Ltd.
+      - name: Yarn Spinner contributors
+    version: main
+    date-released: "2026-09-05"
+    license: Apache-2.0
+    urls:
+      - https://github.com/YarnSpinnerTool/YarnSpinner-Rust
+    notes: >-
+      Design and API-shape reference for the runtime (not a code borrow).
+      ADR 0002 adopts the Rust port's pull API — `continue()` returning the
+      events up to the next stopping point — as the third shape between
+      upstream .NET's push handlers and this fork's earlier
+      mutate-and-read runner; line hints ship as the Rust treatment of
+      upstream's PrepareForLines (accept_line_hints → opt-in LineHintsEvent).
+      src/runtime/textProvider.ts mirrors the Rust TextProvider trait's
+      contract and naming (accept_line_hints, get_text, set_language,
+      extend_base_language, extend_translation, are_lines_available; the
+      StringTableTextProvider default; set_language null-to-base
+      convention); src/runtime/dialogue.ts and src/runtime/vm.ts carry the
+      option-pending naming (is_waiting_for_option_selection →
+      Dialogue.isWaitingForOptionSelection); the Transcript helpers name
+      their contract after Rust Dialogue::continue_. Apache-2.0 — distinct
+      from the MIT C# repository above. Accessed 2026-09-05 (citation
+      record; referenced across the runtime since ADR 0002).
