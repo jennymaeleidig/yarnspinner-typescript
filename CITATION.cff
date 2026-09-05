@@ -36,12 +36,19 @@ references:
       failed-Match fallback, the invalid-name diagnostic range, and the
       plural/ordinal `%` current-culture rendering); src/markup/types.ts
       adapts MarkupAttribute.Shift (MarkupParseResult.cs).
-      Other
+      src/compile/declarationFile.ts adapts the same file's
+      Utility.GenerateYarnFileWithDeclarations at v3.2.2 over the port's
+      VariableDeclaration shape. src/compile/upgrader.ts ports
+      YarnSpinner.Compiler/Upgrader/LanguageUpgrader.cs (UpgradeJob,
+      UpgradeResult/OutputFile, TextReplacement, ApplyReplacements) at
+      v3.2.2, including the upgrade-type-unsupported error and the
+      replacement mismatch/out-of-range error texts. Other
       compiler and runtime behavior is a parity-driven reimplementation of
       the documented upstream algorithms (string table, shadow-line
       validation, diagnostics registry), not a code borrow.
       Accessed 2026-09-02 (crc32.ts), 2026-09-03 (tagLines.ts, submodule
-      mount), 2026-09-04 (markup parity edges).
+      mount), 2026-09-04 (declarationFile.ts, markup parity edges),
+      2026-09-05 (upgrader.ts).
   - type: software
     title: YarnSpinner-Unity
     authors:

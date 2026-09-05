@@ -47,6 +47,8 @@ import type { ExternalDeclarations, VariableDeclaration } from "./typeCheck.js";
 import type { EnumType } from "./enums.js";
 import { assignLineIds, StringTableManager } from "./stringTable.js";
 import type { StringTable } from "./stringTable.js";
+import { buildProjectDebugInfo } from "./debugInfo.js";
+import type { ProjectDebugInfo } from "./debugInfo.js";
 import { LineParser } from "../markup/lineParser.js";
 import { builtinSignatures } from "../runtime/builtins.js";
 import { inlineExpressionSpans } from "../runtime/interpolate.js";
@@ -124,6 +126,12 @@ export interface CompileResult {
   containsImplicitStringTags: boolean;
   /** Enum types defined by the script or the host (upstream user-defined types). */
   userDefinedTypes: EnumType[];
+  /**
+   * Debug output (upstream `CompilationResult.ProjectDebugInfo`): per-node
+   * instruction → source-range mapping for bytecode positions. `null` when
+   * no program was lowered (upstream nulls it on error compiles too).
+   */
+  projectDebugInfo: ProjectDebugInfo | null;
 }
 
 /**
@@ -144,6 +152,7 @@ export function emptyCompileResult(diagnostics: Diagnostic[]): CompileResult {
     fileTags: {},
     containsImplicitStringTags: false,
     userDefinedTypes: [],
+    projectDebugInfo: null,
   };
 }
 
@@ -326,6 +335,15 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
     diagnostics.push(makeDiagnostic("YS0005", `Internal lowering failure: ${e.message}`));
   }
 
+  // Debug output (upstream `ProjectDebugInfo`): per-node instruction →
+  // source ranges, reconstructed from the lowered program against the
+  // parsed documents (src/compile/debugInfo.ts).
+  const sourceByName = new Map(files.map((f) => [f.name, f.source]));
+  const debugInfo = buildProjectDebugInfo(
+    docs.map(({ name, doc }) => ({ name, doc, source: sourceByName.get(name) ?? "" })),
+    program,
+  );
+
   return finalize({
     program,
     stringTable: manager.stringTable,
@@ -333,6 +351,7 @@ export function compile(files: CompileFile[], opts: CompileOptions = {}): Compil
     fileTags,
     containsImplicitStringTags: manager.containsImplicitStringTags,
     userDefinedTypes: [...checked.enumTypes.values()],
+    projectDebugInfo: debugInfo,
   });
 }
 
