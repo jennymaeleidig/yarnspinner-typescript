@@ -66,6 +66,7 @@ examples/sveltekit-host/tsconfig.tsbuildinfo
 # yarn.lock
 # pnpm-lock.yaml
 
+#Coding Agents
 .scratch/
 
 # Generated test artifact: sveltekitHost.test.ts compiles the Svelte host here, then removes it
