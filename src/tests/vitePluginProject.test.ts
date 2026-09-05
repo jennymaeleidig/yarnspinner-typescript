@@ -31,7 +31,7 @@ const projectFixture = (): [string, () => void] => {
   const entries = stringTableToEntries(stringTable, "en").map((e) => ({
     ...e,
     language: "de",
-    text: e.text === "Mae: Gold {$gold}." ? "Mae: Gold {$gold}. (DE)" : e.text,
+    text: e.text === "Mae: Gold {0}." ? "Mae: Gold {0}. (DE)" : e.text,
   }));
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "story.yarn"), story);
