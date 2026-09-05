@@ -508,7 +508,9 @@ After
 test("a host-provided strategy selects content through queryBestContent/contentWasSelected", () => {
   const selections: string[] = [];
   const strategy: ContentSaliencyStrategy = {
-    queryBestContent: (content) => content.find((c) => c.contentId === "Group.1") ?? content[0] ?? null,
+    // The member's upstream unique name (crc32 of file+title+startLine —
+    // the second member's title header sits on source line 10).
+    queryBestContent: (content) => content.find((c) => c.contentId === "Group.e1b95b9c") ?? content[0] ?? null,
     contentWasSelected: (content) => selections.push(content.contentId),
   };
   const source = `title: Start
@@ -528,7 +530,7 @@ two
 `;
   const dialogue = new Dialogue(compile(source), { contentSaliencyStrategy: strategy });
   assert.equal(firstLine(dialogue), "two");
-  assert.deepEqual(selections, ["Group.1"]);
+  assert.deepEqual(selections, ["Group.e1b95b9c"]);
 
   // The setter swaps strategies mid-dialogue.
   dialogue.contentSaliencyStrategy = new FirstSaliencyStrategy();

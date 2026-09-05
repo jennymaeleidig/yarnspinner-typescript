@@ -67,7 +67,7 @@ import { walkStatements } from "../model/walk.js";
 import { programLanguageVersion } from "./program.js";
 import { compileExpression, ExpressionCodegenError } from "./expressionCodegen.js";
 import { onceVariableKey, onceStatementVariableKey } from "../runtime/generatedVariables.js";
-import { booleanOperatorCount } from "../runtime/saliency.js";
+import { booleanOperatorCount, nodeGroupMemberId } from "../runtime/saliency.js";
 import { commandKind, parseCommand, type ParsedCommand } from "../runtime/commands.js";
 import { isSmartVariableInitializer } from "./smartVariables.js";
 import { compoundOperatorToStackOp, parseStateStatement } from "../parse/stateStatement.js";
@@ -207,7 +207,8 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
       if (isNodeGroup) nodes[title] = { title, nodes: [] };
       continue;
     }
-    if (members.length === 1 && !members[0].when) {
+    const groupPath = isNodeGroup || members.length > 1;
+    if (!groupPath) {
       nodes[title] = lowerNode(members[0], {
         enums,
         ensureLineId,
@@ -219,20 +220,25 @@ export function compileDocument(doc: YarnDocument, opts: CompileDocumentOptions 
     } else {
       // A single node with `when:` headers is a one-member node group
       // (upstream: the NodeGroupVisitor processes any node with when:
-      // headers, so it gets the hub/selection machinery too).
-      nodes[title] = {
-        title,
-        nodes: members.map((node) =>
-          lowerNode(node, {
-            enums,
-            ensureLineId,
-            genOnce,
-            initialValues,
-            smartVariables,
-            onceLines: opts.onceLines,
-          }),
+      // headers, so it gets the hub/selection machinery too). Every
+      // `when:`-bearing member is renamed to its upstream unique name
+      // (NodeGroupVisitor → Utility.GetNodeUniqueName) and registered in
+      // the node table under it, so members are individually
+      // jump-addressable; the group entry (the port's hub node) keeps the
+      // source title, and jumping to the group name selects by saliency.
+      const lowered = members.map((node, i) =>
+        lowerNode(
+          node,
+          { enums, ensureLineId, genOnce, initialValues, smartVariables, onceLines: opts.onceLines },
+          node.when && node.when.length > 0
+            ? nodeGroupMemberId(title, memberProvenance(node), i)
+            : node.title,
         ),
-      };
+      );
+      for (const member of lowered) {
+        if (member.title !== title) nodes[member.title] = member;
+      }
+      nodes[title] = { title, nodes: lowered };
     }
   }
 
@@ -446,9 +452,26 @@ class NodeLowering {
   }
 }
 
+/** A member's unique-name inputs (upstream TryGetNodeTitle's derivation
+ *  inputs): the subtitle header, source file, and first source line. */
+function memberProvenance(node: YarnNode): {
+  subtitle?: string;
+  sourceFile?: string;
+  startLine?: number;
+} {
+  return {
+    subtitle: subtitleHeader(node.headers),
+    sourceFile: node.sourceFile,
+    startLine: node.startLine,
+  };
+}
+
 function lowerNode(
   node: YarnNode,
   ctx: LoweringContext,
+  /** The node's program name: the source title, or a node-group member's
+   *  upstream unique name (see the compileDocument grouping pass). */
+  programName: string = node.title,
 ): ProgramNode {
   const lowering = new NodeLowering();
   let onceCounter = 0;
@@ -462,7 +485,16 @@ function lowerNode(
       }),
   };
   lowerStatements(node.body, lowering, ctx, counters);
-  const result: ProgramNode = { title: node.title, instructions: lowering.resolve() };
+  const result: ProgramNode = {
+    title: programName,
+    instructions: lowering.resolve(),
+    // Header retention (upstream Node.Headers): every raw header survives
+    // into the program, `tags:` raw text included; `title` records the
+    // program name (upstream stores the — possibly renamed — NodeTitle).
+    headers: { ...node.headers, title: programName },
+  };
+  if (node.sourceFile !== undefined) result.sourceFile = node.sourceFile;
+  if (node.startLine !== undefined) result.startLine = node.startLine;
   if (node.when) result.when = node.when;
   if (node.headers.scene?.trim()) result.scene = node.headers.scene.trim();
   const tracking = trackingHeader(node.headers);
