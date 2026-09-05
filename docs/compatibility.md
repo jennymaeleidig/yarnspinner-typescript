@@ -21,13 +21,13 @@ Parity here means the observable contract upstream's own test suite pins:
   - Program/bytecode format is our own versioned JSON (ADR 0001/0003).
   - The runtime API is pull-based (`continue()` → `DialogueEvent[]`), the
     Rust port's shape, not upstream .NET's push handlers (ADR 0002).
-  - On error diagnostics upstream nulls the program; this fork keeps it
+  - On error diagnostics upstream nulls the program; this project keeps it
     observable.
   - Generated-variable keys mirror upstream's `$Yarn.Internal.*` names and
     separators exactly, leading `$` sigil included (once-state
     `$Yarn.Internal.Once.<id>`, view counts
     `$Yarn.Internal.Content.ViewCount.<id>`), so host-visible storage
-    inspection matches upstream. Authored variables keep this fork's
+    inspection matches upstream. Authored variables keep this project's
     `$`-stripping at the variable-resolution seam; generated keys are
     runtime-internal and read straight from storage.
   - Identifiers (header keys, variable names, enum case names, function
@@ -67,7 +67,7 @@ Parity here means the observable contract upstream's own test suite pins:
     standards §3). A constant `/` by zero stays clean — upstream's
     `NumberType.MethodDivide` is float division (Infinity, no exception).
   - Line-ID collision handling: upstream throws after 1000 suffix attempts;
-    this fork emits YS0041 and keeps retrying past that cap — no throw
+    this project emits YS0041 and keeps retrying past that cap — no throw
     crosses the seam (coding standards §3).
   - `tagLines` aborts are data, not throws (upstream `TagLines` throws on
     abort), and upstream's 500 ms stopwatch becomes an attempt cap — no

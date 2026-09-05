@@ -33,7 +33,7 @@ Canonical vocabulary. Upstream-mirrored terms use upstream's concept names rende
 ### Compiler
 
 - **Program**: the compiled, serializable artifact of a set of `.yarn` sources; consumed by the runtime. This project's program format is its own versioned JSON (not upstream's protobuf).
-- **Compilation result**: what `compile()` returns — program, string table, declarations, diagnostics, file tags, containsImplicitStringTags, user-defined types (upstream camelCased shape). `compile()` takes `{name, source}` files. A program is only lowered in `full` mode; upstream nulls it on error diagnostics while this fork keeps it observable.
+- **Compilation result**: what `compile()` returns — program, string table, declarations, diagnostics, file tags, containsImplicitStringTags, user-defined types (upstream camelCased shape). `compile()` takes `{name, source}` files. A program is only lowered in `full` mode; upstream nulls it on error diagnostics while this project keeps it observable.
 - **Compilation mode**: full, strings-only, declarations-only, or
   type-check-only (which also emits the string table); declarations-only is
   the obsolete upstream alias of type-check-only.
