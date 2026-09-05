@@ -39,3 +39,11 @@ If no item is salient, the whole group is skipped.
 - The `=>` prefix is consumed by the lexer; the item goes through the same
   line pipeline as ordinary text (speaker prefix, hashtags, markup,
   substitutions).
+- An item may carry an indented body (upstream `line_group_item`'s
+  `INDENT statement* DEDENT`): the body belongs to the item and runs only
+  when that item is selected — the body's statements lower inside the
+  selected item's region, after its line (upstream
+  `CodeGenerationVisitor` visits each item's child statements between the
+  RunLine and the jump to the group's end). Body lines register in the
+  string table right after their item, exactly as upstream's parse-tree
+  visit counts them.

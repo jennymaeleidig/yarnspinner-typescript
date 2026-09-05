@@ -13,6 +13,7 @@ import type {
   Command,
   OptionGroup,
   LineGroup,
+  LineGroupItem,
   Option,
   IfBlock,
   OnceBlock,
@@ -584,21 +585,31 @@ class Parser {
 
   /**
    * One line-group item, from a LINE_GROUP token (the lexer consumed the
-   * `=>` prefix): the same line-suffix pipeline as a text line.
+   * `=>` prefix): the same line-suffix pipeline as a text line, plus the
+   * item's optional indented body (upstream `line_group_item`'s
+   * `INDENT statement* DEDENT` — the body belongs to the item, not to the
+   * statements after the group).
    */
-  private parseLineGroupItem(token: Token): Line {
-    return this.parseLineFromText(token.text, token);
+  private parseLineGroupItem(token: Token): LineGroupItem {
+    const item = this.parseLineFromText(token.text, token) as LineGroupItem;
+    if (this.at("INDENT")) {
+      this.take("INDENT");
+      item.body = this.parseStatementsUntil("DEDENT");
+      this.take("DEDENT");
+    }
+    return item;
   }
 
   /**
-   * A line group: the consecutive run of `=>` line statements.
-   * Blank lines, comments, and indentation tokens between items do not
-   * break the group (upstream: the group is the run of line_group_items —
-   * comments are not statements and blank lines are not either); any other
-   * statement ends it.
+   * A line group: the consecutive run of `=>` line statements, each with
+   * its optional indented body (owned by the item — see
+   * parseLineGroupItem). Blank lines, comments, and indentation tokens
+   * between items do not break the group (upstream: the group is the run
+   * of line_group_items — comments are not statements and blank lines are
+   * not either); any other statement ends it.
    */
   private parseLineGroup(): LineGroup {
-    const items: Line[] = [];
+    const items: LineGroupItem[] = [];
     while (!this.at("EOF")) {
       if (this.at("LINE_GROUP")) {
         items.push(this.parseLineGroupItem(this.take("LINE_GROUP")));

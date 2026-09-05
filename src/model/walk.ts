@@ -11,7 +11,8 @@
  *
  * Order (document order, depth-first):
  * - `onLine` — every line-bearing statement: `Line` statements and
- *   line-group items;
+ *   line-group items (an item's indented body recurses right after it, the
+ *   option's line-before-body shape);
  * - `onOption` — a shortcut option, just before its body recurses (the
  *   option's own text is line-bearing: upstream registers/checks it, then
  *   walks the body);
@@ -76,6 +77,10 @@ export function walkStatements(
       case "LineGroup":
         for (let j = 0; j < s.items.length; j++) {
           walker.onLine?.(s.items[j], { list: s.items, index: j });
+          // The item's indented body (upstream `line_group_item`'s
+          // `statement*`): it registers/checks with its item, exactly as an
+          // option's line precedes its body.
+          walkStatements(s.items[j].body ?? [], walker, options);
         }
         break;
       case "OptionGroup":
