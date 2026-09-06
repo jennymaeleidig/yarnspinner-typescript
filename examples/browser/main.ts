@@ -5,14 +5,19 @@
 // import — the shared examples/content projects, compiled at build time,
 // no inline template strings.
 import { el } from "./dom.js";
-import { mountDialogueDemo } from "./dialogueDemo.js";
-import { mountStoryletsDemo } from "./StoryletsDemo.js";
-// The demo owns its styling (the package ships no CSS).
+import { mountCrossroadsDemo } from "./crossroadsDemo.js";
+import { mountCalibrationsDemo } from "./calibrationsDemo.js";
+// The demo owns its styling — a light hand-written mimic of the Try site's
+// dark theme (see dialogue.css header).
 import "./dialogue.css";
 
 const TABS = [
-  { id: "dialogue", label: "Dialogue", mount: mountDialogueDemo },
-  { id: "storylets", label: "Storylets", mount: mountStoryletsDemo },
+  { id: "crossroads", label: "Crossroads", mount: mountCrossroadsDemo },
+  {
+    id: "calibrations",
+    label: "Calibrations",
+    mount: mountCalibrationsDemo,
+  },
 ] as const;
 
 const nav = el("nav", "demo-tabs");
@@ -49,4 +54,4 @@ if (!app) {
   throw new Error("Root element not found");
 }
 app.append(nav, ...TABS.map((tab) => panels[tab.id]));
-activate("dialogue");
+activate("crossroads");

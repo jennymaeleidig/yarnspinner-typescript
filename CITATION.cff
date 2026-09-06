@@ -7,6 +7,37 @@ message: >-
   mirrored; TypeScript reimplementation unless noted as a code borrow).
 title: yarnspinner-typescript external sources and influences
 references:
+  - type: webpage
+    title: Try Yarn Spinner sample stories (BranchingDialogue, Calibrations)
+    authors:
+      - name: Yarn Spinner Pty. Ltd.
+      - name: Paris (Calibrations story)
+    urls:
+      - https://try.yarnspinner.dev/samples/BranchingDialogue.yarn
+      - https://try.yarnspinner.dev/samples/Calibrations.yarn
+    notes: >-
+      Demo content, incorporated verbatim: examples/content/calibrations/
+      calibrations.yarn is byte-identical to Calibrations.yarn (kept so on
+      purpose — it is the fidelity target for markup/enums/functions/
+      node-group playback, and carries its own in-file author attribution,
+      "Written by Paris"); examples/content/crossroads/crossroads.yarn is
+      BranchingDialogue.yarn verbatim apart from a provenance comment in
+      its Start node. The sample files are served by the closed-source Try
+      site; no explicit content license was found at the sample endpoints
+      — treated as attributed demonstration use, swap-out candidates if
+      that proves wrong. Accessed 2026-09-05.
+  - type: webpage
+    title: Try Yarn Spinner (site design — dark-theme visual language)
+    authors:
+      - name: Yarn Spinner Pty. Ltd.
+    url: https://try.yarnspinner.dev/
+    notes: >-
+      Design influence for the demos' presentation (not a CSS copy):
+      examples/browser/dialogue.css lifts the .dark token set's palette
+      (background hsl(30 10% 8%), foreground hsl(40 15% 92%), green primary
+      hsl(142 45% 42%), plum secondary hsl(330 35% 50%), border/radius/
+      shadow scale) into a small hand-written stylesheet over the demo's
+      own class hooks. Accessed 2026-09-05.
   - type: software
     title: yarn-spinner-runner-ts (inspiration)
     authors:

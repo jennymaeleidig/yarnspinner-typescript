@@ -6,8 +6,9 @@ runs against the published API (dist/, the package root) through the plugin,
 the consumption story works.
 
 The demo is vanilla TypeScript — it constructs `Dialogue` from the package
-root, reads `Transcript` raw, and renders plain text. No framework, no view
-layer.
+root, reads `Transcript` raw, and renders text with a light hand-written
+mimic of the Try Yarn Spinner site's dark theme (`dialogue.css`). No
+framework, no view layer.
 
 ## Running the Demos
 
@@ -37,17 +38,17 @@ layer.
 
 The entry point (`main.ts`) hosts two tabs:
 
-- **Dialogue** (`dialogueDemo.ts`) — the shared Wayside project
-  (`../content/project.yarnproject`, compiled at build time by
+- **Crossroads** (`crossroadsDemo.ts`) — the crossroads project
+  (`../content/crossroads/crossroads.yarnproject`, compiled at build time by
   yarnspinner-vite-plugin) on the pull-based runtime: lines, option
-  selection, and a manual continue button over the crossroads → night-market
-  chain.
+  selection, and a manual continue button over the Try BranchingDialogue
+  sample, with a full state log (node, delivered events, stopping point,
+  variable snapshot) under the transcript.
 
-- **Storylets** (`StoryletsDemo.ts`) — a node-group/saliency demo over
-  `../content/storylets.yarn`: one node group whose members gate on `when:`
-  conditions, drawn repeatedly under a switchable saliency strategy
-  (`setSaliencyStrategy`), with the draw history and story variables shown as
-  they accumulate.
+- **Calibrations** (`calibrationsDemo.ts`) — the Try Yarn Spinner showcase
+  story (`../content/calibrations/calibrations.yarnproject`): markup, enums,
+  functions, commands, and a saliency-driven node group, byte for byte from
+  `try.yarnspinner.dev/samples/Calibrations.yarn`.
 
 Content loads via direct import — no inline template strings, no manual
 compile calls. The build is asserted end-to-end by
@@ -55,5 +56,5 @@ compile calls. The build is asserted end-to-end by
 
 ## Customization
 
-Edit the `.yarn` files under `examples/content/` to change the stories, and
-the two demo modules for their presentation.
+Edit the `.yarn` files under `examples/content/*/` to change the stories,
+and the demo modules for their presentation.

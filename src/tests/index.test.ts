@@ -66,7 +66,8 @@ test("the package root and its packaging are React-free", () => {
     "peerDependenciesMeta must not list react-dom",
   );
 
-  // Same technique as nextjsHost's bundle-purity pin, scoped to the shipped
+  // Same technique as the deleted host examples' bundle-purity pin, scoped
+  // to the shipped
   // artifacts (the `files` tree): no emitted package file may reference
   // react/jsx-runtime. dist/tests is excluded — the compiled test bundles
   // themselves carry the literal (this assertion's own source).

@@ -28,3 +28,15 @@ root did not just stay React-free; there is no React (and no other
 framework) surface behind it to keep out. The browser demo, Next.js host,
 and SvelteKit host demonstrate the pattern in three frameworks on the same
 root surface.
+
+## Amendment (2026-09-05): the framework host examples are removed
+
+The Next.js and SvelteKit host examples (and their acceptance harnesses)
+are removed from the repo — the remaining worked example is the vanilla
+browser demo, which owns its UI directly against the root surface. The
+boundary this ADR records is unchanged: the package root ships no UI layer,
+and framework hosts own theirs. The host examples were removed by owner
+decision pending a new integration story, not because the pattern failed;
+this doc's guidance (React-free root, plugin for build-time compilation,
+SSR path via `yarnspinner-typescript/node`) remains the recipe a future
+host example would follow.

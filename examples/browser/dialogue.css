@@ -1,21 +1,50 @@
-/* Demo-owned styling (the package ships no CSS). */
+/* SPDX-License-Identifier: CC0-1.0
+ * Demo-owned styling (the package ships no CSS). A light, hand-written
+ * mimic of the Try Yarn Spinner site's dark theme — palette, radii and
+ * shadows lifted from its token set (try.yarnspinner.dev, .dark scope);
+ * no CSS copied wholesale, no framework. */
+
+:root {
+  --background: hsl(30 10% 8%);
+  --foreground: hsl(40 15% 92%);
+  --card: hsl(30 10% 10%);
+  --muted: hsl(30 8% 14%);
+  --muted-foreground: hsl(35 10% 60%);
+  --accent: hsl(30 10% 16%);
+  --border: hsl(30 8% 18%);
+  --primary: hsl(142 45% 42%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(330 35% 50%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --ring: hsl(142 45% 42%);
+  --radius: 0.5rem;
+  --shadow-sm: 0 1px 2px hsla(0, 0%, 0%, 0.15);
+  --shadow-glow-green: 0 0 20px hsla(142, 50%, 45%, 0.25);
+}
 
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #1a1a2e;
-  color: #e8eaf2;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.5;
   display: flex;
   justify-content: center;
-  padding: 20px;
+  padding: 24px 16px 48px;
 }
 
-.demo-wrap,
 #app {
   width: 100%;
   max-width: 760px;
 }
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────────── */
 
 .demo-tabs {
   display: flex;
@@ -24,104 +53,150 @@ body {
 }
 
 .demo-tab {
-  background-color: #2a2d3e;
-  color: #e8eaf2;
-  border: 1px solid #43475c;
-  border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 14px;
+  background-color: var(--card);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 0.875rem;
   cursor: pointer;
 }
 
+.demo-tab:hover {
+  background-color: var(--accent);
+}
+
 .demo-tab--active {
-  background-color: #4f7cff;
-  border-color: #4f7cff;
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: var(--shadow-glow-green);
 }
 
 .demo-panel {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-bottom: 40px;
 }
 
+/* Keep `hidden` winning over the display: flex above (tabs rely on it). */
+.demo-panel[hidden] {
+  display: none;
+}
+
+/* ── Headings & cards ─────────────────────────────────────────────── */
+
 .demo-heading {
-  color: #e8eaf2;
-  font-size: 15px;
-  margin: 12px 0 4px;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 16px 0 6px;
 }
 
 .demo-card {
-  background-color: #23263a;
-  border: 1px solid #43475c;
-  border-radius: 8px;
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
   padding: 16px 20px;
-  font-size: 16px;
-  line-height: 1.5;
+  font-size: 1rem;
 }
 
+/* ── Transcript ───────────────────────────────────────────────────── */
+
 .demo-line {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
 }
 
 .demo-speaker {
-  color: #8fb3ff;
+  color: var(--secondary);
   margin-right: 8px;
+  font-weight: 600;
+}
+
+.demo-line a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .demo-command {
-  color: #9aa0b5;
-  font-family: monospace;
+  color: var(--muted-foreground);
+  font-family: "Courier Prime", "Courier New", monospace;
+  font-size: 0.85rem;
   margin: 0 0 8px;
 }
 
+/* The player's choices, woven into the story flow (Try play-view style). */
+.demo-choice {
+  color: var(--secondary);
+  font-style: italic;
+  margin: 2px 0 10px;
+}
+
 .demo-muted {
-  color: #9aa0b5;
-  font-size: 13px;
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
   margin: 0 0 8px;
 }
+
+/* ── Controls ─────────────────────────────────────────────────────── */
 
 .demo-controls {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  margin-top: 8px;
+  margin: 12px 0;
 }
 
 .demo-button,
 .demo-option {
-  background-color: #2a2d3e;
-  color: #e8eaf2;
-  border: 1px solid #43475c;
-  border-radius: 6px;
-  padding: 8px 14px;
-  font-size: 14px;
+  background-color: var(--card);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.875rem;
   cursor: pointer;
 }
 
+.demo-button:hover,
+.demo-option:hover {
+  background-color: var(--accent);
+}
+
 .demo-button--active {
-  background-color: #4f7cff;
-  border-color: #4f7cff;
+  background-color: var(--accent);
+  border-color: var(--primary);
 }
 
 .demo-button--primary {
-  background-color: #2e7d4f;
-  border-color: #2e7d4f;
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.demo-button--primary:hover {
+  box-shadow: var(--shadow-glow-green);
 }
 
 .demo-option {
   display: block;
   width: 100%;
   text-align: left;
+  border-radius: var(--radius);
 }
+
+/* ── Variables & history ────────────────────────────────────────────────── */
 
 .demo-history {
   margin: 0;
   padding-left: 20px;
-  color: #c2c5d4;
-  font-size: 13px;
-  line-height: 1.7;
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
 }
 
 .demo-variables {
@@ -132,15 +207,32 @@ body {
 
 .demo-variables:empty::after {
   content: "No story variables yet.";
-  color: #9aa0b5;
-  font-size: 13px;
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
 }
 
 .demo-chip {
-  background-color: #2a2d3e;
-  border: 1px solid #43475c;
+  background-color: var(--muted);
+  border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px 12px;
-  font-size: 13px;
-  color: #c2c5d4;
+  font-size: 0.8rem;
+  color: var(--foreground);
+}
+
+/* ── State log ────────────────────────────────────────────────────── */
+
+.demo-log {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  font-family: "Courier Prime", "Courier New", monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  white-space: pre-wrap;
 }

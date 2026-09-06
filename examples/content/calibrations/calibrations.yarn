@@ -1,0 +1,701 @@
+title: Start
+---
+// This story aims to show a bit of everything Yarn Spinner's
+// syntax can do, and a bit of everything Try can do.
+// Hope you enjoy studying it and using it!
+//
+// Written by Paris — https://bsky.app/profile/hey.paris
+//
+// Report an issue via the gear menu if you find a bug in the story!
+
+<<fade_in 0.5>>
+
+[b]Calibrations[/b] #try:title
+[link="https:\/\/hey.paris"]Dr Paris[/link] #try:author
+
+<<wait 1>>
+<<background starfield>>
+
+Ship: [wave]— ALERT — PROXIMITY WARNING —[/wave]
+
+<<screen_shake 12>>
+
+<<wait 0.5>>
+
+You're thrown against the corridor wall of the [b]SSV Nottingham[/b]. It's a frigate. A very [i]famous[/i] frigate. You're not sure why.
+
+H.E.L.M.: Commander, we've been hit. Hull at {random_range(25, 50)}%. [shake]Shields are down.[/shake]
+
+H.E.L.M.: Commander, please confirm your specialisation for the record.
+
+-> Roughneck. Guns solve everything.
+    <<set $class = .Roughneck>>
+    <<set $reputation += 1>>
+    H.E.L.M.: Roughneck-class confirmed. Armoury unlocked. Please don't shoot the consoles again.
+-> Mind Melter. I throw things with my brain.
+    <<set $class = .MindMelter>>
+    <<set $reputation += 1>>
+    H.E.L.M.: Neural implant registered. Reminder: do not telekinetically rearrange the mess hall.
+-> Grease Gremlin. I'll fix this ship myself.
+    <<set $class = .GreaseGremlin>>
+    <<set $reputation += 1>>
+    H.E.L.M.: Grease Gremlin protocols loaded. The drive core thanks you in advance.
+
+H.E.L.M.: One more thing. Checking your service record...
+
+-> Spotless record. Model officer.
+    <<set $alignment = .Upstanding>>
+    H.E.L.M.: Behavioural profile: [color="5EA87A"]Upstanding[/color]. No outstanding warrants. Impressive. Suspicious, actually.
+-> I have been asked to leave several space stations.
+    <<set $alignment = .Menace>>
+    H.E.L.M.: Behavioural profile: [color="D4605A"]Menace[/color]. Warrants found in three systems. One is for "reckless use of an airlock." Notes say "deserved it."
+
+H.E.L.M.: The [color="A87BC4"]Titan-class[/color] dreadnought is still out there. Recommend we leave. Quickly.
+
+<<jump Bridge>>
+===
+title: Bridge
+---
+
+<<if $location != .Bridge>>
+    Bridge #try:chapter
+<<endif>>
+<<set $location = .Bridge>>
+
+// Once blocks — only run the first time
+<<once>>
+    The bridge is chaos. Navigator Kowalski is yelling coordinates at nobody. The galaxy map is showing a screensaver.
+    Through the viewport, a [color="D4605A"]massive dreadnought[/color] looms against the stars. It looks annoyed.
+<<endonce>>
+
+<<once>>
+    => H.E.L.M.: Commander on deck. Security teams have been... notified. <<if $alignment == .Menace>>
+    => H.E.L.M.: Commander on deck. All stations report ready.
+<<endonce>>
+
+// Line groups with <<once>> — these lines exhaust over repeated visits
+=> H.E.L.M.: Shields are still offline, for the record. <<once>>
+=> H.E.L.M.: The dreadnought hasn't moved. I find this worse, somehow. <<once>>
+=> H.E.L.M.: If this goes badly, the Nottingham will drift into the uncharted territories. I hear they're lovely. No laws. No maps. No rescue. <<once>>
+=> Navigator Kowalski: Commander, I've rerouted auxiliary power. Don't ask where from. <<once>>
+=> Navigator Kowalski: Cargo manifest lists 5,000 self-sealing stem bolts. I've asked six people what they do. Seven answers. All different. <<once>>
+=> Navigator Kowalski: Smoke me a kipper, Commander. I'll have escape routes ready by breakfast. <<once>>
+=> H.E.L.M.: Commander on deck. Again. <<if $times_on_bridge > 2>>
+=> H.E.L.M.: All stations, the Commander is on deck. <<if $times_on_bridge == 1>>
+=> H.E.L.M.: Welcome back. Still bad out there. <<if visited("Engineering")>>
+=> Navigator Kowalski: Commander, the galaxy map is still showing a screensaver. It's been three weeks. I've filed four tickets. IT says it's "a feature." <<once>>
+=> H.E.L.M.: Threat condition upgraded to Situation [color="D4605A"]Puce[/color]. One step below Mauve. Two steps below Beige. <<once>>
+=> H.E.L.M.: Standing by for orders.
+
+<<if $ready_to_jump>>
+    H.E.L.M.: Commander, all objectives complete. [rainbow]FTL drive is online.[/rainbow]
+    <<jump Finale>>
+<<endif>>
+
+// More line groups — bridge chatter that varies
+=> Navigator Kowalski: Still plotting escape routes. We have three. None are good. Route A: through the asteroid field. Route B: through the [i]other[/i] asteroid field. Route C:[pause/] I don't want to talk about Route C. <<if not $engine_calibrated>>
+=> Navigator Kowalski: Engine's fixed. That helps my route planning considerably. <<if $engine_calibrated and not $has_cipher>>
+=> Navigator Kowalski: Read something once. "The avalanche has already started. It is too late for the pebbles to vote." Feels relevant. <<once>>
+=> Navigator Kowalski: ...still here, Commander. <<if $times_on_bridge > 2>>
+
+What's the play, Commander?
+
+-> Go to Engineering <<if not $engine_calibrated>>
+    <<jump Engineering>>
+-> Search the Cargo Hold <<if not $has_cipher>>
+    <<jump CargoHold>>
+-> Visit the Mess Hall
+    <<jump MessHall>>
+-> Check the Armoury <<if not $has_weapon>>
+    <<jump Armoury>>
+-> Check the scanners
+    <<set $scans += 1>>
+    <<set $reading = random_range(1, 100)>>
+    H.E.L.M.: Scan \#{$scans}. Energy signature: [b]{$reading}[/b] terawatts.
+    <<if $reading > 75>>
+        H.E.L.M.: [shake]That's enormous.[/shake] The dreadnought is charging weapons.
+        <<screen_shake 3>>
+        <<if $scans >= 3>>
+            H.E.L.M.: [speed=8]Sys[pause/]tem note:[pause/] repeated scanning[pause/] is degrading[pause/] sensor[pause/] array.[/speed] [speed=120]Recommend you stop pressing that button Commander please I am begging you.[/speed]
+        <<endif>>
+    <<elseif $reading > 40>>
+        H.E.L.M.: Moderate reading. It's just... sitting there. Menacingly.
+    <<else>>
+        H.E.L.M.: Low output. Might be venting heat. Or napping.
+    <<endif>>
+    <<jump Bridge>>
+-> Talk to Mordo in the lab
+    <<jump MordoChat>>
+-> Stare dramatically out the viewport
+    The [color="D4605A"]dreadnought[/color] hangs in space like a claw.
+    <<wait 1.5>>
+    You clench your jaw. [i]Not today.[/i]
+    <<set $roll = dice(20)>>
+    <<if $roll == 20>>
+        <<wait 0.5>>
+        The dreadnought's lights flicker. Did it just... flinch? Intimidation: [b]natural 20[/b].
+        Navigator Kowalski: Commander, did you just stare down a dreadnought?
+    <<elseif $roll >= 12>>
+        <<wait 0.5>>
+        You hold the gaze. It means nothing to a starship, but it means everything to you. Intimidation: {$roll}.
+        Navigator Kowalski: Commander, are you doing the jaw thing again?
+    <<else>>
+        <<wait 0.5>>
+        Navigator Kowalski: Commander, are you doing the jaw thing again? Intimidation: {$roll}. It's not working.
+    <<endif>>
+    <<jump Bridge>>
+===
+title: Engineering
+---
+<<if $location != .Engineering>>
+    Engineering #try:chapter
+<<endif>>
+<<set $location = .Engineering>>
+
+<<once>>
+    The engine room thrums with an unsettling vibration. A massive Throkk is hunched over the drive core, holding a wrench the size of your leg.
+    <<if $class == .GreaseGremlin>>
+        Wrekt: About [b]frelling[/b] time they sent me an actual grease gremlin. Everyone else is a mind melter who wants to "feel the energy of the drive core."
+    <<elseif $class == .MindMelter>>
+        Wrekt: They sent a mind melter? Great. Don't try to "feel the energy" of my drive core. Last one who tried that cried for an hour.
+    <<else>>
+        Wrekt: About [b]frelling[/b] time someone showed up. This drive core is more broken than a Concord peace treaty.
+    <<endif>>
+    Wrekt: Wait. You're the one with the airlock warrants? [b]Ha![/b] Pull up a wrench. We'll get along fine. <<if $alignment == .Menace>>
+<<endonce>>
+
+
+// Timed choice — a sudden emergency forces a quick reaction
+<<once>>
+    <<wait 0.5>>
+    A conduit above you suddenly ruptures, spraying superheated plasma across the deck!
+    <<screen_shake 8>>
+    Wrekt: [shake][b]INCOMING![/b][/shake]
+    -> Dive behind the drive core
+        You throw yourself behind the drive core as plasma scorches the deck plating where you were standing.
+        Wrekt: Good reflexes. Most newcomers just stand there and melt.
+        <<set $reputation += 1>>
+    -> Try to seal the rupture
+        You lunge for the conduit and slap the emergency seal over the breach. The plasma hisses and dies.
+        Wrekt: [b]Ha![/b] Either you're brave or stupid. Either way, I respect it.
+        <<set $reputation += 2>>
+    -> Freeze up #default:3
+        You stand there, wide-eyed, as superheated plasma arcs toward your face.
+        <<screen_shake 12>>
+        Wrekt grabs you by the collar and yanks you sideways. The plasma scorches the wall behind where your head was.
+        Wrekt: You're welcome. Try not to die in my engine room — the paperwork is [i]unbelievable[/i].
+    Wrekt: Anyway. Where was I?
+    <<wait 0.5>>
+<<endonce>>
+
+Wrekt: The FTL coils need recalibrating. I'd do it myself but I keep crushing the alignment nodes. Need hands that aren't the size of dinner plates.
+
+// The player can try to calibrate manually, or let Wrekt handle it
+-> Calibrate the coils manually
+    <<set $reputation += 1>>
+    You reach into the conduit and twist the alignment nodes.
+    <<set $roll = dice(20)>>
+    <<if $roll >= 8>>
+        [color="5EA87A"]Success![/color] The core stabilises. You rolled {$roll}.
+        <<set $engine_calibrated = true>>
+        Wrekt: [b]Ha![/b] Not bad for a species with only one heart.
+        <<confetti>>
+    <<elseif $roll == 1>>
+        [shake][color="D4605A"]CRITICAL FAILURE.[/color][/shake] You rolled a [b]1[/b]. The conduit explodes. Sparks everywhere. A panel falls off the wall. Something is now on fire.
+        <<screen_shake 15>>
+        <<wait 0.5>>
+        Wrekt: ...
+        <<wait 0.5>>
+        Wrekt: That was the [i]worst[/i] calibration I have ever seen. And I once watched a Qibbi try to fix a drive core with a song.
+        <<wait 0.5>>
+        <<screen_shake 10>>
+        Wrekt: [b]MOVE.[/b]
+        Wrekt: ...there. Headbutting. Twice. You owe me a new forehead plate.
+        <<set $engine_calibrated = true>>
+    <<else>>
+        [color="D4605A"]Sparks![/color] You rolled {$roll}. The conduit zaps your hand.
+        <<screen_shake 5>>
+        Wrekt: Move. I know a technique.
+        <<wait 0.5>>
+        <<screen_shake 8>>
+        Wrekt: ...there. Four hundred years of Throkk engineering tradition. We call it "headbutting."
+        <<set $engine_calibrated = true>>
+    <<endif>>
+-> Let Wrekt handle it
+    Wrekt: Yeah, that's what I thought.
+    <<screen_shake 6>>
+    <<wait 1>>
+    Wrekt: [b]Fixed.[/b] Headbutting. Works every time.
+    <<set $engine_calibrated = true>>
+
+<<if $engine_calibrated>>
+    [glow][color="4DB8B8"]The drive core settles into a steady blue glow.[/color][/glow]
+    Wrekt: You know, calibrations are my favourite thing on this ship. Can't explain it. Just[pause/] feels right.
+<<endif>>
+
+<<jump Bridge>>
+===
+title: CargoHold
+---
+<<if $location != .CargoHold>>
+    Cargo Hold #try:chapter
+<<endif>>
+<<set $location = .CargoHold>>
+
+The cargo hold is dark. Crates of [b]definitely-not-stolen[/b] classified military requisitions float in low gravity. One is stencilled [i]"YAMOK SAUCE — RETURN TO SENDER"[/i] in three languages. Another is stamped [i]"PROPERTY OF A DOMINAR — DO NOT OPEN — DIPLOMATIC IMMUNITY APPLIES."[/i] It's very small.
+
+You notice one crate has already been pried open. You don't remember doing that. You don't [i]not[/i] remember doing that. <<if $alignment == .Menace>>
+
+H.E.L.M.: Gravity plating offline in this section. Maintenance ticket filed. Estimated wait: six to eight galactic standard weeks.
+
+<<wait 0.5>>
+
+Something [i]clinks[/i] near the back wall.
+
+// 3-second timer
+-> Investigate
+    <<set $reputation += 1>>
+    <<set $roll = dice(20)>>
+    You push through the floating crates.
+    <<if $roll >= 15>>
+        Perception: {$roll}. You spot the [color="4DB8B8"]Precursor cipher disc[/color] immediately, spinning behind a weapons locker. Almost too easy.
+    <<elseif $roll >= 5>>
+        Perception: {$roll}. After some fumbling in the dark, you find a glowing [color="4DB8B8"]Precursor cipher disc[/color] behind a weapons locker.
+    <<else>>
+        Perception: {$roll}. You walk into three crates, stub your toe on a fourth, and fall face-first into the [color="4DB8B8"]Precursor cipher disc[/color].
+        <<screen_shake 4>>
+    <<endif>>
+    <<set $has_cipher = true>>
+    You grab it. Ancient knowledge floods your mind. It hurts [i]a lot[/i]. You briefly understand the Precursor word for "tax return."
+    <<screen_shake 3>>
+-> Retreat cautiously #default:3
+    You drift back toward the exit. The Council would approve of your caution. The Council approves of nothing else you do.
+    <<wait 0.5>>
+    Something [color="4DB8B8"]glints[/color] near the door. The cipher disc, wedged behind a pipe.
+    <<set $has_cipher = true>>
+    Lucky.
+
+H.E.L.M.: Precursor artefact catalogued. This could help navigate the jump gate. Or redecorate the mess hall. Either way.
+
+<<jump Bridge>>
+===
+// Node group — multiple nodes with the same title.
+// The saliency system picks which one to run based on the when: conditions.
+// "when: once" nodes only run once, then are retired.
+// Multiple when: headers on the same node means ALL must be satisfied.
+// More complex conditions have higher saliency and win over simpler ones.
+title: MessHall
+when: once
+---
+
+<<if $location != .MessHall>>
+    Mess Hall #try:chapter
+<<endif>>
+<<set $location = .MessHall>>
+
+The mess hall is cramped and smells like reheated rations. A young ensign is hunched over a datapad, nursing a mug of something brown.
+
+Ensign Zhukova: Commander! Didn't expect to see brass down here.
+
+Ensign Zhukova: Want to hear something weird? I've been tracking that dreadnought's movement pattern on the secondary sensors.
+
+-> Go on
+    Ensign Zhukova: It's not random. It's circling us. Like it's [i]curious[/i].
+    <<set $reputation += 1>>
+    Ensign Zhukova: Nobody else listens when I talk about this stuff. Thanks, Commander.
+-> Not really
+    Ensign Zhukova: Fair enough. Back to my... whatever this beverage is.
+
+<<jump Bridge>>
+===
+title: MessHall
+when: once
+when: visited("Engineering")
+---
+
+<<if $location != .MessHall>>
+    Mess Hall #try:chapter
+<<endif>>
+<<set $location = .MessHall>>
+
+You find Wrekt in the mess hall, eating something that is either a steak or a hull panel.
+
+Wrekt: Commander. Sit. Eat.
+
+-> What is that?
+    Wrekt: Throkk field rations. Mostly protein. Some metal shavings for texture.
+    Wrekt: Want some?
+    -> ...sure
+        <<set $reputation += 1>>
+        <<set $roll = dice(12)>>
+        <<if $roll >= 10>>
+            It's... actually not terrible? You chew carefully. Wrekt watches with approval.
+            Wrekt: [b]Ha![/b] You [i]like[/i] it. Knew it. Constitution roll: {$roll}.
+        <<elseif $roll >= 4>>
+            It tastes like iron and regret. Wrekt looks pleased.
+            Wrekt: [b]Ha![/b] You didn't die. Respect. Constitution: {$roll}.
+        <<else>>
+            You immediately regret everything. Your eyes water. Your ancestors feel it.
+            <<screen_shake 3>>
+            Wrekt: [b]Ha![/b] Weak stomach. Constitution: {$roll}. Pathetic. I like you.
+        <<endif>>
+    -> I'll pass
+        Wrekt: Your loss. Builds strong headplates.
+-> Just passing through
+    Wrekt: Hmph. Nobody "just passes through" a mess hall. You came for the ambience.
+    Wrekt: ...there is no ambience.
+
+<<jump Bridge>>
+===
+title: MessHall
+when: $talked_to_mordo
+when: $has_cipher
+---
+
+<<if $location != .MessHall>>
+    Mess Hall #try:chapter
+<<endif>>
+<<set $location = .MessHall>>
+
+Mordo is in the mess hall, turning the [color="4DB8B8"]Precursor cipher disc[/color] under a portable scanner.
+
+Mordo: Commander. Cipher disc is extraordinary. Language patterns suggest {random_range(4, 12)} distinct communication layers. Possibly more. Exciting.
+
+-> What have you found?
+    Mordo: Cross-referenced cipher patterns with known Precursor sites. Partial match. Enough to navigate the jump gate.
+    Mordo: Also found what appears to be a recipe. Precursors had strong opinions about seasoning.
+-> Will it get us through the gate?
+    Mordo: Yes. Probably. {random_range(75, 99)}% confidence. The remaining percentage is, as always, catastrophe.
+
+<<jump Bridge>>
+===
+title: MessHall
+when: $talked_to_mordo
+---
+
+<<if $location != .MessHall>>
+    Mess Hall #try:chapter
+<<endif>>
+<<set $location = .MessHall>>
+
+Mordo is in the mess hall, analysing his food with a handheld scanner before each bite.
+
+Mordo: Commander. Fascinating. Ship rations contain {random_range(12, 40)} unidentified compounds. Eating them anyway. For science.
+
+-> Is that safe?
+    Mordo: Define "safe." Nutritionally adequate. Flavour profile suggests industrial adhesive. But edible. Probably.
+-> Any news?
+    Mordo: Ran additional scans on dreadnought from here. Mess hall has surprisingly good sensor access.
+    Mordo: Or I rerouted the sensor array through the coffee machine. One of the two. Both true.
+
+<<jump Bridge>>
+===
+title: MessHall
+when: always
+---
+
+<<if $location != .MessHall>>
+    Mess Hall #try:chapter
+<<endif>>
+<<set $location = .MessHall>>
+
+The mess hall is empty. A half-eaten tray sits on the table. The coffee machine makes a sound like a dying animal.
+
+// Line group with <<once>> — different observations each visit
+=> A note on the wall reads: [i]"DO NOT feed Wrekt from the human ration supply. Again."[/i] <<once>>
+=> Someone has scratched [i]"Kowalski was here"[/i] into the table. Under it: [i]"Kowalski is always here."[/i] <<once>>
+=> The coffee machine gurgles. You decide not to investigate. <<once>>
+=> A toaster in the corner activates unprompted. [i]"Would anyone like any toast?"[/i] You unplug it. <<once>>
+=> A complaint card is wedged behind the condiment rack: [i]"Sent the gazpacho soup back to the kitchen. It was served cold. Clearly defective."[/i] <<once>>
+=> Someone has reprogrammed the food replicator. Every option now produces vindaloo. The spice warning has been set to [i]"existential."[/i] <<once>>
+=> The drink replicator has been set to "root beer." A note underneath reads: [i]"It's insidious."[/i] <<once>>
+=> A crew memo is pinned to the wall: [i]"The tailor on deck four is 'just a simple tailor.' Security has found him in the intelligence archives twice. Do not engage."[/i] <<once>>
+=> A tin labelled [i]"SPOO — FRESH"[/i] sits in the pantry. The expiration date is in a calendar system you don't recognise. It smells like regret. <<once>>
+=> Something [color="5EA87A"]green[/color] is growing on the wall near the vents. It wasn't there yesterday. It pulses gently. You decide not to tell Mordo. Or anyone. <<once>>
+=> It's quiet. Almost peaceful, if you ignore the dreadnought outside.
+
+<<jump Bridge>>
+===
+title: Armoury
+---
+<<if $location != .Armoury>>
+    Armoury #try:chapter
+<<endif>>
+<<set $location = .Armoury>>
+
+The armoury is small but well-stocked. Weapons line the walls, each locked behind glass.
+
+<<once>>
+    H.E.L.M.: Commander, as a reminder, discharge of weapons on the bridge is a court-martial offence. This has been relevant before.
+    H.E.L.M.: Also on file: a technomage passed through the armoury last quarter. Several weapons now glow for no documented reason. Engineering has declined to investigate.
+<<endonce>>
+
+=> The weapons call to you. This is where you belong. <<if $class == .Roughneck>>
+=> You don't [i]need[/i] weapons. But it's nice to have options. <<if $class == .MindMelter>>
+=> You eye the weapons with professional interest. Good engineering, all of them. <<if $class == .GreaseGremlin>>
+
+// Line group with conditions — the available weapon changes
+=> A [color="C9943A"]prototype rail pistol[/color] catches your eye. Experimental. Shiny. <<if $reputation >= 3>>
+=> A solid [color="4DB8B8"]pulse rifle[/color] sits in the standard rack. Reliable. <<if $reputation >= 1>>
+=> There's a [color="8B8291"]service pistol[/color] with a sticky note that says "works most of the time."
+
+-> Take it
+    <<set $has_weapon = true>>
+    => You holster the weapon with practiced ease. Several safety protocols quietly deactivate. <<if $alignment == .Menace>>
+    => You holster the weapon. It feels right.
+    Like meeting an old friend. <<if $class == .Roughneck>>
+-> Test fire it first
+    <<set $roll = diceroll(2, 6)>>
+    You aim at the target range at the back. Two shots.
+    <<if $roll >= 9>>
+        [color="5EA87A"]Solid hits.[/color] Combined damage: {$roll}. The target is ventilated.
+        <<set $has_weapon = true>>
+        <<set $reputation += 1>>
+        H.E.L.M.: Marksmanship logged. Impressive.
+    <<elseif $roll >= 5>>
+        One hit, one miss. Damage: {$roll}. Not bad, not great.
+        <<set $has_weapon = true>>
+        H.E.L.M.: Adequate. The target is mildly inconvenienced.
+    <<else>>
+        Both shots go wide. Combined: {$roll}. The wall is less forgiving.
+        <<screen_shake 2>>
+        H.E.L.M.: ...marksmanship also logged.
+    <<endif>>
+-> Leave it
+    You're not here to start a fight. Probably.
+
+<<jump Bridge>>
+===
+title: MordoChat
+---
+// Mordo's conversation hub — loops back here after each topic
+
+<<set $talked_to_mordo = true>>
+
+<<if $location != .ScienceLab>>
+    Science Lab #try:chapter
+<<endif>>
+<<set $location = .ScienceLab>>
+
+<<if !$in_mordo_chat>>
+    <<set $in_mordo_chat = true>>
+
+    <<once>>
+        You find Mordo in the science lab, simultaneously running three experiments and singing.
+    <<endonce>>
+
+    // Line group — Mordo's greeting varies
+    => Mordo: Ah, Commander! Back for more science. Excellent. <<if visited_count("MordoChat") > 1>>
+    => Mordo: Commander! Excellent timing. Have {random_range(2, 6)} topics. Will be brief. Qibbi metabolism demands efficiency.
+<<endif>>
+
+-> What is that dreadnought?
+    Mordo: Unknown design. Roughly {random_range(3000, 8000)} metres. Unprecedented.
+    Mordo: Cross-referenced every known species' shipyard records. No match. [color="D4605A"]Concerning.[/color]
+    Mordo: Could run more tests. Would need to get closer. Would prefer not to die.
+    Mordo: Heard a saying once. "Understanding is a three-edged sword." Your side, their side, and the truth. Applies here.
+    <<jump MordoChat>>
+-> How's the crew holding up?
+    <<if $reputation >= 3>>
+        Mordo: Crew morale [color="5EA87A"]high[/color]. Impressive. You inspire loyalty. Rare trait. Studied it once.
+    <<elseif $reputation >= 1>>
+        Mordo: Crew morale [color="BF9B30"]acceptable[/color]. Could be worse. Have seen worse. Was worse.
+    <<else>>
+        Mordo: Crew morale [color="D4605A"]poor[/color]. Suggest more heroic gestures. Fewer dramatic pauses. Crew finds them "unsettling."
+    <<endif>>
+    <<if visited("Engineering")>>
+        Mordo: Wrekt says you're "not completely useless." High praise from a Throkk. They headbutt people they like less.
+    <<endif>>
+    <<jump MordoChat>>
+-> Tell me about yourself
+    Mordo: Qibbi. Scientist. Formerly Covert Sciences Division. Can't discuss details. Classified. Very classified.
+    Mordo: Also: excellent singer. Will demonstrate later. You didn't ask but felt you should know.
+    Mordo: [wave]Laaa la la laaa la la laaaaaaa.[/wave] That was B-flat. Qibbi vocal range: seven octaves. You're welcome.
+    Mordo: One moment. Running quick experiment.
+    <<set $roll = multidice("1d8+1d6+1d4")>>
+    <<if $roll >= 14>>
+        Mordo: Result: {$roll}. [color="5EA87A"]Extraordinary.[/color] New personal record. Will celebrate later. Briefly.
+    <<elseif $roll >= 8>>
+        Mordo: Result: {$roll}. Within expected parameters. Science continues.
+    <<else>>
+        Mordo: Result: {$roll}. [color="D4605A"]Disappointing.[/color] Will pretend this didn't happen.
+    <<endif>>
+    Mordo: Previously researched ring-shaped Precursor devices. Seven symbols. Created stable wormhole. Very exciting. Publication classified. Still bitter.
+    Mordo: Also studied translator microbes. Colonise the brain stem, allow instant comprehension of any language. Side effects include occasional involuntary swearing in languages you've never heard.
+    <<jump MordoChat>>
+-> What do you think of the crew?
+    Mordo: Kowalski. Good pilot. Talks too much. Endearing.
+    <<if visited("Engineering")>>
+        Mordo: Wrekt. Brilliant engineer. Unconventional methods. Once watched him calibrate a sensor array with his forehead. It worked. His only comment afterwards: [i]"Indeed."[/i]
+        Mordo: Also — Throkk have a secondary tongue that can render opponents unconscious. Wrekt demonstrated once. Accidentally. At a diplomatic dinner. Incident still classified.
+    <<endif>>
+    Mordo: The Commander? Hmm. Jury still out. Ask me after we survive.
+    <<jump MordoChat>>
+-> What can you tell me about this ship?
+    Mordo: SSV Nottingham. Frigate-class. Built at the Concord orbital yards. Service record: classified. Hull integrity: [i]concerning[/i].
+    Mordo: Interesting design choice — science lab is next to the armoury. Presumably for emergencies. Or convenience. Both have occurred.
+    <<if $has_weapon>>
+        Mordo: I see you've visited the armoury already. Pragmatic. Approve.
+    <<endif>>
+    <<if $engine_calibrated>>
+        Mordo: Drive core readings look stable. Wrekt's work. Possibly also his forehead.
+    <<endif>>
+    Mordo: Ship's AI — H.E.L.M. — is surprisingly opinionated. Ran diagnostics once. Found seventeen subroutines dedicated to sarcasm. Left them in. Improve crew morale.
+    <<jump MordoChat>>
+-> About my specialisation... <<once>>
+    <<if $class == .Roughneck>>
+        Mordo: Roughneck-class. Studied your combat assessments. Impressive reflexes. Questionable decision-making. The two often correlate.
+        Mordo: Qibbi have no roughnecks. We have "vigorous debaters." Same outcome, more paperwork.
+    <<elseif $class == .MindMelter>>
+        Mordo: Mind melter-class. Fascinating. Qibbi attempted neural enhancement programme once. Three test subjects gained telekinesis. Two gained migraines. One gained an irrational fear of spoons. Programme shelved.
+        Mordo: Would love to scan your neural implant sometime. Purely academic interest. Will not disassemble. Probably.
+    <<else>>
+        Mordo: Grease gremlin-class. Kindred spirit. Different methodologies. You use tools. I use tools and also several things that are not technically tools.
+        Mordo: Wrekt will like you. He respects anyone who can hold a wrench without flinching.
+    <<endif>>
+    => Mordo: Also — reviewed your file. Impressive. Most of it is redacted. The parts that aren't are [i]alarming[/i]. Respect. <<if $alignment == .Menace>>
+    => Mordo: Also — reviewed your file. Spotless. Almost suspiciously so. Noted.
+    <<jump MordoChat>>
+-> That's all
+    Mordo: Understood. Back to experiments. This fungal culture won't analyse itself. Well. It might. That's the experiment.
+    <<set $in_mordo_chat = false>>
+    <<jump Bridge>>
+===
+title: Finale
+---
+<<fade_out 1>>
+<<wait 0.5>>
+<<fade_in 1.5>>
+
+<<if $location != .Finale>>
+    Finale #try:chapter
+<<endif>>
+<<set $location = .Finale>>
+
+The bridge lights stabilise. Every console [glow]glows [color="5EA87A"]green[/color][/glow].
+
+H.E.L.M.: All systems nominal. FTL drive [glow][color="5EA87A"]online[/color][/glow]. Cipher integrated.
+
+<<wait 0.5>>
+
+H.E.L.M.: Mission summary: {$times_on_bridge} bridge visits. {$scans} scans. Reputation: {$reputation}. Profile: {$alignment}.
+
+<<if $reputation >= 4>>
+    H.E.L.M.: [rainbow]Exemplary service, Commander.[/rainbow] The Council might actually return your calls.
+<<elseif $reputation >= 2>>
+    H.E.L.M.: Solid work. You might even get a parking spot on Concord Station.
+<<else>>
+    H.E.L.M.: You got results. The Council will complain about your methods. So, normal Tuesday.
+<<endif>>
+
+=> H.E.L.M.: Behavioural update: [color="D4605A"]several new warrants[/color] generated during this mission. One for "unauthorised dramatic pauses." Another for "being generally unsettling." <<if $alignment == .Menace>>
+=> H.E.L.M.: Behavioural update: clean record [color="5EA87A"]maintained[/color]. Recommending field promotion. Paperwork filed. Estimated processing time: eleven years.
+
+You rest your hand on your holstered weapon. Just in case. <<if $has_weapon>>
+
+<<if visited("MessHall")>>
+    You think briefly of the mess hall coffee. You'll miss it. You won't miss the taste.
+<<endif>>
+
+<<wait 1>>
+
+The [color="D4605A"]dreadnought[/color] turns toward you. Its hull begins to glow.
+
+Navigator Kowalski: Commander! It's now or never!
+
+<<if visited("Engineering")>>
+    Wrekt: [i]Finally.[/i]
+<<endif>>
+
+// Last timed choice
+-> [b]Punch it![/b]
+    H.E.L.M.: Chevron seven locked. FTL engaged.
+    <<screen_shake 10>>
+    [wave][b]The stars streak into lines as the Nottingham leaps to FTL.[/b][/wave]
+-> Stare dramatically at the viewport #default
+    Navigator Kowalski: Commander? ...Commander!
+    <<wait 0.5>>
+    Navigator Kowalski: Oh for— engaging FTL!
+    <<screen_shake 10>>
+    [wave]The stars blur. The dreadnought disappears behind you.[/wave]
+
+<<wait 1>>
+<<confetti>>
+
+Navigator Kowalski: We made it. Barely.
+
+<<if visited("Engineering")>>
+    Wrekt: I wanted to fight it.
+<<endif>>
+
+<<if $talked_to_mordo>>
+    Mordo: Fascinating readings. Must analyse. Will require at least six minutes. Qibbi lifespan concerns.
+<<endif>>
+
+<<wait 0.5>>
+
+[rainbow][b]— END OF EPISODE 1 —[/b][/rainbow]
+
+<<wait 1>>
+
+H.E.L.M.: [i]Reminder: the Commander still has an outstanding library fine on Concord Station. Current balance: {$times_on_bridge * 14} credits. Interest is compounding.[/i]
+===
+title: Variables
+---
+// Enums and variables can live in a node of their own — they don't have to be in Start
+
+// Enums — named sets of values, better than magic strings
+<<enum Class>>
+    <<case Roughneck>>
+    <<case MindMelter>>
+    <<case GreaseGremlin>>
+<<endenum>>
+
+<<enum Alignment>>
+    <<case Upstanding>>
+    <<case Menace>>
+<<endenum>>
+
+<<enum Location>>
+    <<case None>>
+    <<case Bridge>>
+    <<case Engineering>>
+    <<case CargoHold>>
+    <<case MessHall>>
+    <<case Armoury>>
+    <<case ScienceLab>>
+    <<case Finale>>
+<<endenum>>
+
+// Variables — declare with a type-defining initial value
+/// How heroic or ruthless the Commander has been
+<<declare $reputation = 0>>
+/// Your combat specialisation
+<<declare $class = Class.Roughneck>>
+/// Whether the Precursor cipher disc has been found
+<<declare $has_cipher = false>>
+/// Whether the FTL drive coils have been recalibrated
+<<declare $engine_calibrated = false>>
+/// How many times the Commander has visited the bridge
+<<declare $times_on_bridge = visited_count("Bridge")>>
+/// Number of dreadnought scans performed
+<<declare $scans = 0>>
+/// Whether you've spoken to Mordo in the science lab
+<<declare $talked_to_mordo = false>>
+/// Whether the player is currently inside Mordo's conversation hub
+<<declare $in_mordo_chat = false>>
+/// Whether a weapon has been taken from the Armoury
+<<declare $has_weapon = false>>
+/// Latest scanner energy reading (1–100 terawatts)
+<<declare $reading = 0>>
+/// Result of the most recent dice roll
+<<declare $roll = 0>>
+/// Commander's behavioural profile
+<<declare $alignment = Alignment.Upstanding>>
+/// Current ship location — used to suppress duplicate chapter headings
+<<declare $location = Location.None>>
+
+// Smart variables — expressions that recalculate every time they're read
+/// True when both the engine and cipher are ready — recalculated on every read
+<<declare $ready_to_jump = $engine_calibrated and $has_cipher>>
+===

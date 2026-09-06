@@ -1,6 +1,0 @@
-{
-  "projectFileVersion": 4,
-  "projectName": "Wayside",
-  "sourceFiles": ["**/*.yarn"],
-  "baseLanguage": "en"
-}

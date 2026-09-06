@@ -4,7 +4,7 @@ With [yarnspinner-vite-plugin](https://www.npmjs.com/package/yarnspinner-vite-pl
 content participates in the frontend build like any other asset: content is
 compiled at build time, nothing compiles or reads files at runtime, and a
 type error in your story fails the build like any other error. Vite is the
-first-class host (including SvelteKit); webpack hosts are covered by the
+first-class host; webpack hosts are covered by the
 loader contract below.
 
 ## Setup
@@ -23,7 +23,7 @@ export default defineConfig({
 });
 ```
 
-The plugin compiles real file ids in place (the mdx/svelte precedent) — no
+The plugin compiles real file ids in place (the mdx precedent) — no
 virtual modules. `?raw` returns the raw source string; `?url`, `?inline`,
 `?no-inline`, and any other query bail so Vite core (or another plugin) owns
 them. Content edits to `.yarn` and `.yarnproject` files trigger a full page
@@ -154,16 +154,15 @@ in scope once the reference (or paste-in) is present.
 **The package is framework-agnostic — end to end.** There is no framework
 adapter: the package root ships no UI layer of any kind, and hosts own their
 UI against `Dialogue`/`Transcript` directly — pull events, render the line
-and options, act on input, repeat. The examples in this repo demonstrate the
-pattern in three frameworks on the same surface: a plain-TypeScript browser
-demo (`examples/browser/`), a Next.js app (`examples/nextjs-host/`), and a
-SvelteKit app (`examples/sveltekit-host/`). They are just a demo — no helper
-library, no presentation framework; read `Transcript` raw and render it your
+and options, act on input, repeat. The worked example in this repo is a
+plain-TypeScript browser demo (`examples/browser/`); the Next.js and
+SvelteKit host examples were removed (ADR 0006 amendment, 2026-09-05)
+pending a new integration story. It is just a demo — no helper
+library, no presentation framework; read the events raw and render them your
 way.
 
-**Vite first-class** — the plugin targets Vite (5/6/7) and works in SvelteKit
-unchanged; the browser demo in this repo is built through it as an acceptance
-harness.
+**Vite first-class** — the plugin targets Vite (5/6/7); the browser demo in
+this repo is built through it as an acceptance harness.
 
 **The compile step is bundler-agnostic — and importable.** The plugin package
 exports `compileYarnModule` (`.yarn` source → emitted module text +

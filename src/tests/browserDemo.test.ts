@@ -46,7 +46,7 @@ test("the browser demo builds end-to-end through the real plugin", () => {
   // proof the plugin's direct-import contract produced it.
   assert.ok(js.includes("runLine"), "a compiled program rides the bundle");
   assert.ok(
-    js.includes("crossroads") || js.includes("Rogue"),
+    js.includes("mysterious traveler") && js.includes("Calibrations"),
     "shared-content text is baked in (compiled at build time, not fetched)",
   );
 

@@ -1,0 +1,8 @@
+{
+  "projectFileVersion": 4,
+  "projectName": "Crossroads",
+  "sourceFiles": [
+    "*.yarn"
+  ],
+  "baseLanguage": "en"
+}

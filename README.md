@@ -142,70 +142,22 @@ Run the interactive browser demo:
 npm run demo
 ```
 
-This starts a Vite dev server with two demos: the **Dialogue** tab (plain
-text over the pull-based runtime: lines, option buttons, a manual continue
-button) and a **Storylets** tab — a node-group/saliency demo with
-switchable saliency strategies (`examples/browser/StoryletsDemo.ts`). See
+This starts a Vite dev server with the browser demos: the **Crossroads**
+tab (the Try BranchingDialogue sample over the pull-based runtime: lines,
+option buttons, a manual continue button, a full state log) and the
+**Calibrations** tab (the Try showcase story). See
 [examples/browser/README.md](./examples/browser/README.md).
-
-### Next.js Host
-
-A worked app-router example proving the YarnProject story in Next.js
-(`examples/nextjs-host/`): the loader runs server-side — `loadYarnProject()`
-over the shared demo project (`examples/content/project.yarnproject` +
-`examples/content/crossroads.yarn`) through the Node file-access provider — and the
-compiled program crosses the React Server Component boundary as a plain
-serializable object. The client component runs `Dialogue`'s pull-based
-continue loop natively, importing only the package's browser-safe main entry
-(no Node APIs in the client path), with a **Reset** button demonstrating
-variable-storage reset: a fresh `Dialogue` is a fresh storage, so the
-`<<declare>>` seeds reapply and the story replays from the top.
-
-```bash
-npm run host:build   # builds the library, then `next build` the host
-npm run host:start   # serve the built host (after host:build)
-```
-
-Run from the repo root — the server component resolves the content directory
-relative to `process.cwd()`. The SSR render test (the browser demo-harness
-pattern over the host's first pull) lives in
-`src/tests/nextjsHost.test.ts`.
-
-### SvelteKit host
-
-The same story again, with zero React anywhere — the strongest proof the
-runtime is framework-agnostic (`examples/sveltekit-host/`). The loader runs
-in `+page.server.ts` — `loadYarnProject()` over the shared demo project
-(`examples/content/project.yarnproject` + `examples/content/night_market.yarn`) — and
-the compiled program crosses the SvelteKit load boundary as a plain
-serializable object. `Dialogue`'s pull-based continue loop runs natively in
-a Svelte 5 runes component (`src/lib/DialogueHost.svelte`); the page is
-prerendered (adapter-static), so the server-rendered dialogue output is
-baked into the build. **Reset** demonstrates variable-storage reset, as in
-the Next.js host.
-
-```bash
-npm run sveltekit:build   # builds the library, then `vite build` the host
-npm run sveltekit:dev     # dev server for the host
-```
-
-The npm targets `cd` into the host directory — the standard SvelteKit
-workflow — and the server load resolves the content directory relative to
-it. Framework support is demonstrated across both hosts — Next.js (React)
-and SvelteKit (Svelte) — on the same `Dialogue`/loader surface. The SSR
-harness (`src/tests/sveltekitHost.test.ts`) compiles the real component
-with `svelte/compiler` and renders it with `svelte/server`.
 
 ### Editing the Yarn scripts
 
-The repo root contains `yarnspinner-typescript.yarnproject`, so the
+Each story under `examples/content/*/` carries its own `.yarnproject`, so the
 [Yarn Spinner extension for VS Code](https://marketplace.visualstudio.com/items?itemName=SecretLab.yarn-spinner)
-(the committed `.vscode/extensions.json` recommends it) treats the workspace as
-a Yarn project: syntax highlighting, node navigation, and error checking are
-scoped to the authored content in `examples/yarn/`. Upstream conformance
-fixtures (the `test/fixtures/upstream/YarnSpinner` git submodule) are
-deliberately outside the project — they are pinned to an upstream tag and
-must not be edited or auto-fixed by editor tooling.
+(the committed `.vscode/extensions.json` recommends it) picks the stories up
+as Yarn projects: syntax highlighting, node navigation, and error checking
+per story directory. Upstream conformance fixtures (the
+`test/fixtures/upstream/YarnSpinner` git submodule) are deliberately outside
+any project — they are pinned to an upstream tag and must not be edited or
+auto-fixed by editor tooling.
 
 ## API Reference
 
@@ -381,11 +333,8 @@ yarnspinner-typescript/
 │   ├── scene/          # Scene system
 │   └── tests/          # Test files
 ├── examples/
-│   ├── yarn/           # Example Yarn scripts
-│   ├── content/        # Demo Yarn content (Wayside project)
-│   ├── browser/        # Browser demo (Vite)
-│   ├── nextjs-host/    # Next.js host example (React client)
-│   └── sveltekit-host/ # SvelteKit host example (Svelte client)
+│   ├── content/        # Demo Yarn content (per-story projects)
+│   └── browser/        # Browser demo (Vite)
 ├── docs/               # Documentation
 └── dist/               # Compiled output
 ```
