@@ -33,7 +33,7 @@ import type {
   EnumBlock,
   EnumCaseDef,
   ParserDiagnostic,
-} from "../model/ast";
+} from "../model/ast.js";
 
 export function parseYarn(
   text: string,
@@ -315,6 +315,17 @@ class Parser {
       // Skip empties
       while (this.at("EMPTY")) this.i++;
       if (this.at("EOF")) break;
+
+      // Full-line comments outside node bodies are hidden-channel tokens
+      // upstream (YarnSpinnerLexer.g4: global-mode COMMENT ->
+      // channel(COMMENTS); the `dialogue: (file_hashtag*) node+` rule never
+      // sees them), so `//` before/between/after nodes is silently ignored —
+      // `///` included: documentation comments are a BodyMode feature and
+      // never attach across a node boundary (declarationComments.test.ts).
+      if (this.at("TEXT") && this.peek().text.trimStart().startsWith("//")) {
+        this.i++;
+        continue;
+      }
 
       // Check if this is an enum definition (top-level)
       if (this.at("COMMAND")) {
