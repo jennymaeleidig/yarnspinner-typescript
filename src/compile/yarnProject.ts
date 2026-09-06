@@ -78,6 +78,87 @@ export function projectDiagnostic(
 const DEFAULT_PROJECT_FILE = "project.yarnproject";
 
 /**
+ * Strip JSONC syntax — `//` and `/* … *​/` comments, then trailing commas
+ * before `}` / `]` — string-aware (quoted spans and escapes are skipped, so
+ * such sequences inside string values survive; comments may also sit
+ * between a trailing comma and its closing brace, hence the two passes).
+ * The .yarnproject format is handled as JSONC across the ecosystem: VS Code
+ * associates it with JSONC and upstream Newtonsoft ignores comments and
+ * allows trailing commas by default, so strict JSON.parse rejection would
+ * fail files the rest of the tooling accepts — silently tolerated,
+ * matching upstream. Not intended for consumer use.
+ *
+ * @internal
+ */
+function stripJsoncSyntax(text: string): string {
+  // Pass 1 — comments. Line comments end at (keep) the newline; block
+  // comments are replaced by a space (comments are whitespace).
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (inString) {
+      out += ch;
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      out += ch;
+      i++;
+      continue;
+    }
+    if (ch === "/" && text[i + 1] === "/") {
+      while (i < text.length && text[i] !== "\n") i++;
+      continue;
+    }
+    if (ch === "/" && text[i + 1] === "*") {
+      i += 2;
+      while (i < text.length && !(text[i] === "*" && text[i + 1] === "/")) i++;
+      i += 2;
+      out += " ";
+      continue;
+    }
+    out += ch;
+    i++;
+  }
+  // Pass 2 — trailing commas (whitespace-only lookahead suffices: comments
+  // are already gone).
+  let commas = "";
+  inString = false;
+  escaped = false;
+  for (i = 0; i < out.length; i++) {
+    const ch = out[i];
+    if (inString) {
+      commas += ch;
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      commas += ch;
+      continue;
+    }
+    if (ch === ",") {
+      let j = i + 1;
+      while (j < out.length && /\s/.test(out[j])) j++;
+      if (j < out.length && (out[j] === "}" || out[j] === "]")) {
+        continue; // drop the comma, keep the whitespace
+      }
+    }
+    commas += ch;
+  }
+  return commas;
+}
+
+/**
  * The one shape every failure path returns — over the compile seam's single
  * empty shape (`emptyCompileResult`), plus the loader's own fields, so a
  * new `CompileResult` field lands once and every error path follows.
@@ -248,7 +329,7 @@ export function parseYarnProject(
   let raw: Record<string, unknown> | null = null;
   if (typeof project === "string") {
     try {
-      const parsed: unknown = JSON.parse(project);
+      const parsed: unknown = JSON.parse(stripJsoncSyntax(project));
       if (
         typeof parsed !== "object" ||
         parsed === null ||
