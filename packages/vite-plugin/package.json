@@ -4,6 +4,15 @@
   "description": "Vite plugin: import .yarn files as compiled Yarn Spinner 3.x programs at build time",
   "type": "module",
   "license": "CC0-1.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jennymaeleidig/yarnspinner-typescript.git",
+    "directory": "packages/vite-plugin"
+  },
+  "homepage": "https://github.com/jennymaeleidig/yarnspinner-typescript#readme",
+  "bugs": {
+    "url": "https://github.com/jennymaeleidig/yarnspinner-typescript/issues"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

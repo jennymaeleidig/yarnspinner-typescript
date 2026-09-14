@@ -4,6 +4,14 @@
   "private": false,
   "description": "TypeScript parser, compiler, and runtime for Yarn Spinner 3.x [NPM package](https://www.npmjs.com/package/yarnspinner-typescript)",
   "license": "CC0-1.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jennymaeleidig/yarnspinner-typescript.git"
+  },
+  "homepage": "https://github.com/jennymaeleidig/yarnspinner-typescript#readme",
+  "bugs": {
+    "url": "https://github.com/jennymaeleidig/yarnspinner-typescript/issues"
+  },
   "type": "module",
   "workspaces": [
     "packages/*"
@@ -87,5 +95,9 @@
     "rimraf": "^6.0.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.3"
+  },
+  "allowScripts": {
+    "fsevents@2.3.3": true,
+    "esbuild@0.21.5": true
   }
 }
