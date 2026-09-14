@@ -266,6 +266,7 @@ Tests live in `src/tests/` and assert observable behavior through the public sea
 - [Scene and Actor Setup](./docs/scenes-actors-setup.md)
 - [Migration Notes (1.0.0 breaking changes)](./docs/migration-notes.md)
 - [Compatibility](./docs/compatibility.md)
+- [Releasing](./docs/releasing.md)
 - [Changelog](./CHANGELOG.md)
 
 ## Credits and references
