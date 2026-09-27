@@ -209,6 +209,33 @@ Narrator: Run branch
   strictEqual(optionsEvent.options[1].text, "Run");
 });
 
+test("a full-line comment between options does not split the group", () => {
+  // Upstream routes `//` lines to the hidden COMMENTS channel, so the
+  // options before and after a comment are consecutive shortcut_options in
+  // one statement. A blank line, by contrast, still separates groups.
+  const script = `
+title: Start
+---
+Narrator: Choose
+-> One
+// a note between options
+-> Two
+// another
+-> Three
+===
+`;
+
+  const dialogue = makeDialogue(script);
+  const optionsEvent = nextOptions(dialogue);
+  strictEqual(
+    optionsEvent.options.length,
+    3,
+    "Comments must not split the option group",
+  );
+  strictEqual(optionsEvent.options[0].text, "One");
+  strictEqual(optionsEvent.options[2].text, "Three");
+});
+
 test("option-line <<if>> conditions set availability", () => {
   const script = `
 title: StartFalse

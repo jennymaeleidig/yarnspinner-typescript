@@ -864,7 +864,17 @@ class Parser {
     // this loop and split consecutive options into separate groups.
     this.trailingBlankBeforeEnd = false;
     // One or more OPTION lines, with bodies under INDENT
-    while (this.at("OPTION")) {
+    while (true) {
+      // Full-line comments between options are hidden-channel tokens
+      // upstream (YarnSpinnerLexer.g4 global/BodyMode COMMENT ->
+      // channel(COMMENTS)); like parseLineGroup, they neither break the
+      // run nor count as a separator, so a `//` here keeps the options in
+      // one group. Only EMPTY (a blank line) separates option groups.
+      if (this.at("TEXT") && this.peek().text.trimStart().startsWith("//")) {
+        this.consumeCommentLine();
+        continue;
+      }
+      if (!this.at("OPTION")) break;
       const optTok = this.take("OPTION");
       const raw = optTok.text;
       // Option-line pipeline: same stages as a text line (see
