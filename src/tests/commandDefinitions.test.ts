@@ -15,6 +15,7 @@ import { compileSource } from "../compile/compileSource.js";
 import { parseCommandDefinitions } from "../compile/commandDefinitions.js";
 import type { Diagnostic } from "../compile/diagnostics.js";
 import { loadProject } from "../index.js";
+import { countStructuredCommandValues } from "../index.js";
 import type { YarnProjectFileSystem } from "../index.js";
 
 // ── .ysls.json parsing ────────────────────────────────────────────────────
@@ -190,6 +191,90 @@ test("built-in commands are not reported unknown; wait is arity-checked", () => 
 
 test("interpolated command names are not validated statically", () => {
   assert.deepEqual(codesOf(check("<<{ $cmd }>>")), []);
+});
+
+// ── Upstream structured-command parameter counting ────────────────────────
+
+test("countStructuredCommandValues follows upstream's structured-command grammar", () => {
+  // Upstream LanguageTests.TestParsingStucturedCommands: this exact string
+  // has 10 `structured_command_value`s (LanguageTests.cs:656-669).
+  assert.equal(
+    countStructuredCommandValues(
+      'walk mae $var 2.3 "string" false true SomeArbitraryID function_call(2,"three") EnumA.Member .Member',
+    ),
+    10,
+  );
+  assert.equal(countStructuredCommandValues("block 1 + 2"), 1);
+  assert.equal(countStructuredCommandValues("block func(1, 2)"), 1);
+  assert.equal(countStructuredCommandValues("block"), 0);
+  // Old-style braced text is not a structured command (upstream parse error).
+  assert.equal(countStructuredCommandValues("block { $myVar }"), null);
+});
+
+test("a spaced expression or function call counts as one parameter", () => {
+  const defs = JSON.stringify({
+    version: 1,
+    commands: [
+      { yarnName: "calc", parameters: [{ name: "expr", type: "any" }] },
+    ],
+  });
+  assert.deepEqual(codesOf(check("<<calc 1 + 2>>", defs)), []);
+  assert.deepEqual(codesOf(check("<<calc func(1, 2)>>", defs)), []);
+});
+
+test("the upstream 10-parameter example validates against a 10-parameter declaration", () => {
+  const params = Array.from({ length: 10 }, (_, i) => ({
+    name: `p${i}`,
+    type: "any",
+  }));
+  const defs = JSON.stringify({
+    version: 1,
+    commands: [{ yarnName: "walk", parameters: params }],
+  });
+  assert.deepEqual(
+    codesOf(
+      check(
+        '<<walk mae $var 2.3 "string" false true SomeArbitraryID function_call(2,"three") EnumA.Member .Member>>',
+        defs,
+      ),
+    ),
+    [],
+  );
+});
+
+test("built-in matching is case-sensitive (upstream keyword lexing)", () => {
+  assert.deepEqual(codesOf(check("<<stop>>")), []);
+  assert.deepEqual(codesOf(check("<<STOP>>")), ["YS0060"]);
+  assert.deepEqual(codesOf(check("<<local $x = 1>>")), []);
+});
+
+test("isParamsArray is only honoured on the last parameter", () => {
+  const defs = JSON.stringify({
+    version: 1,
+    commands: [
+      {
+        yarnName: "mix",
+        parameters: [
+          { name: "rest", type: "any", isParamsArray: true },
+          { name: "tail", type: "any" },
+        ],
+      },
+    ],
+  });
+  // A non-last isParamsArray is ignored: min 1 (tail), max 2.
+  assert.deepEqual(codesOf(check("<<mix a b c>>", defs)), ["YS0061"]);
+  assert.deepEqual(codesOf(check("<<mix b>>", defs)), []);
+});
+
+test("the command-name range accounts for leading whitespace inside << >>", () => {
+  const diagnostics = check('<<   blcok "x">>');
+  assert.deepEqual(codesOf(diagnostics), ["YS0060"]);
+  assert.deepEqual(diagnostics[0].range, {
+    startLine: 2,
+    startCol: 5,
+    endLine: 2,
+    endCol: 10,
+  });
 });
 
 test("without validateCommands the compile result is byte-identical", () => {

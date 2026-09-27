@@ -408,6 +408,41 @@ class ExprParser {
     return node;
   }
 
+  /**
+   * Count upstream `structured_command_value`s: the command id is the first
+   * token, then each value is a full expression or a bare FUNC_ID. Returns
+   * `null` when the tokens are not a valid structured command (arbitrary
+   * command text) — upstream then reports a parse error, not a count.
+   *
+   * Used by `countStructuredCommandValues` (the command validator), where the
+   * whitespace tokenizer upstream-replaces the naive split: `func(1, 2)` is
+   * one parameter and `1 + 2` is one, matching the grammar.
+   */
+  countStructuredValues(): number | null {
+    if (this.toks.length === 0 || this.toks[0].kind !== "ident") return null;
+    this.i = 1; // skip the command id
+    let count = 0;
+    while (this.i < this.toks.length) {
+      const start = this.i;
+      const node = this.parseOr();
+      if (node.kind !== "bad" && !hasBad(node) && this.i > start) {
+        count++;
+        continue;
+      }
+      this.i = start;
+      const t = this.toks[this.i];
+      // The grammar's second alternative: a bare FUNC_ID that isn't a valid
+      // expression on its own (no call parens, no member access).
+      if (t && t.kind === "ident") {
+        this.i++;
+        count++;
+        continue;
+      }
+      return null;
+    }
+    return count;
+  }
+
   private peek(): Tok | undefined {
     return this.toks[this.i];
   }
@@ -619,7 +654,67 @@ class ExprParser {
   }
 }
 
-// --- Checker ----------------------------------------------------------------
+// --- Structured-command parsing (upstream `structured_command`) -----------
+
+/** Whether an expression tree contains a node the parser could not build. */
+function hasBad(node: ExprNode): boolean {
+  switch (node.kind) {
+    case "bad":
+      return true;
+    case "un":
+      return hasBad(node.operand);
+    case "bin":
+      return hasBad(node.left) || hasBad(node.right);
+    case "call":
+      return node.args.some(hasBad);
+    default:
+      return false;
+  }
+}
+
+/**
+ * Whether the tokenizer accounted for every non-whitespace character. The
+ * type-checker tokenizer silently skips characters outside expression syntax
+ * (its "parse-failure territory, not ours"); for a structured command any
+ * such character means the text is not one, so the counter rejects instead of
+ * risking a wrong count.
+ */
+function tokensCover(content: string, toks: Tok[]): boolean {
+  let covered = 0;
+  for (const t of toks) {
+    if (t.start < covered) return false;
+    for (let i = covered; i < t.start; i++) {
+      if (!/\s/.test(content[i])) return false;
+    }
+    covered = t.end;
+  }
+  for (let i = covered; i < content.length; i++) {
+    if (!/\s/.test(content[i])) return false;
+  }
+  return true;
+}
+
+/**
+ * Count the parameters in a command statement, upstream-style: the command id
+ * is the first token, then each `structured_command_value` is a full
+ * expression or a bare `FUNC_ID` (grammar: `structured_command :
+ * command_id=FUNC_ID structured_command_value*`). So `func(1, 2)` is one
+ * parameter and `1 + 2` is one — not the whitespace-split pieces.
+ *
+ * Returns `null` when the text is not a structured command (arbitrary host
+ * command text, interpolated forms): upstream reports a parse error there,
+ * not a parameter-count mismatch, so callers skip the count check.
+ *
+ * @internal Shared with the command validator; the expression grammar is the
+ * type checker's own (one tokenizer/parser, no third copy).
+ */
+export function countStructuredCommandValues(content: string): number | null {
+  const toks = tokenize(content);
+  if (!tokensCover(content, toks)) return null;
+  return new ExprParser(toks, content).countStructuredValues();
+}
+
+// --- Checker ---------------------------------------------------------------
 
 function checkNode(
   node: ExprNode,

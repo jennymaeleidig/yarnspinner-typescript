@@ -337,8 +337,10 @@ export function compile(
   // both codes are `generated_in: languageserver` upstream. Runs in every
   // mode so `typeCheckOnly` and `stringsOnly` lint alike when opted in.
   if (opts.validateCommands) {
-    validateCommands(docs, opts.commandDefinitions?.commands ?? [], (d) =>
-      diagnostics.push(d),
+    validateCommands(
+      docs.map((d) => d.doc),
+      opts.commandDefinitions?.commands ?? [],
+      (d) => diagnostics.push(d),
     );
   }
 

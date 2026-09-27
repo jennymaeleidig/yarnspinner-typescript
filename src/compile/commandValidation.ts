@@ -20,13 +20,15 @@ import { walkStatements } from "../model/walk.js";
 import { makeDiagnostic } from "./diagnostics.js";
 import type { Diagnostic } from "./diagnostics.js";
 import type { CommandDefinition } from "./commandDefinitions.js";
+import { countStructuredCommandValues } from "./typeCheck.js";
 
 /**
- * Built-in command names (case-insensitive) — anything else is unknown
- * (YS0060) unless a `.ysls.json` declares it. Some built-ins (`if`/`once`
- * … ) are consumed structurally by the parser and never reach the `Command`
- * AST node; they are listed anyway so a malformed standalone form is
- * recognised rather than mislabelled "unknown".
+ * Built-in command names — anything else is unknown (YS0060) unless a
+ * `.ysls.json` declares it. Names are **case-sensitive**, matching upstream's
+ * lowercase lexer keywords and exact `yarnName` matching (`<<STOP>>` is not
+ * the built-in `stop`). Some (`if`/`once`/`enum` … ) are consumed
+ * structurally by the parser and never reach the `Command` AST node; they are
+ * listed so a malformed standalone form is recognised, not mislabelled.
  */
 export const BUILTIN_COMMAND_NAMES: readonly string[] = [
   "set",
@@ -44,12 +46,17 @@ export const BUILTIN_COMMAND_NAMES: readonly string[] = [
   "endif",
   "once",
   "endonce",
+  "enum",
+  "case",
+  "endenum",
+  "local",
 ];
 
 /**
  * Parameter count for the built-ins where a count is meaningful and safe to
- * check. `set`/`declare`/`call` take expression clauses whose token split is
- * not a parameter list, so they are recognised by name but not counted.
+ * check. `set`/`declare`/`call`/`local` take assignment/expression clauses
+ * whose structured values are not a positional parameter list, so they are
+ * recognised by name but not counted.
  */
 const BUILTIN_COMMAND_ARITY: Record<string, number> = {
   stop: 0,
@@ -67,20 +74,20 @@ interface Arity {
 }
 
 function commandArity(parameters: CommandDefinition["parameters"]): Arity {
-  const variadic = parameters.some((p) => p.isParamsArray);
+  // `isParamsArray` is only meaningful (and only honoured) on the last
+  // parameter (upstream schema: "Undefined behavior if true for any parameter
+  // except for the last").
+  const variadic = parameters.at(-1)?.isParamsArray === true;
   const required = parameters.filter(
     (p) => p.defaultValue === undefined && !p.isParamsArray,
   ).length;
   return { min: required, max: variadic ? Infinity : parameters.length };
 }
 
-/** The range of the command's first word, from the `<<` token position. */
+/** The range of the command's name, from its recorded source column. */
 function commandNameRange(command: Command, name: string): Diagnostic["range"] {
   const line = (command.lineNumber ?? 1) - 1;
-  const open = (command.column ?? 1) - 1;
-  // `content` is the trimmed inner text; skip any leading whitespace it lost.
-  const offset = command.content.length - command.content.trimStart().length;
-  const start = open + 2 + offset;
+  const start = (command.column ?? 1) - 1;
   return {
     startLine: line,
     startCol: start,
@@ -94,11 +101,11 @@ function commandNameRange(command: Command, name: string): Diagnostic["range"] {
  * YS0060/YS0061 diagnostic. Pure.
  */
 export function validateCommands(
-  docs: Array<{ name: string; doc: YarnDocument }>,
+  docs: YarnDocument[],
   declared: CommandDefinition[],
   push: (d: Diagnostic) => void,
 ): void {
-  const known = new Set(BUILTIN_COMMAND_NAMES.map((n) => n.toLowerCase()));
+  const known = new Set(BUILTIN_COMMAND_NAMES);
   const byName = new Map<string, CommandDefinition>();
   for (const c of declared) byName.set(c.yarnName, c);
 
@@ -115,10 +122,16 @@ export function validateCommands(
     const range = commandNameRange(command, name);
     const file = node.sourceFile;
 
+    // Upstream counts `structured_command_value`s, not whitespace tokens:
+    // `func(1, 2)` and `1 + 2` are each one parameter. `null` means the text
+    // is not a structured command, so upstream reports a parse error instead
+    // of a count mismatch — skip the arity check then.
+    const count = countStructuredCommandValues(command.content);
+
     const declaredCommand = byName.get(name);
     if (declaredCommand) {
+      if (count === null) return;
       const { min, max } = commandArity(declaredCommand.parameters);
-      const count = parsed.args.length;
       if (count < min || count > max) {
         const expected = count < min ? min : max;
         push(
@@ -132,13 +145,13 @@ export function validateCommands(
       return;
     }
 
-    if (known.has(name.toLowerCase())) {
-      const arity = BUILTIN_COMMAND_ARITY[name.toLowerCase()];
-      if (arity !== undefined && parsed.args.length !== arity) {
+    if (known.has(name)) {
+      const arity = BUILTIN_COMMAND_ARITY[name];
+      if (arity !== undefined && count !== null && count !== arity) {
         push(
           makeDiagnostic(
             "YS0061",
-            `Command ${name} was called with ${parsed.args.length} parameters, but expected ${arity}`,
+            `Command ${name} was called with ${count} parameters, but expected ${arity}`,
             { file, range },
           ),
         );
@@ -149,7 +162,7 @@ export function validateCommands(
     push(makeDiagnostic("YS0060", `Unknown command: ${name}`, { file, range }));
   };
 
-  for (const { doc } of docs) {
+  for (const doc of docs) {
     for (const node of doc.nodes) {
       walkStatements(node.body, {
         onStatement: (s) => {

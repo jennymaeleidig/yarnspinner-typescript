@@ -768,7 +768,7 @@ class Parser {
         type: "Command",
         content: cmd,
         lineNumber: cmdTok.line,
-        column: cmdTok.column,
+        column: cmdTok.column + 2 + (cmdTok.contentOffset ?? 0),
         ...(cmdTok.tags ? { tags: cmdTok.tags } : {}),
         ...(stateCmd?.[1] === "declare" && (trailingDoc ?? docComment)
           ? { docComment: trailingDoc ?? docComment }

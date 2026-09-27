@@ -32,6 +32,12 @@ export interface Token {
    * (`#cool-tag` keeps its hyphen; HASHTAG_TEXT is `~[ \t\r\n#$<]+`).
    */
   tags?: string[];
+  /**
+   * For a COMMAND token, how many leading whitespace characters were trimmed
+   * from the inner text (`<< block>>`): lets the parser place the command
+   * name at its real source column. Absent when there were none.
+   */
+  contentOffset?: number;
 }
 
 // Minimal indentation-sensitive lexer to support options and their bodies.
@@ -311,6 +317,9 @@ export function lex(input: string): Token[] {
           indent.length + 1,
           trailingComment,
         );
+        const contentOffset = inner.length - inner.trimStart().length;
+        if (contentOffset > 0)
+          tokens[tokens.length - 1].contentOffset = contentOffset;
         if (tags.length > 0) tokens[tokens.length - 1].tags = tags;
         if (resumeCommandAt >= 0) {
           remaining = tail.slice(resumeCommandAt);

@@ -92,8 +92,8 @@ export interface Command {
   type: "Command";
   content: string; // inside << >>
   /**
-   * 1-based source line and the 1-based column of the opening `<<`
-   * (the lexer's COMMAND token position) — command-validation ranges.
+   * 1-based source line and the 1-based column of the command's name
+   * (the first non-space character inside `<<`), for diagnostic ranges.
    */
   lineNumber?: number;
   column?: number;

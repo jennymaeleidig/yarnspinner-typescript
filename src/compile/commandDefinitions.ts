@@ -18,6 +18,7 @@
 
 import { projectDiagnostic } from "./projectDiagnostics.js";
 import type { Diagnostic } from "./diagnostics.js";
+import { describeError } from "../describeError.js";
 
 /** The `.ysls` type vocabulary (upstream schema `$defs.type`). */
 export type YarnValueType =
@@ -465,9 +466,4 @@ function optionalString(
     return {};
   }
   return { [key]: value };
-}
-
-/** Local `describeError` shape (avoids importing the shared helper for one use). */
-function describeError(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }
