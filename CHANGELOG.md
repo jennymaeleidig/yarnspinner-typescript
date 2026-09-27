@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.1 — option groups survive interstitial comments
+
+### Fixed
+
+- **A full-line `//` comment between `->` options no longer splits the
+  option group.** The parser advanced its option loop only on option tokens,
+  so a comment between options ended the run the same way a blank line
+  does: the options after the comment were surfaced as a second, sequential
+  choice rather than the single group upstream produces (upstream routes
+  `//` lines to a hidden lexer channel). The later options were not dropped,
+  but the comment changed their grouping. Blank lines still separate option
+  groups. Regression test: `src/tests/options.test.ts`.
+
 ## 1.0.0 — Yarn Spinner 3.2 parity (first public release)
 
 First public release, published as `yarnspinner-typescript`. The project is
