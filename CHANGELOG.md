@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.1.0 — command definitions and opt-in command validation
+
+### Added
+
+- **`.ysls.json` command/function definitions are read through the project
+  seam.** A `.yarnproject`'s `definitions` field (file paths or inline
+  objects) is parsed against the
+  [ysls schema](https://schemas.yarnspinner.dev/ysls.schema.json) and merged
+  onto `YarnProject.commandDefinitions`; `loadProject` threads the result
+  into `compile()` ahead of any host-supplied
+  `CompileOptions.commandDefinitions`. Malformed or unreadable files are
+  `YP0009`/`YP0010` **warnings** — the project still compiles. New exports:
+  `parseCommandDefinitions`, `CommandDefinitions`, `CommandDefinition`,
+  `CommandParameter`, `FunctionDefinition`, `PROJECT_DIAGNOSTIC_REGISTRY`.
+- **Opt-in command validation (`CompileOptions.validateCommands`).** With
+  it enabled, `<<command …>>` statements are checked against the built-ins
+  and the declared set, emitting `YS0060` (`Unknown command: {0}`) and
+  `YS0061` (`Command {0} was called with {1} parameters, but expected
+{2}`). Parameters are counted with upstream's structured-command grammar,
+  so `func(1, 2)` and `1 + 2` are each one parameter; interpolated command
+  names are left to runtime. `validateCommands` and
+  `BUILTIN_COMMAND_NAMES` are exported.
+- [docs/commands.md](docs/commands.md) and
+  [docs/functions.md](docs/functions.md) now cover writing custom commands
+  and functions host-side, and the `<<stop>>`/`<<wait>>` built-ins.
+
+### Notes
+
+- **The default compile path is unchanged.** Upstream marks `YS0060`/`YS0061`
+  `generated_in: languageserver` and its compiler never emits them, so
+  validation is opt-in and the default output/diagnostics stay byte-identical
+  (ADR 0007).
+
 ## 1.0.1 — option groups survive interstitial comments
 
 ### Fixed
