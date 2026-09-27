@@ -17,6 +17,8 @@ export * from "./compile/declarationFile.js";
 export * from "./compile/upgrader.js";
 export * from "./compile/debugInfo.js";
 export * from "./compile/diagnostics.js";
+export * from "./compile/commandDefinitions.js";
+export * from "./compile/commandValidation.js";
 export * from "./compile/enums.js";
 export * from "./compile/typeCheck.js";
 export * from "./markup/types.js";

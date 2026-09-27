@@ -10,7 +10,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compile } from "../compile/compileSource.js";
-import { DIAGNOSTIC_REGISTRY } from "../compile/diagnostics.js";
+import {
+  DIAGNOSTIC_REGISTRY,
+  LANGUAGE_SERVER_DIAGNOSTIC_REGISTRY,
+} from "../compile/diagnostics.js";
 import { loadDiagnosticDefinitions } from "./upstream/diagnosticDefinitions.js";
 
 const definitions = loadDiagnosticDefinitions();
@@ -57,9 +60,38 @@ test("languageserver-generated codes are never compiler-emitted (registry)", () 
   }
 });
 
+test("every analysis-registry code's vendored examples emit it through the opt-in path", () => {
+  const analysis = new Set(Object.keys(LANGUAGE_SERVER_DIAGNOSTIC_REGISTRY));
+  for (const def of definitions) {
+    if (!analysis.has(def.code)) continue;
+    assert.ok(
+      def.generatedIn,
+      `${def.code} is in the analysis registry but its vendored definition has no generated_in`,
+    );
+    assert.ok(
+      def.scripts.length > 0,
+      `${def.code} is registered but its vendored definition has no examples to pin`,
+    );
+    for (const [index, script] of def.scripts.entries()) {
+      const { diagnostics } = compile(
+        [{ name: `${def.code}-example-${index}.yarn`, source: script }],
+        { validateCommands: true },
+      );
+      assert.ok(
+        diagnostics.some((d) => d.code === def.code),
+        `${def.code} (${def.name}) example #${index} did not emit its code — got [${diagnostics
+          .map((d) => d.code)
+          .join(", ")}]\nscript:\n${script}`,
+      );
+    }
+  }
+});
+
 test("registered default severities match the vendored definitions", () => {
   for (const def of definitions) {
-    const descriptor = DIAGNOSTIC_REGISTRY[def.code];
+    const descriptor =
+      DIAGNOSTIC_REGISTRY[def.code] ??
+      LANGUAGE_SERVER_DIAGNOSTIC_REGISTRY[def.code];
     if (!descriptor || !def.defaultSeverity) continue;
     assert.equal(
       descriptor.defaultSeverity,

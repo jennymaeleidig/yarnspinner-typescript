@@ -767,6 +767,8 @@ class Parser {
       return {
         type: "Command",
         content: cmd,
+        lineNumber: cmdTok.line,
+        column: cmdTok.column,
         ...(cmdTok.tags ? { tags: cmdTok.tags } : {}),
         ...(stateCmd?.[1] === "declare" && (trailingDoc ?? docComment)
           ? { docComment: trailingDoc ?? docComment }

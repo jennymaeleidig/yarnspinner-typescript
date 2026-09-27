@@ -115,13 +115,32 @@ export const DIAGNOSTIC_REGISTRY: Record<string, DiagnosticDescriptor> = {
   YS0063: { name: "MarkupFailedToParse", defaultSeverity: "warning" },
 };
 
+/**
+ * Codes the compiler itself never emits but the analysis surface (`compile`
+ * with `validateCommands: true`) does. Upstream marks both
+ * `generated_in: languageserver` with `minimumSeverity: none` — its compiler
+ * does not produce them, so they stay out of {@link DIAGNOSTIC_REGISTRY}
+ * (whose contract is "compiler-emitted codes, each with a vendored
+ * definition") and land here instead. Kept separate so the conformance
+ * golden loop can still assert that no languageserver code leaks into the
+ * default compile path.
+ */
+export const LANGUAGE_SERVER_DIAGNOSTIC_REGISTRY: Record<
+  string,
+  DiagnosticDescriptor
+> = {
+  YS0060: { name: "UnknownCommand", defaultSeverity: "warning" },
+  YS0061: { name: "WrongCommandParameterCount", defaultSeverity: "warning" },
+};
+
 /** Build a diagnostic from a registry code, filling in the default severity. */
 export function makeDiagnostic(
   code: string,
   message: string,
   opts: { file?: string; range?: YarnRange; context?: string } = {},
 ): Diagnostic {
-  const descriptor = DIAGNOSTIC_REGISTRY[code];
+  const descriptor =
+    DIAGNOSTIC_REGISTRY[code] ?? LANGUAGE_SERVER_DIAGNOSTIC_REGISTRY[code];
   if (!descriptor) {
     // Programming error: emitting an unregistered code. Keep the diagnostic
     // flowing (collect-don't-throw) but flag it as an internal error.

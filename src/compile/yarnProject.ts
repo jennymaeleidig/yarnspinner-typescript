@@ -31,54 +31,27 @@ import type {
 } from "./compileSource.js";
 import { isDiagnosticSeverity } from "./diagnostics.js";
 import type { Diagnostic, DiagnosticSeverity } from "./diagnostics.js";
+import {
+  projectDiagnostic,
+  PROJECT_DIAGNOSTIC_REGISTRY,
+} from "./projectDiagnostics.js";
+import { parseCommandDefinitions } from "./commandDefinitions.js";
+import type {
+  CommandDefinition,
+  CommandDefinitions,
+  FunctionDefinition,
+} from "./commandDefinitions.js";
 import { describeError } from "../describeError.js";
 
-// ── Diagnostics (this project's own YP registry) ──────────────────────────
-
-export const PROJECT_DIAGNOSTIC_REGISTRY: Record<
-  string,
-  { name: string; defaultSeverity: DiagnosticSeverity }
-> = {
-  YP0001: { name: "InvalidProjectFile", defaultSeverity: "error" },
-  YP0002: { name: "UnsupportedProjectFileVersion", defaultSeverity: "error" },
-  YP0003: { name: "MissingOrMalformedProjectField", defaultSeverity: "error" },
-  YP0004: { name: "UnknownProjectField", defaultSeverity: "warning" },
-  YP0005: { name: "UnsupportedCompilerOption", defaultSeverity: "warning" },
-  // Warning, not error: a missing strings file blocks localised playback of
-  // that locale, not compilation of the base-language dialogue — the project
-  // still loads and compiles (the Space fixture acceptance depends on it).
-  YP0006: { name: "MissingStringsFile", defaultSeverity: "warning" },
-  YP0007: { name: "NoSourceFilesMatched", defaultSeverity: "error" },
-  YP0008: { name: "UnreadableSourceFile", defaultSeverity: "error" },
-};
-
-/**
- * Build a YPxxxx diagnostic with the registry's default severity — the one
- * shape every project diagnostic takes, so code and severity stay keyed to
- * {@link PROJECT_DIAGNOSTIC_REGISTRY} at every call site. Shared with the
- * localisation-wiring module; not intended for consumer use.
- *
- * @internal
- */
-export function projectDiagnostic(
-  code: keyof typeof PROJECT_DIAGNOSTIC_REGISTRY & string,
-  message: string,
-  file?: string,
-  context?: string,
-): Diagnostic {
-  return {
-    code,
-    severity: PROJECT_DIAGNOSTIC_REGISTRY[code].defaultSeverity,
-    message,
-    ...(file ? { file } : {}),
-    ...(context ? { context } : {}),
-  };
-}
+// The YPxxxx registry and `projectDiagnostic` live in projectDiagnostics.ts
+// (shared with the `.ysls.json` parser); re-exported here so existing
+// `yarnProject` consumers keep their import path.
+export { PROJECT_DIAGNOSTIC_REGISTRY, projectDiagnostic };
 
 const DEFAULT_PROJECT_FILE = "project.yarnproject";
 
 /**
- * Strip JSONC syntax — `//` and `/* … *​/` comments, then trailing commas
+ * Strip JSONC syntax — `//` and block comments, then trailing commas
  * before `}` / `]` — string-aware (quoted spans and escapes are skipped, so
  * such sequences inside string values survive; comments may also sit
  * between a trailing comma and its closing brace, hence the two passes).
@@ -220,9 +193,15 @@ export interface YarnProject {
   /**
    * `definitions` (.ysls.json paths) normalised to a list — the v3 schema
    * spells it a string, v4 an array (upstream `Project.Definitions`).
-   * Carried for tooling; this loader does not read the files' contents.
    */
   definitions?: string[];
+  /**
+   * The parsed contents of every file in {@link definitions} (merged across
+   * files, in path order). Populated by {@link loadProject}; a malformed or
+   * unreadable file contributes a YP0009/YP0010 diagnostic and the valid
+   * files' declarations still merge in.
+   */
+  commandDefinitions?: CommandDefinitions;
 }
 
 /** Options for {@link loadProject} and {@link listSources}. */
@@ -777,6 +756,51 @@ function resolveSources(
   return { sources: matched, diagnostics };
 }
 
+/**
+ * Read and parse every declared `.ysls.json` through the injected file
+ * system, merging commands/functions in path order. An unreadable file is a
+ * YP0010 warning and a malformed one a YP0009 warning; neither stops the
+ * other files from contributing (definitions are editor tooling — a broken
+ * file must not fail the build).
+ */
+function resolveDefinitions(
+  paths: string[] | undefined,
+  fileSystem: YarnProjectFileSystem,
+): { commandDefinitions?: CommandDefinitions; diagnostics: Diagnostic[] } {
+  if (!paths || paths.length === 0) return { diagnostics: [] };
+  const diagnostics: Diagnostic[] = [];
+  const commands: CommandDefinition[] = [];
+  const functions: FunctionDefinition[] = [];
+  let version = 1;
+  for (const path of paths) {
+    const source = fileSystem.read(path);
+    if (source === null) {
+      diagnostics.push(
+        projectDiagnostic(
+          "YP0010",
+          `Definitions file could not be read: ${path}`,
+          path,
+        ),
+      );
+      continue;
+    }
+    const parsed = parseCommandDefinitions(source, path);
+    diagnostics.push(...parsed.diagnostics);
+    if (parsed.definitions) {
+      version = parsed.definitions.version;
+      commands.push(...parsed.definitions.commands);
+      functions.push(...parsed.definitions.functions);
+    }
+  }
+  if (commands.length === 0 && functions.length === 0) {
+    return { diagnostics };
+  }
+  return {
+    commandDefinitions: { version, commands, functions },
+    diagnostics,
+  };
+}
+
 function toCompileFiles(
   sources: string[],
   fileSystem: YarnProjectFileSystem,
@@ -848,12 +872,21 @@ export function loadProject(opts: LoadProjectOptions): LoadProjectResult {
     resolved.sources,
     opts.fileSystem,
   );
+  // The project's declared `.ysls.json` definitions: read here (through the
+  // injected seam), parsed pure, carried on the project and into the compile
+  // options. Malformed/unreadable files yield YP0009/YP0010 warnings.
+  const definitions = resolveDefinitions(project.definitions, opts.fileSystem);
+  const projectWithDefinitions: YarnProject = definitions.commandDefinitions
+    ? { ...project, commandDefinitions: definitions.commandDefinitions }
+    : project;
   // Severity precedence — the one home for layering: the project file's
   // `compilerOptions.diagnosticsSeverity` first, then the host-supplied
   // option per-code (most specific wins). Direct callers and the companion
   // plugin get the same merge; the plugin layers no further pass.
   const result = compile(files, {
     ...opts,
+    commandDefinitions:
+      projectWithDefinitions.commandDefinitions ?? opts.commandDefinitions,
     diagnosticsSeverity: {
       ...project.compilerOptions?.diagnosticsSeverity,
       ...opts.diagnosticsSeverity,
@@ -861,8 +894,13 @@ export function loadProject(opts: LoadProjectOptions): LoadProjectResult {
   });
   return {
     ...result,
-    diagnostics: [...allDiagnostics, ...readDiagnostics, ...result.diagnostics],
-    project,
+    diagnostics: [
+      ...allDiagnostics,
+      ...readDiagnostics,
+      ...definitions.diagnostics,
+      ...result.diagnostics,
+    ],
+    project: projectWithDefinitions,
     sources: resolved.sources,
   };
 }

@@ -55,6 +55,8 @@ import type {
   DiagnosticSeverity,
   YarnRange,
 } from "./diagnostics.js";
+import { validateCommands } from "./commandValidation.js";
+import type { CommandDefinitions } from "./commandDefinitions.js";
 import { typeCheck } from "./typeCheck.js";
 import type { ExternalDeclarations, VariableDeclaration } from "./typeCheck.js";
 import type { EnumType } from "./enums.js";
@@ -118,6 +120,21 @@ export interface CompileOptions {
    */
   library?: Library;
   generateOnceIds?: (ctx: OnceIdContext) => string;
+  /**
+   * The project's declared `.ysls.json` command/function definitions
+   * (upstream `Project.Definitions` contents). Only consulted when
+   * {@link validateCommands} is set; carried for tooling otherwise.
+   */
+  commandDefinitions?: CommandDefinitions;
+  /**
+   * Opt-in command validation (YS0060 UnknownCommand / YS0061
+   * WrongCommandParameterCount). Upstream marks both codes
+   * `generated_in: languageserver` — its compiler never emits them — so this
+   * defaults to `false`: without it compile output and diagnostics are
+   * byte-identical to before. When `true`, every command is checked against
+   * the built-ins plus {@link commandDefinitions} entries.
+   */
+  validateCommands?: boolean;
 }
 
 /**
@@ -315,6 +332,15 @@ export function compile(
   validate(combined, diagnostics);
   validateJumps(combined, diagnostics);
   validateMarkup(docs, (d) => diagnostics.push(d));
+
+  // Opt-in command validation (YS0060/YS0061): never on the default path —
+  // both codes are `generated_in: languageserver` upstream. Runs in every
+  // mode so `typeCheckOnly` and `stringsOnly` lint alike when opted in.
+  if (opts.validateCommands) {
+    validateCommands(docs, opts.commandDefinitions?.commands ?? [], (d) =>
+      diagnostics.push(d),
+    );
+  }
 
   // File-level hashtags are collected per file (unparseable files carry no
   // file tags — their content was never parsed). Upstream surfaces them

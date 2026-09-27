@@ -191,7 +191,10 @@ test("unknown top-level fields warn; known editor-only fields are silent", () =>
       editorOptions: { yarnScriptEditor: {} },
       projectName: "Test",
     },
-    fileSystem: memoryFs({ "a.yarn": "title: A\n---\n===\n" }),
+    fileSystem: memoryFs({
+      "a.yarn": "title: A\n---\n===\n",
+      "Commands.ysls.json": '{"version":1,"commands":[]}',
+    }),
   });
   assert.deepEqual(ypCodes(knownIgnored.diagnostics), []);
 });
@@ -439,6 +442,12 @@ test("acceptance: the upstream Space project (submodule) loads, compiles, and di
   assert.ok(r.program);
   assert.equal(r.project?.baseLanguage, "en");
   assert.equal(r.project?.localisation?.de?.strings, "../German.csv");
+  // The Space project's `definitions` are now read and parsed (previously
+  // dropped): `test_command(string)` is declared on the project.
+  assert.deepEqual(
+    r.project?.commandDefinitions?.commands.map((c) => c.yarnName),
+    ["test_command"],
+  );
 });
 
 test("loadYarnProject on a missing project file is a collected YP0001, not a throw", () => {

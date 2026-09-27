@@ -109,7 +109,17 @@ Parity here means the observable contract upstream's own test suite pins:
     node-start event to the one seam where hosts cross-check it against
     their scene collection.
   - The `.yarnproject` loader is this project's own
-    surface (non-upstream).
+    surface (non-upstream). Its `definitions` field (`.ysls.json` paths,
+    upstream `Project.Definitions`) is now read and parsed through the
+    schema's own shape
+    (`https://schemas.yarnspinner.dev/ysls.schema.json`) and carried on
+    `YarnProject.commandDefinitions`. Command-name/arity checking is an
+    **opt-in** compile option (`validateCommands`): upstream tags
+    `YS0060 UnknownCommand` and `YS0061 WrongCommandParameterCount`
+    `generated_in: languageserver` and never emits them from its compiler,
+    so the default compile path stays byte-identical (ADR 0007). A
+    malformed/unreadable definitions file is a `YP0009`/`YP0010` warning,
+    not a throw.
   - Uncompilable state statements (`<<set>>`/`<<declare>>`/`<<call>>` with
     trailing garbage) emit the upstream compile diagnostic (YS0005) but also
     execute at runtime through the raw-command fallback — upstream never

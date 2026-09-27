@@ -92,6 +92,12 @@ export interface Command {
   type: "Command";
   content: string; // inside << >>
   /**
+   * 1-based source line and the 1-based column of the opening `<<`
+   * (the lexer's COMMAND token position) — command-validation ranges.
+   */
+  lineNumber?: number;
+  column?: number;
+  /**
    * Hashtags on the same line after the closing `>>` (upstream
    * `command_statement`'s `hashtag*`): `<<cmd>> #color:red`.
    */
