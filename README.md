@@ -146,8 +146,8 @@ Loads upstream-style `.yarnproject` files (format v4, legacy v2 accepted) and co
   - Options: `startAt` (default `"Start"`), `library`, `variables`, `variableStorage` (pluggable store; inject a pre-populated `VariableStorage` to restore state, see [docs/logic-and-variables.md](docs/logic-and-variables.md)), `lineHints` (opt-in `LineHintsEvent`), `textProvider` (line-ID → text resolver; lines a provider lacks fall back to the program's text), `logError` (default `console.error`), `logDebug` (default silent)
   - Events (all camelCased): `LineEvent`, `OptionsEvent` (full option set with advisory `isAvailable` flags), `CommandEvent` (state commands like `<<set>>` never surface), `NodeStartEvent` (carries the node's `scene:` header as `scene?` when it declares one — the scene system is non-upstream), `NodeCompleteEvent`, `LineHintsEvent`, `DialogueCompleteEvent`
 - `VariableStorage` / `InMemoryVariableStorage` — The storage contract the runtime drives (`has`/`get`/`set`/`entries`) and its in-memory default. Generated variables (once-state, visit tracking) live in the same storage and appear in `entries()` but not `getVariables()` snapshots
-- `Library` — Registry of host functions and command handlers
-  - `registerFunction(name, fn)` — Throws on duplicate; `getFunction(name)` returns undefined when missing
+- `Library` — Registry of host functions and command handlers ([custom functions](./docs/functions.md), [custom commands](./docs/commands.md))
+  - `registerFunction(name, fn, signature?)` — Throws on duplicate; the optional signature feeds compile-time checking; `getFunction(name)` returns undefined when missing
   - `registerCommandHandler(name, handler)` / `getCommandHandler(name)` — Handlers receive quote-stripped parameters
   - `importLibrary(other)` — Merge another library; its entries take precedence
 - `ExpressionEvaluator(variables, functions, enums?)` — Safe expression evaluator: comparison and boolean operators plus word aliases (`eq/is`, `neq`, `gt`, `lt`, `lte`, `gte`, `and`, `or`, `not`, `xor`), function calls, variables, numbers, strings, booleans, and enums with shorthand (`MyEnum.Case`)

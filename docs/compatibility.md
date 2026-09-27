@@ -120,6 +120,16 @@ Parity here means the observable contract upstream's own test suite pins:
     so the default compile path stays byte-identical (ADR 0007). A
     malformed/unreadable definitions file is a `YP0009`/`YP0010` warning,
     not a throw.
+  - `<<wait>>` stays a plain delivered command, not a core op: upstream's
+    core has no command table — it invokes `CommandHandler` and then enters
+    `WaitingForContinue` — and its engine integrations (Unity's
+    `WaitForSeconds`-backed command, Bevy's handler) own the pause. This
+    runtime surfaces `<<wait n>>` as an ordinary `command` stopping point
+    and ships no clock (coding standards §2); the host resumes the pull
+    when its timer elapses. `<<stop>>` remains a core op, as upstream
+    (`VirtualMachine.cs` Stop opcode). Hosts register their own commands
+    through `Library.registerCommandHandler` (an additive convenience over
+    upstream's single `CommandHandler` delegate).
   - Uncompilable state statements (`<<set>>`/`<<declare>>`/`<<call>>` with
     trailing garbage) emit the upstream compile diagnostic (YS0005) but also
     execute at runtime through the raw-command fallback — upstream never
